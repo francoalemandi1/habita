@@ -74,7 +74,7 @@ export default async function DashboardPage() {
   const aiEnabled = isAIEnabled();
 
   return (
-    <div className="container max-w-6xl px-4 py-6 sm:py-8">
+    <div className="container max-w-6xl px-4 py-6 sm:py-8 md:px-8">
       {/* Header: hogar + código */}
       <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{member.household.name}</h1>

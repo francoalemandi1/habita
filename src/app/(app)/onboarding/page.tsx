@@ -458,7 +458,7 @@ function OnboardingContent() {
           </div>
 
           {/* Botones — empujados al fondo */}
-          <div className="w-full max-w-xs pb-12">
+          <div className="w-full max-w-xs pb-12 sm:max-w-sm">
             <button
               type="button"
               onClick={() => {

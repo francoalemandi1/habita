@@ -45,13 +45,13 @@ export function OnboardingLayout({
       </header>
 
       {/* Content */}
-      <main className="flex-1 px-4 py-8">
+      <main className="flex-1 px-4 py-8 md:mx-auto md:w-full md:max-w-lg">
         {children}
       </main>
 
       {/* Sticky bottom button */}
       {showContinue && onContinue && (
-        <div className="sticky bottom-0 bg-background p-4 pb-6">
+        <div className="sticky bottom-0 bg-background p-4 pb-6 md:mx-auto md:w-full md:max-w-lg">
           <Button
             type="button"
             size="lg"

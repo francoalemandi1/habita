@@ -118,7 +118,7 @@ export default async function MyTasksPage() {
   const showCelebration = assignments.length === 0 && completedThisWeek > 0;
 
   return (
-    <div className="mx-auto max-w-md px-4 py-6 sm:py-8">
+    <div className="mx-auto max-w-md px-4 py-6 sm:py-8 md:max-w-2xl md:px-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Mis tareas</h1>
         <p className="mt-1 text-sm text-muted-foreground">

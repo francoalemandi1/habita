@@ -1,4 +1,5 @@
-import { auth } from "@/lib/auth";
+import { authConfig } from "@/lib/auth.config";
+import NextAuth from "next-auth";
 
 const PROTECTED_PATHS = [
   "/dashboard",
@@ -16,6 +17,8 @@ const PROTECTED_PATHS = [
 function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
+
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const isLoggedIn = !!req.auth;

@@ -86,6 +86,11 @@
   --radius-2xl: calc(var(--radius) + 8px);
 }
 
+/* Center container utility globally */
+.container {
+  margin-inline: auto;
+}
+
 html,
 body {
   overscroll-behavior: none;

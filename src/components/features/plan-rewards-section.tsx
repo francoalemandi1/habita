@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/toast";
-import { Sparkles, Loader2, Trophy, User } from "lucide-react";
+import { Loader2, Sparkles, Trophy, User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 interface PlanReward {
   id: string;
@@ -94,18 +94,24 @@ export function PlanRewardsSection({
   // Plan exists but no rewards yet - show generate button
   if (canGenerate && rewards.length === 0) {
     return (
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-6">
-          <div className="flex items-center gap-3">
-            <Sparkles className="h-6 w-6 text-primary" />
+      <div className="rounded-3xl bg-gray-100 p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-4 flex-1">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-100">
+              <Sparkles className="h-6 w-6 text-blue-600" />
+            </div>
             <div>
-              <p className="font-medium">Generar recompensas</p>
+              <p className="font-semibold text-foreground">Generar recompensas</p>
               <p className="text-sm text-muted-foreground">
                 Genera recompensas basadas en el rendimiento del plan
               </p>
             </div>
           </div>
-          <Button onClick={() => handleGenerate()} disabled={isGenerating} className="gap-2">
+          <Button 
+            onClick={() => handleGenerate()} 
+            disabled={isGenerating} 
+            className="shrink-0 gap-2 rounded-full"
+          >
             {isGenerating ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -118,8 +124,8 @@ export function PlanRewardsSection({
               </>
             )}
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 

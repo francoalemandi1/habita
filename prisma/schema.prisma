@@ -238,18 +238,23 @@ model MemberAchievement {
 }
 
 model HouseholdReward {
-  id          String   @id @default(cuid())
-  householdId String
-  name        String
-  description String?
-  pointsCost  Int
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id             String   @id @default(cuid())
+  householdId    String
+  name           String
+  description    String?
+  pointsCost     Int
+  isActive       Boolean  @default(true)
+  isAiGenerated  Boolean  @default(false)
+  planId         String?
+  memberId       String?
+  completionRate Float?
+  createdAt      DateTime @default(now())
 
   household   Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   redemptions RewardRedemption[]
 
   @@index([householdId])
+  @@index([planId])
   @@map("household_rewards")
 }
 
@@ -473,9 +478,11 @@ model WeeklyPlan {
   balanceScore  Int              @default(0)
   notes         String[]         @default([])
   assignments   Json             // Array of { taskName, memberName, memberType, reason }
+  durationDays  Int              @default(7)
+  excludedTasks Json?            // Array of { taskName, frequency } - tasks outside plan period
   createdAt     DateTime         @default(now())
   appliedAt     DateTime?
-  expiresAt     DateTime         // Plans expire after a week
+  expiresAt     DateTime
 
   @@index([householdId, status])
   @@map("weekly_plans")

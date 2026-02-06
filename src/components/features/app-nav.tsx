@@ -28,8 +28,8 @@ const NAV_ITEMS = [
   { href: "/tasks", icon: ClipboardList, label: "Gestión", roles: ["ADULT"] },
   { href: "/competitions", icon: Trophy, label: "Competir", roles: ["ADULT", "TEEN", "CHILD"] },
   { href: "/rewards", icon: Gift, label: "Recompensas", roles: ["ADULT", "TEEN", "CHILD"] },
-  { href: "/rotations", icon: RefreshCw, label: "Rotaciones", roles: ["ADULT"] },
-  { href: "/parental", icon: Shield, label: "Control parental", roles: ["ADULT"] },
+  // { href: "/rotations", icon: RefreshCw, label: "Rotaciones", roles: ["ADULT"] },
+  // { href: "/parental", icon: Shield, label: "Control parental", roles: ["ADULT"] },
   { href: "/preferences", icon: Settings, label: "Preferencias", roles: ["ADULT", "TEEN"] },
   { href: "/profile", icon: User, label: "Perfil", roles: ["ADULT", "TEEN", "CHILD"] },
 ];

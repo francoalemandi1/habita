@@ -4,11 +4,13 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { computeDueDateForFrequency } from "@/lib/due-date";
+import { partitionTasksByDuration, durationLabel } from "@/lib/plan-duration";
 import { isAIEnabled, getAIProviderType } from "./provider";
 import { generateAIPlanOpenRouter } from "./openrouter-provider";
 
 import type { TaskFrequency } from "@prisma/client";
 import type { LanguageModel } from "ai";
+import type { ExcludedTask } from "@/lib/plan-duration";
 
 function getModel(): LanguageModel | null {
   const providerType = getAIProviderType();
@@ -42,7 +44,9 @@ const assignmentSchema = z.object({
   notes: z.array(z.string()).describe("Notas sobre la distribución"),
 });
 
-export type AIPlanResult = z.infer<typeof assignmentSchema>;
+export type AIPlanResult = z.infer<typeof assignmentSchema> & {
+  excludedTasks?: ExcludedTask[];
+};
 
 interface PlanContext {
   householdId: string;
@@ -70,20 +74,50 @@ interface PlanContext {
   }>;
 }
 
+interface GeneratePlanOptions {
+  durationDays?: number;
+}
+
 /**
- * Generate a weekly task distribution plan using AI.
+ * Generate a task distribution plan using AI.
  * Considers member preferences, capacity, recent history, and fairness.
+ * Tasks whose frequency exceeds the plan duration are excluded.
  */
-export async function generateAIPlan(householdId: string): Promise<AIPlanResult | null> {
+export async function generateAIPlan(
+  householdId: string,
+  options?: GeneratePlanOptions
+): Promise<AIPlanResult | null> {
   if (!isAIEnabled()) {
     return null;
   }
 
+  const durationDays = options?.durationDays ?? 7;
   const context = await buildPlanContext(householdId);
 
   if (context.members.length === 0 || context.tasks.length === 0) {
     return null;
   }
+
+  // Partition tasks by plan duration
+  const { included, excluded } = partitionTasksByDuration(
+    context.tasks.map((t) => ({
+      ...t,
+      frequency: t.frequency as TaskFrequency,
+    })),
+    durationDays
+  );
+
+  if (included.length === 0) {
+    return null;
+  }
+
+  // Replace context tasks with only included ones
+  const filteredContext: PlanContext = { ...context, tasks: included };
+
+  const excludedTasks: ExcludedTask[] = excluded.map((t) => ({
+    taskName: t.name,
+    frequency: t.frequency as TaskFrequency,
+  }));
 
   const providerType = getAIProviderType();
 
@@ -91,18 +125,21 @@ export async function generateAIPlan(householdId: string): Promise<AIPlanResult 
   if (providerType === "openrouter") {
     try {
       const result = await generateAIPlanOpenRouter({
-        members: context.members.map((m) => ({
+        members: filteredContext.members.map((m) => ({
           name: m.name,
           type: m.type,
           pendingCount: m.pendingCount,
         })),
-        tasks: context.tasks.map((t) => ({
+        tasks: filteredContext.tasks.map((t) => ({
           name: t.name,
           frequency: t.frequency,
           weight: t.weight,
         })),
       });
-      return result;
+      if (result) {
+        return { ...result, excludedTasks };
+      }
+      return null;
     } catch (error) {
       console.error("OpenRouter AI plan generation error:", error);
       return null;
@@ -115,7 +152,7 @@ export async function generateAIPlan(householdId: string): Promise<AIPlanResult 
     return null;
   }
 
-  const prompt = buildPlanPrompt(context);
+  const prompt = buildPlanPrompt(filteredContext, durationDays);
 
   try {
     const result = await generateObject({
@@ -124,7 +161,7 @@ export async function generateAIPlan(householdId: string): Promise<AIPlanResult 
       prompt,
     });
 
-    return result.object;
+    return { ...result.object, excludedTasks };
   } catch (error) {
     console.error("AI plan generation error:", error);
     return null;
@@ -307,7 +344,7 @@ async function buildPlanContext(householdId: string): Promise<PlanContext> {
   };
 }
 
-function buildPlanPrompt(context: PlanContext): string {
+function buildPlanPrompt(context: PlanContext, durationDays = 7): string {
   const capacityRules = `
 Capacidad por tipo de miembro:
 - ADULT: 100% de capacidad
@@ -358,5 +395,5 @@ ${recentInfo || "(sin historial)"}
 6. Los niños (CHILD) no deben recibir tareas complejas o peligrosas
 7. Proporciona una breve razón para cada asignación
 
-Genera un plan de asignaciones para esta semana. El objetivo es maximizar la equidad (balanceScore alto = más justo).`;
+Genera un plan de asignaciones para los próximos ${durationLabel(durationDays)}. El objetivo es maximizar la equidad (balanceScore alto = más justo).`;
 }

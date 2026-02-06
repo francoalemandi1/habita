@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { PenaltiesSection } from "@/components/features/penalties-section";
+import { ProfileSettings } from "@/components/features/profile-settings";
 import { Trophy, Star, Zap, Plus, Flame } from "lucide-react";
 
 import type { PenaltyReason } from "@/lib/validations/penalty";
@@ -23,6 +24,13 @@ export default async function ProfilePage() {
   if (!member) {
     redirect("/onboarding");
   }
+
+  // Get household members
+  const householdMembers = await prisma.member.findMany({
+    where: { householdId: member.householdId, isActive: true },
+    select: { id: true, name: true, memberType: true, isActive: true },
+    orderBy: { createdAt: "asc" },
+  });
 
   // Get achievements
   const memberAchievements = await prisma.memberAchievement.findMany({
@@ -89,6 +97,17 @@ export default async function ProfilePage() {
             Unirse a otro hogar
           </Link>
         </Button>
+      </div>
+
+      {/* Settings */}
+      <div className="mb-8">
+        <ProfileSettings
+          memberName={member.name}
+          householdName={member.household.name}
+          inviteCode={member.household.inviteCode}
+          members={householdMembers}
+          isAdult={member.memberType === "ADULT"}
+        />
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">

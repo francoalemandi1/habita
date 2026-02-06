@@ -2,9 +2,13 @@ import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
 import { generateAIPlan } from "@/lib/llm/ai-planner";
 import { isAIEnabled } from "@/lib/llm/provider";
+import { calculatePlanPerformance, generateAIRewards } from "@/lib/llm/ai-reward-generator";
 import { prisma } from "@/lib/prisma";
+import { z } from "zod";
 
+import type { NextRequest } from "next/server";
 import type { MemberType } from "@prisma/client";
+import type { ExcludedTask } from "@/lib/plan-duration";
 
 interface PlanAssignment {
   taskName: string;
@@ -33,17 +37,21 @@ export interface PlanPreviewResponse {
     assignments: PlanAssignment[];
     balanceScore: number;
     notes: string[];
+    durationDays: number;
+    excludedTasks: ExcludedTask[];
   };
   members: MemberSummary[];
   fairnessDetails: FairnessDetails;
 }
 
+const durationDaysSchema = z.coerce.number().int().min(1).max(30).default(7);
+
 /**
- * GET /api/ai/preview-plan
+ * GET /api/ai/preview-plan?durationDays=N
  * Generate an AI-powered task distribution plan preview without applying it.
  * Returns the plan details for user review before confirmation.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const member = await requireMember();
 
@@ -54,8 +62,13 @@ export async function GET() {
       );
     }
 
+    // Parse duration from query params
+    const { searchParams } = new URL(request.url);
+    const rawDuration = searchParams.get("durationDays");
+    const durationDays = durationDaysSchema.parse(rawDuration ?? undefined);
+
     // Generate plan without applying
-    const plan = await generateAIPlan(member.householdId);
+    const plan = await generateAIPlan(member.householdId, { durationDays });
 
     if (!plan) {
       return NextResponse.json(
@@ -76,7 +89,6 @@ export async function GET() {
     });
 
     const memberTypeMap = new Map(members.map((m) => [m.name.toLowerCase(), m.memberType]));
-    const memberIdMap = new Map(members.map((m) => [m.name.toLowerCase(), m.id]));
 
     // Enrich assignments with member type
     const enrichedAssignments: PlanAssignment[] = plan.assignments.map((a) => ({
@@ -116,11 +128,66 @@ export async function GET() {
     const maxDifference = adultCounts.length > 1 ? maxCount - minCount : 0;
     const isSymmetric = maxDifference <= 2;
 
-    // Expire any existing pending plans for this household
+    const excludedTasks: ExcludedTask[] = plan.excludedTasks ?? [];
+
+    // Generate rewards for any APPLIED plan before expiring it
+    const appliedPlan = await prisma.weeklyPlan.findFirst({
+      where: {
+        householdId: member.householdId,
+        status: "APPLIED",
+      },
+    });
+
+    if (appliedPlan) {
+      const existingRewards = await prisma.householdReward.count({
+        where: { planId: appliedPlan.id, isAiGenerated: true },
+      });
+
+      if (existingRewards === 0) {
+        try {
+          const performances = await calculatePlanPerformance(
+            member.householdId,
+            appliedPlan.createdAt,
+            appliedPlan.expiresAt
+          );
+          const rewardResult = await generateAIRewards(member.householdId, appliedPlan.id, performances);
+
+          if (rewardResult && rewardResult.rewards.length > 0) {
+            const memberMap = new Map(
+              performances.map((p) => [p.memberName.toLowerCase(), p])
+            );
+            const rewardsToCreate = rewardResult.rewards
+              .map((r) => {
+                const perf = memberMap.get(r.memberName.toLowerCase());
+                if (!perf) return null;
+                return {
+                  householdId: member.householdId,
+                  name: r.rewardName,
+                  description: r.rewardDescription,
+                  pointsCost: r.pointsCost,
+                  isAiGenerated: true,
+                  planId: appliedPlan.id,
+                  memberId: perf.memberId,
+                  completionRate: perf.completionRate,
+                };
+              })
+              .filter((r): r is NonNullable<typeof r> => r !== null);
+
+            if (rewardsToCreate.length > 0) {
+              await prisma.householdReward.createMany({ data: rewardsToCreate });
+            }
+          }
+        } catch (error) {
+          console.error("Error generating rewards for expired plan:", error);
+        }
+      }
+    }
+
+    // Expire any existing pending or applied plans for this household
     await prisma.weeklyPlan.updateMany({
       where: {
         householdId: member.householdId,
-        status: "PENDING",
+        status: { in: ["PENDING", "APPLIED"] },
       },
       data: {
         status: "EXPIRED",
@@ -129,7 +196,7 @@ export async function GET() {
 
     // Save the new plan to the database
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setDate(expiresAt.getDate() + durationDays);
 
     const savedPlan = await prisma.weeklyPlan.create({
       data: {
@@ -138,6 +205,8 @@ export async function GET() {
         balanceScore: plan.balanceScore,
         notes: plan.notes,
         assignments: JSON.parse(JSON.stringify(enrichedAssignments)),
+        durationDays,
+        excludedTasks: excludedTasks.length > 0 ? JSON.parse(JSON.stringify(excludedTasks)) : undefined,
         expiresAt,
       },
     });
@@ -148,6 +217,8 @@ export async function GET() {
         assignments: enrichedAssignments,
         balanceScore: plan.balanceScore,
         notes: plan.notes,
+        durationDays,
+        excludedTasks,
       },
       members: memberSummaries,
       fairnessDetails: {

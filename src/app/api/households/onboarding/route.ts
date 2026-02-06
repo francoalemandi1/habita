@@ -5,7 +5,7 @@ import { requireAuth, getCurrentMember } from "@/lib/session";
 import { CURRENT_HOUSEHOLD_COOKIE } from "@/lib/session";
 import { createHouseholdWithTasksSchema } from "@/lib/validations/household";
 import { generateInviteCode } from "@/lib/invite-code";
-import { computeDueDateForFrequency } from "@/lib/due-date";
+
 
 import type { NextRequest } from "next/server";
 import type { MemberType } from "@prisma/client";
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
       let tasksCreated = 0;
       for (const t of tasks) {
-        const task = await tx.task.create({
+        await tx.task.create({
           data: {
             householdId: household.id,
             name: t.name,
@@ -82,18 +82,6 @@ export async function POST(request: NextRequest) {
           },
         });
         tasksCreated++;
-
-        const dueDate = computeDueDateForFrequency(task.frequency);
-
-        await tx.assignment.create({
-          data: {
-            taskId: task.id,
-            memberId: member.id,
-            householdId: household.id,
-            dueDate,
-            status: "PENDING",
-          },
-        });
       }
 
       return {

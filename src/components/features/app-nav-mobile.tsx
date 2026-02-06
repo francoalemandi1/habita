@@ -36,8 +36,8 @@ const MAIN_NAV_CHILD = [
 
 const EXTRA_LINKS = [
   { href: "/tasks", label: "Gestión" },
-  { href: "/rotations", label: "Rotaciones" },
-  { href: "/parental", label: "Control parental" },
+  // { href: "/rotations", label: "Rotaciones" },
+  // { href: "/parental", label: "Control parental" },
   { href: "/preferences", label: "Preferencias" },
 ];
 

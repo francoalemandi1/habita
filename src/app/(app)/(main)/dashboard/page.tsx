@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Leaderboard } from "@/components/features/leaderboard";
@@ -11,7 +10,8 @@ import { StatsCards } from "@/components/features/stats-cards";
 import { RecentActivity } from "@/components/features/recent-activity";
 import { SuggestionsCard } from "@/components/features/suggestions-card";
 import { PlanStatusCard } from "@/components/features/plan-status-card";
-import { Copy } from "lucide-react";
+import { CopyButton } from "@/components/ui/copy-button";
+import { UserPlus } from "lucide-react";
 
 import type { MemberType } from "@prisma/client";
 
@@ -203,11 +203,25 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{member.household.name}</h1>
         <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
           Código: <code className="rounded-xl bg-muted px-2.5 py-1 font-mono text-xs font-semibold">{member.household.inviteCode}</code>
-          <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0">
-            <Copy className="h-4 w-4" />
-          </Button>
+          <CopyButton value={member.household.inviteCode} />
         </p>
       </div>
+
+      {/* Invite banner - when only 1 member */}
+      {members.length === 1 && (
+        <Card className="mb-6 border-primary/20 bg-primary/5">
+          <CardContent className="flex items-center gap-4 py-4">
+            <UserPlus className="h-8 w-8 text-primary shrink-0" />
+            <div>
+              <p className="font-medium">¡Invitá a los miembros de tu hogar!</p>
+              <p className="text-sm text-muted-foreground">
+                Compartí el código <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-semibold">{member.household.inviteCode}</code> para que se unan y puedan repartir las tareas.
+              </p>
+            </div>
+            <CopyButton value={member.household.inviteCode} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Nivel / XP - bloque gamificado */}
       <Card className="mb-6 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
@@ -248,6 +262,7 @@ export default async function DashboardPage() {
                 memberType: MemberType;
                 reason: string;
               }>,
+              durationDays: activePlan.durationDays,
               createdAt: activePlan.createdAt,
               appliedAt: activePlan.appliedAt,
               expiresAt: activePlan.expiresAt,

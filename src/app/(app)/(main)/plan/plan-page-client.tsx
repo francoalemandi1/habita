@@ -21,9 +21,21 @@ import {
   CheckCheck,
   CalendarDays,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { DURATION_PRESETS, durationLabel } from "@/lib/plan-duration";
 
 import type { MemberType, WeeklyPlanStatus, TaskFrequency } from "@prisma/client";
+import type { ExcludedTask } from "@/lib/plan-duration";
 
 interface PlanAssignment {
   taskName: string;
@@ -53,6 +65,8 @@ interface StoredPlan {
   balanceScore: number;
   notes: string[];
   assignments: PlanAssignment[];
+  durationDays: number;
+  excludedTasks: ExcludedTask[];
   createdAt: Date;
   appliedAt: Date | null;
   expiresAt: Date;
@@ -64,6 +78,8 @@ interface PlanPreviewResponse {
     assignments: PlanAssignment[];
     balanceScore: number;
     notes: string[];
+    durationDays: number;
+    excludedTasks: ExcludedTask[];
   };
   members: Array<MemberSummary & { assignedInPlan: number }>;
   fairnessDetails: {
@@ -121,12 +137,14 @@ export function PlanPageClient({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [plan, setPlan] = useState<StoredPlan | null>(existingPlan);
+  const [durationDays, setDurationDays] = useState(existingPlan?.durationDays ?? 7);
   const [selectedAssignments, setSelectedAssignments] = useState<Set<string>>(() => {
     if (!existingPlan || existingPlan.status !== "PENDING") return new Set();
     return new Set(
       existingPlan.assignments.map((a) => `${a.taskName}|${a.memberName}`)
     );
   });
+  const [isRegenerateDialogOpen, setIsRegenerateDialogOpen] = useState(false);
   const [fairnessDetails, setFairnessDetails] = useState<{
     adultDistribution: Record<string, number>;
     isSymmetric: boolean;
@@ -140,7 +158,7 @@ export function PlanPageClient({
     setIsGenerating(true);
 
     try {
-      const response = await fetch("/api/ai/preview-plan");
+      const response = await fetch(`/api/ai/preview-plan?durationDays=${durationDays}`);
 
       if (response.status === 503) {
         toast.error(
@@ -169,9 +187,11 @@ export function PlanPageClient({
         balanceScore: data.plan.balanceScore,
         notes: data.plan.notes,
         assignments: data.plan.assignments,
+        durationDays: data.plan.durationDays,
+        excludedTasks: data.plan.excludedTasks,
         createdAt: new Date(),
         appliedAt: null,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + data.plan.durationDays * 24 * 60 * 60 * 1000),
       };
 
       setPlan(newPlan);
@@ -185,8 +205,13 @@ export function PlanPageClient({
     } finally {
       setIsGenerating(false);
     }
-  }, [toast]);
+  }, [toast, durationDays]);
 
+  const handleConfirmRegenerate = useCallback(async () => {
+    setIsRegenerateDialogOpen(false);
+    setPlan(null);
+    await handleGeneratePlan();
+  }, [handleGeneratePlan]);
 
   const handleApplyPlan = useCallback(async () => {
     if (!plan) return;
@@ -297,7 +322,7 @@ export function PlanPageClient({
                   ? plan.status === "APPLIED"
                     ? "Plan aplicado"
                     : "Revisa y aprueba el plan propuesto"
-                  : `${tasks.length} tareas para ${members.length} miembros`}
+                  : `${tasks.length} tareas para ${members.length} ${members.length === 1 ? "miembro" : "miembros"}`}
             </p>
           </div>
           {plan?.status === "PENDING" && (
@@ -314,6 +339,22 @@ export function PlanPageClient({
                 <RefreshCw className="h-4 w-4" />
               )}
               Regenerar
+            </Button>
+          )}
+          {plan?.status === "APPLIED" && (
+            <Button
+              onClick={() => setIsRegenerateDialogOpen(true)}
+              disabled={isGenerating}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              {isGenerating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Regenerar plan
             </Button>
           )}
         </div>
@@ -340,7 +381,7 @@ export function PlanPageClient({
             <CardHeader>
               <CardTitle className="text-lg">Tareas a distribuir</CardTitle>
               <CardDescription>
-                {tasks.length} tareas serán asignadas equitativamente entre {members.length} miembros
+                {tasks.length} tareas serán asignadas equitativamente entre {members.length} {members.length === 1 ? "miembro" : "miembros"}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -402,13 +443,37 @@ export function PlanPageClient({
             </CardContent>
           </Card>
 
+          {/* Duration selector */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Duración del plan</CardTitle>
+              <CardDescription>
+                Las tareas con frecuencia mayor a la duración se excluirán automáticamente
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {DURATION_PRESETS.map((preset) => (
+                  <Button
+                    key={preset.days}
+                    variant={durationDays === preset.days ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setDurationDays(preset.days)}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Generate button */}
           <Card className="border-primary/20 bg-primary/5">
             <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-6">
               <div>
                 <p className="font-medium">¿Listo para distribuir?</p>
                 <p className="text-sm text-muted-foreground">
-                  Se cancelarán las asignaciones pendientes y se crearán nuevas
+                  Se generará un plan de {durationLabel(durationDays)} para tu hogar
                 </p>
               </div>
               <Button
@@ -429,7 +494,7 @@ export function PlanPageClient({
       {plan && (
         <div className="space-y-6">
           {/* Status banner */}
-          {plan.status === "APPLIED" && (
+          {plan.status === "APPLIED" && !isGenerating && (
             <Card className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950">
               <CardContent className="flex items-center gap-3 py-4">
                 <CheckCheck className="h-5 w-5 text-green-600" />
@@ -519,6 +584,29 @@ export function PlanPageClient({
                 })}
               </span>
             </div>
+          )}
+
+          {/* Excluded tasks */}
+          {plan.excludedTasks.length > 0 && (
+            <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base text-amber-800 dark:text-amber-200">
+                  Tareas fuera de este plan
+                </CardTitle>
+                <CardDescription className="text-amber-600 dark:text-amber-400">
+                  Estas tareas se asignarán en un plan de mayor duración
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {plan.excludedTasks.map((task) => (
+                    <Badge key={task.taskName} variant="outline" className="text-amber-700 border-amber-300 dark:text-amber-300 dark:border-amber-700">
+                      {task.taskName} ({FREQUENCY_LABELS[task.frequency]})
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Assignments by Member */}
@@ -647,19 +735,60 @@ export function PlanPageClient({
             </Card>
           )}
 
-          {/* Link back after applied */}
+          {/* Actions after applied */}
           {plan.status === "APPLIED" && (
-            <div className="flex justify-center">
+            <div className="flex flex-col sm:flex-row justify-center gap-3">
               <Button asChild variant="outline">
                 <Link href="/my-tasks" className="gap-2">
                   <ArrowLeft className="h-4 w-4" />
                   Ver mis tareas
                 </Link>
               </Button>
+              <Button
+                onClick={() => setIsRegenerateDialogOpen(true)}
+                disabled={isGenerating}
+                variant="outline"
+                className="gap-2"
+              >
+                {isGenerating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Regenerar plan
+              </Button>
             </div>
           )}
         </div>
       )}
+
+      {/* Regenerate confirmation dialog */}
+      <AlertDialog
+        open={isRegenerateDialogOpen}
+        onOpenChange={setIsRegenerateDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Regenerar plan de distribución</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Se cancelarán todas las asignaciones pendientes y en progreso del plan actual.
+                </p>
+                <p>
+                  El nuevo plan se generará desde hoy y cubrirá los próximos {durationLabel(durationDays)}.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmRegenerate}>
+              Regenerar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

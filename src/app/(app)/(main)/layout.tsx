@@ -58,7 +58,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
         households={households}
         currentHouseholdId={member.householdId}
       />
-      {!isKidsMode && <AiChatWrapper enabled={aiEnabled} />}
+      {/* {!isKidsMode && <AiChatWrapper enabled={aiEnabled} />} */}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { durationLabel } from "@/lib/plan-duration";
 
 import type { WeeklyPlanStatus, MemberType } from "@prisma/client";
 
@@ -28,6 +29,7 @@ interface PlanStatusCardProps {
     status: WeeklyPlanStatus;
     balanceScore: number;
     assignments: PlanAssignment[];
+    durationDays?: number;
     createdAt: Date;
     appliedAt: Date | null;
     expiresAt: Date;
@@ -133,7 +135,7 @@ export function PlanStatusCard({ plan, aiEnabled }: PlanStatusCardProps) {
                 </Badge>
               </div>
               <p className="text-sm text-green-600 dark:text-green-400">
-                {taskCount} tareas asignadas a {memberCount} miembros
+                Plan de {durationLabel(plan.durationDays ?? 7)} · {taskCount} tareas para {memberCount} miembros
                 {plan.appliedAt && (
                   <> · {new Date(plan.appliedAt).toLocaleDateString("es", { day: "numeric", month: "short" })}</>
                 )}

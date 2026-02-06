@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
 import { PlanPageClient } from "./plan-page-client";
 
-import type { MemberType, WeeklyPlanStatus } from "@prisma/client";
+import type { MemberType, WeeklyPlanStatus, TaskFrequency } from "@prisma/client";
+import type { ExcludedTask } from "@/lib/plan-duration";
 
 interface PlanAssignment {
   taskName: string;
@@ -19,6 +20,8 @@ interface StoredPlan {
   balanceScore: number;
   notes: string[];
   assignments: PlanAssignment[];
+  durationDays: number;
+  excludedTasks: ExcludedTask[];
   createdAt: Date;
   appliedAt: Date | null;
   expiresAt: Date;
@@ -87,6 +90,8 @@ export default async function PlanPage() {
       balanceScore: existingPlan.balanceScore,
       notes: existingPlan.notes,
       assignments: existingPlan.assignments as unknown as PlanAssignment[],
+      durationDays: existingPlan.durationDays,
+      excludedTasks: (existingPlan.excludedTasks as unknown as ExcludedTask[]) ?? [],
       createdAt: existingPlan.createdAt,
       appliedAt: existingPlan.appliedAt,
       expiresAt: existingPlan.expiresAt,

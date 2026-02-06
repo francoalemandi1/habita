@@ -6,8 +6,9 @@ import { MyAssignmentsList } from "@/components/features/my-assignments-list";
 import { PendingTransfers } from "@/components/features/pending-transfers";
 import { WeeklyCelebrationWrapper } from "@/components/features/weekly-celebration-wrapper";
 import { PlanStatusCard } from "@/components/features/plan-status-card";
+import { UpcomingTasksCard } from "@/components/features/upcoming-tasks-card";
 
-import type { MemberType } from "@prisma/client";
+import type { MemberType, TaskFrequency } from "@prisma/client";
 
 export default async function MyTasksPage() {
   const member = await getCurrentMember();
@@ -117,11 +118,15 @@ export default async function MyTasksPage() {
           memberType: MemberType;
           reason: string;
         }>,
+        durationDays: activePlan.durationDays,
         createdAt: activePlan.createdAt,
         appliedAt: activePlan.appliedAt,
         expiresAt: activePlan.expiresAt,
       }
     : null;
+
+  // Extract excluded tasks from active plan
+  const excludedTasks = (activePlan?.excludedTasks as Array<{ taskName: string; frequency: TaskFrequency }>) ?? [];
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8">
@@ -161,6 +166,13 @@ export default async function MyTasksPage() {
         members={householdMembers}
         currentMemberId={member.id}
       />
+
+      {/* Upcoming tasks excluded from current plan */}
+      {excludedTasks.length > 0 && (
+        <div className="mt-8">
+          <UpcomingTasksCard excludedTasks={excludedTasks} />
+        </div>
+      )}
     </div>
   );
 }

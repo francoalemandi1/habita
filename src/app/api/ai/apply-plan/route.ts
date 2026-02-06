@@ -68,6 +68,18 @@ export async function POST(request: NextRequest) {
 
     const now = new Date();
 
+    // Look up plan to get expiresAt for due date capping
+    let planEndDate: Date | undefined;
+    if (planId) {
+      const existingPlan = await prisma.weeklyPlan.findUnique({
+        where: { id: planId },
+        select: { expiresAt: true },
+      });
+      if (existingPlan) {
+        planEndDate = existingPlan.expiresAt;
+      }
+    }
+
     // Cancel all pending assignments for the household before applying new plan
     // This ensures the plan replaces previous assignments
     const cancelledCount = await prisma.assignment.updateMany({
@@ -99,7 +111,7 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      const dueDate = computeDueDateForFrequency(taskInfo.frequency as TaskFrequency, now);
+      const dueDate = computeDueDateForFrequency(taskInfo.frequency as TaskFrequency, now, planEndDate);
       assignmentsToCreate.push({
         taskId: taskInfo.id,
         memberId,

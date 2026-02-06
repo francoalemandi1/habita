@@ -1,11 +1,10 @@
 import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { RewardsList } from "@/components/features/rewards-list";
-import { CreateRewardButton } from "@/components/features/create-reward-button";
-import { Gift, Coins } from "lucide-react";
+import { isAIEnabled } from "@/lib/llm/provider";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PlanRewardsSection } from "@/components/features/plan-rewards-section";
+import { Coins } from "lucide-react";
 
 export default async function RewardsPage() {
   const member = await getCurrentMember();
@@ -14,12 +13,42 @@ export default async function RewardsPage() {
     redirect("/onboarding");
   }
 
-  const rewards = await prisma.householdReward.findMany({
+  const aiEnabled = isAIEnabled();
+
+  // Get the most recent APPLIED plan
+  const latestPlan = await prisma.weeklyPlan.findFirst({
     where: {
       householdId: member.householdId,
-      isActive: true,
+      status: "APPLIED",
     },
-    orderBy: { pointsCost: "asc" },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Get AI-generated rewards for the latest plan (or all recent ones)
+  const aiRewards = await prisma.householdReward.findMany({
+    where: {
+      householdId: member.householdId,
+      isAiGenerated: true,
+      ...(latestPlan ? { planId: latestPlan.id } : {}),
+    },
+    orderBy: { completionRate: "desc" },
+  });
+
+  // Also get any past AI rewards (from expired plans) for history
+  const pastRewards = await prisma.householdReward.findMany({
+    where: {
+      householdId: member.householdId,
+      isAiGenerated: true,
+      ...(latestPlan ? { planId: { not: latestPlan.id } } : {}),
+    },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
+  // Get household members for display
+  const members = await prisma.member.findMany({
+    where: { householdId: member.householdId, isActive: true },
+    select: { id: true, name: true },
   });
 
   // Calculate available points
@@ -30,28 +59,36 @@ export default async function RewardsPage() {
   const redemptions = await prisma.rewardRedemption.findMany({
     where: { memberId: member.id },
     include: {
-      reward: {
-        select: { pointsCost: true, name: true },
-      },
+      reward: { select: { pointsCost: true } },
     },
-    orderBy: { redeemedAt: "desc" },
   });
 
   const spentPoints = redemptions.reduce((sum, r) => sum + r.reward.pointsCost, 0);
   const availablePoints = (level?.xp ?? 0) - spentPoints;
 
-  const pendingRedemptions = redemptions.filter((r) => !r.isFulfilled);
+  // Check if there are completed tasks in the plan period
+  const completedInPlan = latestPlan
+    ? await prisma.assignment.count({
+        where: {
+          householdId: member.householdId,
+          status: { in: ["COMPLETED", "VERIFIED"] },
+          createdAt: { gte: latestPlan.createdAt, lte: latestPlan.expiresAt },
+        },
+      })
+    : 0;
+
+  const hasCompletedTasks = completedInPlan > 0;
+
+  // Can generate if there's an APPLIED plan with no rewards yet
+  const canGenerate = aiEnabled && !!latestPlan && aiRewards.length === 0;
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8">
-      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Recompensas</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Canjea tus puntos por recompensas
-          </p>
-        </div>
-        <CreateRewardButton />
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Recompensas</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Recompensas generadas según tu rendimiento en cada plan
+        </p>
       </div>
 
       {/* Points Summary */}
@@ -87,34 +124,52 @@ export default async function RewardsPage() {
         </Card>
       </div>
 
-      {/* Pending Redemptions */}
-      {pendingRedemptions.length > 0 && (
-        <div className="mb-8">
-          <h2 className="mb-4 text-xl font-semibold">Canjes pendientes</h2>
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-            {pendingRedemptions.map((r) => (
-              <Card key={r.id} className="border-yellow-500/50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{r.reward.name}</CardTitle>
-                  <CardDescription>
-                    Canjeado el {new Date(r.redeemedAt).toLocaleDateString("es")}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Badge variant="outline">Pendiente de entrega</Badge>
-                </CardContent>
-              </Card>
-            ))}
+      {/* AI Rewards Section */}
+      <div className="mb-8">
+        <PlanRewardsSection
+          planId={latestPlan?.id ?? null}
+          rewards={aiRewards.map((r) => ({
+            id: r.id,
+            name: r.name,
+            description: r.description,
+            pointsCost: r.pointsCost,
+            memberId: r.memberId,
+            completionRate: r.completionRate,
+          }))}
+          members={members}
+          canGenerate={canGenerate}
+          hasCompletedTasks={hasCompletedTasks}
+        />
+      </div>
+
+      {/* Past rewards history */}
+      {pastRewards.length > 0 && (
+        <div>
+          <h2 className="mb-4 text-lg font-semibold text-muted-foreground">
+            Recompensas anteriores
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+            {pastRewards.map((reward) => {
+              const memberName = members.find((m) => m.id === reward.memberId)?.name ?? "Miembro";
+              return (
+                <Card key={reward.id} className="opacity-70">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">{reward.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xs text-muted-foreground">{memberName}</p>
+                    {reward.completionRate !== null && (
+                      <p className="text-xs text-muted-foreground">
+                        {reward.completionRate}% completado
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}
-
-      {/* Available Rewards */}
-      <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold">
-        <Gift className="h-5 w-5" />
-        Recompensas disponibles
-      </h2>
-      <RewardsList rewards={rewards} availablePoints={availablePoints} />
     </div>
   );
 }

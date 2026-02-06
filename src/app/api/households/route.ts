@@ -2,8 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, getCurrentMember } from "@/lib/session";
 import { createHouseholdSchema } from "@/lib/validations/household";
+import { z } from "zod";
 
 import type { NextRequest } from "next/server";
+
+const updateHouseholdSchema = z.object({
+  name: z.string().min(1, "El nombre es obligatorio").max(50, "Máximo 50 caracteres"),
+});
 
 /**
  * GET /api/households
@@ -100,6 +105,46 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       { error: "Error creating household" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/households
+ * Update the current household's name
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    await requireAuth();
+    const member = await getCurrentMember();
+
+    if (!member) {
+      return NextResponse.json({ error: "No member found" }, { status: 404 });
+    }
+
+    if (member.memberType !== "ADULT") {
+      return NextResponse.json({ error: "Solo adultos pueden editar el hogar" }, { status: 403 });
+    }
+
+    const body: unknown = await request.json();
+    const validation = updateHouseholdSchema.safeParse(body);
+
+    if (!validation.success) {
+      const message = validation.error.errors[0]?.message ?? "Datos inválidos";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+
+    const updated = await prisma.household.update({
+      where: { id: member.householdId },
+      data: { name: validation.data.name },
+    });
+
+    return NextResponse.json({ household: updated });
+  } catch (error) {
+    console.error("PATCH /api/households error:", error);
+    return NextResponse.json(
+      { error: "Error al actualizar el hogar" },
       { status: 500 }
     );
   }

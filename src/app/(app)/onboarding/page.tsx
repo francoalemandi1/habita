@@ -17,7 +17,7 @@ import { ProgressIndicator } from "@/components/features/onboarding/progress-ind
 import { CatalogTaskItem } from "@/components/features/onboarding/catalog-task-item";
 import { ChevronRight, Plus, Check, Search, X } from "lucide-react";
 
-type StepId = "name" | "group" | "household" | "catalog" | "frequency" | "summary" | "creating" | "invite" | "join";
+type StepId = "name" | "household" | "catalog" | "frequency" | "summary" | "creating" | "invite" | "join";
 type MemberTypeChoice = "adult" | "teen" | "child";
 
 interface CatalogTaskFromApi {
@@ -41,16 +41,8 @@ interface CategoryFromApi {
   tasks: CatalogTaskFromApi[];
 }
 
-const STEPS_CREATE: StepId[] = ["name", "group", "household", "catalog", "frequency", "summary", "invite"];
+const STEPS_CREATE: StepId[] = ["name", "household", "catalog", "frequency", "summary", "invite"];
 const STEPS_JOIN: StepId[] = ["name", "join"];
-
-const PEOPLE_OPTIONS = [
-  { value: 2, label: "2 personas" },
-  { value: 3, label: "3 personas" },
-  { value: 4, label: "4 personas" },
-  { value: 5, label: "5 personas" },
-  { value: 6, label: "6+ personas" },
-];
 
 const LOADING_MESSAGES = [
   "Distribuyendo tareas equitativamente...",
@@ -119,8 +111,6 @@ function OnboardingContent() {
   const [customTaskFrequency, setCustomTaskFrequency] = useState("WEEKLY");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // New: group step state
-  const [peopleCount, setPeopleCount] = useState(2);
   const [hasChildren, setHasChildren] = useState(false);
   const [hasPets, setHasPets] = useState(false);
 
@@ -137,6 +127,18 @@ function OnboardingContent() {
     if (searchParams.get("mode") === "join") setHasInviteCode(true);
   }, [searchParams]);
 
+  // Prefill member name from Google account
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data: { name?: string | null }) => {
+        if (data.name) {
+          setMemberName((prev) => (prev === "" ? data.name! : prev));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const steps = hasInviteCode ? STEPS_JOIN : STEPS_CREATE;
   const currentStepIndex = steps.indexOf(step);
   const stepsForProgress = steps;
@@ -149,7 +151,6 @@ function OnboardingContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          peopleCount,
           hasChildren,
           hasPets,
         }),
@@ -215,7 +216,7 @@ function OnboardingContent() {
     } finally {
       setCatalogLoading(false);
     }
-  }, [peopleCount, hasChildren, hasPets]);
+  }, [hasChildren, hasPets]);
 
   useEffect(() => {
     if (step !== "catalog") {
@@ -237,23 +238,13 @@ function OnboardingContent() {
     }
     setError(null);
     if (hasInviteCode) setStep("join");
-    else setStep("group");
+    else setStep("household");
   };
 
   const handleBackToName = () => {
     setError(null);
     setStep("name");
     if (step === "join") setHasInviteCode(false);
-  };
-
-  const handleGroupNext = () => {
-    setError(null);
-    setStep("household");
-  };
-
-  const handleGroupBack = () => {
-    setError(null);
-    setStep("name");
   };
 
   const handleHouseholdNext = () => {
@@ -263,7 +254,7 @@ function OnboardingContent() {
 
   const handleHouseholdBack = () => {
     setError(null);
-    setStep("group");
+    setStep("name");
   };
 
   const handleCatalogNext = () => {
@@ -531,68 +522,6 @@ function OnboardingContent() {
           </Card>
         )}
 
-        {/* Step: group */}
-        {step === "group" && (
-          <Card>
-            <CardHeader className="space-y-1 text-center">
-              <ProgressIndicator steps={stepsForProgress} currentStep={step} />
-              <CardTitle className="text-2xl">Tu grupo</CardTitle>
-              <CardDescription>
-                ¿Cuántas personas conviven en tu hogar?
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap justify-center gap-2">
-                {PEOPLE_OPTIONS.map((opt) => (
-                  <Button
-                    key={opt.value}
-                    type="button"
-                    variant={peopleCount === opt.value ? "default" : "outline"}
-                    className="min-w-[100px]"
-                    onClick={() => setPeopleCount(opt.value)}
-                  >
-                    {opt.label}
-                  </Button>
-                ))}
-              </div>
-              <div className="space-y-3 rounded-xl border bg-muted/30 p-4">
-                <p className="text-sm font-medium text-muted-foreground">Opciones adicionales</p>
-                <label className="flex cursor-pointer items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={hasChildren}
-                    onChange={(e) => setHasChildren(e.target.checked)}
-                    className="h-5 w-5 rounded border-2"
-                  />
-                  <span>Hay niños en el hogar</span>
-                </label>
-                <label className="flex cursor-pointer items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={hasPets}
-                    onChange={(e) => setHasPets(e.target.checked)}
-                    className="h-5 w-5 rounded border-2"
-                  />
-                  <span>Hay mascotas</span>
-                </label>
-              </div>
-              <p className="text-center text-xs text-muted-foreground">
-                Esta información nos ayuda a sugerirte las tareas más relevantes
-              </p>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={handleGroupBack}>
-                  Volver
-                </Button>
-                <Button type="button" onClick={handleGroupNext}>
-                  Continuar
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Step: household */}
         {step === "household" && (
           <Card>
@@ -612,6 +541,26 @@ function OnboardingContent() {
                 className={inputClass}
                 maxLength={50}
               />
+              <div className="space-y-3 rounded-xl border bg-muted/30 p-4">
+                <label className="flex cursor-pointer items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={hasChildren}
+                    onChange={(e) => setHasChildren(e.target.checked)}
+                    className="h-5 w-5 rounded border-2"
+                  />
+                  <span>Hay niños en el hogar</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={hasPets}
+                    onChange={(e) => setHasPets(e.target.checked)}
+                    className="h-5 w-5 rounded border-2"
+                  />
+                  <span>Hay mascotas</span>
+                </label>
+              </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <div className="flex gap-2">
                 <Button type="button" variant="outline" onClick={handleHouseholdBack}>
@@ -891,9 +840,10 @@ function OnboardingContent() {
                     {householdName || `${memberName}'s Home`}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    👥 {peopleCount} personas
-                    {hasChildren && " · 👶 Con niños"}
-                    {hasPets && " · 🐕 Con mascotas"}
+                    {hasChildren && "👶 Con niños"}
+                    {hasChildren && hasPets && " · "}
+                    {hasPets && "🐕 Con mascotas"}
+                    {!hasChildren && !hasPets && "🏠 Hogar"}
                   </p>
                 </div>
 

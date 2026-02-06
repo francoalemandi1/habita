@@ -5,7 +5,6 @@ import { isAIEnabled, getLLMProvider } from "@/lib/llm/provider";
 import type { NextRequest } from "next/server";
 
 interface SuggestTasksBody {
-  peopleCount?: number;
   hasChildren?: boolean;
   hasPets?: boolean;
   location?: string;
@@ -124,7 +123,6 @@ export async function POST(request: NextRequest) {
 
     const body: unknown = await request.json();
     const {
-      peopleCount = 2,
       hasChildren = false,
       hasPets = false,
       location,
@@ -165,7 +163,7 @@ export async function POST(request: NextRequest) {
           }>;
           insights: string[];
         }>({
-          prompt: buildAIPrompt({ peopleCount, hasChildren, hasPets, location, householdDescription }),
+          prompt: buildAIPrompt({ hasChildren, hasPets, location, householdDescription }),
           outputSchema: {
             additionalTasks: "array of task objects with name, frequency, category, icon, estimatedMinutes, weight, reason",
             insights: "array of insight strings",
@@ -216,17 +214,14 @@ export async function POST(request: NextRequest) {
 
     // Generate contextual insights if AI didn't provide them
     if (insights.length === 0) {
-      if (peopleCount >= 4) {
-        insights.push("Con una familia grande, considera rotar las tareas semanalmente");
-      }
       if (hasChildren && hasPets) {
         insights.push("Los niños pueden ayudar con tareas simples de mascotas");
       }
       if (hasPets) {
         insights.push("Las mascotas requieren atención diaria constante");
       }
-      if (peopleCount === 2) {
-        insights.push("Divide las tareas equitativamente entre ambos");
+      if (hasChildren) {
+        insights.push("Considera asignar tareas simples a los niños para fomentar responsabilidad");
       }
     }
 
@@ -252,7 +247,6 @@ function buildAIPrompt(context: SuggestTasksBody): string {
   return `Eres un experto en organización del hogar. Genera sugerencias de tareas adicionales basadas en el contexto.
 
 ## Contexto del hogar
-- Personas: ${context.peopleCount}
 - Tiene niños: ${context.hasChildren ? "sí" : "no"}
 - Tiene mascotas: ${context.hasPets ? "sí" : "no"}
 ${context.location ? `- Ubicación: ${context.location}` : ""}
@@ -260,7 +254,6 @@ ${context.householdDescription ? `- Descripción: ${context.householdDescription
 
 ## Instrucciones
 Genera tareas adicionales que sean relevantes para este hogar específico. Considera:
-- Si hay muchas personas, tareas de organización de espacios comunes
 - Si hay niños, tareas relacionadas con su cuidado y educación
 - Si hay mascotas, tareas específicas de cuidado animal
 - Si se proporciona ubicación, tareas típicas de esa región/clima (ej: en climas fríos, revisar calefacción)

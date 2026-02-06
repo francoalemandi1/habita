@@ -170,7 +170,7 @@ export default async function RewardsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{availablePoints}</p>
+            <p className="text-3xl font-bold text-[var(--color-xp)]">{availablePoints}</p>
           </CardContent>
         </Card>
 
@@ -179,7 +179,7 @@ export default async function RewardsPage() {
             <CardTitle className="text-lg">Puntos totales</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{level?.xp ?? 0}</p>
+            <p className="text-3xl font-bold text-[var(--color-xp)]">{level?.xp ?? 0}</p>
           </CardContent>
         </Card>
 

@@ -962,6 +962,12 @@ function OnboardingContent() {
               >
                 {copied ? "Copiado!" : "Copiar Código"}
               </Button>
+              <div className="rounded-xl border bg-muted/30 p-4 space-y-2">
+                <p className="text-sm font-medium text-center">Empezás en Nivel 1</p>
+                <p className="text-xs text-muted-foreground text-center">
+                  Completá tareas para ganar puntos, subir de nivel y desbloquear logros junto a tu familia.
+                </p>
+              </div>
               <Button
                 type="button"
                 className="w-full"

@@ -86,15 +86,41 @@
   --radius-2xl: calc(var(--radius) + 8px);
 }
 
+html,
+body {
+  overscroll-behavior: none;
+}
+
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Safe area for bottom nav on mobile */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
-  .pb-safe {
-    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
-  }
+/* Gamification animations */
+@keyframes fade-up {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-20px); }
+}
+
+@keyframes card-collapse {
+  from { max-height: 200px; opacity: 1; margin-bottom: 1rem; }
+  to { max-height: 0; opacity: 0; margin-bottom: 0; overflow: hidden; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-up {
+  animation: fade-up 600ms ease-out forwards;
+}
+
+.animate-card-collapse {
+  animation: card-collapse 300ms ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in 150ms ease-out;
 }

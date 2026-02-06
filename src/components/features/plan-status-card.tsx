@@ -53,13 +53,13 @@ export function PlanStatusCard({ plan, aiEnabled }: PlanStatusCardProps) {
     return (
       <Card className="border-dashed border-primary/30 bg-primary/5">
         <CardContent className="flex items-center justify-between gap-4 py-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-full bg-primary/10 p-2">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="shrink-0 rounded-full bg-primary/10 p-2">
               <CalendarDays className="h-5 w-5 text-primary" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="font-medium">Genera un plan de distribución</p>
-              <p className="text-sm text-muted-foreground">
+              <p className="truncate text-sm text-muted-foreground">
                 Distribuye las tareas equitativamente entre los miembros
               </p>
             </div>
@@ -83,12 +83,12 @@ export function PlanStatusCard({ plan, aiEnabled }: PlanStatusCardProps) {
     return (
       <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950">
         <CardContent className="flex items-center justify-between gap-4 py-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-full bg-amber-100 dark:bg-amber-900 p-2">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-900 p-2">
               <Clock className="h-5 w-5 text-amber-600" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <p className="font-medium text-amber-800 dark:text-amber-200">
                   Plan pendiente de aprobación
                 </p>
@@ -121,12 +121,12 @@ export function PlanStatusCard({ plan, aiEnabled }: PlanStatusCardProps) {
     return (
       <Card className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950">
         <CardContent className="flex items-center justify-between gap-4 py-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-full bg-green-100 dark:bg-green-900 p-2">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="shrink-0 rounded-full bg-green-100 dark:bg-green-900 p-2">
               <CheckCheck className="h-5 w-5 text-green-600" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <p className="font-medium text-green-800 dark:text-green-200">
                   Plan aplicado
                 </p>
@@ -157,13 +157,13 @@ export function PlanStatusCard({ plan, aiEnabled }: PlanStatusCardProps) {
   return (
     <Card className="border-dashed border-muted-foreground/30">
       <CardContent className="flex items-center justify-between gap-4 py-4">
-        <div className="flex items-center gap-3">
-          <div className="rounded-full bg-muted p-2">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="shrink-0 rounded-full bg-muted p-2">
             <CalendarDays className="h-5 w-5 text-muted-foreground" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="font-medium">Tu plan anterior expiró</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="truncate text-sm text-muted-foreground">
               Genera un nuevo plan de distribución
             </p>
           </div>

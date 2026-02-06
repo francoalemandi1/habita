@@ -108,6 +108,18 @@ const ACHIEVEMENT_CHECKS: AchievementCheck[] = [
       return streak >= 30;
     },
   },
+  {
+    code: "TEAM_PLAYER",
+    check: async (memberId) => {
+      const acceptedTransfers = await prisma.taskTransfer.count({
+        where: {
+          toMemberId: memberId,
+          status: "ACCEPTED",
+        },
+      });
+      return acceptedTransfers >= 1;
+    },
+  },
 ];
 
 /**

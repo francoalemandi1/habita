@@ -4,16 +4,11 @@ import { getCurrentMember, getCurrentUserMembers } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { levelProgress } from "@/lib/points";
 import { calculateStreak } from "@/lib/achievements";
-import { PENALTY_DESCRIPTIONS } from "@/lib/validations/penalty";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { PenaltiesSection } from "@/components/features/penalties-section";
 import { ProfileSettings } from "@/components/features/profile-settings";
-import { Trophy, Star, Zap, Plus, Flame } from "lucide-react";
-
-import type { PenaltyReason } from "@/lib/validations/penalty";
+import { Star, Zap, Plus, Flame } from "lucide-react";
 
 export default async function ProfilePage() {
   const [member, allMembers] = await Promise.all([
@@ -32,13 +27,6 @@ export default async function ProfilePage() {
     orderBy: { createdAt: "asc" },
   });
 
-  // Get achievements
-  const memberAchievements = await prisma.memberAchievement.findMany({
-    where: { memberId: member.id },
-    include: { achievement: true },
-    orderBy: { unlockedAt: "desc" },
-  });
-
   // Get stats
   const completedTasks = await prisma.assignment.count({
     where: {
@@ -55,29 +43,6 @@ export default async function ProfilePage() {
     _sum: { pointsEarned: true },
   });
 
-  // Get penalties
-  const penalties = await prisma.penalty.findMany({
-    where: { memberId: member.id },
-    include: {
-      assignment: {
-        select: {
-          id: true,
-          task: { select: { name: true } },
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 10,
-  });
-
-  const enrichedPenalties = penalties.map((p) => ({
-    ...p,
-    reasonDescription: PENALTY_DESCRIPTIONS[p.reason as PenaltyReason],
-  }));
-
-  const totalPenaltyPoints = penalties.reduce((sum, p) => sum + p.points, 0);
-
-  // Get current streak
   const currentStreak = await calculateStreak(member.id);
 
   const level = member.level?.level ?? 1;
@@ -159,65 +124,12 @@ export default async function ProfilePage() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Puntos ganados</dt>
-                <dd className="font-medium">{totalPoints._sum.pointsEarned ?? 0}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Logros desbloqueados</dt>
-                <dd className="font-medium">{memberAchievements.length}</dd>
+                <dd className="font-medium text-[var(--color-xp)]">{totalPoints._sum.pointsEarned ?? 0}</dd>
               </div>
             </dl>
           </CardContent>
         </Card>
 
-      </div>
-
-      {/* Achievements */}
-      <div className="mt-8">
-        <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold">
-          <Trophy className="h-6 w-6 text-yellow-500" />
-          Logros ({memberAchievements.length})
-        </h2>
-        {memberAchievements.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">
-                Aún no has desbloqueado ningún logro. ¡Completa tareas para conseguirlos!
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-            {memberAchievements.map((ma) => (
-              <Card key={ma.id}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{ma.achievement.name}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    {ma.achievement.description}
-                  </p>
-                  <div className="mt-2 flex items-center justify-between">
-                    <Badge variant="outline">+{ma.achievement.xpReward} XP</Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(ma.unlockedAt).toLocaleDateString("es")}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Penalties */}
-      <div className="mt-8">
-        <PenaltiesSection
-          penalties={enrichedPenalties}
-          stats={{
-            totalPenalties: penalties.length,
-            totalPenaltyPoints,
-          }}
-        />
       </div>
     </div>
   );

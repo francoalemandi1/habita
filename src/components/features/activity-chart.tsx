@@ -10,6 +10,7 @@ interface DailyData {
 
 interface ActivityChartProps {
   data: DailyData[];
+  completedThisWeek?: number;
 }
 
 const DAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -19,16 +20,23 @@ function getDayName(dateString: string): string {
   return DAYS[date.getDay()] ?? "";
 }
 
-export function ActivityChart({ data }: ActivityChartProps) {
+export function ActivityChart({ data, completedThisWeek }: ActivityChartProps) {
   const maxCount = Math.max(...data.map((d) => d.count), 1);
 
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <BarChart3 className="h-5 w-5" />
-          Actividad semanal
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <BarChart3 className="h-5 w-5" />
+            Actividad semanal
+          </CardTitle>
+          {completedThisWeek !== undefined && (
+            <span className="text-sm font-semibold text-[var(--color-success)]">
+              {completedThisWeek} esta semana
+            </span>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <div className="flex h-32 items-end justify-between gap-2">

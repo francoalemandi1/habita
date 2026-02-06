@@ -16,7 +16,7 @@ export function AppNavMobile() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-card/95 backdrop-blur-md pb-safe md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-card/95 backdrop-blur-md md:hidden">
       <div className="flex h-16 items-center justify-around px-2">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;

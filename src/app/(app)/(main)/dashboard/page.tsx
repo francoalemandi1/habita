@@ -2,14 +2,12 @@ import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ActivityChart } from "@/components/features/activity-chart";
+import { Card, CardContent } from "@/components/ui/card";
 import { StatsCards } from "@/components/features/stats-cards";
-import { RecentActivity } from "@/components/features/recent-activity";
 import { SuggestionsCard } from "@/components/features/suggestions-card";
 import { PlanStatusCard } from "@/components/features/plan-status-card";
 import { CopyButton } from "@/components/ui/copy-button";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Trophy } from "lucide-react";
 
 import type { MemberType } from "@prisma/client";
 
@@ -22,10 +20,6 @@ export default async function DashboardPage() {
 
   const householdId = member.householdId;
   const now = new Date();
-
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay());
-  startOfWeek.setHours(0, 0, 0, 0);
 
   // Get all members
   const members = await prisma.member.findMany({
@@ -49,68 +43,22 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  // Get recent activity
-  const recentActivity = await prisma.assignment.findMany({
-    where: {
-      householdId,
-      status: { in: ["COMPLETED", "VERIFIED"] },
-      completedAt: { gte: startOfWeek },
-    },
-    include: {
-      task: { select: { name: true } },
-      member: { select: { name: true } },
-    },
-    orderBy: { completedAt: "desc" },
-    take: 10,
-  });
-
-  // Get daily completions for chart - single query instead of N+1
+  // Recent achievements (last 7 days, any member in household)
   const sevenDaysAgo = new Date(now);
   sevenDaysAgo.setDate(now.getDate() - 6);
   sevenDaysAgo.setHours(0, 0, 0, 0);
 
-  const completionsLast7Days = await prisma.assignment.findMany({
+  const recentAchievements = await prisma.memberAchievement.findMany({
     where: {
-      householdId,
-      status: { in: ["COMPLETED", "VERIFIED"] },
-      completedAt: { gte: sevenDaysAgo },
+      member: { householdId },
+      unlockedAt: { gte: sevenDaysAgo },
     },
-    select: { completedAt: true },
-  });
-
-  // Group by date
-  const countsByDate = new Map<string, number>();
-  for (const a of completionsLast7Days) {
-    if (a.completedAt) {
-      const dateStr = a.completedAt.toISOString().split("T")[0];
-      if (dateStr) {
-        countsByDate.set(dateStr, (countsByDate.get(dateStr) ?? 0) + 1);
-      }
-    }
-  }
-
-  // Build array for last 7 days
-  const dailyCompletions: { date: string; count: number }[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(now.getDate() - i);
-    date.setHours(0, 0, 0, 0);
-    const dateStr = date.toISOString().split("T")[0] ?? "";
-    dailyCompletions.push({
-      date: dateStr,
-      count: countsByDate.get(dateStr) ?? 0,
-    });
-  }
-
-  // Get my pending tasks
-  const myPendingTasks = await prisma.assignment.findMany({
-    where: {
-      memberId: member.id,
-      status: { in: ["PENDING", "IN_PROGRESS"] },
+    include: {
+      achievement: { select: { name: true } },
+      member: { select: { name: true } },
     },
-    include: { task: { select: { name: true } } },
-    orderBy: { dueDate: "asc" },
-    take: 5,
+    orderBy: { unlockedAt: "desc" },
+    take: 3,
   });
 
   // Get active plan for this household
@@ -191,50 +139,21 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {/* Content grid */}
-      <div className="space-y-6">
-        <ActivityChart data={dailyCompletions} />
-
-        <div className="grid gap-6 sm:grid-cols-2">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Mis tareas pendientes</CardTitle>
-              <CardDescription>{myPendingTasks.length} tareas</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {myPendingTasks.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No tienes tareas pendientes</p>
-              ) : (
-                <ul className="space-y-2">
-                  {myPendingTasks.map((task) => (
-                    <li key={task.id} className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm">
-                      {task.task.name}
-                      {task.dueDate && (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {new Date(task.dueDate) < now ? (
-                            <span className="font-medium text-destructive">Atrasada</span>
-                          ) : (
-                            new Date(task.dueDate).toLocaleDateString("es", { day: "numeric", month: "short" })
-                          )}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
+      {/* Recent achievements */}
+      {recentAchievements.length > 0 && (
+        <div className="mb-6">
+          <Card className="border-[var(--color-xp)]/20 bg-[var(--color-xp)]/5">
+            <CardContent className="py-3">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-4 w-4 shrink-0 text-yellow-500" />
+                <span className="text-sm font-medium">
+                  {recentAchievements[0]!.member.name} desbloqueó: {recentAchievements[0]!.achievement.name}
+                </span>
+              </div>
             </CardContent>
           </Card>
         </div>
-
-        <RecentActivity
-          activities={recentActivity.map((a) => ({
-            id: a.id,
-            taskName: a.task.name,
-            memberName: a.member.name,
-            completedAt: a.completedAt,
-          }))}
-        />
-      </div>
+      )}
     </div>
   );
 }

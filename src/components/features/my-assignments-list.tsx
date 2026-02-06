@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TransferRequestButton } from "@/components/features/transfer-request-button";
 import { useToast } from "@/components/ui/toast";
-import { CheckCircle, Clock } from "lucide-react";
+import { CheckCircle, Clock, Check } from "lucide-react";
 
 import type { Assignment, Task } from "@prisma/client";
 
@@ -24,6 +24,8 @@ interface MyAssignmentsListProps {
   assignments: AssignmentWithTask[];
   members?: Member[];
   currentMemberId?: string;
+  completedToday?: number;
+  totalCompleted?: number;
 }
 
 const FREQUENCY_LABELS: Record<string, string> = {
@@ -34,16 +36,36 @@ const FREQUENCY_LABELS: Record<string, string> = {
   ONCE: "Una vez",
 };
 
-export function MyAssignmentsList({ assignments, members = [], currentMemberId = "" }: MyAssignmentsListProps) {
+export function MyAssignmentsList({
+  assignments,
+  members = [],
+  currentMemberId = "",
+  completedToday = 0,
+  totalCompleted = 0,
+}: MyAssignmentsListProps) {
   if (assignments.length === 0) {
     return (
       <Card>
         <CardContent className="py-8 text-center">
-          <CheckCircle className="mx-auto mb-4 h-12 w-12 text-green-500" />
+          <CheckCircle className="mx-auto mb-4 h-12 w-12 text-[var(--color-success)]" />
           <p className="text-lg font-medium">¡Todo al día!</p>
           <p className="text-muted-foreground">
             No tienes tareas pendientes. ¡Buen trabajo!
           </p>
+          {(completedToday > 0 || totalCompleted > 0) && (
+            <div className="mt-4 flex justify-center gap-6 text-sm">
+              {completedToday > 0 && (
+                <span className="text-muted-foreground">
+                  <span className="font-semibold text-[var(--color-success)]">{completedToday}</span> hoy
+                </span>
+              )}
+              {totalCompleted > 0 && (
+                <span className="text-muted-foreground">
+                  <span className="font-semibold text-[var(--color-xp)]">{totalCompleted}</span> totales
+                </span>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -81,7 +103,9 @@ function AssignmentCard({
   currentMemberId: string;
 }) {
   const [isCompleting, setIsCompleting] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
+  const [completionData, setCompletionData] = useState<CompleteResponse | null>(null);
+  const [isCollapsing, setIsCollapsing] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
   const router = useRouter();
   const toast = useToast();
 
@@ -89,8 +113,39 @@ function AssignmentCard({
   const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;
   const isToday = dueDate ? dueDate.toDateString() === new Date().toDateString() : false;
 
-  // Hide card immediately after completion
-  if (isCompleted) {
+  // Completion animation sequence
+  useEffect(() => {
+    if (!completionData) return;
+
+    // Phase 2: collapse the card after showing success
+    const collapseTimer = setTimeout(() => {
+      setIsCollapsing(true);
+    }, 800);
+
+    // Phase 3: hide completely and show toast
+    const hideTimer = setTimeout(() => {
+      setIsHidden(true);
+
+      let message = `¡+${completionData.pointsEarned} puntos!`;
+      if (completionData.leveledUp) {
+        message += ` Subiste al Nivel ${completionData.newLevel}`;
+      }
+      if (completionData.newAchievements && completionData.newAchievements.length > 0) {
+        const achievementNames = completionData.newAchievements.map(a => a.name).join(", ");
+        message += ` Logro desbloqueado: ${achievementNames}`;
+      }
+
+      toast.success("¡Tarea completada!", message);
+      router.refresh();
+    }, 1100);
+
+    return () => {
+      clearTimeout(collapseTimer);
+      clearTimeout(hideTimer);
+    };
+  }, [completionData, toast, router]);
+
+  if (isHidden) {
     return null;
   }
 
@@ -105,22 +160,7 @@ function AssignmentCard({
 
       if (response.ok) {
         const data = await response.json() as CompleteResponse;
-
-        // Hide card immediately to prevent double completion
-        setIsCompleted(true);
-
-        // Show points feedback
-        let message = `+${data.pointsEarned} puntos`;
-        if (data.leveledUp) {
-          message += ` - ¡Subiste al nivel ${data.newLevel}!`;
-        }
-        if (data.newAchievements && data.newAchievements.length > 0) {
-          const achievementNames = data.newAchievements.map(a => a.name).join(", ");
-          message += ` - Nuevo logro: ${achievementNames}`;
-        }
-
-        toast.success("¡Tarea completada!", message);
-        router.refresh();
+        setCompletionData(data);
         return;
       }
 
@@ -132,6 +172,25 @@ function AssignmentCard({
       setIsCompleting(false);
     }
   };
+
+  // Completion success state
+  if (completionData) {
+    return (
+      <div className={isCollapsing ? "animate-card-collapse" : ""}>
+        <Card className="border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950">
+          <CardContent className="flex items-center justify-center gap-3 py-6">
+            <Check className="h-6 w-6 text-green-600" />
+            <span className="font-medium text-green-700 dark:text-green-300">
+              {assignment.task.name}
+            </span>
+            <span className="animate-fade-up font-bold text-[var(--color-xp)]">
+              +{completionData.pointsEarned} pts
+            </span>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <Card className={isOverdue ? "border-destructive" : ""}>
@@ -180,7 +239,9 @@ function AssignmentCard({
           {assignment.task.estimatedMinutes && (
             <Badge variant="outline">{assignment.task.estimatedMinutes} min</Badge>
           )}
-          <Badge variant="outline">+{assignment.task.weight * 10} pts</Badge>
+          <Badge variant="outline" className="font-semibold text-[var(--color-xp)]">
+            +{assignment.task.weight * 10} pts
+          </Badge>
         </div>
       </CardContent>
     </Card>

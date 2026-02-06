@@ -154,13 +154,13 @@ export function ProfileSettings({
               </Button>
             </div>
           ) : (
-            <div className="flex items-center justify-between">
-              <span className="font-medium">{memberName}</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate font-medium">{memberName}</span>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => setIsEditingName(true)}
-                className="gap-2"
+                className="shrink-0 gap-2"
               >
                 <Pencil className="h-4 w-4" />
                 Editar
@@ -213,14 +213,14 @@ export function ProfileSettings({
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{householdName}</span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate font-medium">{householdName}</span>
                 {isAdult && (
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => setIsEditingHousehold(true)}
-                    className="gap-2"
+                    className="shrink-0 gap-2"
                   >
                     <Pencil className="h-4 w-4" />
                     Editar
@@ -253,9 +253,9 @@ export function ProfileSettings({
               {members.map((m) => (
                 <div
                   key={m.id}
-                  className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2"
+                  className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2"
                 >
-                  <span className="font-medium">{m.name}</span>
+                  <span className="min-w-0 truncate font-medium">{m.name}</span>
                   <Badge variant="outline" className="text-xs">
                     {MEMBER_TYPE_LABELS[m.memberType]}
                   </Badge>

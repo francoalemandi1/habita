@@ -1,14 +1,9 @@
 import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { isAIEnabled } from "@/lib/llm/provider";
 import { MyAssignmentsList } from "@/components/features/my-assignments-list";
 import { PendingTransfers } from "@/components/features/pending-transfers";
 import { WeeklyCelebrationWrapper } from "@/components/features/weekly-celebration-wrapper";
-import { PlanStatusCard } from "@/components/features/plan-status-card";
-import { UpcomingTasksCard } from "@/components/features/upcoming-tasks-card";
-
-import type { MemberType, TaskFrequency } from "@prisma/client";
 
 export default async function MyTasksPage() {
   const member = await getCurrentMember();
@@ -23,7 +18,7 @@ export default async function MyTasksPage() {
   startOfWeek.setDate(now.getDate() - now.getDay());
   startOfWeek.setHours(0, 0, 0, 0);
 
-  const [assignments, completedToday, completedThisWeek, totalCompleted, transfers, householdMembers, activePlan] = await Promise.all([
+  const [assignments, completedToday, completedThisWeek, totalCompleted, transfers, householdMembers] = await Promise.all([
     prisma.assignment.findMany({
       where: {
         memberId: member.id,
@@ -92,41 +87,26 @@ export default async function MyTasksPage() {
       },
       select: { id: true, name: true },
     }),
-    prisma.weeklyPlan.findFirst({
-      where: {
-        householdId: member.householdId,
-        status: { in: ["PENDING", "APPLIED"] },
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
   ]);
+
+  // Weekly comparison: only show positive improvement
+  const startOfLastWeek = new Date(startOfWeek);
+  startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+
+  const completedLastWeek = await prisma.assignment.count({
+    where: {
+      memberId: member.id,
+      status: { in: ["COMPLETED", "VERIFIED"] },
+      completedAt: { gte: startOfLastWeek, lt: startOfWeek },
+    },
+  });
+
+  const weeklyImprovement = completedThisWeek > completedLastWeek && completedLastWeek > 0
+    ? completedThisWeek - completedLastWeek
+    : 0;
 
   // Show celebration if no pending tasks and completed at least 1 this week
   const showCelebration = assignments.length === 0 && completedThisWeek > 0;
-  const aiEnabled = isAIEnabled();
-
-  // Transform plan for the status card
-  const planForCard = activePlan
-    ? {
-        id: activePlan.id,
-        status: activePlan.status,
-        balanceScore: activePlan.balanceScore,
-        assignments: activePlan.assignments as Array<{
-          taskName: string;
-          memberName: string;
-          memberType: MemberType;
-          reason: string;
-        }>,
-        durationDays: activePlan.durationDays,
-        createdAt: activePlan.createdAt,
-        appliedAt: activePlan.appliedAt,
-        expiresAt: activePlan.expiresAt,
-      }
-    : null;
-
-  // Extract excluded tasks from active plan
-  const excludedTasks = (activePlan?.excludedTasks as Array<{ taskName: string; frequency: TaskFrequency }>) ?? [];
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8">
@@ -137,13 +117,13 @@ export default async function MyTasksPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               {assignments.length} pendientes · {completedToday} completadas hoy
             </p>
+            {weeklyImprovement > 0 && (
+              <p className="mt-0.5 text-xs font-medium text-[var(--color-success)]">
+                ↑ {weeklyImprovement} más que la semana pasada
+              </p>
+            )}
           </div>
         </div>
-      </div>
-
-      {/* Plan status card */}
-      <div className="mb-6">
-        <PlanStatusCard plan={planForCard} aiEnabled={aiEnabled} />
       </div>
 
       {/* Celebration when all tasks complete */}
@@ -165,14 +145,9 @@ export default async function MyTasksPage() {
         assignments={assignments}
         members={householdMembers}
         currentMemberId={member.id}
+        completedToday={completedToday}
+        totalCompleted={totalCompleted}
       />
-
-      {/* Upcoming tasks excluded from current plan */}
-      {excludedTasks.length > 0 && (
-        <div className="mt-8">
-          <UpcomingTasksCard excludedTasks={excludedTasks} />
-        </div>
-      )}
     </div>
   );
 }

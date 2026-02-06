@@ -48,7 +48,7 @@ export default async function CompetitionsPage() {
   ]);
 
   return (
-    <div className="container py-6">
+    <div className="container max-w-4xl px-4 py-6 sm:py-8">
       <CompetitionView
         activeCompetition={activeCompetition}
         pastCompetitions={pastCompetitions}

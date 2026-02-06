@@ -549,29 +549,6 @@ export function PlanPageClient({
             </CardContent>
           </Card>
 
-          {/* Adult Distribution */}
-          {Object.keys(adultDistribution).length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Distribución entre adultos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-3">
-                  {Object.entries(adultDistribution).map(([name, count]) => (
-                    <div
-                      key={name}
-                      className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2"
-                    >
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{name}</span>
-                      <Badge variant="secondary">{count} tareas</Badge>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Expiration notice */}
           {plan.status === "PENDING" && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-3">
@@ -665,9 +642,6 @@ export function PlanPageClient({
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="font-medium">{assignment.taskName}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {assignment.reason}
-                              </p>
                             </div>
                           </li>
                         );

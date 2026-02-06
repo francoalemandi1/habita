@@ -42,7 +42,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
           <AppNav />
         </div>
       </header>
-      <main className="flex-1 pb-20 md:pb-0 pb-safe">{children}</main>
+      <main className="flex-1 pb-20 md:pb-0">{children}</main>
       <AppNavMobile />
     </div>
   );

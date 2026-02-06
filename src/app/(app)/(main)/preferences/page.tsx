@@ -40,7 +40,7 @@ export default async function PreferencesPage() {
   });
 
   return (
-    <div className="container py-8">
+    <div className="container max-w-4xl px-4 py-6 sm:py-8">
       <div className="mb-8">
         <h1 className="flex items-center gap-2 text-3xl font-bold">
           <Settings className="h-8 w-8" />

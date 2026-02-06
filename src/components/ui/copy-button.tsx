@@ -26,7 +26,7 @@ export function CopyButton({ value, className }: CopyButtonProps) {
     <Button
       variant="ghost"
       size="sm"
-      className={className ?? "h-8 w-8 shrink-0 p-0"}
+      className={className ?? "h-10 w-10 shrink-0 p-0"}
       onClick={handleCopy}
     >
       {copied ? (

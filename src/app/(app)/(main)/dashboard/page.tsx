@@ -79,7 +79,7 @@ export default async function DashboardPage() {
       <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{member.household.name}</h1>
         <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-          Código: <code className="rounded-xl bg-muted px-2.5 py-1 font-mono text-xs font-semibold">{member.household.inviteCode}</code>
+          Código: <code className="rounded-full bg-muted px-2.5 py-1 font-mono text-xs font-semibold">{member.household.inviteCode}</code>
           <CopyButton value={member.household.inviteCode} />
         </p>
       </div>

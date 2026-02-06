@@ -1,14 +1,12 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentMember, getCurrentUserMembers } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { levelProgress } from "@/lib/points";
 import { calculateStreak } from "@/lib/achievements";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { ProfileSettings } from "@/components/features/profile-settings";
-import { Star, Zap, Plus, Flame } from "lucide-react";
+import { SignOutButton } from "@/components/features/sign-out-button";
+import { ChevronRight } from "lucide-react";
+import Link from "next/link";
 
 export default async function ProfilePage() {
   const [member, allMembers] = await Promise.all([
@@ -48,23 +46,58 @@ export default async function ProfilePage() {
   const level = member.level?.level ?? 1;
   const xp = member.level?.xp ?? 0;
   const progress = levelProgress(xp, level);
+  const points = totalPoints._sum.pointsEarned ?? 0;
 
   return (
-    <div className="container max-w-4xl px-4 py-6 sm:py-8">
-      <div className="mb-6 sm:mb-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{member.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{member.household.name}</p>
-        </div>
-        <Button variant="outline" asChild className="w-fit">
-          <Link href="/onboarding?mode=join" className="gap-2">
-            <Plus className="h-4 w-4" />
-            Unirse a otro hogar
-          </Link>
-        </Button>
+    <div className="mx-auto max-w-md px-4 py-6 sm:py-8">
+      {/* Header */}
+      <h1 className="mb-6 text-3xl font-bold tracking-tight text-foreground">
+        Mi Perfil
+      </h1>
+
+      {/* Score Card */}
+      <div className="relative mb-6 flex h-[164px] flex-col justify-between overflow-hidden rounded-[10px] bg-[#5260fe] p-5">
+        <p className="text-sm font-medium text-white/80">Puntaje Total</p>
+        <p className="self-end text-8xl font-bold leading-none text-white">
+          {points}
+        </p>
       </div>
 
-      {/* Settings */}
+      {/* Stats Section */}
+      <div className="mb-6">
+        <h2 className="mb-2 text-2xl font-bold text-foreground">Estadísticas</h2>
+        <div className="flex gap-2">
+          {/* Completadas */}
+          <div className="flex h-[130px] flex-1 flex-col justify-between rounded-[10px] bg-[#d0b6ff] p-4">
+            <p className="text-xs font-semibold text-[#522a97]">Completadas</p>
+            <p className="text-4xl font-bold text-[#522a97]">{completedTasks}</p>
+          </div>
+          {/* Racha */}
+          <div className="flex h-[130px] flex-1 flex-col justify-between rounded-[10px] bg-[#d2ffa0] p-4">
+            <p className="text-xs font-semibold text-[#272727]">Racha</p>
+            <p className="text-4xl font-bold text-[#272727]">{currentStreak}</p>
+          </div>
+          {/* Progreso */}
+          <div className="flex h-[130px] flex-1 flex-col justify-between rounded-[10px] bg-[#fd7c52] p-4">
+            <p className="text-xs font-semibold text-[#fed9cb]">Progreso</p>
+            <p className="text-4xl font-bold text-white">{progress}%</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Mi Hogar Section */}
+      <div className="mb-6">
+        <h2 className="mb-2 text-2xl font-bold text-foreground">Mi Hogar</h2>
+        <Link
+          href="/dashboard"
+          className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm"
+        >
+          <span className="font-medium text-foreground">{member.household.name}</span>
+          <ChevronRight className="size-5 text-primary" />
+        </Link>
+      </div>
+
+      {/* Settings (edit name, household, invite code, members list) */}
       <div className="mb-8">
         <ProfileSettings
           memberName={member.name}
@@ -75,62 +108,8 @@ export default async function ProfilePage() {
         />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Level Card */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2">
-              <Star className="h-5 w-5 text-[var(--color-level)]" />
-              Nivel {level}
-            </CardTitle>
-            <CardDescription>{xp} XP total</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Progreso al nivel {level + 1}</span>
-                <span>{progress}%</span>
-              </div>
-              <Progress value={progress} />
-              <p className="text-xs text-muted-foreground">
-                {100 - (xp % 100)} XP para el siguiente nivel
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Stats Card */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5 text-blue-500" />
-              Estadísticas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="space-y-2">
-              <div className="flex justify-between">
-                <dt className="flex items-center gap-1 text-muted-foreground">
-                  <Flame className="h-4 w-4 text-orange-500" />
-                  Racha actual
-                </dt>
-                <dd className="font-medium">
-                  {currentStreak} {currentStreak === 1 ? "día" : "días"}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Tareas completadas</dt>
-                <dd className="font-medium">{completedTasks}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Puntos ganados</dt>
-                <dd className="font-medium text-[var(--color-xp)]">{totalPoints._sum.pointsEarned ?? 0}</dd>
-              </div>
-            </dl>
-          </CardContent>
-        </Card>
-
-      </div>
+      {/* Sign Out */}
+      <SignOutButton />
     </div>
   );
 }

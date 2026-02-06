@@ -109,21 +109,17 @@ export default async function MyTasksPage() {
   const showCelebration = assignments.length === 0 && completedThisWeek > 0;
 
   return (
-    <div className="container max-w-4xl px-4 py-6 sm:py-8">
-      <div className="mb-6 sm:mb-8">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Mis tareas</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {assignments.length} pendientes · {completedToday} completadas hoy
-            </p>
-            {weeklyImprovement > 0 && (
-              <p className="mt-0.5 text-xs font-medium text-[var(--color-success)]">
-                ↑ {weeklyImprovement} más que la semana pasada
-              </p>
-            )}
-          </div>
-        </div>
+    <div className="mx-auto max-w-md px-4 py-6 sm:py-8">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Mis tareas</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {assignments.length} pendientes · {completedToday} completadas hoy
+        </p>
+        {weeklyImprovement > 0 && (
+          <p className="mt-0.5 text-xs font-medium text-[var(--color-success)]">
+            ↑ {weeklyImprovement} más que la semana pasada
+          </p>
+        )}
       </div>
 
       {/* Celebration when all tasks complete */}

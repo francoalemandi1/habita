@@ -114,7 +114,7 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
 
   return (
     <div
-      className={`flex min-w-[300px] items-start gap-3 rounded-lg border p-4 shadow-lg ${backgrounds[toast.type]}`}
+      className={`flex min-w-[300px] items-start gap-3 rounded-2xl border p-4 shadow-lg ${backgrounds[toast.type]}`}
       role="alert"
     >
       {icons[toast.type]}

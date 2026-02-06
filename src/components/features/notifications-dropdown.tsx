@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Bell, ArrowRightLeft, AlertTriangle, Trophy, TrendingUp } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Notification {
   id: string;
@@ -23,18 +24,28 @@ interface Notification {
   actionUrl?: string;
 }
 
+const NOTIFICATION_STYLES: Record<Notification["type"], { bg: string; iconColor: string }> = {
+  transfer_request: { bg: "bg-[#e4d5ff]/50", iconColor: "text-primary" },
+  transfer_accepted: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-600" },
+  transfer_rejected: { bg: "bg-red-50", iconColor: "text-red-500" },
+  task_overdue: { bg: "bg-[#fff0d7]", iconColor: "text-red-500" },
+  achievement_unlocked: { bg: "bg-[#fff0d7]", iconColor: "text-yellow-500" },
+  level_up: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-500" },
+};
+
 function getNotificationIcon(type: Notification["type"]) {
+  const style = NOTIFICATION_STYLES[type];
   switch (type) {
     case "transfer_request":
     case "transfer_accepted":
     case "transfer_rejected":
-      return <ArrowRightLeft className="h-4 w-4" />;
+      return <ArrowRightLeft className={cn("h-4 w-4", style.iconColor)} />;
     case "task_overdue":
-      return <AlertTriangle className="h-4 w-4 text-red-500" />;
+      return <AlertTriangle className={cn("h-4 w-4", style.iconColor)} />;
     case "achievement_unlocked":
-      return <Trophy className="h-4 w-4 text-yellow-500" />;
+      return <Trophy className={cn("h-4 w-4", style.iconColor)} />;
     case "level_up":
-      return <TrendingUp className="h-4 w-4 text-green-500" />;
+      return <TrendingUp className={cn("h-4 w-4", style.iconColor)} />;
     default:
       return <Bell className="h-4 w-4" />;
   }
@@ -102,59 +113,70 @@ export function NotificationsDropdown() {
           )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[80vh] overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="max-h-[80vh] overflow-hidden p-0">
+        <DialogHeader className="px-5 pt-5 pb-3">
           <DialogTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
             Notificaciones
+            {unreadCount > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {unreadCount}
+              </Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
-        <div className="max-h-[60vh] overflow-y-auto">
+        <div className="max-h-[60vh] overflow-y-auto px-5 pb-5">
           {isLoading ? (
             <p className="py-8 text-center text-muted-foreground">Cargando...</p>
           ) : notifications.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">
-              No tienes notificaciones
-            </p>
+            <div className="py-10 text-center">
+              <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-muted/50">
+                <Bell className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                No tienes notificaciones
+              </p>
+            </div>
           ) : (
             <div className="space-y-2">
-              {notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className="rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                >
-                  {notification.actionUrl ? (
-                    <Link
-                      href={notification.actionUrl}
-                      onClick={() => setOpen(false)}
-                      className="block"
-                    >
-                      <NotificationContent notification={notification} />
-                    </Link>
-                  ) : (
-                    <NotificationContent notification={notification} />
-                  )}
-                </div>
-              ))}
+              {notifications.map((notification) => {
+                const style = NOTIFICATION_STYLES[notification.type];
+                const content = (
+                  <div className={cn("rounded-2xl p-4 transition-colors", style.bg)}>
+                    <div className="flex gap-3">
+                      <div className="mt-0.5 shrink-0 flex size-8 items-center justify-center rounded-full bg-white/60">
+                        {getNotificationIcon(notification.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm">{notification.title}</p>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          {notification.message}
+                        </p>
+                        <p className="mt-1.5 text-xs text-muted-foreground">
+                          {formatRelativeTime(notification.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+
+                return notification.actionUrl ? (
+                  <Link
+                    key={notification.id}
+                    href={notification.actionUrl}
+                    onClick={() => setOpen(false)}
+                    className="block"
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  <div key={notification.id}>{content}</div>
+                );
+              })}
             </div>
           )}
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function NotificationContent({ notification }: { notification: Notification }) {
-  return (
-    <div className="flex gap-3">
-      <div className="mt-0.5">{getNotificationIcon(notification.type)}</div>
-      <div className="flex-1">
-        <p className="font-medium">{notification.title}</p>
-        <p className="text-sm text-muted-foreground">{notification.message}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {formatRelativeTime(notification.createdAt)}
-        </p>
-      </div>
-    </div>
   );
 }

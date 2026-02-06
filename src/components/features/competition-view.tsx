@@ -246,7 +246,7 @@ export function CompetitionView({
                 return (
                   <div
                     key={score.id}
-                    className={`flex items-center gap-4 rounded-lg p-3 ${
+                    className={`flex items-center gap-4 rounded-2xl p-3 ${
                       isCurrentUser
                         ? "bg-primary/10 ring-2 ring-primary/30"
                         : "bg-background/50"

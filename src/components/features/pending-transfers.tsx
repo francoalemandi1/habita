@@ -132,7 +132,7 @@ export function PendingTransfers({ transfers, currentMemberId }: PendingTransfer
               {incomingTransfers.map((transfer) => (
                 <div
                   key={transfer.id}
-                  className="flex items-center justify-between rounded-lg border border-yellow-500/50 bg-yellow-50/50 p-3 dark:bg-yellow-950/20"
+                  className="flex items-center justify-between rounded-2xl border border-yellow-500/50 bg-yellow-50/50 p-3 dark:bg-yellow-950/20"
                 >
                   <div>
                     <p className="font-medium">{transfer.assignment.task.name}</p>
@@ -178,7 +178,7 @@ export function PendingTransfers({ transfers, currentMemberId }: PendingTransfer
               {outgoingTransfers.map((transfer) => (
                 <div
                   key={transfer.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
+                  className="flex items-center justify-between rounded-2xl border p-3"
                 >
                   <div>
                     <p className="font-medium">{transfer.assignment.task.name}</p>

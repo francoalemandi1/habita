@@ -189,7 +189,7 @@ export function AbsencesManager({ absences }: AbsencesManagerProps) {
               {upcomingAbsences.map((absence) => (
                 <div
                   key={absence.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
+                  className="flex items-center justify-between rounded-2xl border p-3"
                 >
                   <div>
                     <div className="font-medium">

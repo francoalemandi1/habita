@@ -42,7 +42,7 @@ export function UpcomingTasksCard({ excludedTasks }: UpcomingTasksCardProps) {
           {excludedTasks.map((task) => (
             <div
               key={task.taskName}
-              className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/30 px-3 py-2"
+              className="flex items-center gap-2 rounded-2xl border border-dashed bg-muted/30 px-3 py-2"
             >
               <span className="text-sm">{task.taskName}</span>
               <Badge variant="outline" className="text-xs">

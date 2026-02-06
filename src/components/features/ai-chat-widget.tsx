@@ -149,7 +149,7 @@ export function AiChatWidget() {
                   <button
                     key={question}
                     onClick={() => handleSuggestedQuestion(question)}
-                    className="block w-full rounded-lg border bg-muted/50 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+                    className="block w-full rounded-2xl border bg-muted/50 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
                     disabled={isLoading}
                   >
                     {question}
@@ -165,7 +165,7 @@ export function AiChatWidget() {
                   className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[85%] rounded-lg px-3 py-2 ${
+                    className={`max-w-[85%] rounded-2xl px-3 py-2 ${
                       message.role === "user"
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted"
@@ -177,7 +177,7 @@ export function AiChatWidget() {
               ))}
               {isLoading && messages[messages.length - 1]?.role === "user" && (
                 <div className="flex justify-start">
-                  <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
+                  <div className="flex items-center gap-2 rounded-2xl bg-muted px-3 py-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span className="text-sm text-muted-foreground">Pensando...</span>
                   </div>
@@ -196,7 +196,7 @@ export function AiChatWidget() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Escribe tu pregunta..."
-              className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="flex-1 rounded-full border border-muted-foreground bg-background px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               disabled={isLoading}
             />
             <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>

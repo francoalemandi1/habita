@@ -81,7 +81,7 @@ export function PenaltiesSection({ penalties, stats }: PenaltiesSectionProps) {
           {penalties.map((penalty) => (
             <div
               key={penalty.id}
-              className="flex items-start gap-3 rounded-lg border p-3"
+              className="flex items-start gap-3 rounded-2xl border p-3"
             >
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/30">
                 <AlertTriangle className="h-4 w-4 text-orange-500" />

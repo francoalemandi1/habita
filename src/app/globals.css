@@ -1,27 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  /* Gamified warm palette - light */
-  --background: 40 20% 98%;
-  --foreground: 24 10% 12%;
+  /* Figma design system - warm cream palette */
+  --background: 39 100% 96%;    /* #FFF7EA */
+  --foreground: 0 0% 15%;       /* #272727 */
   --card: 0 0% 100%;
-  --card-foreground: 24 10% 12%;
+  --card-foreground: 0 0% 15%;
   --popover: 0 0% 100%;
-  --popover-foreground: 24 10% 12%;
-  /* Primary: amber/orange - energy, XP, CTA */
-  --primary: 32 95% 44%;
+  --popover-foreground: 0 0% 15%;
+  /* Primary: indigo/violet - actions, CTA */
+  --primary: 234 99% 66%;       /* #5260FE */
   --primary-foreground: 0 0% 100%;
-  --secondary: 45 93% 88%;
-  --secondary-foreground: 24 10% 12%;
-  --muted: 40 15% 94%;
-  --muted-foreground: 24 5% 45%;
-  --accent: 45 93% 92%;
-  --accent-foreground: 24 10% 12%;
+  --secondary: 39 60% 92%;
+  --secondary-foreground: 0 0% 15%;
+  --muted: 39 30% 93%;
+  --muted-foreground: 0 0% 35%; /* #595959 */
+  --accent: 39 60% 94%;
+  --accent-foreground: 0 0% 15%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  --border: 40 15% 90%;
-  --input: 40 15% 90%;
-  --ring: 32 95% 44%;
+  --border: 216 16% 80%;        /* #c3ccd7 */
+  --input: 0 0% 35%;            /* #595959 - input borders */
+  --ring: 234 99% 66%;
   /* Gamification tokens */
   --success: 142 71% 45%;
   --xp: 38 92% 50%;
@@ -30,25 +30,25 @@
 }
 
 .dark {
-  --background: 24 10% 8%;
-  --foreground: 40 15% 95%;
-  --card: 24 10% 11%;
-  --card-foreground: 40 15% 95%;
-  --popover: 24 10% 11%;
-  --popover-foreground: 40 15% 95%;
-  --primary: 38 92% 50%;
-  --primary-foreground: 24 10% 8%;
-  --secondary: 32 30% 18%;
-  --secondary-foreground: 40 15% 95%;
-  --muted: 24 10% 16%;
-  --muted-foreground: 40 10% 55%;
-  --accent: 32 30% 18%;
-  --accent-foreground: 40 15% 95%;
+  --background: 220 13% 10%;
+  --foreground: 39 30% 93%;
+  --card: 220 13% 13%;
+  --card-foreground: 39 30% 93%;
+  --popover: 220 13% 13%;
+  --popover-foreground: 39 30% 93%;
+  --primary: 234 99% 72%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 13% 18%;
+  --secondary-foreground: 39 30% 93%;
+  --muted: 220 13% 16%;
+  --muted-foreground: 0 0% 60%;
+  --accent: 220 13% 18%;
+  --accent-foreground: 39 30% 93%;
   --destructive: 0 62% 40%;
   --destructive-foreground: 0 0% 98%;
-  --border: 24 10% 20%;
-  --input: 24 10% 20%;
-  --ring: 38 92% 50%;
+  --border: 220 13% 22%;
+  --input: 220 13% 22%;
+  --ring: 234 99% 72%;
   --success: 142 71% 40%;
   --xp: 38 92% 55%;
   --level: 262 83% 65%;

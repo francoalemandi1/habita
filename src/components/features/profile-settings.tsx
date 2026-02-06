@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -118,68 +117,66 @@ export function ProfileSettings({
   return (
     <div className="space-y-6">
       {/* Edit name */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Mi nombre</CardTitle>
-          <CardDescription>Cómo te ven los demás miembros del hogar</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isEditingName ? (
-            <div className="flex items-center gap-2">
-              <Input
-                value={nameValue}
-                onChange={(e) => setNameValue(e.target.value)}
-                maxLength={50}
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSaveName();
-                  if (e.key === "Escape") {
-                    setIsEditingName(false);
-                    setNameValue(memberName);
-                  }
-                }}
-              />
-              <Button size="sm" onClick={handleSaveName} disabled={isSavingName}>
-                <Check className="h-4 w-4" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
+      <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <div className="mb-3">
+          <h3 className="text-lg font-semibold">Mi nombre</h3>
+          <p className="text-sm text-muted-foreground">Cómo te ven los demás miembros del hogar</p>
+        </div>
+        {isEditingName ? (
+          <div className="flex items-center gap-2">
+            <Input
+              value={nameValue}
+              onChange={(e) => setNameValue(e.target.value)}
+              maxLength={50}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveName();
+                if (e.key === "Escape") {
                   setIsEditingName(false);
                   setNameValue(memberName);
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between gap-2">
-              <span className="min-w-0 truncate font-medium">{memberName}</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setIsEditingName(true)}
-                className="shrink-0 gap-2"
-              >
-                <Pencil className="h-4 w-4" />
-                Editar
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                }
+              }}
+            />
+            <Button size="sm" onClick={handleSaveName} disabled={isSavingName}>
+              <Check className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setIsEditingName(false);
+                setNameValue(memberName);
+              }}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <span className="min-w-0 truncate font-medium">{memberName}</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setIsEditingName(true)}
+              className="shrink-0 gap-2"
+            >
+              <Pencil className="h-4 w-4" />
+              Editar
+            </Button>
+          </div>
+        )}
+      </div>
 
       {/* Household settings */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-lg">
+      <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <div className="mb-3">
+          <h3 className="flex items-center gap-2 text-lg font-semibold">
             <Users className="h-5 w-5" />
             Mi hogar
-          </CardTitle>
-          <CardDescription>Configuración del hogar y miembros</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          </h3>
+          <p className="text-sm text-muted-foreground">Configuración del hogar y miembros</p>
+        </div>
+        <div className="space-y-4">
           {/* Household name */}
           <div>
             <p className="text-sm text-muted-foreground mb-1">Nombre del hogar</p>
@@ -234,7 +231,7 @@ export function ProfileSettings({
           <div>
             <p className="text-sm text-muted-foreground mb-1">Código de invitación</p>
             <div className="flex items-center gap-2">
-              <code className="rounded-xl bg-muted px-3 py-1.5 font-mono text-sm font-semibold tracking-widest">
+              <code className="rounded-full bg-muted px-3 py-1.5 font-mono text-sm font-semibold tracking-widest">
                 {inviteCode}
               </code>
               <CopyButton value={inviteCode} />
@@ -253,7 +250,7 @@ export function ProfileSettings({
               {members.map((m) => (
                 <div
                   key={m.id}
-                  className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2"
+                  className="flex items-center justify-between gap-2 rounded-2xl bg-muted/30 px-3 py-2"
                 >
                   <span className="min-w-0 truncate font-medium">{m.name}</span>
                   <Badge variant="outline" className="text-xs">
@@ -266,7 +263,7 @@ export function ProfileSettings({
 
           {/* Invite CTA */}
           {members.length === 1 && (
-            <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+            <div className="flex items-center gap-3 rounded-2xl bg-primary/5 px-4 py-3">
               <UserPlus className="h-5 w-5 text-primary shrink-0" />
               <div>
                 <p className="text-sm font-medium">¡Invitá a tu familia!</p>
@@ -276,8 +273,8 @@ export function ProfileSettings({
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

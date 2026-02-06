@@ -64,11 +64,11 @@ export function WeeklyCelebration({
         </p>
 
         <div className="mb-6 grid grid-cols-2 gap-4">
-          <div className="rounded-xl border bg-card p-4">
+          <div className="rounded-2xl border bg-card p-4">
             <p className="text-3xl font-bold text-primary">{weeklyCompleted}</p>
             <p className="text-sm text-muted-foreground">tareas esta semana</p>
           </div>
-          <div className="rounded-xl border bg-card p-4">
+          <div className="rounded-2xl border bg-card p-4">
             <p className="text-3xl font-bold text-primary">{totalCompleted}</p>
             <p className="text-sm text-muted-foreground">tareas en total</p>
           </div>

@@ -121,7 +121,7 @@ export function AiSuggestionsCard() {
           <>
             {/* Insights */}
             {data.insights.length > 0 && (
-              <div className="rounded-lg bg-muted/50 p-3">
+              <div className="rounded-2xl bg-muted/50 p-3">
                 <div className="mb-2 flex items-center gap-1.5">
                   <Lightbulb className="h-4 w-4 text-yellow-500" />
                   <span className="text-xs font-medium">Observaciones</span>
@@ -147,7 +147,7 @@ export function AiSuggestionsCard() {
                   .map((rec, i) => (
                     <div
                       key={i}
-                      className="flex items-start justify-between gap-2 rounded-lg border bg-card p-2.5"
+                      className="flex items-start justify-between gap-2 rounded-2xl border bg-card p-2.5"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{rec.taskName}</p>

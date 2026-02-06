@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import {
   CheckCircle2,
@@ -362,114 +361,108 @@ export function PlanPageClient({
 
       {/* Loading state */}
       {isGenerating && !plan && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="flex flex-col items-center justify-center py-12 text-center">
             <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
             <h2 className="text-lg font-semibold mb-2">Generando plan</h2>
             <p className="text-sm text-muted-foreground max-w-md">
               Analizando tareas y distribuyendo equitativamente entre los miembros...
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* No plan - show tasks list and generate button */}
       {!plan && !isGenerating && (
         <div className="space-y-6">
           {/* Tasks that will be distributed */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Tareas a distribuir</CardTitle>
-              <CardDescription>
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold">Tareas a distribuir</h3>
+              <p className="text-sm text-muted-foreground">
                 {tasks.length} tareas serán asignadas equitativamente entre {members.length} {members.length === 1 ? "miembro" : "miembros"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {tasks.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No hay tareas activas en tu hogar.{" "}
-                  <Link href="/tasks" className="text-primary underline">
-                    Agrega tareas
-                  </Link>
-                </p>
-              ) : (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2"
-                    >
-                      <span className="text-sm font-medium">{task.name}</span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {FREQUENCY_LABELS[task.frequency]}
-                        </Badge>
-                        {task.estimatedMinutes && (
-                          <Badge variant="secondary" className="text-xs">
-                            {task.estimatedMinutes} min
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Members summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Miembros del hogar</CardTitle>
-              <CardDescription>
-                El plan considerará el tipo y capacidad de cada miembro
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-3">
-                {members.map((m) => (
+              </p>
+            </div>
+            {tasks.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No hay tareas activas en tu hogar.{" "}
+                <Link href="/tasks" className="text-primary underline">
+                  Agrega tareas
+                </Link>
+              </p>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {tasks.map((task) => (
                   <div
-                    key={m.id}
-                    className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2"
+                    key={task.id}
+                    className="flex items-center justify-between rounded-2xl bg-muted/30 px-3 py-2"
                   >
-                    {MEMBER_TYPE_ICONS[m.type]}
-                    <span className="font-medium">{m.name}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {MEMBER_TYPE_LABELS[m.type]}
-                    </Badge>
+                    <span className="text-sm font-medium">{task.name}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {FREQUENCY_LABELS[task.frequency]}
+                      </Badge>
+                      {task.estimatedMinutes && (
+                        <Badge variant="secondary" className="text-xs">
+                          {task.estimatedMinutes} min
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            )}
+          </div>
+
+          {/* Members summary */}
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold">Miembros del hogar</h3>
+              <p className="text-sm text-muted-foreground">
+                El plan considerará el tipo y capacidad de cada miembro
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {members.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center gap-2 rounded-2xl bg-muted/30 px-3 py-2"
+                >
+                  {MEMBER_TYPE_ICONS[m.type]}
+                  <span className="font-medium">{m.name}</span>
+                  <Badge variant="outline" className="text-xs">
+                    {MEMBER_TYPE_LABELS[m.type]}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* Duration selector */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Duración del plan</CardTitle>
-              <CardDescription>
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold">Duración del plan</h3>
+              <p className="text-sm text-muted-foreground">
                 Las tareas con frecuencia mayor a la duración se excluirán automáticamente
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {DURATION_PRESETS.map((preset) => (
-                  <Button
-                    key={preset.days}
-                    variant={durationDays === preset.days ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setDurationDays(preset.days)}
-                  >
-                    {preset.label}
-                  </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {DURATION_PRESETS.map((preset) => (
+                <Button
+                  key={preset.days}
+                  variant={durationDays === preset.days ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDurationDays(preset.days)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+          </div>
 
           {/* Generate button */}
-          <Card className="border-primary/20 bg-primary/5">
-            <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-6">
+          <div className="rounded-2xl bg-primary/5 p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div>
                 <p className="font-medium">¿Listo para distribuir?</p>
                 <p className="text-sm text-muted-foreground">
@@ -485,8 +478,8 @@ export function PlanPageClient({
                 <CalendarDays className="h-5 w-5" />
                 Generar plan
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       )}
 
@@ -495,8 +488,8 @@ export function PlanPageClient({
         <div className="space-y-6">
           {/* Status banner */}
           {plan.status === "APPLIED" && !isGenerating && (
-            <Card className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950">
-              <CardContent className="flex items-center gap-3 py-4">
+            <div className="rounded-2xl bg-green-50 p-4 shadow-sm dark:bg-green-950">
+              <div className="flex items-center gap-3">
                 <CheckCheck className="h-5 w-5 text-green-600" />
                 <div>
                   <p className="font-medium text-green-800 dark:text-green-200">
@@ -514,44 +507,40 @@ export function PlanPageClient({
                       : ""}
                   </p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
 
           {/* Balance Score */}
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Equidad de distribución</CardTitle>
-                <span className={cn("text-3xl font-bold", getScoreColor(plan.balanceScore))}>
-                  {plan.balanceScore}%
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Equidad de distribución</h3>
+              <span className={cn("text-3xl font-bold", getScoreColor(plan.balanceScore))}>
+                {plan.balanceScore}%
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">
+              Qué tan justa es la distribución entre los miembros
+            </p>
+            <div className="relative h-3 rounded-full bg-muted overflow-hidden">
+              <div
+                className={cn("h-full transition-all", getScoreBgColor(plan.balanceScore))}
+                style={{ width: `${plan.balanceScore}%` }}
+              />
+            </div>
+            {fairnessDetails && !fairnessDetails.isSymmetric && (
+              <div className="flex items-center gap-2 text-sm text-amber-600 mt-3">
+                <AlertTriangle className="h-4 w-4" />
+                <span>
+                  Diferencia de {fairnessDetails.maxDifference} tareas entre adultos
                 </span>
               </div>
-              <CardDescription>
-                Qué tan justa es la distribución entre los miembros
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="relative h-3 rounded-full bg-muted overflow-hidden">
-                <div
-                  className={cn("h-full transition-all", getScoreBgColor(plan.balanceScore))}
-                  style={{ width: `${plan.balanceScore}%` }}
-                />
-              </div>
-              {fairnessDetails && !fairnessDetails.isSymmetric && (
-                <div className="flex items-center gap-2 text-sm text-amber-600 mt-3">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span>
-                    Diferencia de {fairnessDetails.maxDifference} tareas entre adultos
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            )}
+          </div>
 
           {/* Expiration notice */}
           {plan.status === "PENDING" && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-2xl px-4 py-3">
               <Clock className="h-4 w-4" />
               <span>
                 Este plan expira el{" "}
@@ -565,25 +554,23 @@ export function PlanPageClient({
 
           {/* Excluded tasks */}
           {plan.excludedTasks.length > 0 && (
-            <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base text-amber-800 dark:text-amber-200">
+            <div className="rounded-2xl bg-amber-50 p-5 shadow-sm dark:bg-amber-950">
+              <div className="mb-3">
+                <h3 className="text-base font-semibold text-amber-800 dark:text-amber-200">
                   Tareas fuera de este plan
-                </CardTitle>
-                <CardDescription className="text-amber-600 dark:text-amber-400">
+                </h3>
+                <p className="text-sm text-amber-600 dark:text-amber-400">
                   Estas tareas se asignarán en un plan de mayor duración
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {plan.excludedTasks.map((task) => (
-                    <Badge key={task.taskName} variant="outline" className="text-amber-700 border-amber-300 dark:text-amber-300 dark:border-amber-700">
-                      {task.taskName} ({FREQUENCY_LABELS[task.frequency]})
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {plan.excludedTasks.map((task) => (
+                  <Badge key={task.taskName} variant="outline" className="text-amber-700 border-amber-300 dark:text-amber-300 dark:border-amber-700">
+                    {task.taskName} ({FREQUENCY_LABELS[task.frequency]})
+                  </Badge>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Assignments by Member */}
@@ -596,86 +583,79 @@ export function PlanPageClient({
               const isPending = plan.status === "PENDING";
 
               return (
-                <Card key={memberName}>
-                  <CardHeader className="pb-2 bg-muted/30">
-                    <div className="flex items-center gap-2">
-                      {MEMBER_TYPE_ICONS[memberType]}
-                      <CardTitle className="text-base">{memberName}</CardTitle>
-                      <Badge variant="outline" className="ml-auto">
-                        {MEMBER_TYPE_LABELS[memberType]}
-                      </Badge>
-                      {isOptional && isPending && (
-                        <span className="text-xs text-muted-foreground">(opcional)</span>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <ul className="divide-y">
-                      {assignments.map((assignment) => {
-                        const key = `${assignment.taskName}|${assignment.memberName}`;
-                        const isSelected = selectedAssignments.has(key);
-                        const canToggle = memberType !== "ADULT" && isPending;
+                <div key={memberName} className="rounded-2xl bg-white shadow-sm overflow-hidden">
+                  <div className="flex items-center gap-2 bg-muted/30 px-5 py-3">
+                    {MEMBER_TYPE_ICONS[memberType]}
+                    <span className="text-base font-semibold">{memberName}</span>
+                    <Badge variant="outline" className="ml-auto">
+                      {MEMBER_TYPE_LABELS[memberType]}
+                    </Badge>
+                    {isOptional && isPending && (
+                      <span className="text-xs text-muted-foreground">(opcional)</span>
+                    )}
+                  </div>
+                  <ul>
+                    {assignments.map((assignment, idx) => {
+                      const key = `${assignment.taskName}|${assignment.memberName}`;
+                      const isSelected = selectedAssignments.has(key);
+                      const canToggle = memberType !== "ADULT" && isPending;
 
-                        return (
-                          <li
-                            key={key}
-                            className={cn(
-                              "flex items-start gap-3 p-4 transition-colors",
-                              canToggle && "cursor-pointer hover:bg-muted/50",
-                              !isSelected && isPending && "opacity-50"
+                      return (
+                        <li
+                          key={key}
+                          className={cn(
+                            "flex items-start gap-3 px-5 py-3 transition-colors",
+                            idx > 0 && "border-t border-muted/40",
+                            canToggle && "cursor-pointer hover:bg-muted/30",
+                            !isSelected && isPending && "opacity-50"
+                          )}
+                          onClick={() =>
+                            toggleAssignment(assignment.taskName, memberName, memberType)
+                          }
+                        >
+                          <div className="mt-0.5">
+                            {isSelected || plan.status === "APPLIED" ? (
+                              <CheckCircle2
+                                className={cn(
+                                  "h-5 w-5",
+                                  canToggle ? "text-green-600" : "text-primary"
+                                )}
+                              />
+                            ) : (
+                              <XCircle className="h-5 w-5 text-muted-foreground" />
                             )}
-                            onClick={() =>
-                              toggleAssignment(assignment.taskName, memberName, memberType)
-                            }
-                          >
-                            <div className="mt-0.5">
-                              {isSelected || plan.status === "APPLIED" ? (
-                                <CheckCircle2
-                                  className={cn(
-                                    "h-5 w-5",
-                                    canToggle ? "text-green-600" : "text-primary"
-                                  )}
-                                />
-                              ) : (
-                                <XCircle className="h-5 w-5 text-muted-foreground" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium">{assignment.taskName}</p>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </CardContent>
-                </Card>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium">{assignment.taskName}</p>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               );
             })}
           </div>
 
           {/* Notes */}
           {plan.notes.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Notas del plan</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {plan.notes.map((note, idx) => (
-                    <li key={idx} className="text-sm text-muted-foreground flex gap-2">
-                      <span>•</span>
-                      <span>{note}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+            <div className="rounded-2xl bg-white p-5 shadow-sm">
+              <h3 className="text-lg font-semibold mb-3">Notas del plan</h3>
+              <ul className="space-y-2">
+                {plan.notes.map((note, idx) => (
+                  <li key={idx} className="text-sm text-muted-foreground flex gap-2">
+                    <span>•</span>
+                    <span>{note}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {/* Action buttons */}
           {plan.status === "PENDING" && (
-            <Card className="border-primary/20">
-              <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
+            <div className="rounded-2xl bg-white p-5 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <p className="text-sm text-muted-foreground">
                   {selectedCount} de {totalCount} asignaciones seleccionadas
                 </p>
@@ -705,8 +685,8 @@ export function PlanPageClient({
                     )}
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
 
           {/* Actions after applied */}

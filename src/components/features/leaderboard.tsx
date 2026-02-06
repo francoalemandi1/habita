@@ -65,7 +65,7 @@ export function Leaderboard({ members, currentMemberId }: LeaderboardProps) {
           {members.map((member, index) => (
             <div
               key={member.id}
-              className={`flex items-center justify-between gap-2 rounded-xl border-2 p-3 transition-colors ${
+              className={`flex items-center justify-between gap-2 rounded-2xl border-2 p-3 transition-colors ${
                 member.id === currentMemberId
                   ? "border-primary bg-primary/10"
                   : "border-border/60 bg-card"

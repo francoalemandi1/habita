@@ -158,7 +158,7 @@ export function PlanRewardsSection({
               <CardContent>
                 <Progress value={completionRate} className="mb-3 h-2" />
                 {memberRewards.map((reward) => (
-                  <div key={reward.id} className="rounded-lg border bg-muted/30 p-3">
+                  <div key={reward.id} className="rounded-2xl border bg-muted/30 p-3">
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-medium text-sm">{reward.name}</span>
                       <Badge variant="secondary" className="text-xs">

@@ -50,7 +50,7 @@ export function HouseholdSwitcher({
         value={currentHouseholdId}
         onChange={(e) => handleChange(e.target.value)}
         disabled={switching}
-        className="max-w-[10rem] rounded-xl border border-border/80 bg-transparent py-2.5 pl-8 pr-6 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50 md:max-w-[12rem]"
+        className="max-w-[10rem] rounded-full border border-muted-foreground bg-background py-2.5 pl-8 pr-6 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 md:max-w-[12rem]"
         aria-label="Cambiar de hogar"
       >
         {households.map((h) => (

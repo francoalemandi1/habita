@@ -1,11 +1,6 @@
 "use client";
 
-const FREQUENCY_LABELS: Record<string, string> = {
-  daily: "Diario",
-  weekly: "Semanal",
-  biweekly: "Quincenal",
-  monthly: "Mensual",
-};
+import { Check } from "lucide-react";
 
 export interface CatalogTaskItemData {
   name: string;
@@ -23,33 +18,31 @@ interface CatalogTaskItemProps {
 }
 
 export function CatalogTaskItem({ task, onToggle }: CatalogTaskItemProps) {
-  const frequencyLabel =
-    FREQUENCY_LABELS[task.defaultFrequency] ?? task.defaultFrequency;
   const isSelected = !!task.selected;
 
   return (
     <button
       type="button"
       onClick={onToggle}
-      className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-colors ${
+      className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-all ${
         isSelected
-          ? "border-primary bg-primary/5"
-          : "border-transparent bg-muted/30 hover:bg-muted/50"
+          ? "mb-1 bg-primary/10"
+          : "bg-transparent hover:bg-muted/50"
       }`}
     >
-      <span className="text-xl" aria-hidden>
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-card text-xl shadow-sm">
         {task.icon}
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="font-medium">{task.name}</p>
-        <p className="text-sm text-muted-foreground">{frequencyLabel}</p>
-      </div>
-      <div
-        className={`h-5 w-5 shrink-0 rounded-full border-2 ${
-          isSelected ? "border-primary bg-primary" : "border-muted-foreground"
+      <span className="min-w-0 flex-1 text-base text-foreground">{task.name}</span>
+      <span
+        className={`flex size-6 shrink-0 items-center justify-center rounded-full transition-colors ${
+          isSelected
+            ? "bg-primary text-white"
+            : "border-2 border-border"
         }`}
-        aria-hidden
-      />
+      >
+        {isSelected && <Check className="size-3.5" strokeWidth={3} />}
+      </span>
     </button>
   );
 }

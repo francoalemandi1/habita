@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -13,9 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ProgressIndicator } from "@/components/features/onboarding/progress-indicator";
+import { OnboardingLayout } from "@/components/features/onboarding/onboarding-layout";
+import { StepHeader } from "@/components/features/onboarding/step-header";
 import { CatalogTaskItem } from "@/components/features/onboarding/catalog-task-item";
-import { ChevronRight, Plus, Check, Search, X } from "lucide-react";
+import { LoadingScreen } from "@/components/features/loading-screen";
+import { Plus, Check, Search, X, ChevronDown, User } from "lucide-react";
 
 type StepId = "name" | "household" | "catalog" | "frequency" | "summary" | "creating" | "invite" | "join";
 
@@ -69,10 +71,8 @@ function frequencyToApi(f: string): "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" 
 
 function OnboardingLoading() {
   return (
-    <div className="container flex min-h-[80vh] flex-col items-center justify-center px-4 py-6">
-      <div className="w-full max-w-md space-y-6">
-        <Skeleton className="h-[400px] w-full rounded-xl" />
-      </div>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+      <Skeleton className="h-[400px] w-full max-w-md rounded-2xl" />
     </div>
   );
 }
@@ -97,7 +97,6 @@ function OnboardingContent() {
   const [error, setError] = useState<string | null>(null);
   const [hasInviteCode, setHasInviteCode] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [showCustomTask, setShowCustomTask] = useState(false);
   const [customTaskName, setCustomTaskName] = useState("");
   const [customTaskFrequency, setCustomTaskFrequency] = useState("WEEKLY");
@@ -105,14 +104,15 @@ function OnboardingContent() {
 
   const [hasChildren, setHasChildren] = useState(false);
   const [hasPets, setHasPets] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
-  // New: loading message state
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
 
   const [catalogTasks, setCatalogTasks] = useState<Record<string, CatalogTask[]>>({});
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [joinLoading, setJoinLoading] = useState(false);
+  const [showAllSummaryTasks, setShowAllSummaryTasks] = useState(false);
   const hasFetchedCatalogRef = useRef(false);
 
   useEffect(() => {
@@ -122,7 +122,6 @@ function OnboardingContent() {
     }
   }, [searchParams]);
 
-  // Prefill member name from Google account
   useEffect(() => {
     fetch("/api/auth/me")
       .then((res) => res.json())
@@ -135,13 +134,10 @@ function OnboardingContent() {
   }, []);
 
   const steps = hasInviteCode ? STEPS_JOIN : STEPS_CREATE;
-  const currentStepIndex = steps.indexOf(step);
-  const stepsForProgress = steps;
 
   const fetchCatalog = useCallback(async () => {
     setCatalogLoading(true);
     try {
-      // Use AI-enhanced task suggestions based on household context
       const res = await fetch("/api/ai/suggest-tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -152,7 +148,6 @@ function OnboardingContent() {
       });
 
       if (!res.ok) {
-        // Fallback to static catalog
         const fallbackRes = await fetch("/api/tasks/catalog");
         if (!fallbackRes.ok) throw new Error("Error al cargar catálogo");
         const data = (await fallbackRes.json()) as { categories: CategoryFromApi[] };
@@ -167,7 +162,6 @@ function OnboardingContent() {
           if (!firstCategory) firstCategory = cat.category;
         }
         setCatalogTasks(byCategory);
-        if (firstCategory) setExpandedCategory(firstCategory);
         return;
       }
 
@@ -205,7 +199,6 @@ function OnboardingContent() {
       }
 
       setCatalogTasks(byCategory);
-      if (firstCategory) setExpandedCategory(firstCategory);
     } catch {
       setError("No se pudo cargar el catálogo de tareas");
     } finally {
@@ -336,7 +329,6 @@ function OnboardingContent() {
     setCreateLoading(true);
     setLoadingMessageIndex(0);
 
-    // Rotate loading messages
     const messageInterval = setInterval(() => {
       setLoadingMessageIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
     }, 1500);
@@ -354,7 +346,6 @@ function OnboardingContent() {
           }))
       );
 
-      // Add minimum delay for UX
       const [res] = await Promise.all([
         fetch("/api/households/onboarding", {
           method: "POST",
@@ -366,7 +357,7 @@ function OnboardingContent() {
             tasks: tasksPayload,
           }),
         }),
-        new Promise((resolve) => setTimeout(resolve, 3000)), // Minimum 3s for anticipation
+        new Promise((resolve) => setTimeout(resolve, 3000)),
       ]);
 
       const data = (await res.json()) as {
@@ -384,7 +375,7 @@ function OnboardingContent() {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al crear el hogar");
-      setStep("summary"); // Go back to summary on error
+      setStep("summary");
     } finally {
       clearInterval(messageInterval);
       setCreateLoading(false);
@@ -442,544 +433,491 @@ function OnboardingContent() {
     router.push("/dashboard");
   };
 
-  const maxW = "max-w-md";
-  const inputClass = "rounded-xl border-2";
+  /* ─── Step: name (welcome) ─── */
+  if (step === "name") {
+    return (
+      <OnboardingLayout
+        onContinue={handleNextFromName}
+        continueLabel="Continuar"
+      >
+        <div className="space-y-6">
+          <StepHeader
+            title="Bienvenido!"
+            subtitle="Configura las tareas de tu hogar"
+          />
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="pt-4">
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full text-muted-foreground"
+              onClick={() => {
+                setError(null);
+                setHasInviteCode(true);
+                setStep("join");
+              }}
+            >
+              Tengo un código de invitación
+            </Button>
+          </div>
+        </div>
+      </OnboardingLayout>
+    );
+  }
 
-  return (
-    <div className="container flex min-h-[80vh] flex-col items-center justify-center px-4 py-6 sm:py-8">
-      <div className={`w-full ${maxW} space-y-6`}>
-        {/* Step: name (welcome screen for CREATE flow) */}
-        {step === "name" && (
-          <Card>
-            <CardHeader className="space-y-1 text-center">
-              <ProgressIndicator steps={stepsForProgress} currentStep={step} />
-              <CardTitle className="text-2xl">Bienvenido!</CardTitle>
-              <CardDescription>
-                Configura las tareas de tu hogar
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
-              <Button
-                type="button"
-                className="w-full"
-                onClick={handleNextFromName}
-              >
-                Continuar
-                <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-              <div className="border-t pt-4">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full text-muted-foreground"
-                  onClick={() => {
-                    setError(null);
-                    setHasInviteCode(true);
-                    setStep("join");
-                  }}
-                >
-                  Tengo un código de invitación
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+  /* ─── Step: household ─── */
+  if (step === "household") {
+    return (
+      <OnboardingLayout
+        onBack={handleHouseholdBack}
+        onContinue={handleHouseholdNext}
+        continueLabel="Continuar"
+      >
+        <div className="space-y-6">
+          <StepHeader
+            title="Nombre del hogar"
+            subtitle="Sirve para identificar el grupo"
+          />
+          <div className="space-y-1">
+            <label className="text-sm text-foreground">Nombre del hogar</label>
+            <Input
+              placeholder={`ej. Casa de ${memberName || "Pepito"}`}
+              value={householdName}
+              onChange={(e) => setHouseholdName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleHouseholdNext())}
+              maxLength={50}
+            />
+          </div>
 
-        {/* Step: household */}
-        {step === "household" && (
-          <Card>
-            <CardHeader className="space-y-1 text-center">
-              <ProgressIndicator steps={stepsForProgress} currentStep={step} />
-              <CardTitle className="text-2xl">Nombre del Hogar</CardTitle>
-              <CardDescription>
-                ¿Cómo se llama tu hogar?
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Input
-                placeholder={`ej., Casa de ${memberName || "..."}`}
-                value={householdName}
-                onChange={(e) => setHouseholdName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleHouseholdNext())}
-                className={inputClass}
-                maxLength={50}
-              />
-              <div className="space-y-3 rounded-xl border bg-muted/30 p-4">
-                <label className="flex cursor-pointer items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={hasChildren}
-                    onChange={(e) => setHasChildren(e.target.checked)}
-                    className="h-5 w-5 rounded border-2"
-                  />
-                  <span>Hay niños en el hogar</span>
-                </label>
-                <label className="flex cursor-pointer items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={hasPets}
-                    onChange={(e) => setHasPets(e.target.checked)}
-                    className="h-5 w-5 rounded border-2"
-                  />
-                  <span>Hay mascotas</span>
-                </label>
-              </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={handleHouseholdBack}>
-                  Volver
-                </Button>
-                <Button type="button" onClick={handleHouseholdNext}>
-                  Continuar
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Step: catalog */}
-        {step === "catalog" && (
-          <Card className="flex max-h-[85vh] flex-col">
-            <CardHeader className="shrink-0 space-y-1 text-center">
-              <ProgressIndicator steps={stepsForProgress} currentStep={step} />
-              <CardTitle className="text-2xl">Selecciona Tareas</CardTitle>
-              <CardDescription>
-                Elige las tareas de tu hogar
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              {/* Search input */}
-              <div className="relative mb-4 shrink-0">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar tareas..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`pl-9 ${inputClass}`}
+          {/* Sobre el grupo */}
+          <div className="space-y-2 pt-2">
+            <StepHeader
+              title="Sobre el grupo"
+              subtitle="¿Cómo está compuesto?"
+            />
+            <div className="space-y-3">
+              <label className="flex cursor-pointer items-center gap-3 py-3">
+                <Checkbox
+                  checked={hasChildren}
+                  onCheckedChange={(checked) => setHasChildren(checked)}
                 />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
+                <span className="text-base">Hay niños</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-3 py-3">
+                <Checkbox
+                  checked={hasPets}
+                  onCheckedChange={(checked) => setHasPets(checked)}
+                />
+                <span className="text-base">Hay mascotas</span>
+              </label>
+            </div>
+          </div>
 
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
-                {catalogLoading ? (
-                  <p className="text-center text-muted-foreground">
-                    Generando sugerencias personalizadas...
-                  </p>
-                ) : (
-                  <>
-                    {Object.entries(catalogTasks)
-                      .map(([categoryKey, tasks]) => {
-                        // Filter tasks by search query
-                        const filteredTasks = searchQuery
-                          ? tasks.filter((t) =>
-                              t.name.toLowerCase().includes(searchQuery.toLowerCase())
-                            )
-                          : tasks;
-                        return { categoryKey, tasks, filteredTasks };
-                      })
-                      .filter(({ filteredTasks }) => filteredTasks.length > 0)
-                      .map(({ categoryKey, tasks, filteredTasks }) => {
-                        const total = filteredTasks.length;
-                        const selected = filteredTasks.filter((t) => t.selected).length;
-                        const meta = categoryKey === "other" ? { label: "Otros", icon: "📋" } : { label: categoryKey.charAt(0).toUpperCase() + categoryKey.slice(1), icon: tasks[0]?.icon ?? "📋" };
-                        const isExpanded = expandedCategory === categoryKey || !!searchQuery;
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+      </OnboardingLayout>
+    );
+  }
 
-                      return (
-                        <div key={categoryKey} className="rounded-xl border bg-card">
-                          <button
-                            type="button"
-                            className="flex w-full items-center justify-between p-4 text-left"
-                            onClick={() =>
-                              setExpandedCategory(isExpanded ? null : categoryKey)
-                            }
-                          >
-                            <span className="flex items-center gap-2">
-                              <span className="text-xl">{meta.icon}</span>
-                              <span className="font-medium">{meta.label}</span>
-                              <span className="text-sm text-muted-foreground">
-                                {selected}/{total}
-                              </span>
-                            </span>
-                            <ChevronRight
-                              className={`h-5 w-5 transition-transform ${isExpanded ? "rotate-90" : ""}`}
-                            />
-                          </button>
-                          {isExpanded && (
-                            <div className="space-y-2 border-t px-4 pb-4 pt-2">
-                              {filteredTasks.map((t) => (
-                                <CatalogTaskItem
-                                  key={t.name + categoryKey}
-                                  task={t}
-                                  onToggle={() => toggleTask(categoryKey, t.name)}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+  /* ─── Step: catalog ─── */
+  if (step === "catalog") {
+    return (
+      <OnboardingLayout
+        onBack={handleCatalogBack}
+        onContinue={handleCatalogNext}
+        continueLabel={`Continuar (${selectedCount} tareas)`}
+        continueDisabled={selectedCount === 0}
+      >
+        <div className="flex flex-col gap-4">
+          <StepHeader
+            title="Selección de tareas"
+            subtitle="Elige las tareas de tu hogar"
+          />
 
-                    {/* No results message */}
-                    {searchQuery && Object.entries(catalogTasks).every(([, tasks]) =>
-                      !tasks.some((t) => t.name.toLowerCase().includes(searchQuery.toLowerCase()))
-                    ) && (
-                      <div className="py-8 text-center">
-                        <p className="text-muted-foreground">No se encontraron tareas con "{searchQuery}"</p>
-                        <Button
-                          type="button"
-                          variant="link"
-                          onClick={() => {
-                            setCustomTaskName(searchQuery);
-                            setShowCustomTask(true);
-                            setSearchQuery("");
-                          }}
-                        >
-                          Agregar "{searchQuery}" como tarea personalizada
-                        </Button>
-                      </div>
-                    )}
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar tarea"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
 
-                    {!showCustomTask ? (
-                      <Button
+          {catalogLoading ? (
+            <p className="py-8 text-center text-muted-foreground">
+              Generando sugerencias personalizadas...
+            </p>
+          ) : (
+            <div className="space-y-6">
+              {Object.entries(catalogTasks)
+                .map(([categoryKey, tasks]) => {
+                  const filteredTasks = searchQuery
+                    ? tasks.filter((t) =>
+                        t.name.toLowerCase().includes(searchQuery.toLowerCase())
+                      )
+                    : tasks;
+                  return { categoryKey, tasks, filteredTasks };
+                })
+                .filter(({ filteredTasks }) => filteredTasks.length > 0)
+                .map(({ categoryKey, tasks, filteredTasks }) => {
+                  const meta = categoryKey === "other"
+                    ? { label: "Otros", icon: "📋" }
+                    : { label: categoryKey.charAt(0).toUpperCase() + categoryKey.slice(1), icon: tasks[0]?.icon ?? "📋" };
+                  const isExpanded = expandedCategories.has(categoryKey) || !!searchQuery;
+                  const selectedInCategory = filteredTasks.filter((t) => t.selected).length;
+
+                  return (
+                    <div key={categoryKey} className="rounded-2xl border border-primary p-3">
+                      <button
                         type="button"
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => setShowCustomTask(true)}
+                        className="flex w-full items-center justify-between px-1 py-2"
+                        onClick={() => {
+                          setExpandedCategories((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(categoryKey)) {
+                              next.delete(categoryKey);
+                            } else {
+                              next.add(categoryKey);
+                            }
+                            return next;
+                          });
+                        }}
                       >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Agregar tarea personalizada
-                      </Button>
-                    ) : (
-                      <div className="space-y-2 rounded-xl border bg-card p-4">
-                        <Input
-                          placeholder="Nombre de la tarea"
-                          value={customTaskName}
-                          onChange={(e) => setCustomTaskName(e.target.value)}
-                          className={inputClass}
+                        <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                          {meta.icon} {meta.label}
+                          {selectedInCategory > 0 && (
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                              {selectedInCategory}
+                            </span>
+                          )}
+                        </span>
+                        <ChevronDown
+                          className={`size-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
                         />
-                        <Select
-                          value={customTaskFrequency}
-                          onValueChange={setCustomTaskFrequency}
-                        >
-                          <SelectTrigger className={inputClass}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {FREQUENCY_OPTIONS.map((o) => (
-                              <SelectItem key={o.value} value={o.value}>
-                                {o.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => {
-                              setShowCustomTask(false);
-                              setCustomTaskName("");
-                            }}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={addCustomTask}
-                            disabled={!customTaskName.trim()}
-                          >
-                            Agregar
-                          </Button>
+                      </button>
+                      {isExpanded && (
+                        <div>
+                          {filteredTasks.map((t) => (
+                            <CatalogTaskItem
+                              key={t.name + categoryKey}
+                              task={t}
+                              onToggle={() => toggleTask(categoryKey, t.name)}
+                            />
+                          ))}
                         </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-              {error && (
-                <p className="shrink-0 text-sm text-destructive">{error}</p>
+                      )}
+                    </div>
+                  );
+                })}
+
+              {/* No results */}
+              {searchQuery && Object.entries(catalogTasks).every(([, tasks]) =>
+                !tasks.some((t) => t.name.toLowerCase().includes(searchQuery.toLowerCase()))
+              ) && (
+                <div className="py-8 text-center">
+                  <p className="text-muted-foreground">No se encontraron tareas con &quot;{searchQuery}&quot;</p>
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={() => {
+                      setCustomTaskName(searchQuery);
+                      setShowCustomTask(true);
+                      setSearchQuery("");
+                    }}
+                  >
+                    Agregar &quot;{searchQuery}&quot; como tarea personalizada
+                  </Button>
+                </div>
               )}
-              <div className="mt-4 flex shrink-0 gap-2 border-t pt-4">
-                <Button type="button" variant="outline" onClick={handleCatalogBack}>
-                  Volver
-                </Button>
+
+              {/* Custom task */}
+              {!showCustomTask ? (
                 <Button
                   type="button"
-                  onClick={handleCatalogNext}
-                  disabled={selectedCount === 0}
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setShowCustomTask(true)}
                 >
-                  Continuar ({selectedCount} tareas)
-                  <ChevronRight className="ml-2 h-4 w-4" />
+                  <Plus className="mr-2 h-4 w-4" />
+                  Agregar tarea personalizada
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Step: frequency */}
-        {step === "frequency" && (
-          <Card className="flex max-h-[85vh] flex-col">
-            <CardHeader className="shrink-0 space-y-1 text-center">
-              <ProgressIndicator steps={stepsForProgress} currentStep={step} />
-              <CardTitle className="text-2xl">Frecuencia de tareas</CardTitle>
-              <CardDescription>
-                ¿Cada cuánto se hace cada tarea?
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pb-4">
-                {Object.entries(catalogTasks).flatMap(([categoryKey, tasks]) =>
-                  tasks
-                    .filter((t) => t.selected)
-                    .map((t) => (
-                      <div
-                        key={t.name + categoryKey}
-                        className="flex items-center justify-between gap-2 rounded-xl border bg-card p-3"
-                      >
-                        <span className="flex items-center gap-2 truncate">
-                          <span>{t.icon}</span>
-                          <span className="truncate font-medium">{t.name}</span>
-                        </span>
-                        <Select
-                          value={frequencyToApi(t.defaultFrequency)}
-                          onValueChange={(v) => updateTaskFrequency(categoryKey, t.name, v)}
-                        >
-                          <SelectTrigger className="w-[120px] shrink-0">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {FREQUENCY_OPTIONS.map((o) => (
-                              <SelectItem key={o.value} value={o.value}>
-                                {o.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ))
-                )}
-              </div>
-              {error && (
-                <p className="shrink-0 text-sm text-destructive">{error}</p>
-              )}
-              <div className="mt-4 flex shrink-0 gap-2 border-t pt-4">
-                <Button type="button" variant="outline" onClick={handleFrequencyBack}>
-                  Volver
-                </Button>
-                <Button type="button" onClick={handleFrequencyNext}>
-                  Continuar
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Step: summary */}
-        {step === "summary" && (
-          <Card className="flex max-h-[85vh] flex-col">
-            <CardHeader className="shrink-0 space-y-1 text-center">
-              <ProgressIndicator steps={stepsForProgress} currentStep={step} />
-              <CardTitle className="text-2xl">Resumen</CardTitle>
-              <CardDescription>
-                Revisa que todo esté correcto
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
-                {/* Household info */}
-                <div className="rounded-xl border bg-muted/30 p-4">
-                  <h3 className="mb-2 flex items-center gap-2 font-semibold">
-                    <span className="text-xl">🏠</span>
-                    {householdName || `${memberName}'s Home`}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {hasChildren && "👶 Con niños"}
-                    {hasChildren && hasPets && " · "}
-                    {hasPets && "🐕 Con mascotas"}
-                    {!hasChildren && !hasPets && "🏠 Hogar"}
-                  </p>
-                </div>
-
-                {/* Tasks summary */}
-                <div className="rounded-xl border bg-muted/30 p-4">
-                  <h3 className="mb-3 font-semibold">Tareas configuradas ({selectedCount})</h3>
-                  <div className="space-y-2">
-                    {Object.entries(catalogTasks)
-                      .flatMap(([, tasks]) => tasks.filter((t) => t.selected))
-                      .slice(0, 5)
-                      .map((t) => (
-                        <div key={t.name} className="flex items-center justify-between text-sm">
-                          <span className="flex items-center gap-2">
-                            <span>{t.icon}</span>
-                            <span>{t.name}</span>
-                          </span>
-                          <span className="text-muted-foreground">
-                            {FREQUENCY_OPTIONS.find((f) => f.value === frequencyToApi(t.defaultFrequency))?.label}
-                          </span>
-                        </div>
+              ) : (
+                <div className="space-y-3 rounded-full border border-muted-foreground p-4">
+                  <Input
+                    placeholder="Nombre de la tarea"
+                    value={customTaskName}
+                    onChange={(e) => setCustomTaskName(e.target.value)}
+                  />
+                  <Select
+                    value={customTaskFrequency}
+                    onValueChange={setCustomTaskFrequency}
+                  >
+                    <SelectTrigger className="rounded-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FREQUENCY_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
                       ))}
-                    {selectedCount > 5 && (
-                      <p className="text-sm text-muted-foreground">
-                        ... y {selectedCount - 5} tareas más
-                      </p>
-                    )}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setShowCustomTask(false);
+                        setCustomTaskName("");
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={addCustomTask}
+                      disabled={!customTaskName.trim()}
+                    >
+                      Agregar
+                    </Button>
                   </div>
                 </div>
-
-                {/* Info box */}
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-center">
-                  <p className="text-sm">
-                    La asignación automática de tareas se realizará cada domingo a las 20:00
-                  </p>
-                </div>
-              </div>
-              {error && (
-                <p className="shrink-0 text-sm text-destructive">{error}</p>
               )}
-              <div className="mt-4 flex shrink-0 gap-2 border-t pt-4">
-                <Button type="button" variant="outline" onClick={handleSummaryBack}>
-                  Volver
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleCreateHousehold}
-                  disabled={createLoading}
-                >
-                  Crear mi hogar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          )}
 
-        {/* Step: creating (loading) */}
-        {step === "creating" && (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <div className="mb-6 flex justify-center">
-                <div className="h-16 w-16 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-              </div>
-              <p className="text-lg font-medium">{LOADING_MESSAGES[loadingMessageIndex]}</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Esto solo tomará unos segundos
-              </p>
-            </CardContent>
-          </Card>
-        )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+      </OnboardingLayout>
+    );
+  }
 
-        {/* Step: join */}
-        {step === "join" && (
-          <Card>
-            <CardHeader className="space-y-1 text-center">
-              <ProgressIndicator steps={stepsForProgress} currentStep={step} />
-              <CardTitle className="text-2xl">Unirse al Hogar</CardTitle>
-              <CardDescription>
-                Ingresa tu nombre y el código de invitación
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleJoinHousehold} className="space-y-4">
-                <Input
-                  placeholder="Tu nombre"
-                  value={memberName}
-                  onChange={(e) => setMemberName(e.target.value)}
-                  className={inputClass}
-                  maxLength={50}
-                  autoFocus
-                />
-                <Input
-                  placeholder="CODIGO"
-                  value={inviteCode}
-                  onChange={(e) =>
-                    setInviteCode(e.target.value.toUpperCase().slice(0, 8))
-                  }
-                  className={`font-mono text-center text-lg tracking-widest ${inputClass}`}
-                  maxLength={8}
-                />
-                {error && (
-                  <p className="text-sm text-destructive">{error}</p>
-                )}
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleBackToName}
-                    disabled={joinLoading}
+  /* ─── Step: frequency ─── */
+  if (step === "frequency") {
+    return (
+      <OnboardingLayout
+        onBack={handleFrequencyBack}
+        onContinue={handleFrequencyNext}
+        continueLabel="Continuar"
+      >
+        <div className="space-y-4">
+          <StepHeader
+            title="Frecuencia de tareas"
+            subtitle="¿Cada cuánto se hace cada tarea?"
+          />
+          <div className="rounded-2xl border border-primary p-3 space-y-1">
+            {Object.entries(catalogTasks).flatMap(([categoryKey, tasks]) =>
+              tasks
+                .filter((t) => t.selected)
+                .map((t) => (
+                  <div
+                    key={t.name + categoryKey}
+                    className="flex w-full items-center gap-3 px-3 py-3"
                   >
-                    Volver
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={!memberName.trim() || !inviteCode.trim() || joinLoading}
-                  >
-                    {joinLoading ? "Uniendo..." : "Unirse"}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        )}
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white text-xl shadow-sm">
+                      {t.icon}
+                    </span>
+                    <span className="min-w-0 flex-1 text-base text-foreground">
+                      {t.name}
+                    </span>
+                    <Select
+                      value={frequencyToApi(t.defaultFrequency)}
+                      onValueChange={(v) => updateTaskFrequency(categoryKey, t.name, v)}
+                    >
+                      <SelectTrigger className="h-9 w-[120px] shrink-0 border-none bg-transparent px-0 text-sm text-muted-foreground shadow-none">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FREQUENCY_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))
+            )}
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+      </OnboardingLayout>
+    );
+  }
 
-        {/* Step: invite (success) */}
-        {step === "invite" && createdInviteCode && (
-          <Card>
-            <CardHeader className="space-y-1 text-center">
-              <ProgressIndicator steps={stepsForProgress} currentStep={step} />
-              <div className="flex justify-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400">
-                  <Check className="h-8 w-8" />
+  /* ─── Step: summary ─── */
+  if (step === "summary") {
+    const allSelectedTasks = Object.entries(catalogTasks).flatMap(([, tasks]) =>
+      tasks.filter((t) => t.selected)
+    );
+    const visibleTasks = showAllSummaryTasks ? allSelectedTasks : allSelectedTasks.slice(0, 5);
+
+    return (
+      <OnboardingLayout
+        onBack={handleSummaryBack}
+        onContinue={handleCreateHousehold}
+        continueLabel="Crear hogar"
+        continueLoading={createLoading}
+      >
+        <div className="space-y-5">
+          <StepHeader
+            title="Resumen"
+            subtitle="Revisá que la información sea correcta"
+          />
+
+          {/* Card 1: Household info */}
+          <div className="rounded-[32px] bg-[#e4d5ff] p-5">
+            <p className="text-lg font-semibold text-foreground">
+              {householdName || `${memberName}'s Home`}
+            </p>
+            <div className="mt-2 flex items-center gap-2 text-sm text-foreground/70">
+              <User className="size-4" />
+              <span>
+                {hasPets && "Con mascotas"}
+                {hasPets && hasChildren && " · "}
+                {hasChildren && "Con niños"}
+                {!hasChildren && !hasPets && "Hogar"}
+              </span>
+            </div>
+          </div>
+
+          {/* Card 2: Tasks */}
+          <div className="rounded-[32px] bg-white p-5 shadow-sm">
+            <p className="mb-4 font-semibold text-foreground">
+              Tareas configuradas ({selectedCount})
+            </p>
+            <div className="space-y-3">
+              {visibleTasks.map((t) => (
+                <div key={t.name} className="flex items-center gap-3">
+                  <span className="text-xl">{t.icon}</span>
+                  <span className="flex-1 text-sm text-foreground">{t.name}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {FREQUENCY_OPTIONS.find((f) => f.value === frequencyToApi(t.defaultFrequency))?.label}
+                  </span>
                 </div>
-              </div>
-              <CardTitle className="text-2xl">Hogar Creado!</CardTitle>
-              <CardDescription>
-                Comparte este código con tu familia
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="rounded-xl border-2 bg-muted/30 p-4 text-center">
-                <span className="font-mono text-2xl tracking-[0.3em]">
-                  {createdInviteCode}
-                </span>
-              </div>
-              <Button
+              ))}
+            </div>
+            {allSelectedTasks.length > 5 && (
+              <button
                 type="button"
-                variant="outline"
-                className="w-full"
-                onClick={handleCopyCode}
+                onClick={() => setShowAllSummaryTasks(!showAllSummaryTasks)}
+                className="mt-4 flex w-full items-center justify-center gap-1.5 text-sm font-medium text-primary"
               >
-                {copied ? "Copiado!" : "Copiar Código"}
-              </Button>
-              <div className="rounded-xl border bg-muted/30 p-4 space-y-2">
-                <p className="text-sm font-medium text-center">Empezás en Nivel 1</p>
-                <p className="text-xs text-muted-foreground text-center">
-                  Completá tareas para ganar puntos, subir de nivel y desbloquear logros junto a tu familia.
-                </p>
-              </div>
-              <Button
-                type="button"
-                className="w-full"
-                onClick={handleContinueToApp}
-              >
-                Continuar a la App
-                <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </div>
-  );
+                {showAllSummaryTasks ? "Ver menos" : `Ver más tareas`}
+                <ChevronDown
+                  className={`size-4 transition-transform ${showAllSummaryTasks ? "rotate-180" : ""}`}
+                />
+              </button>
+            )}
+          </div>
+
+          {/* Card 3: Info notice */}
+          <div className="rounded-[24px] bg-[#fff0d7] px-5 py-4 text-center">
+            <p className="text-sm text-foreground/80">
+              La asignación automática de tareas se realizará cada domingo a las 20:00
+            </p>
+          </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+      </OnboardingLayout>
+    );
+  }
+
+  /* ─── Step: creating (loading) ─── */
+  if (step === "creating") {
+    return <LoadingScreen message={LOADING_MESSAGES[loadingMessageIndex] ?? "Creando hogar..."} />;
+  }
+
+  /* ─── Step: join ─── */
+  if (step === "join") {
+    return (
+      <OnboardingLayout
+        onBack={handleBackToName}
+        showContinue={false}
+      >
+        <div className="space-y-4">
+          <StepHeader
+            title="Unirse al Hogar"
+            subtitle="Ingresa tu nombre y el código de invitación"
+          />
+          <form onSubmit={handleJoinHousehold} className="space-y-4">
+            <Input
+              placeholder="Tu nombre"
+              value={memberName}
+              onChange={(e) => setMemberName(e.target.value)}
+              maxLength={50}
+              autoFocus
+            />
+            <Input
+              placeholder="CODIGO"
+              value={inviteCode}
+              onChange={(e) =>
+                setInviteCode(e.target.value.toUpperCase().slice(0, 8))
+              }
+              className="font-mono text-center text-lg tracking-widest"
+              maxLength={8}
+            />
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={!memberName.trim() || !inviteCode.trim() || joinLoading}
+            >
+              {joinLoading ? "Uniendo..." : "Unirse"}
+            </Button>
+          </form>
+        </div>
+      </OnboardingLayout>
+    );
+  }
+
+  /* ─── Step: invite (success) ─── */
+  if (step === "invite" && createdInviteCode) {
+    return (
+      <OnboardingLayout
+        onContinue={handleContinueToApp}
+        continueLabel="Continuar a la app"
+      >
+        <div className="space-y-6">
+          <StepHeader
+            title="¡Hogar creado!"
+            subtitle="Compartí este código con otras personas"
+          />
+
+          {/* Invite code card */}
+          <div className="rounded-[32px] bg-[#d2ffa0] px-6 py-8 text-center">
+            <span className="font-mono text-3xl font-bold tracking-[0.3em] text-foreground">
+              {createdInviteCode}
+            </span>
+          </div>
+
+          {/* Copy button */}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-2 border-primary text-primary hover:bg-primary/5 hover:text-primary"
+            onClick={handleCopyCode}
+          >
+            {copied ? "¡Copiado!" : "Copiar código"}
+          </Button>
+        </div>
+      </OnboardingLayout>
+    );
+  }
+
+  return null;
 }

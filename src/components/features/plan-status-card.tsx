@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,8 +50,8 @@ export function PlanStatusCard({ plan, aiEnabled }: PlanStatusCardProps) {
   // No plan exists - show prompt to generate
   if (!plan) {
     return (
-      <Card className="border-dashed border-primary/30 bg-primary/5">
-        <CardContent className="flex items-center justify-between gap-4 py-4">
+      <div className="rounded-2xl bg-primary/5 p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="shrink-0 rounded-full bg-primary/10 p-2">
               <CalendarDays className="h-5 w-5 text-primary" />
@@ -70,8 +69,8 @@ export function PlanStatusCard({ plan, aiEnabled }: PlanStatusCardProps) {
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
@@ -81,8 +80,8 @@ export function PlanStatusCard({ plan, aiEnabled }: PlanStatusCardProps) {
     const taskCount = plan.assignments.length;
 
     return (
-      <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950">
-        <CardContent className="flex items-center justify-between gap-4 py-4">
+      <div className="rounded-2xl bg-amber-50 p-4 shadow-sm dark:bg-amber-950">
+        <div className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-900 p-2">
               <Clock className="h-5 w-5 text-amber-600" />
@@ -102,14 +101,14 @@ export function PlanStatusCard({ plan, aiEnabled }: PlanStatusCardProps) {
               </p>
             </div>
           </div>
-          <Button asChild size="sm" variant="outline" className="gap-2 shrink-0 border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900">
+          <Button asChild size="sm" variant="outline" className="gap-2 shrink-0">
             <Link href="/plan">
               Revisar
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
@@ -119,8 +118,8 @@ export function PlanStatusCard({ plan, aiEnabled }: PlanStatusCardProps) {
     const taskCount = plan.assignments.length;
 
     return (
-      <Card className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950">
-        <CardContent className="flex items-center justify-between gap-4 py-4">
+      <div className="rounded-2xl bg-green-50 p-4 shadow-sm dark:bg-green-950">
+        <div className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="shrink-0 rounded-full bg-green-100 dark:bg-green-900 p-2">
               <CheckCheck className="h-5 w-5 text-green-600" />
@@ -148,15 +147,15 @@ export function PlanStatusCard({ plan, aiEnabled }: PlanStatusCardProps) {
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   // Expired or rejected - show generate new prompt
   return (
-    <Card className="border-dashed border-muted-foreground/30">
-      <CardContent className="flex items-center justify-between gap-4 py-4">
+    <div className="rounded-2xl bg-muted/30 p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <div className="shrink-0 rounded-full bg-muted p-2">
             <CalendarDays className="h-5 w-5 text-muted-foreground" />
@@ -174,7 +173,7 @@ export function PlanStatusCard({ plan, aiEnabled }: PlanStatusCardProps) {
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

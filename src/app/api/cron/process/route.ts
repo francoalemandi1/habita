@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { applyOverduePenalties } from "@/lib/penalties";
 import { processAbsenceRedistribution } from "@/lib/absence-redistribution";
+import { cleanupOldNotifications } from "@/lib/notification-service";
 
 import type { NextRequest } from "next/server";
 
@@ -12,15 +13,18 @@ import type { NextRequest } from "next/server";
 export async function POST(request: NextRequest) {
   try {
     const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
+    }
     const authHeader = request.headers.get("authorization");
-
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [penaltyResult, absenceResult] = await Promise.all([
+    const [penaltyResult, absenceResult, cleanupResult] = await Promise.all([
       applyOverduePenalties(),
       processAbsenceRedistribution(),
+      cleanupOldNotifications(),
     ]);
 
     return NextResponse.json({
@@ -36,6 +40,10 @@ export async function POST(request: NextRequest) {
         postponed: absenceResult.postponed,
         errors: absenceResult.errors,
       },
+      notifications: {
+        deletedRead: cleanupResult.deletedRead,
+        deletedUnread: cleanupResult.deletedUnread,
+      },
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
@@ -49,9 +57,18 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/cron/process
- * Estado del endpoint (monitoreo).
+ * Estado del endpoint (monitoreo). Protegido por CRON_SECRET.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
+  }
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   return NextResponse.json({
     status: "ready",
     endpoint: "POST /api/cron/process",

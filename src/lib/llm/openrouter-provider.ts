@@ -228,6 +228,7 @@ Genera recomendaciones considerando:
 export async function generateAIPlanOpenRouter(context: {
   members: Array<{ name: string; type: string; pendingCount: number }>;
   tasks: Array<{ name: string; frequency: string; weight: number }>;
+  regionalBlock?: string;
 }) {
   const client = getClient();
 
@@ -270,7 +271,7 @@ Instrucciones:
 5. Los niños (CHILD) no deben recibir tareas complejas o peligrosas
 6. Proporciona una breve razón para cada asignación
 
-El objetivo es maximizar la equidad (balanceScore alto = más justo).`,
+El objetivo es maximizar la equidad (balanceScore alto = más justo).${context.regionalBlock ? `\n\n${context.regionalBlock}` : ""}`,
         },
       ],
       stream: false,

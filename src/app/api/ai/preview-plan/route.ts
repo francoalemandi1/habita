@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
 import { generateAIPlan } from "@/lib/llm/ai-planner";
 import { isAIEnabled } from "@/lib/llm/provider";
-import { calculatePlanPerformance, generateAIRewards } from "@/lib/llm/ai-reward-generator";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -130,64 +129,12 @@ export async function GET(request: NextRequest) {
 
     const excludedTasks: ExcludedTask[] = plan.excludedTasks ?? [];
 
-    // Generate rewards for any APPLIED plan before expiring it
-    const appliedPlan = await prisma.weeklyPlan.findFirst({
-      where: {
-        householdId: member.householdId,
-        status: "APPLIED",
-      },
-    });
-
-    if (appliedPlan) {
-      const existingRewards = await prisma.householdReward.count({
-        where: { planId: appliedPlan.id, isAiGenerated: true },
-      });
-
-      if (existingRewards === 0) {
-        try {
-          const performances = await calculatePlanPerformance(
-            member.householdId,
-            appliedPlan.createdAt,
-            appliedPlan.expiresAt
-          );
-          const rewardResult = await generateAIRewards(member.householdId, appliedPlan.id, performances);
-
-          if (rewardResult && rewardResult.rewards.length > 0) {
-            const memberMap = new Map(
-              performances.map((p) => [p.memberName.toLowerCase(), p])
-            );
-            const rewardsToCreate = rewardResult.rewards
-              .map((r) => {
-                const perf = memberMap.get(r.memberName.toLowerCase());
-                if (!perf) return null;
-                return {
-                  householdId: member.householdId,
-                  name: r.rewardName,
-                  description: r.rewardDescription,
-                  pointsCost: r.pointsCost,
-                  isAiGenerated: true,
-                  planId: appliedPlan.id,
-                  memberId: perf.memberId,
-                  completionRate: perf.completionRate,
-                };
-              })
-              .filter((r): r is NonNullable<typeof r> => r !== null);
-
-            if (rewardsToCreate.length > 0) {
-              await prisma.householdReward.createMany({ data: rewardsToCreate });
-            }
-          }
-        } catch (error) {
-          console.error("Error generating rewards for expired plan:", error);
-        }
-      }
-    }
-
-    // Expire any existing pending or applied plans for this household
+    // Expire previous PENDING previews and COMPLETED plans from past cycles
+    // (APPLIED plans are handled by apply-plan and should remain until a new plan is applied)
     await prisma.weeklyPlan.updateMany({
       where: {
         householdId: member.householdId,
-        status: { in: ["PENDING", "APPLIED"] },
+        status: { in: ["PENDING", "COMPLETED"] },
       },
       data: {
         status: "EXPIRED",

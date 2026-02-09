@@ -45,6 +45,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Idempotent: if already a member, set cookie and return success
+    const existingMember = await prisma.member.findUnique({
+      where: { userId_householdId: { userId, householdId: household.id } },
+      select: { id: true, name: true, memberType: true },
+    });
+
+    if (existingMember) {
+      const cookieStore = await cookies();
+      cookieStore.set(CURRENT_HOUSEHOLD_COOKIE, household.id, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      });
+      return NextResponse.json({
+        household,
+        member: { id: existingMember.id, name: existingMember.name, memberType: existingMember.memberType },
+        alreadyMember: true,
+      });
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { name: true },
@@ -54,24 +75,22 @@ export async function POST(request: NextRequest) {
     const prismaMemberType: MemberType =
       memberType ? MEMBER_TYPE_MAP[memberType] ?? "ADULT" : "ADULT";
 
-    const member = await prisma.$transaction(async (tx) => {
-      const newMember = await tx.member.create({
+    const newMember = await prisma.$transaction(async (tx) => {
+      const created = await tx.member.create({
         data: {
           userId,
           householdId: household.id,
           name: nameToUse,
           memberType: prismaMemberType,
         },
-        include: {
-          household: true,
-        },
+        select: { id: true, name: true, memberType: true },
       });
 
       await tx.memberLevel.create({
-        data: { memberId: newMember.id },
+        data: { memberId: created.id },
       });
 
-      return newMember;
+      return created;
     });
 
     const cookieStore = await cookies();
@@ -83,7 +102,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(
-      { household: member.household, member: { id: member.id, name: member.name, memberType: member.memberType } },
+      { household, member: { id: newMember.id, name: newMember.name, memberType: newMember.memberType } },
       { status: 201 }
     );
   } catch (error) {

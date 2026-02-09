@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
         householdId: member.householdId,
         status: "APPLIED",
       },
+      select: { id: true, createdAt: true, expiresAt: true },
     });
 
     if (!plan) {
@@ -115,6 +116,8 @@ export async function POST(request: NextRequest) {
           name: reward.rewardName,
           description: reward.rewardDescription,
           pointsCost: reward.pointsCost,
+          category: reward.category,
+          actionUrl: reward.actionUrl ?? null,
           isAiGenerated: true,
           planId,
           memberId: perf.memberId,

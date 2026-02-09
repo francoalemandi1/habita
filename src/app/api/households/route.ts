@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, getCurrentMember } from "@/lib/session";
-import { createHouseholdSchema } from "@/lib/validations/household";
+import { createHouseholdSchema, householdLocationSchema } from "@/lib/validations/household";
 import { z } from "zod";
 
 import type { NextRequest } from "next/server";
+import type { Prisma } from "@prisma/client";
 
 const updateHouseholdSchema = z.object({
-  name: z.string().min(1, "El nombre es obligatorio").max(50, "Máximo 50 caracteres"),
+  name: z.string().min(1, "El nombre es obligatorio").max(50, "Máximo 50 caracteres").optional(),
+  location: householdLocationSchema.optional(),
 });
 
 /**
@@ -135,9 +137,22 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
 
+    const updateData: Prisma.HouseholdUpdateInput = {};
+    if (validation.data.name) {
+      updateData.name = validation.data.name;
+    }
+    if (validation.data.location) {
+      const loc = validation.data.location;
+      if (loc.latitude != null) updateData.latitude = loc.latitude;
+      if (loc.longitude != null) updateData.longitude = loc.longitude;
+      if (loc.timezone) updateData.timezone = loc.timezone;
+      if (loc.country) updateData.country = loc.country;
+      if (loc.city) updateData.city = loc.city;
+    }
+
     const updated = await prisma.household.update({
       where: { id: member.householdId },
-      data: { name: validation.data.name },
+      data: updateData,
     });
 
     return NextResponse.json({ household: updated });

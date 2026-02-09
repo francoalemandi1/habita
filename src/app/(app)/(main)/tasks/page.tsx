@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { TaskList } from "@/components/features/task-list";
-import { CreateTaskButton } from "@/components/features/create-task-button";
+import { TaskCatalogPicker } from "@/components/features/task-catalog-picker";
 
 export default async function TasksPage() {
   const member = await getCurrentMember();
@@ -30,7 +30,10 @@ export default async function TasksPage() {
             Gestiona las tareas de tu hogar
           </p>
         </div>
-        <CreateTaskButton />
+        <TaskCatalogPicker
+          existingTaskNames={tasks.map((t) => t.name)}
+          onTasksCreated={() => {}}
+        />
       </div>
 
       <TaskList tasks={tasks} />

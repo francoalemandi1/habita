@@ -4,9 +4,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/toast";
-import { Loader2, Sparkles, Trophy, User } from "lucide-react";
+import {
+  ExternalLink,
+  Film,
+  Loader2,
+  Sofa,
+  Sparkles,
+  TreePine,
+  Trophy,
+  User,
+  UtensilsCrossed,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+
+import type { ReactNode } from "react";
 
 interface PlanReward {
   id: string;
@@ -15,6 +27,8 @@ interface PlanReward {
   pointsCost: number;
   memberId: string | null;
   completionRate: number | null;
+  category: string | null;
+  actionUrl: string | null;
 }
 
 interface MemberInfo {
@@ -29,6 +43,13 @@ interface PlanRewardsSectionProps {
   canGenerate: boolean;
   hasCompletedTasks: boolean;
 }
+
+const CATEGORY_META: Record<string, { icon: ReactNode; label: string }> = {
+  OUTING: { icon: <Film className="h-3.5 w-3.5" />, label: "Salida" },
+  GASTRONOMY: { icon: <UtensilsCrossed className="h-3.5 w-3.5" />, label: "Gastronomía" },
+  OUTDOOR: { icon: <TreePine className="h-3.5 w-3.5" />, label: "Aire libre" },
+  HOME: { icon: <Sofa className="h-3.5 w-3.5" />, label: "Hogar" },
+};
 
 export function PlanRewardsSection({
   planId,
@@ -104,9 +125,9 @@ export function PlanRewardsSection({
               </p>
             </div>
           </div>
-          <Button 
-            onClick={() => handleGenerate()} 
-            disabled={isGenerating} 
+          <Button
+            onClick={() => handleGenerate()}
+            disabled={isGenerating}
             className="shrink-0 gap-2 rounded-full"
           >
             {isGenerating ? (
@@ -164,19 +185,41 @@ export function PlanRewardsSection({
               <p className="text-sm text-muted-foreground mb-3">{completionRate}% completado</p>
               <Progress value={completionRate} className="mb-4 h-2" />
               <div className="space-y-2">
-                {memberRewards.map((reward) => (
-                  <div key={reward.id} className={`rounded-2xl ${colors.rewardBg} p-3 shadow-sm`}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-sm text-foreground">{reward.name}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {reward.pointsCost} pts
-                      </Badge>
+                {memberRewards.map((reward) => {
+                  const categoryMeta = reward.category ? CATEGORY_META[reward.category] : null;
+
+                  return (
+                    <div key={reward.id} className={`rounded-2xl ${colors.rewardBg} p-3 shadow-sm`}>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {categoryMeta && (
+                            <span className="shrink-0 text-muted-foreground">{categoryMeta.icon}</span>
+                          )}
+                          <span className="font-medium text-sm text-foreground truncate">{reward.name}</span>
+                        </div>
+                        {categoryMeta && (
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            {categoryMeta.label}
+                          </Badge>
+                        )}
+                      </div>
+                      {reward.description && (
+                        <p className="text-xs text-muted-foreground mb-2">{reward.description}</p>
+                      )}
+                      {reward.actionUrl && (
+                        <a
+                          href={reward.actionUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Ver actividad
+                        </a>
+                      )}
                     </div>
-                    {reward.description && (
-                      <p className="text-xs text-muted-foreground">{reward.description}</p>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );

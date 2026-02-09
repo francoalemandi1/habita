@@ -28,6 +28,9 @@ export async function processAbsenceRedistribution(): Promise<{
     },
   });
 
+  // Cache other members per household+absence to avoid repeated queries
+  const otherMembersCache = new Map<string, Array<{ id: string }>>();
+
   for (const absence of activeAbsences) {
     const start = new Date(absence.startDate);
     const end = new Date(absence.endDate);
@@ -70,14 +73,19 @@ export async function processAbsenceRedistribution(): Promise<{
         }
 
         if (policy === "AUTO") {
-          const otherMembers = await prisma.member.findMany({
-            where: {
-              householdId: absence.member.householdId,
-              isActive: true,
-              id: { not: absence.memberId },
-            },
-            select: { id: true },
-          });
+          const cacheKey = `${absence.member.householdId}:${absence.memberId}`;
+          let otherMembers = otherMembersCache.get(cacheKey);
+          if (!otherMembers) {
+            otherMembers = await prisma.member.findMany({
+              where: {
+                householdId: absence.member.householdId,
+                isActive: true,
+                id: { not: absence.memberId },
+              },
+              select: { id: true },
+            });
+            otherMembersCache.set(cacheKey, otherMembers);
+          }
 
           if (otherMembers.length === 0) {
             errors.push(
@@ -86,7 +94,7 @@ export async function processAbsenceRedistribution(): Promise<{
             continue;
           }
 
-          const best = await getBestAssignee(
+          const { best } = await getBestAssignee(
             absence.member.householdId,
             assignment.taskId,
             assignment.dueDate

@@ -1,19 +1,52 @@
 import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
-import { getNotificationsForMember } from "@/lib/notifications";
+import { prisma } from "@/lib/prisma";
+import { markNotificationsAsRead, markAllNotificationsAsRead } from "@/lib/notification-service";
+
+import type { NextRequest } from "next/server";
+
+const MAX_NOTIFICATIONS = 50;
 
 /**
  * GET /api/notifications
- * Get notifications for the current member
+ * Get notifications for the current member from the database.
+ * Query params: ?unreadOnly=true, ?limit=30, ?cursor=<id>
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const member = await requireMember();
-    const notifications = await getNotificationsForMember(member.id);
+    const searchParams = request.nextUrl.searchParams;
+
+    const unreadOnly = searchParams.get("unreadOnly") === "true";
+    const limit = Math.min(Number(searchParams.get("limit")) || 30, MAX_NOTIFICATIONS);
+    const cursor = searchParams.get("cursor");
+
+    const notifications = await prisma.notification.findMany({
+      where: {
+        memberId: member.id,
+        ...(unreadOnly && { isRead: false }),
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit + 1,
+      ...(cursor && {
+        cursor: { id: cursor },
+        skip: 1,
+      }),
+    });
+
+    const hasMore = notifications.length > limit;
+    if (hasMore) notifications.pop();
+
+    const nextCursor = hasMore ? notifications[notifications.length - 1]?.id : null;
+
+    const unreadCount = await prisma.notification.count({
+      where: { memberId: member.id, isRead: false },
+    });
 
     return NextResponse.json({
       notifications,
-      unreadCount: notifications.filter((n) => !n.read).length,
+      unreadCount,
+      nextCursor,
     });
   } catch (error) {
     console.error("GET /api/notifications error:", error);
@@ -23,5 +56,37 @@ export async function GET() {
     }
 
     return NextResponse.json({ error: "Error fetching notifications" }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/notifications
+ * Mark notifications as read.
+ * Body: { ids: string[] } or { all: true }
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const member = await requireMember();
+    const body = (await request.json()) as { ids?: string[]; all?: boolean };
+
+    let updatedCount = 0;
+
+    if (body.all) {
+      updatedCount = await markAllNotificationsAsRead(member.id);
+    } else if (body.ids && Array.isArray(body.ids) && body.ids.length > 0) {
+      updatedCount = await markNotificationsAsRead(member.id, body.ids);
+    } else {
+      return NextResponse.json({ error: "Provide 'ids' array or 'all: true'" }, { status: 400 });
+    }
+
+    return NextResponse.json({ updated: updatedCount });
+  } catch (error) {
+    console.error("PATCH /api/notifications error:", error);
+
+    if (error instanceof Error && error.message === "Not a member of any household") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    return NextResponse.json({ error: "Error updating notifications" }, { status: 500 });
   }
 }

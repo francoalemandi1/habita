@@ -3,6 +3,7 @@
 import { LoadingScreen } from "@/components/features/loading-screen";
 import { CatalogTaskItem } from "@/components/features/onboarding/catalog-task-item";
 import { OnboardingLayout } from "@/components/features/onboarding/onboarding-layout";
+import { useGeolocation } from "@/hooks/use-geolocation";
 import { StepHeader } from "@/components/features/onboarding/step-header";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -88,6 +89,7 @@ export default function OnboardingPage() {
 function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { location: geoLocation } = useGeolocation();
 
   const [step, setStep] = useState<StepId>("name");
   const [stepDirection, setStepDirection] = useState<"forward" | "back">("forward");
@@ -131,13 +133,17 @@ function OnboardingContent() {
   useEffect(() => {
     fetch("/api/auth/me")
       .then((res) => res.json())
-      .then((data: { name?: string | null }) => {
+      .then((data: { name?: string | null; hasMembership?: boolean }) => {
+        if (data.hasMembership) {
+          router.replace("/dashboard");
+          return;
+        }
         if (data.name) {
           setMemberName((prev) => (prev === "" ? data.name! : prev));
         }
       })
       .catch(() => {});
-  }, []);
+  }, [router]);
 
   const steps = hasInviteCode ? STEPS_JOIN : STEPS_CREATE;
 
@@ -361,6 +367,15 @@ function OnboardingContent() {
             memberName: memberName.trim() || undefined,
             memberType: "adult",
             tasks: tasksPayload,
+            ...(geoLocation && geoLocation.latitude !== 0 && {
+              location: {
+                latitude: geoLocation.latitude,
+                longitude: geoLocation.longitude,
+                timezone: geoLocation.timezone,
+                country: geoLocation.country,
+                city: geoLocation.city,
+              },
+            }),
           }),
         }),
         new Promise((resolve) => setTimeout(resolve, 3000)),

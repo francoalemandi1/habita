@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
         ...(includeAll ? {} : { endDate: { gte: now } }),
       },
       orderBy: { startDate: "asc" },
+      take: 50,
     });
 
     const current = absences.filter((a) => a.startDate <= now && a.endDate >= now);

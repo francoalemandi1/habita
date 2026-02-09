@@ -18,54 +18,104 @@ export async function GET() {
 
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // Get all members with their levels
-    const members = await prisma.member.findMany({
-      where: { householdId, isActive: true },
-      include: {
-        level: true,
-      },
-    });
+    // Daily completions date range (needed before Promise.all)
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(now.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
 
-    // Get assignments completed this week per member
-    const weeklyCompletions = await prisma.assignment.groupBy({
-      by: ["memberId"],
-      where: {
-        householdId,
-        status: { in: ["COMPLETED", "VERIFIED"] },
-        completedAt: { gte: startOfWeek },
-      },
-      _count: { id: true },
-    });
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    // All 9 queries are independent — run in parallel
+    const [
+      members,
+      weeklyCompletions,
+      monthlyCompletions,
+      totalCompletions,
+      totalTasksCompleted,
+      pendingTasks,
+      overdueTasks,
+      recentActivity,
+      weekCompletions,
+    ] = await Promise.all([
+      prisma.member.findMany({
+        where: { householdId, isActive: true },
+        include: { level: true },
+      }),
+      prisma.assignment.groupBy({
+        by: ["memberId"],
+        where: {
+          householdId,
+          status: { in: ["COMPLETED", "VERIFIED"] },
+          completedAt: { gte: startOfWeek },
+        },
+        _count: { id: true },
+      }),
+      prisma.assignment.groupBy({
+        by: ["memberId"],
+        where: {
+          householdId,
+          status: { in: ["COMPLETED", "VERIFIED"] },
+          completedAt: { gte: startOfMonth },
+        },
+        _count: { id: true },
+      }),
+      prisma.assignment.groupBy({
+        by: ["memberId"],
+        where: {
+          householdId,
+          status: { in: ["COMPLETED", "VERIFIED"] },
+        },
+        _count: { id: true },
+      }),
+      prisma.assignment.count({
+        where: {
+          householdId,
+          status: { in: ["COMPLETED", "VERIFIED"] },
+        },
+      }),
+      prisma.assignment.count({
+        where: {
+          householdId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+        },
+      }),
+      prisma.assignment.count({
+        where: {
+          householdId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+          dueDate: { lt: now },
+        },
+      }),
+      prisma.assignment.findMany({
+        where: {
+          householdId,
+          status: { in: ["COMPLETED", "VERIFIED"] },
+          completedAt: { gte: startOfWeek },
+        },
+        include: {
+          task: { select: { name: true } },
+          member: { select: { name: true } },
+        },
+        orderBy: { completedAt: "desc" },
+        take: 10,
+      }),
+      prisma.assignment.findMany({
+        where: {
+          householdId,
+          status: { in: ["COMPLETED", "VERIFIED"] },
+          completedAt: { gte: sevenDaysAgo, lte: endOfToday },
+        },
+        select: { completedAt: true },
+      }),
+    ]);
 
     const weeklyCompletionMap = new Map(
       weeklyCompletions.map((c) => [c.memberId, c._count.id])
     );
-
-    // Get assignments completed this month per member
-    const monthlyCompletions = await prisma.assignment.groupBy({
-      by: ["memberId"],
-      where: {
-        householdId,
-        status: { in: ["COMPLETED", "VERIFIED"] },
-        completedAt: { gte: startOfMonth },
-      },
-      _count: { id: true },
-    });
-
     const monthlyCompletionMap = new Map(
       monthlyCompletions.map((c) => [c.memberId, c._count.id])
     );
-
-    // Get total completions per member (all time)
-    const totalCompletions = await prisma.assignment.groupBy({
-      by: ["memberId"],
-      where: {
-        householdId,
-        status: { in: ["COMPLETED", "VERIFIED"] },
-      },
-      _count: { id: true },
-    });
-
     const totalCompletionMap = new Map(
       totalCompletions.map((c) => [c.memberId, c._count.id])
     );
@@ -84,69 +134,21 @@ export async function GET() {
       }))
       .sort((a, b) => b.xp - a.xp);
 
-    // Household totals
-    const totalTasksCompleted = await prisma.assignment.count({
-      where: {
-        householdId,
-        status: { in: ["COMPLETED", "VERIFIED"] },
-      },
-    });
+    const countsByDate = new Map<string, number>();
+    for (const c of weekCompletions) {
+      if (c.completedAt) {
+        const key = c.completedAt.toISOString().split("T")[0] ?? "";
+        countsByDate.set(key, (countsByDate.get(key) ?? 0) + 1);
+      }
+    }
 
-    const pendingTasks = await prisma.assignment.count({
-      where: {
-        householdId,
-        status: { in: ["PENDING", "IN_PROGRESS"] },
-      },
-    });
-
-    const overdueTasks = await prisma.assignment.count({
-      where: {
-        householdId,
-        status: { in: ["PENDING", "IN_PROGRESS"] },
-        dueDate: { lt: now },
-      },
-    });
-
-    // Recent activity (last 7 days)
-    const recentActivity = await prisma.assignment.findMany({
-      where: {
-        householdId,
-        status: { in: ["COMPLETED", "VERIFIED"] },
-        completedAt: { gte: startOfWeek },
-      },
-      include: {
-        task: { select: { name: true } },
-        member: { select: { name: true } },
-      },
-      orderBy: { completedAt: "desc" },
-      take: 10,
-    });
-
-    // Daily completions for the week (for chart)
     const dailyCompletions: { date: string; count: number }[] = [];
     for (let i = 6; i >= 0; i--) {
       const date = new Date(now);
       date.setDate(now.getDate() - i);
       date.setHours(0, 0, 0, 0);
-
-      const nextDate = new Date(date);
-      nextDate.setDate(date.getDate() + 1);
-
-      const count = await prisma.assignment.count({
-        where: {
-          householdId,
-          status: { in: ["COMPLETED", "VERIFIED"] },
-          completedAt: {
-            gte: date,
-            lt: nextDate,
-          },
-        },
-      });
-
-      dailyCompletions.push({
-        date: date.toISOString().split("T")[0] ?? "",
-        count,
-      });
+      const key = date.toISOString().split("T")[0] ?? "";
+      dailyCompletions.push({ date: key, count: countsByDate.get(key) ?? 0 });
     }
 
     return NextResponse.json({

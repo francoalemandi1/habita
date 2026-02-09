@@ -28,6 +28,7 @@ export async function GET() {
         },
       },
       orderBy: { scheduledFor: "asc" },
+      take: 50,
     });
 
     return NextResponse.json({ reminders });

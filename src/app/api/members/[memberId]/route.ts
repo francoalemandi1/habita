@@ -27,8 +27,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         level: true,
         achievements: {
           include: {
-            achievement: true,
+            achievement: { select: { id: true, name: true, description: true, xpReward: true } },
           },
+          orderBy: { unlockedAt: "desc" },
         },
       },
     });
@@ -79,6 +80,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         id: memberId,
         householdId: currentMember.householdId, // Data isolation
       },
+      select: { id: true },
     });
 
     if (!existingMember) {

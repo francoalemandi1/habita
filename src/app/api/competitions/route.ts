@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
         householdId: member.householdId,
         status: "ACTIVE",
       },
+      select: { id: true },
     });
 
     if (activeCompetition) {

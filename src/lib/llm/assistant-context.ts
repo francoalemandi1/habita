@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { buildRegionalContext } from "./regional-context";
 
 const DATE_FMT = { year: "numeric", month: "2-digit", day: "2-digit" } as const;
 
@@ -6,10 +7,20 @@ const DATE_FMT = { year: "numeric", month: "2-digit", day: "2-digit" } as const;
  * Construye el contexto del hogar para el prompt del asistente (spec §4.2).
  */
 export async function buildAssistantContext(householdId: string, currentMemberName: string) {
-  const [members, tasks, recentAssignments, memberStats] = await Promise.all([
+  // Fetch members with level + pending count, plus household location for regional context
+  const [membersWithStats, tasks, recentAssignments, household] = await Promise.all([
     prisma.member.findMany({
       where: { householdId, isActive: true },
-      select: { id: true, name: true, memberType: true },
+      select: {
+        id: true,
+        name: true,
+        memberType: true,
+        level: { select: { level: true } },
+        assignments: {
+          where: { status: { in: ["PENDING", "IN_PROGRESS"] } },
+          select: { id: true },
+        },
+      },
       orderBy: { name: "asc" },
     }),
     prisma.task.findMany({
@@ -26,8 +37,16 @@ export async function buildAssistantContext(householdId: string, currentMemberNa
         member: { select: { name: true } },
       },
     }),
-    getMemberStatsThisWeek(householdId),
+    prisma.household.findUnique({
+      where: { id: householdId },
+      select: { latitude: true, longitude: true, timezone: true, country: true, city: true },
+    }),
   ]);
+
+  const regionalContext = await buildRegionalContext(household ?? {});
+
+  const members = membersWithStats.map((m) => ({ id: m.id, name: m.name, memberType: m.memberType }));
+  const memberStats = await getMemberStatsThisWeek(householdId, membersWithStats);
 
   const membersText = members
     .map((m) => `- ${m.name} (${m.memberType})`)
@@ -54,29 +73,19 @@ export async function buildAssistantContext(householdId: string, currentMemberNa
     tasks: tasksText || "(ninguna)",
     recentActivity: recentText || "(ninguna)",
     memberStats: statsText || "(sin datos)",
+    regionalBlock: regionalContext.promptBlock,
   };
 }
 
 async function getMemberStatsThisWeek(
-  householdId: string
+  householdId: string,
+  members: Array<{ id: string; name: string; level: { level: number } | null; assignments: { id: string }[] }>
 ): Promise<Array<{ memberName: string; completedThisWeek: number; pending: number; level: number }>> {
   const startOfWeek = new Date();
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
   startOfWeek.setHours(0, 0, 0, 0);
 
-  const members = await prisma.member.findMany({
-    where: { householdId, isActive: true },
-    select: {
-      id: true,
-      name: true,
-      level: { select: { level: true } },
-      assignments: {
-        where: { status: { in: ["PENDING", "IN_PROGRESS"] } },
-        select: { id: true },
-      },
-    },
-  });
-
+  // Only query needed: completions groupBy (members already fetched by caller)
   const completedThisWeek = await prisma.assignment.groupBy({
     by: ["memberId"],
     where: {

@@ -4,7 +4,7 @@ import { streamText } from "ai";
 import { OpenRouter } from "@openrouter/sdk";
 import { requireMember } from "@/lib/session";
 import { buildAssistantContext } from "@/lib/llm/assistant-context";
-import { ASSISTANT_SYSTEM } from "@/lib/llm/prompts";
+import { buildAssistantSystemPrompt } from "@/lib/llm/prompts";
 import { isAIEnabled, getAIProviderType } from "@/lib/llm/provider";
 
 import type { NextRequest } from "next/server";
@@ -101,10 +101,11 @@ ${context.memberStats}
 
     const fullPrompt = `${contextText}\n\n## Pregunta del usuario\n${message}`;
     const providerType = getAIProviderType();
+    const systemPrompt = buildAssistantSystemPrompt(context.regionalBlock);
 
     // Handle OpenRouter streaming separately
     if (providerType === "openrouter") {
-      const stream = await streamWithOpenRouter(ASSISTANT_SYSTEM, fullPrompt);
+      const stream = await streamWithOpenRouter(systemPrompt, fullPrompt);
 
       const encoder = new TextEncoder();
       const readableStream = new ReadableStream({
@@ -138,7 +139,7 @@ ${context.memberStats}
 
     const result = streamText({
       model,
-      system: ASSISTANT_SYSTEM,
+      system: systemPrompt,
       prompt: fullPrompt,
     });
 

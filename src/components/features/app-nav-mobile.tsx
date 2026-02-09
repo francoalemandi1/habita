@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardCheck, Home, Gift, User } from "lucide-react";
+import { ClipboardCheck, Home, CalendarDays, Gift, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { href: "/my-tasks", icon: ClipboardCheck, label: "Tareas" },
   { href: "/dashboard", icon: Home, label: "Hogar" },
+  { href: "/my-tasks", icon: ClipboardCheck, label: "Tareas" },
+  { href: "/plans", icon: CalendarDays, label: "Planes" },
   { href: "/rewards", icon: Gift, label: "Recompensas" },
   { href: "/profile", icon: User, label: "Perfil" },
 ];

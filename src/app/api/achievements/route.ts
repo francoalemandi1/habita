@@ -10,19 +10,18 @@ export async function GET() {
   try {
     const member = await requireMember();
 
-    // Get all achievements
-    const allAchievements = await prisma.achievement.findMany({
-      orderBy: { xpReward: "asc" },
-    });
-
-    // Get member's unlocked achievements
-    const memberAchievements = await prisma.memberAchievement.findMany({
-      where: { memberId: member.id },
-      select: {
-        achievementId: true,
-        unlockedAt: true,
-      },
-    });
+    const [allAchievements, memberAchievements] = await Promise.all([
+      prisma.achievement.findMany({
+        orderBy: { xpReward: "asc" },
+      }),
+      prisma.memberAchievement.findMany({
+        where: { memberId: member.id },
+        select: {
+          achievementId: true,
+          unlockedAt: true,
+        },
+      }),
+    ]);
 
     const unlockedMap = new Map(
       memberAchievements.map((ma) => [ma.achievementId, ma.unlockedAt])

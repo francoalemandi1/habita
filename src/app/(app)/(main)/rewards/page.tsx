@@ -4,9 +4,17 @@ import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
 import { Leaderboard } from "@/components/features/leaderboard";
 import { PlanRewardsSection } from "@/components/features/plan-rewards-section";
-import { Coins, Trophy, ShoppingBag } from "lucide-react";
+import { Coins, ExternalLink, Film, Sofa, TreePine, Trophy, ShoppingBag, UtensilsCrossed } from "lucide-react";
 
 import type { MemberType } from "@prisma/client";
+import type { ReactNode } from "react";
+
+const PAST_REWARD_CATEGORY_ICONS: Record<string, ReactNode> = {
+  OUTING: <Film className="h-3.5 w-3.5" />,
+  GASTRONOMY: <UtensilsCrossed className="h-3.5 w-3.5" />,
+  OUTDOOR: <TreePine className="h-3.5 w-3.5" />,
+  HOME: <Sofa className="h-3.5 w-3.5" />,
+};
 
 interface LeaderboardMember {
   id: string;
@@ -28,75 +36,87 @@ export default async function RewardsPage() {
 
   const aiEnabled = isAIEnabled();
 
-  // Get the most recent APPLIED plan
-  const latestPlan = await prisma.weeklyPlan.findFirst({
-    where: {
-      householdId: member.householdId,
-      status: "APPLIED",
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  // Get AI-generated rewards for the latest plan (or all recent ones)
-  const aiRewards = await prisma.householdReward.findMany({
-    where: {
-      householdId: member.householdId,
-      isAiGenerated: true,
-      ...(latestPlan ? { planId: latestPlan.id } : {}),
-    },
-    orderBy: { completionRate: "desc" },
-  });
-
-  // Also get any past AI rewards (from expired plans) for history
-  const pastRewards = await prisma.householdReward.findMany({
-    where: {
-      householdId: member.householdId,
-      isAiGenerated: true,
-      ...(latestPlan ? { planId: { not: latestPlan.id } } : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  });
-
-  // Get household members with levels for leaderboard
   const now = new Date();
   const startOfWeek = new Date(now);
   startOfWeek.setDate(now.getDate() - now.getDay());
   startOfWeek.setHours(0, 0, 0, 0);
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const allMembers = await prisma.member.findMany({
-    where: { householdId: member.householdId, isActive: true },
-    include: { level: true },
-  });
+  // First batch: latestPlan + all independent queries
+  const [latestPlan, allMembers, weeklyCompletions, monthlyCompletions, totalCompletions, memberLevel, redemptions] =
+    await Promise.all([
+      prisma.weeklyPlan.findFirst({
+        where: { householdId: member.householdId, status: "APPLIED" },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.member.findMany({
+        where: { householdId: member.householdId, isActive: true },
+        include: { level: { select: { level: true, xp: true } } },
+      }),
+      prisma.assignment.groupBy({
+        by: ["memberId"],
+        where: {
+          householdId: member.householdId,
+          status: { in: ["COMPLETED", "VERIFIED"] },
+          completedAt: { gte: startOfWeek },
+        },
+        _count: { id: true },
+      }),
+      prisma.assignment.groupBy({
+        by: ["memberId"],
+        where: {
+          householdId: member.householdId,
+          status: { in: ["COMPLETED", "VERIFIED"] },
+          completedAt: { gte: startOfMonth },
+        },
+        _count: { id: true },
+      }),
+      prisma.assignment.groupBy({
+        by: ["memberId"],
+        where: {
+          householdId: member.householdId,
+          status: { in: ["COMPLETED", "VERIFIED"] },
+        },
+        _count: { id: true },
+      }),
+      prisma.memberLevel.findUnique({
+        where: { memberId: member.id },
+        select: { xp: true },
+      }),
+      prisma.rewardRedemption.findMany({
+        where: { memberId: member.id },
+        select: { reward: { select: { pointsCost: true } } },
+      }),
+    ]);
 
-  const [weeklyCompletions, monthlyCompletions, totalCompletions] = await Promise.all([
-    prisma.assignment.groupBy({
-      by: ["memberId"],
+  // Second batch: queries that depend on latestPlan
+  const [aiRewards, pastRewards, completedInPlan] = await Promise.all([
+    prisma.householdReward.findMany({
       where: {
         householdId: member.householdId,
-        status: { in: ["COMPLETED", "VERIFIED"] },
-        completedAt: { gte: startOfWeek },
+        isAiGenerated: true,
+        ...(latestPlan ? { planId: latestPlan.id } : {}),
       },
-      _count: { id: true },
+      orderBy: { completionRate: "desc" },
     }),
-    prisma.assignment.groupBy({
-      by: ["memberId"],
+    prisma.householdReward.findMany({
       where: {
         householdId: member.householdId,
-        status: { in: ["COMPLETED", "VERIFIED"] },
-        completedAt: { gte: startOfMonth },
+        isAiGenerated: true,
+        ...(latestPlan ? { planId: { not: latestPlan.id } } : {}),
       },
-      _count: { id: true },
+      orderBy: { createdAt: "desc" },
+      take: 20,
     }),
-    prisma.assignment.groupBy({
-      by: ["memberId"],
-      where: {
-        householdId: member.householdId,
-        status: { in: ["COMPLETED", "VERIFIED"] },
-      },
-      _count: { id: true },
-    }),
+    latestPlan
+      ? prisma.assignment.count({
+          where: {
+            householdId: member.householdId,
+            status: { in: ["COMPLETED", "VERIFIED"] },
+            createdAt: { gte: latestPlan.createdAt, lte: latestPlan.expiresAt },
+          },
+        })
+      : Promise.resolve(0),
   ]);
 
   const weeklyMap = new Map(weeklyCompletions.map((c) => [c.memberId, c._count.id]));
@@ -116,34 +136,10 @@ export default async function RewardsPage() {
     }))
     .sort((a, b) => b.xp - a.xp);
 
-  // Members list for rewards display
   const members = allMembers.map((m) => ({ id: m.id, name: m.name }));
 
-  // Calculate available points
-  const level = await prisma.memberLevel.findUnique({
-    where: { memberId: member.id },
-  });
-
-  const redemptions = await prisma.rewardRedemption.findMany({
-    where: { memberId: member.id },
-    include: {
-      reward: { select: { pointsCost: true } },
-    },
-  });
-
   const spentPoints = redemptions.reduce((sum, r) => sum + r.reward.pointsCost, 0);
-  const availablePoints = (level?.xp ?? 0) - spentPoints;
-
-  // Check if there are completed tasks in the plan period
-  const completedInPlan = latestPlan
-    ? await prisma.assignment.count({
-        where: {
-          householdId: member.householdId,
-          status: { in: ["COMPLETED", "VERIFIED"] },
-          createdAt: { gte: latestPlan.createdAt, lte: latestPlan.expiresAt },
-        },
-      })
-    : 0;
+  const availablePoints = (memberLevel?.xp ?? 0) - spentPoints;
 
   const hasCompletedTasks = completedInPlan > 0;
 
@@ -175,7 +171,7 @@ export default async function RewardsPage() {
             <span className="text-xs font-semibold text-[#522a97] sm:text-sm">Totales</span>
             <Trophy className="h-4 w-4 shrink-0 text-[#522a97] opacity-70" />
           </div>
-          <div className="mt-2 text-2xl font-bold text-[#522a97] sm:text-3xl">{level?.xp ?? 0}</div>
+          <div className="mt-2 text-2xl font-bold text-[#522a97] sm:text-3xl">{memberLevel?.xp ?? 0}</div>
           <p className="text-xs text-[#522a97] opacity-60">ganados</p>
         </div>
 
@@ -205,6 +201,8 @@ export default async function RewardsPage() {
             pointsCost: r.pointsCost,
             memberId: r.memberId,
             completionRate: r.completionRate,
+            category: r.category,
+            actionUrl: r.actionUrl,
           }))}
           members={members}
           canGenerate={canGenerate}
@@ -221,14 +219,29 @@ export default async function RewardsPage() {
           <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
             {pastRewards.map((reward) => {
               const memberName = members.find((m) => m.id === reward.memberId)?.name ?? "Miembro";
+              const categoryIcon = reward.category ? PAST_REWARD_CATEGORY_ICONS[reward.category] : null;
               return (
                 <div key={reward.id} className="rounded-2xl bg-[#e4d5ff]/40 p-4 opacity-70">
-                  <p className="font-medium text-sm text-foreground">{reward.name}</p>
+                  <div className="flex items-center gap-1.5">
+                    {categoryIcon && <span className="shrink-0 text-muted-foreground">{categoryIcon}</span>}
+                    <p className="font-medium text-sm text-foreground truncate">{reward.name}</p>
+                  </div>
                   <p className="mt-1 text-xs text-muted-foreground">{memberName}</p>
                   {reward.completionRate !== null && (
                     <p className="text-xs text-muted-foreground">
                       {reward.completionRate}% completado
                     </p>
+                  )}
+                  {reward.actionUrl && (
+                    <a
+                      href={reward.actionUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Ver actividad
+                    </a>
                   )}
                 </div>
               );

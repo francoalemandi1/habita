@@ -51,6 +51,40 @@ export function calculatePoints({
   return Math.round(totalPoints);
 }
 
+export interface PointsBreakdown {
+  total: number;
+  base: number;
+  onTimeBonus: number;
+  streakBonus: number;
+  isOnTime: boolean;
+  streakDays: number;
+}
+
+/**
+ * Calculate points with detailed breakdown of each bonus.
+ */
+export function calculatePointsWithBreakdown({
+  weight,
+  frequency,
+  isOnTime,
+  streakDays,
+}: CalculatePointsParams): PointsBreakdown {
+  const frequencyMultiplier = FREQUENCY_MULTIPLIER[frequency];
+  const base = weight * frequencyMultiplier * POINTS.BASE_MULTIPLIER;
+  const onTimeBonus = isOnTime ? Math.round(base * POINTS.ON_TIME_BONUS) : 0;
+  const streakBonus =
+    streakDays >= POINTS.STREAK_THRESHOLD ? Math.round(base * POINTS.STREAK_BONUS) : 0;
+
+  return {
+    total: Math.round(base + onTimeBonus + streakBonus),
+    base: Math.round(base),
+    onTimeBonus,
+    streakBonus,
+    isOnTime,
+    streakDays,
+  };
+}
+
 /**
  * Calculate XP needed for next level.
  */

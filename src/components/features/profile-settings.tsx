@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
 import { useToast } from "@/components/ui/toast";
-import { Pencil, Check, X, Users, UserPlus } from "lucide-react";
+import { Pencil, Check, X, Users, UserPlus, MapPin, Loader2 } from "lucide-react";
+import { useGeolocation } from "@/hooks/use-geolocation";
 
 import type { MemberType } from "@prisma/client";
 
@@ -18,12 +19,19 @@ interface HouseholdMember {
   isActive: boolean;
 }
 
+interface HouseholdLocation {
+  timezone: string | null;
+  country: string | null;
+  city: string | null;
+}
+
 interface ProfileSettingsProps {
   memberName: string;
   householdName: string;
   inviteCode: string;
   members: HouseholdMember[];
   isAdult: boolean;
+  location?: HouseholdLocation;
 }
 
 const MEMBER_TYPE_LABELS: Record<MemberType, string> = {
@@ -38,6 +46,7 @@ export function ProfileSettings({
   inviteCode,
   members,
   isAdult,
+  location: savedLocation,
 }: ProfileSettingsProps) {
   const router = useRouter();
   const toast = useToast();
@@ -49,6 +58,9 @@ export function ProfileSettings({
   const [isEditingHousehold, setIsEditingHousehold] = useState(false);
   const [householdValue, setHouseholdValue] = useState(householdName);
   const [isSavingHousehold, setIsSavingHousehold] = useState(false);
+
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const { location: geoLocation } = useGeolocation();
 
   const handleSaveName = async () => {
     const trimmed = nameValue.trim();
@@ -113,6 +125,48 @@ export function ProfileSettings({
       setIsSavingHousehold(false);
     }
   };
+
+  const handleDetectLocation = async () => {
+    if (!geoLocation || geoLocation.latitude === 0) {
+      toast.error("Ubicación no disponible", "Permití el acceso a la ubicación en tu navegador");
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    try {
+      const response = await fetch("/api/households", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          location: {
+            latitude: geoLocation.latitude,
+            longitude: geoLocation.longitude,
+            timezone: geoLocation.timezone,
+            country: geoLocation.country,
+            city: geoLocation.city,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json() as { error?: string };
+        throw new Error(data.error ?? "Error al guardar ubicación");
+      }
+
+      const locationLabel = [geoLocation.city, geoLocation.country].filter(Boolean).join(", ");
+      toast.success("Ubicación actualizada", locationLabel || geoLocation.timezone);
+      router.refresh();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error al guardar";
+      toast.error("Error", message);
+    } finally {
+      setIsDetectingLocation(false);
+    }
+  };
+
+  const currentLocationLabel = savedLocation?.city || savedLocation?.country
+    ? [savedLocation.city, savedLocation.country].filter(Boolean).join(", ")
+    : savedLocation?.timezone ?? null;
 
   return (
     <div className="space-y-6">
@@ -260,6 +314,43 @@ export function ProfileSettings({
               ))}
             </div>
           </div>
+
+          {/* Location */}
+          {isAdult && (
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Ubicación</p>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 truncate text-sm font-medium">
+                    {currentLocationLabel ?? "Sin configurar"}
+                  </span>
+                  {savedLocation?.timezone && (
+                    <Badge variant="outline" className="text-xs shrink-0">
+                      {savedLocation.timezone}
+                    </Badge>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleDetectLocation}
+                  disabled={isDetectingLocation}
+                  className="shrink-0 gap-2"
+                >
+                  {isDetectingLocation ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <MapPin className="h-4 w-4" />
+                  )}
+                  Detectar
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                La ubicación mejora las sugerencias de la IA con clima y contexto local
+              </p>
+            </div>
+          )}
 
           {/* Invite CTA */}
           {members.length === 1 && (

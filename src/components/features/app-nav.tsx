@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Home, ListTodo, Gift, User } from "lucide-react";
+import { Home, ListTodo, CalendarDays, Gift, User } from "lucide-react";
 import { NotificationsDropdown } from "@/components/features/notifications-dropdown";
 
 const NAV_ITEMS = [
-  { href: "/my-tasks", icon: ListTodo, label: "Tareas" },
   { href: "/dashboard", icon: Home, label: "Hogar" },
+  { href: "/my-tasks", icon: ListTodo, label: "Tareas" },
+  { href: "/plans", icon: CalendarDays, label: "Planes" },
   { href: "/rewards", icon: Gift, label: "Recompensas" },
   { href: "/profile", icon: User, label: "Perfil" },
 ];

@@ -1,0 +1,47 @@
+# Feature: Task Management
+
+FEATURE_NAME: "Task Management"
+
+FEATURE_DESC: |
+  Core functionality for managing household tasks. Users can create tasks
+  with different frequencies, view all tasks with their current assignees,
+  see their own pending assignments, and mark tasks as complete.
+  The system automatically assigns tasks using a fair rotation algorithm.
+
+USER_STORY: |
+  As a household member,
+  I want to create tasks, see my assignments, and mark them complete,
+  So that household chores are distributed fairly and tracked automatically.
+
+ACCEPTANCE_CRITERIA:
+  - User can create a task with name and frequency (daily/weekly/biweekly/monthly)
+  - New tasks are automatically assigned to a member using rotation logic
+  - User can see "My Tasks" view with their pending assignments
+  - User can mark an assignment as complete
+  - Completed tasks trigger assignment to next member in rotation
+  - User can see "Household" view with all tasks and current assignees
+  - User can see basic completion stats per member
+
+AFFECTED_COMPONENTS:
+  server:
+    - createTask
+    - getTasks
+    - getMyAssignments
+    - completeAssignment
+    - getHouseholdStats
+    - assignTaskToNextMember (internal helper)
+  client:
+    - MyTasksView
+    - HouseholdView
+    - TaskForm
+    - AssignmentItem
+    - Navigation tabs
+  schema:
+    - tasks (already defined)
+    - assignments (already defined)
+
+CONSTRAINTS:
+  - Assignment algorithm: lowest pending count wins, then least recent
+  - Due dates calculated from task frequency
+  - Soft delete for tasks (isActive flag)
+  - Optimistic updates for complete action

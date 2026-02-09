@@ -7,6 +7,7 @@ import { computeDueDateForFrequency } from "@/lib/due-date";
 import { partitionTasksByDuration, durationLabel } from "@/lib/plan-duration";
 import { isAIEnabled, getAIProviderType } from "./provider";
 import { generateAIPlanOpenRouter } from "./openrouter-provider";
+import { buildRegionalContext } from "./regional-context";
 
 import type { TaskFrequency } from "@prisma/client";
 import type { LanguageModel } from "ai";
@@ -92,7 +93,14 @@ export async function generateAIPlan(
   }
 
   const durationDays = options?.durationDays ?? 7;
-  const context = await buildPlanContext(householdId);
+  const [context, household] = await Promise.all([
+    buildPlanContext(householdId),
+    prisma.household.findUnique({
+      where: { id: householdId },
+      select: { latitude: true, longitude: true, timezone: true, country: true, city: true },
+    }),
+  ]);
+  const regionalContext = await buildRegionalContext(household ?? {});
 
   if (context.members.length === 0 || context.tasks.length === 0) {
     return null;
@@ -135,6 +143,7 @@ export async function generateAIPlan(
           frequency: t.frequency,
           weight: t.weight,
         })),
+        regionalBlock: regionalContext.promptBlock,
       });
       if (result) {
         return { ...result, excludedTasks };
@@ -152,7 +161,7 @@ export async function generateAIPlan(
     return null;
   }
 
-  const prompt = buildPlanPrompt(filteredContext, durationDays);
+  const prompt = buildPlanPrompt(filteredContext, durationDays, regionalContext.promptBlock);
 
   try {
     const result = await generateObject({
@@ -206,6 +215,24 @@ export async function generateAndApplyPlan(householdId: string): Promise<{
   const taskMap = new Map(tasks.map((t) => [t.name.toLowerCase(), { id: t.id, frequency: t.frequency }]));
 
   const now = new Date();
+
+  // Batch existence check: 1 query instead of N per assignment
+  const allTaskIds = [...new Set(
+    plan.assignments
+      .map((a) => taskMap.get(a.taskName.toLowerCase())?.id)
+      .filter((id): id is string => id != null)
+  )];
+  const existingAssignments = allTaskIds.length > 0
+    ? await prisma.assignment.findMany({
+        where: {
+          taskId: { in: allTaskIds },
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+        },
+        select: { taskId: true, memberId: true },
+      })
+    : [];
+  const existingSet = new Set(existingAssignments.map((a) => `${a.taskId}:${a.memberId}`));
+
   const assignmentsToCreate: Array<{
     taskId: string;
     memberId: string;
@@ -219,16 +246,7 @@ export async function generateAndApplyPlan(householdId: string): Promise<{
     const taskInfo = taskMap.get(assignment.taskName.toLowerCase());
 
     if (memberId && taskInfo) {
-      // Check if assignment already exists
-      const existing = await prisma.assignment.findFirst({
-        where: {
-          taskId: taskInfo.id,
-          memberId,
-          status: { in: ["PENDING", "IN_PROGRESS"] },
-        },
-      });
-
-      if (!existing) {
+      if (!existingSet.has(`${taskInfo.id}:${memberId}`)) {
         const dueDate = computeDueDateForFrequency(taskInfo.frequency as TaskFrequency, now);
         assignmentsToCreate.push({
           taskId: taskInfo.id,
@@ -344,7 +362,7 @@ async function buildPlanContext(householdId: string): Promise<PlanContext> {
   };
 }
 
-function buildPlanPrompt(context: PlanContext, durationDays = 7): string {
+function buildPlanPrompt(context: PlanContext, durationDays = 7, regionalBlock = ""): string {
   const capacityRules = `
 Capacidad por tipo de miembro:
 - ADULT: 100% de capacidad
@@ -395,5 +413,5 @@ ${recentInfo || "(sin historial)"}
 6. Los niños (CHILD) no deben recibir tareas complejas o peligrosas
 7. Proporciona una breve razón para cada asignación
 
-Genera un plan de asignaciones para los próximos ${durationLabel(durationDays)}. El objetivo es maximizar la equidad (balanceScore alto = más justo).`;
+Genera un plan de asignaciones para los próximos ${durationLabel(durationDays)}. El objetivo es maximizar la equidad (balanceScore alto = más justo).${regionalBlock ? `\n\n${regionalBlock}` : ""}`;
 }

@@ -2,8 +2,18 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { redeemRewardSchema } from "@/lib/validations/gamification";
+import { createNotification } from "@/lib/notification-service";
 
 import type { NextRequest } from "next/server";
+
+class InsufficientPointsError extends Error {
+  constructor(
+    public needed: number,
+    public available: number,
+  ) {
+    super("Insufficient points");
+  }
+}
 
 /**
  * POST /api/rewards/redeem
@@ -24,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     const { rewardId } = validation.data;
 
-    // Get the reward
+    // Get the reward (outside transaction — read-only, immutable)
     const reward = await prisma.householdReward.findFirst({
       where: {
         id: rewardId,
@@ -37,49 +47,58 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Recompensa no encontrada" }, { status: 404 });
     }
 
-    // Calculate available points
-    const level = await prisma.memberLevel.findUnique({
-      where: { memberId: member.id },
+    // Atomic balance check + redemption to prevent double-spending
+    const result = await prisma.$transaction(async (tx) => {
+      const [level, redemptions] = await Promise.all([
+        tx.memberLevel.findUnique({
+          where: { memberId: member.id },
+          select: { xp: true },
+        }),
+        tx.rewardRedemption.findMany({
+          where: { memberId: member.id },
+          select: { reward: { select: { pointsCost: true } } },
+        }),
+      ]);
+
+      const spentPoints = redemptions.reduce((sum, r) => sum + r.reward.pointsCost, 0);
+      const availablePoints = (level?.xp ?? 0) - spentPoints;
+
+      if (availablePoints < reward.pointsCost) {
+        throw new InsufficientPointsError(reward.pointsCost, availablePoints);
+      }
+
+      const redemption = await tx.rewardRedemption.create({
+        data: { memberId: member.id, rewardId: reward.id },
+        select: { id: true, redeemedAt: true, rewardId: true },
+      });
+
+      return {
+        redemption: { ...redemption, reward },
+        pointsSpent: reward.pointsCost,
+        remainingPoints: availablePoints - reward.pointsCost,
+      };
     });
 
-    const redemptions = await prisma.rewardRedemption.findMany({
-      where: { memberId: member.id },
-      include: {
-        reward: {
-          select: { pointsCost: true },
-        },
-      },
+    // Notify the member about their redemption
+    await createNotification({
+      memberId: member.id,
+      type: "REWARD_REDEEMED",
+      title: "Recompensa canjeada",
+      message: `Canjeaste "${reward.name}" por ${reward.pointsCost} puntos`,
+      actionUrl: "/rewards",
     });
 
-    const spentPoints = redemptions.reduce((sum, r) => sum + r.reward.pointsCost, 0);
-    const availablePoints = (level?.xp ?? 0) - spentPoints;
-
-    if (availablePoints < reward.pointsCost) {
+    return NextResponse.json(result);
+  } catch (error) {
+    if (error instanceof InsufficientPointsError) {
       return NextResponse.json(
         {
-          error: `No tienes suficientes puntos. Necesitas ${reward.pointsCost}, tienes ${availablePoints}`,
+          error: `No tienes suficientes puntos. Necesitas ${error.needed}, tienes ${error.available}`,
         },
         { status: 400 }
       );
     }
 
-    // Create redemption
-    const redemption = await prisma.rewardRedemption.create({
-      data: {
-        memberId: member.id,
-        rewardId: reward.id,
-      },
-      include: {
-        reward: true,
-      },
-    });
-
-    return NextResponse.json({
-      redemption,
-      pointsSpent: reward.pointsCost,
-      remainingPoints: availablePoints - reward.pointsCost,
-    });
-  } catch (error) {
     console.error("POST /api/rewards/redeem error:", error);
 
     if (error instanceof Error && error.message === "Not a member of any household") {

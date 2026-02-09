@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { autoAssignAllTasks } from "@/lib/assignment-algorithm";
 import { isAIEnabled } from "@/lib/llm/provider";
+import { createNotificationForMembers } from "@/lib/notification-service";
 
 import type { NextRequest } from "next/server";
 
@@ -23,9 +24,11 @@ interface HouseholdPlanResult {
 export async function POST(request: NextRequest) {
   try {
     const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
+    }
     const authHeader = request.headers.get("authorization");
-
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -52,6 +55,23 @@ export async function POST(request: NextRequest) {
           assignmentsCreated: result.assignmentsCreated,
           method: result.method,
         });
+
+        // Notify household members about the new plan
+        if (result.success && result.assignmentsCreated > 0) {
+          const householdMembers = await prisma.member.findMany({
+            where: { householdId: household.id, isActive: true },
+            select: { id: true },
+          });
+          await createNotificationForMembers(
+            householdMembers.map((m) => m.id),
+            {
+              type: "PLAN_READY",
+              title: "Nuevo plan semanal",
+              message: `Se asignaron ${result.assignmentsCreated} tareas para esta semana`,
+              actionUrl: "/my-tasks",
+            }
+          );
+        }
       } catch (error) {
         console.error(`Weekly plan failed for household ${household.name}:`, error);
         results.push({
@@ -93,9 +113,18 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/cron/weekly-plan
- * Status endpoint for monitoring.
+ * Status endpoint for monitoring. Protegido por CRON_SECRET.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
+  }
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const aiEnabled = isAIEnabled();
 
   return NextResponse.json({

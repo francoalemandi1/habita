@@ -11,37 +11,49 @@ export default async function KidsPage() {
     redirect("/onboarding");
   }
 
-  // Get pending tasks for the kid
-  const assignments = await prisma.assignment.findMany({
-    where: {
-      memberId: member.id,
-      status: { in: ["PENDING", "IN_PROGRESS"] },
-    },
-    include: {
-      task: {
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          weight: true,
-          estimatedMinutes: true,
-        },
-      },
-    },
-    orderBy: { dueDate: "asc" },
-  });
-
-  // Get completed tasks today
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
 
-  const completedToday = await prisma.assignment.count({
-    where: {
-      memberId: member.id,
-      status: { in: ["COMPLETED", "VERIFIED"] },
-      completedAt: { gte: todayStart },
-    },
-  });
+  const [assignments, completedToday, recentAchievements] = await Promise.all([
+    prisma.assignment.findMany({
+      where: {
+        memberId: member.id,
+        status: { in: ["PENDING", "IN_PROGRESS"] },
+        dueDate: { lte: endOfToday },
+      },
+      include: {
+        task: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            weight: true,
+            estimatedMinutes: true,
+          },
+        },
+      },
+      orderBy: { dueDate: "asc" },
+    }),
+    prisma.assignment.count({
+      where: {
+        memberId: member.id,
+        status: { in: ["COMPLETED", "VERIFIED"] },
+        completedAt: { gte: todayStart },
+      },
+    }),
+    prisma.memberAchievement.findMany({
+      where: { memberId: member.id },
+      include: {
+        achievement: {
+          select: { name: true, iconUrl: true },
+        },
+      },
+      orderBy: { unlockedAt: "desc" },
+      take: 3,
+    }),
+  ]);
 
   // Get level info
   const level = member.level;
@@ -49,18 +61,6 @@ export default async function KidsPage() {
   const currentLevel = level?.level ?? 1;
   const xpForNextLevel = currentLevel * 100;
   const xpProgress = currentXp % 100;
-
-  // Get recent achievements
-  const recentAchievements = await prisma.memberAchievement.findMany({
-    where: { memberId: member.id },
-    include: {
-      achievement: {
-        select: { name: true, iconUrl: true },
-      },
-    },
-    orderBy: { unlockedAt: "desc" },
-    take: 3,
-  });
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950">

@@ -12,6 +12,7 @@ const PROTECTED_PATHS = [
   "/parental",
   "/preferences",
   "/profile",
+  "/onboarding",
 ];
 
 function isProtectedPath(pathname: string): boolean {
@@ -24,14 +25,21 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const isAuthPage = req.nextUrl.pathname.startsWith("/login");
 
-  // Redirect logged-in users away from auth pages
+  // Redirect logged-in users away from auth pages (respect callbackUrl)
   if (isAuthPage && isLoggedIn) {
-    return Response.redirect(new URL("/dashboard", req.nextUrl));
+    const callbackUrl = req.nextUrl.searchParams.get("callbackUrl");
+    const target = callbackUrl?.startsWith("/") ? callbackUrl : "/dashboard";
+    return Response.redirect(new URL(target, req.nextUrl));
   }
 
-  // Protect app routes (require login)
+  // Protect app routes (require login, pass callbackUrl)
   if (isProtectedPath(req.nextUrl.pathname) && !isLoggedIn) {
-    return Response.redirect(new URL("/login", req.nextUrl));
+    const loginUrl = new URL("/login", req.nextUrl);
+    const callback = req.nextUrl.pathname + req.nextUrl.search;
+    if (callback !== "/dashboard") {
+      loginUrl.searchParams.set("callbackUrl", callback);
+    }
+    return Response.redirect(loginUrl);
   }
 
   return;

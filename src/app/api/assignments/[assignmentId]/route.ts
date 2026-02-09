@@ -73,6 +73,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         id: assignmentId,
         householdId: member.householdId,
       },
+      select: { id: true },
     });
 
     if (!existingAssignment) {
@@ -126,6 +127,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
         id: assignmentId,
         householdId: member.householdId,
       },
+      select: { id: true },
     });
 
     if (!existingAssignment) {

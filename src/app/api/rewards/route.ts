@@ -10,28 +10,23 @@ export async function GET() {
   try {
     const member = await requireMember();
 
-    const rewards = await prisma.householdReward.findMany({
-      where: {
-        householdId: member.householdId,
-        isActive: true,
-      },
-      orderBy: { pointsCost: "asc" },
-    });
-
-    // Get member's total points (XP)
-    const level = await prisma.memberLevel.findUnique({
-      where: { memberId: member.id },
-    });
-
-    // Get member's spent points
-    const redemptions = await prisma.rewardRedemption.findMany({
-      where: { memberId: member.id },
-      include: {
-        reward: {
-          select: { pointsCost: true },
+    const [rewards, level, redemptions] = await Promise.all([
+      prisma.householdReward.findMany({
+        where: {
+          householdId: member.householdId,
+          isActive: true,
         },
-      },
-    });
+        orderBy: { pointsCost: "asc" },
+      }),
+      prisma.memberLevel.findUnique({
+        where: { memberId: member.id },
+        select: { xp: true },
+      }),
+      prisma.rewardRedemption.findMany({
+        where: { memberId: member.id },
+        select: { reward: { select: { pointsCost: true } } },
+      }),
+    ]);
 
     const spentPoints = redemptions.reduce((sum, r) => sum + r.reward.pointsCost, 0);
     const availablePoints = (level?.xp ?? 0) - spentPoints;

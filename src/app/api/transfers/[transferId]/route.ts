@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { respondTransferSchema } from "@/lib/validations/transfer";
+import { createNotification } from "@/lib/notification-service";
 
 import type { NextRequest } from "next/server";
 
@@ -83,9 +84,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           householdId: member.householdId,
         },
       },
-      include: {
-        assignment: true,
-      },
+      select: { id: true, assignmentId: true },
     });
 
     if (!transfer) {
@@ -120,6 +119,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }),
       ]);
 
+      // Notify the sender that their transfer was accepted
+      await createNotification({
+        memberId: updatedTransfer.fromMember.id,
+        type: "TRANSFER_ACCEPTED",
+        title: "Transferencia aceptada",
+        message: `${updatedTransfer.toMember.name} aceptó "${updatedTransfer.assignment.task.name}"`,
+        actionUrl: "/my-tasks",
+      });
+
       return NextResponse.json({ transfer: updatedTransfer });
     } else {
       // Reject the transfer
@@ -138,6 +146,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           fromMember: { select: { id: true, name: true } },
           toMember: { select: { id: true, name: true } },
         },
+      });
+
+      // Notify the sender that their transfer was rejected
+      await createNotification({
+        memberId: updatedTransfer.fromMember.id,
+        type: "TRANSFER_REJECTED",
+        title: "Transferencia rechazada",
+        message: `${updatedTransfer.toMember.name} rechazó "${updatedTransfer.assignment.task.name}"`,
+        actionUrl: "/my-tasks",
       });
 
       return NextResponse.json({ transfer: updatedTransfer });
@@ -172,6 +189,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
           householdId: member.householdId,
         },
       },
+      select: { id: true },
     });
 
     if (!transfer) {

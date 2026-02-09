@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { createTransferSchema } from "@/lib/validations/transfer";
+import { createNotification } from "@/lib/notification-service";
 
 import type { NextRequest } from "next/server";
 
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
         toMember: { select: { id: true, name: true } },
       },
       orderBy: { requestedAt: "desc" },
+      take: 50,
     });
 
     return NextResponse.json({ transfers });
@@ -82,6 +84,7 @@ export async function POST(request: NextRequest) {
         householdId: member.householdId,
         status: { in: ["PENDING", "IN_PROGRESS"] },
       },
+      select: { id: true },
     });
 
     if (!assignment) {
@@ -98,6 +101,7 @@ export async function POST(request: NextRequest) {
         householdId: member.householdId,
         isActive: true,
       },
+      select: { id: true },
     });
 
     if (!targetMember) {
@@ -120,6 +124,7 @@ export async function POST(request: NextRequest) {
         assignmentId,
         status: "PENDING",
       },
+      select: { id: true },
     });
 
     if (existingTransfer) {
@@ -146,6 +151,15 @@ export async function POST(request: NextRequest) {
         fromMember: { select: { id: true, name: true } },
         toMember: { select: { id: true, name: true } },
       },
+    });
+
+    // Notify the recipient about the transfer request
+    await createNotification({
+      memberId: toMemberId,
+      type: "TRANSFER_REQUEST",
+      title: "Solicitud de transferencia",
+      message: `${transfer.fromMember.name} quiere transferirte "${transfer.assignment.task.name}"`,
+      actionUrl: "/my-tasks",
     });
 
     return NextResponse.json({ transfer }, { status: 201 });

@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
 
-    const { householdName, memberName: bodyMemberName, memberType, tasks } = validation.data;
+    const { householdName, memberName: bodyMemberName, memberType, tasks, location } = validation.data;
     const prismaMemberType: MemberType =
       MEMBER_TYPE_MAP[memberType ?? "adult"] ?? "ADULT";
 
@@ -56,15 +56,24 @@ export async function POST(request: NextRequest) {
     let inviteCode = generateInviteCode(8);
     let exists = await prisma.household.findUnique({
       where: { inviteCode },
+      select: { id: true },
     });
     while (exists) {
       inviteCode = generateInviteCode(8);
-      exists = await prisma.household.findUnique({ where: { inviteCode } });
+      exists = await prisma.household.findUnique({ where: { inviteCode }, select: { id: true } });
     }
 
     const result = await prisma.$transaction(async (tx) => {
       const household = await tx.household.create({
-        data: { name: householdName, inviteCode },
+        data: {
+          name: householdName,
+          inviteCode,
+          ...(location?.latitude != null && { latitude: location.latitude }),
+          ...(location?.longitude != null && { longitude: location.longitude }),
+          ...(location?.timezone && { timezone: location.timezone }),
+          ...(location?.country && { country: location.country }),
+          ...(location?.city && { city: location.city }),
+        },
       });
 
       const member = await tx.member.create({
@@ -80,19 +89,15 @@ export async function POST(request: NextRequest) {
         data: { memberId: member.id },
       });
 
-      let tasksCreated = 0;
-      for (const t of tasks) {
-        await tx.task.create({
-          data: {
-            householdId: household.id,
-            name: t.name,
-            frequency: t.frequency,
-            weight: t.weight ?? 2,
-            estimatedMinutes: t.estimatedMinutes ?? undefined,
-          },
-        });
-        tasksCreated++;
-      }
+      const { count: tasksCreated } = await tx.task.createMany({
+        data: tasks.map((t) => ({
+          householdId: household.id,
+          name: t.name,
+          frequency: t.frequency,
+          weight: t.weight ?? 2,
+          estimatedMinutes: t.estimatedMinutes ?? undefined,
+        })),
+      });
 
       return {
         household: {

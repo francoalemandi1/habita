@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
       orderBy: {
         dueDate: "asc",
       },
+      take: 200,
     });
 
     // Group by status for convenience

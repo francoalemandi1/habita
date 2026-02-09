@@ -2,84 +2,33 @@ import { prisma } from "./prisma";
 
 import type { Assignment } from "@prisma/client";
 
+/** Pre-computed values fetched once per checkAndUnlockAchievements call */
+interface PrecomputedData {
+  completedCount: number;
+  currentLevel: number;
+  streak: number;
+  acceptedTransfers: number;
+}
+
 interface AchievementCheck {
   code: string;
-  check: (memberId: string, context?: unknown) => Promise<boolean>;
+  check: (precomputed: PrecomputedData, context?: unknown) => boolean;
 }
 
 /**
  * Achievement definitions with their unlock conditions.
+ * All checks use pre-computed data — no DB queries inside checks.
  */
 const ACHIEVEMENT_CHECKS: AchievementCheck[] = [
-  {
-    code: "FIRST_TASK",
-    check: async (memberId) => {
-      const count = await prisma.assignment.count({
-        where: {
-          memberId,
-          status: { in: ["COMPLETED", "VERIFIED"] },
-        },
-      });
-      return count === 1;
-    },
-  },
-  {
-    code: "TASKS_10",
-    check: async (memberId) => {
-      const count = await prisma.assignment.count({
-        where: {
-          memberId,
-          status: { in: ["COMPLETED", "VERIFIED"] },
-        },
-      });
-      return count >= 10;
-    },
-  },
-  {
-    code: "TASKS_50",
-    check: async (memberId) => {
-      const count = await prisma.assignment.count({
-        where: {
-          memberId,
-          status: { in: ["COMPLETED", "VERIFIED"] },
-        },
-      });
-      return count >= 50;
-    },
-  },
-  {
-    code: "TASKS_100",
-    check: async (memberId) => {
-      const count = await prisma.assignment.count({
-        where: {
-          memberId,
-          status: { in: ["COMPLETED", "VERIFIED"] },
-        },
-      });
-      return count >= 100;
-    },
-  },
-  {
-    code: "LEVEL_5",
-    check: async (memberId) => {
-      const level = await prisma.memberLevel.findUnique({
-        where: { memberId },
-      });
-      return (level?.level ?? 0) >= 5;
-    },
-  },
-  {
-    code: "LEVEL_10",
-    check: async (memberId) => {
-      const level = await prisma.memberLevel.findUnique({
-        where: { memberId },
-      });
-      return (level?.level ?? 0) >= 10;
-    },
-  },
+  { code: "FIRST_TASK", check: (p) => p.completedCount === 1 },
+  { code: "TASKS_10", check: (p) => p.completedCount >= 10 },
+  { code: "TASKS_50", check: (p) => p.completedCount >= 50 },
+  { code: "TASKS_100", check: (p) => p.completedCount >= 100 },
+  { code: "LEVEL_5", check: (p) => p.currentLevel >= 5 },
+  { code: "LEVEL_10", check: (p) => p.currentLevel >= 10 },
   {
     code: "EARLY_BIRD",
-    check: async (_memberId, context) => {
+    check: (_p, context) => {
       if (!context) return false;
       const assignment = context as Assignment;
       if (!assignment.completedAt) return false;
@@ -87,45 +36,17 @@ const ACHIEVEMENT_CHECKS: AchievementCheck[] = [
       return hour < 8;
     },
   },
-  {
-    code: "STREAK_3",
-    check: async (memberId) => {
-      const streak = await calculateStreak(memberId);
-      return streak >= 3;
-    },
-  },
-  {
-    code: "STREAK_7",
-    check: async (memberId) => {
-      const streak = await calculateStreak(memberId);
-      return streak >= 7;
-    },
-  },
-  {
-    code: "STREAK_30",
-    check: async (memberId) => {
-      const streak = await calculateStreak(memberId);
-      return streak >= 30;
-    },
-  },
-  {
-    code: "TEAM_PLAYER",
-    check: async (memberId) => {
-      const acceptedTransfers = await prisma.taskTransfer.count({
-        where: {
-          toMemberId: memberId,
-          status: "ACCEPTED",
-        },
-      });
-      return acceptedTransfers >= 1;
-    },
-  },
+  { code: "STREAK_3", check: (p) => p.streak >= 3 },
+  { code: "STREAK_7", check: (p) => p.streak >= 7 },
+  { code: "STREAK_30", check: (p) => p.streak >= 30 },
+  { code: "TEAM_PLAYER", check: (p) => p.acceptedTransfers >= 1 },
 ];
 
 /**
  * Calculate the current streak (consecutive days with completed tasks).
  */
 async function calculateStreak(memberId: string): Promise<number> {
+  // Only fetch the most recent 30 days worth of completions (max streak we track)
   const completedAssignments = await prisma.assignment.findMany({
     where: {
       memberId,
@@ -134,6 +55,7 @@ async function calculateStreak(memberId: string): Promise<number> {
     },
     orderBy: { completedAt: "desc" },
     select: { completedAt: true },
+    take: 90,
   });
 
   if (completedAssignments.length === 0) return 0;
@@ -188,27 +110,43 @@ export async function checkAndUnlockAchievements(
   memberId: string,
   context?: unknown
 ): Promise<{ code: string; name: string; xpReward: number }[]> {
-  // Get already unlocked achievements
-  const unlocked = await prisma.memberAchievement.findMany({
-    where: { memberId },
-    select: { achievementId: true },
-  });
+  // Pre-compute all data needed for checks in parallel (1 round-trip)
+  const [unlocked, allAchievements, completedCount, level, streak, acceptedTransfers] =
+    await Promise.all([
+      prisma.memberAchievement.findMany({
+        where: { memberId },
+        select: { achievementId: true },
+      }),
+      prisma.achievement.findMany(),
+      prisma.assignment.count({
+        where: { memberId, status: { in: ["COMPLETED", "VERIFIED"] } },
+      }),
+      prisma.memberLevel.findUnique({ where: { memberId } }),
+      calculateStreak(memberId),
+      prisma.taskTransfer.count({
+        where: { toMemberId: memberId, status: "ACCEPTED" },
+      }),
+    ]);
 
   const unlockedIds = new Set(unlocked.map((u) => u.achievementId));
-
-  // Get all achievements
-  const allAchievements = await prisma.achievement.findMany();
   const achievementMap = new Map(allAchievements.map((a) => [a.code, a]));
+
+  const precomputed: PrecomputedData = {
+    completedCount,
+    currentLevel: level?.level ?? 0,
+    streak,
+    acceptedTransfers,
+  };
 
   const newlyUnlocked: { code: string; name: string; xpReward: number }[] = [];
 
-  // Check each achievement
+  // Check each achievement using pre-computed data (no DB calls)
   for (const check of ACHIEVEMENT_CHECKS) {
     const achievement = achievementMap.get(check.code);
     if (!achievement) continue;
     if (unlockedIds.has(achievement.id)) continue;
 
-    const isUnlocked = await check.check(memberId, context);
+    const isUnlocked = check.check(precomputed, context);
     if (isUnlocked) {
       // Unlock the achievement
       await prisma.$transaction(async (tx) => {

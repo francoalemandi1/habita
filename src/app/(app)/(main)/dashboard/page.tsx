@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatsCards } from "@/components/features/stats-cards";
-import { SuggestionsCard } from "@/components/features/suggestions-card";
+import { DailyBriefingWrapper } from "@/components/features/daily-briefing-wrapper";
 import { PlanStatusCard } from "@/components/features/plan-status-card";
 import { CopyButton } from "@/components/ui/copy-button";
-import { UserPlus, Trophy } from "lucide-react";
+import { UserPlus, Trophy, ChevronRight } from "lucide-react";
 
 import type { MemberType } from "@prisma/client";
 
@@ -20,58 +21,84 @@ export default async function DashboardPage() {
 
   const householdId = member.householdId;
   const now = new Date();
-
-  // Get all members
-  const members = await prisma.member.findMany({
-    where: { householdId, isActive: true },
-  });
-
-  // Get totals
-  const [totalCompleted, pendingCount, overdueCount] = await Promise.all([
-    prisma.assignment.count({
-      where: { householdId, status: { in: ["COMPLETED", "VERIFIED"] } },
-    }),
-    prisma.assignment.count({
-      where: { householdId, status: { in: ["PENDING", "IN_PROGRESS"] } },
-    }),
-    prisma.assignment.count({
-      where: {
-        householdId,
-        status: { in: ["PENDING", "IN_PROGRESS"] },
-        dueDate: { lt: now },
-      },
-    }),
-  ]);
-
-  // Recent achievements (last 7 days, any member in household)
   const sevenDaysAgo = new Date(now);
   sevenDaysAgo.setDate(now.getDate() - 6);
   sevenDaysAgo.setHours(0, 0, 0, 0);
 
-  const recentAchievements = await prisma.memberAchievement.findMany({
-    where: {
-      member: { householdId },
-      unlockedAt: { gte: sevenDaysAgo },
-    },
-    include: {
-      achievement: { select: { name: true } },
-      member: { select: { name: true } },
-    },
-    orderBy: { unlockedAt: "desc" },
-    take: 3,
-  });
-
-  // Get active plan for this household
-  const activePlan = await prisma.weeklyPlan.findFirst({
-    where: {
-      householdId,
-      status: { in: ["PENDING", "APPLIED"] },
-      expiresAt: { gt: now },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const [members, totalCompleted, pendingCount, overdueCount, recentAchievements, activePlan] =
+    await Promise.all([
+      prisma.member.findMany({
+        where: { householdId, isActive: true },
+        select: { id: true },
+      }),
+      prisma.assignment.count({
+        where: { householdId, status: { in: ["COMPLETED", "VERIFIED"] } },
+      }),
+      prisma.assignment.count({
+        where: { householdId, status: { in: ["PENDING", "IN_PROGRESS"] } },
+      }),
+      prisma.assignment.count({
+        where: {
+          householdId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+          dueDate: { lt: now },
+        },
+      }),
+      prisma.memberAchievement.findMany({
+        where: {
+          member: { householdId },
+          unlockedAt: { gte: sevenDaysAgo },
+        },
+        include: {
+          achievement: { select: { name: true } },
+          member: { select: { name: true } },
+        },
+        orderBy: { unlockedAt: "desc" },
+        take: 3,
+      }),
+      prisma.weeklyPlan.findFirst({
+        where: {
+          householdId,
+          status: { in: ["PENDING", "APPLIED"] },
+          expiresAt: { gt: now },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
 
   const aiEnabled = isAIEnabled();
+
+  // Fetch pending assignments for plan finalization modal (only when plan is APPLIED)
+  const planPendingAssignments = activePlan?.status === "APPLIED"
+    ? await prisma.assignment.findMany({
+        where: {
+          householdId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+          createdAt: { gte: activePlan.appliedAt ?? activePlan.createdAt },
+        },
+        select: {
+          id: true,
+          dueDate: true,
+          member: { select: { name: true } },
+          task: { select: { name: true } },
+        },
+        orderBy: { dueDate: "asc" },
+      })
+    : [];
+
+  // Auto-finalize plan if all plan assignments are done (catches edge cases where auto-finalize didn't fire)
+  if (activePlan?.status === "APPLIED" && planPendingAssignments.length === 0) {
+    try {
+      await prisma.weeklyPlan.update({
+        where: { id: activePlan.id },
+        data: { status: "COMPLETED" },
+      });
+      // Redirect to self so the dashboard re-renders with the plan now COMPLETED (shows "Genera un plan")
+      redirect("/dashboard");
+    } catch {
+      // Non-blocking: if update fails, continue rendering normally
+    }
+  }
 
   return (
     <div className="container max-w-6xl px-4 py-6 sm:py-8 md:px-8">
@@ -100,9 +127,9 @@ export default async function DashboardPage() {
         </Card>
       )}
 
-      {/* Suggestions Card - Priority placement */}
+      {/* Daily briefing card */}
       <div className="mb-6">
-        <SuggestionsCard />
+        <DailyBriefingWrapper />
       </div>
 
       {/* Plan Status Card */}
@@ -125,6 +152,13 @@ export default async function DashboardPage() {
               expiresAt: activePlan.expiresAt,
             } : null}
             aiEnabled={aiEnabled}
+            allAssignmentsDone={activePlan?.status === "APPLIED" && planPendingAssignments.length === 0}
+            pendingAssignments={planPendingAssignments.map((a) => ({
+              id: a.id,
+              taskName: a.task.name,
+              memberName: a.member.name,
+              dueDate: a.dueDate,
+            }))}
           />
         </div>
       )}
@@ -142,16 +176,21 @@ export default async function DashboardPage() {
       {/* Recent achievements */}
       {recentAchievements.length > 0 && (
         <div className="mb-6">
-          <Card className="border-[var(--color-xp)]/20 bg-[var(--color-xp)]/5">
-            <CardContent className="py-3">
-              <div className="flex items-center gap-2">
-                <Trophy className="h-4 w-4 shrink-0 text-yellow-500" />
-                <span className="text-sm font-medium">
-                  {recentAchievements[0]!.member.name} desbloqueó: {recentAchievements[0]!.achievement.name}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+          <Link href="/achievements">
+            <Card className="border-[var(--color-xp)]/20 bg-[var(--color-xp)]/5 transition-colors hover:bg-[var(--color-xp)]/10">
+              <CardContent className="py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="h-4 w-4 shrink-0 text-yellow-500" />
+                    <span className="text-sm font-medium">
+                      {recentAchievements[0]!.member.name} desbloqueó: {recentAchievements[0]!.achievement.name}
+                    </span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       )}
     </div>

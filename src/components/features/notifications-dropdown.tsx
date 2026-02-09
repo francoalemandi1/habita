@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,47 +11,81 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Bell, ArrowRightLeft, AlertTriangle, Trophy, TrendingUp } from "lucide-react";
+import {
+  Bell,
+  ArrowRightLeft,
+  AlertTriangle,
+  Trophy,
+  TrendingUp,
+  ShieldAlert,
+  Clock,
+  CalendarCheck,
+  Gift,
+  Flame,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Notification {
   id: string;
-  type: "transfer_request" | "transfer_accepted" | "transfer_rejected" | "task_overdue" | "achievement_unlocked" | "level_up";
+  type: string;
   title: string;
   message: string;
   createdAt: string;
-  read: boolean;
-  actionUrl?: string;
+  isRead: boolean;
+  actionUrl?: string | null;
 }
 
-const NOTIFICATION_STYLES: Record<Notification["type"], { bg: string; iconColor: string }> = {
-  transfer_request: { bg: "bg-[#e4d5ff]/50", iconColor: "text-primary" },
-  transfer_accepted: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-600" },
-  transfer_rejected: { bg: "bg-red-50", iconColor: "text-red-500" },
-  task_overdue: { bg: "bg-[#fff0d7]", iconColor: "text-red-500" },
-  achievement_unlocked: { bg: "bg-[#fff0d7]", iconColor: "text-yellow-500" },
-  level_up: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-500" },
+const NOTIFICATION_STYLES: Record<string, { bg: string; iconColor: string }> = {
+  TRANSFER_REQUEST: { bg: "bg-[#e4d5ff]/50", iconColor: "text-primary" },
+  TRANSFER_ACCEPTED: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-600" },
+  TRANSFER_REJECTED: { bg: "bg-red-50", iconColor: "text-red-500" },
+  TASK_OVERDUE: { bg: "bg-[#fff0d7]", iconColor: "text-red-500" },
+  ACHIEVEMENT_UNLOCKED: { bg: "bg-[#fff0d7]", iconColor: "text-yellow-500" },
+  LEVEL_UP: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-500" },
+  PENALTY_APPLIED: { bg: "bg-red-50", iconColor: "text-orange-500" },
+  REMINDER_DUE: { bg: "bg-blue-50", iconColor: "text-blue-500" },
+  PLAN_READY: { bg: "bg-[#e4d5ff]/50", iconColor: "text-primary" },
+  PLAN_APPLIED: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-600" },
+  REWARD_REDEEMED: { bg: "bg-[#fff0d7]", iconColor: "text-yellow-500" },
+  STREAK_MILESTONE: { bg: "bg-[#fff0d7]", iconColor: "text-orange-500" },
 };
 
-function getNotificationIcon(type: Notification["type"]) {
-  const style = NOTIFICATION_STYLES[type];
+const DEFAULT_STYLE = { bg: "bg-muted/50", iconColor: "text-muted-foreground" };
+
+function getNotificationStyle(type: string) {
+  return NOTIFICATION_STYLES[type] ?? DEFAULT_STYLE;
+}
+
+function getNotificationIcon(type: string) {
+  const style = getNotificationStyle(type);
   switch (type) {
-    case "transfer_request":
-    case "transfer_accepted":
-    case "transfer_rejected":
+    case "TRANSFER_REQUEST":
+    case "TRANSFER_ACCEPTED":
+    case "TRANSFER_REJECTED":
       return <ArrowRightLeft className={cn("h-4 w-4", style.iconColor)} />;
-    case "task_overdue":
+    case "TASK_OVERDUE":
       return <AlertTriangle className={cn("h-4 w-4", style.iconColor)} />;
-    case "achievement_unlocked":
+    case "ACHIEVEMENT_UNLOCKED":
       return <Trophy className={cn("h-4 w-4", style.iconColor)} />;
-    case "level_up":
+    case "LEVEL_UP":
       return <TrendingUp className={cn("h-4 w-4", style.iconColor)} />;
+    case "PENALTY_APPLIED":
+      return <ShieldAlert className={cn("h-4 w-4", style.iconColor)} />;
+    case "REMINDER_DUE":
+      return <Clock className={cn("h-4 w-4", style.iconColor)} />;
+    case "PLAN_READY":
+    case "PLAN_APPLIED":
+      return <CalendarCheck className={cn("h-4 w-4", style.iconColor)} />;
+    case "REWARD_REDEEMED":
+      return <Gift className={cn("h-4 w-4", style.iconColor)} />;
+    case "STREAK_MILESTONE":
+      return <Flame className={cn("h-4 w-4", style.iconColor)} />;
     default:
       return <Bell className="h-4 w-4" />;
   }
 }
 
-function formatRelativeTime(dateString: string): string {
+function formatNotificationTime(dateString: string): string {
   const now = new Date();
   const past = new Date(dateString);
   const diffMs = now.getTime() - past.getTime();
@@ -59,12 +93,17 @@ function formatRelativeTime(dateString: string): string {
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
+  const timeStr = past.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+
   if (diffMins < 1) return "ahora";
   if (diffMins < 60) return `hace ${diffMins} min`;
-  if (diffHours < 24) return `hace ${diffHours}h`;
-  if (diffDays === 1) return "ayer";
-  if (diffDays < 7) return `hace ${diffDays} días`;
-  return past.toLocaleDateString("es", { day: "numeric", month: "short" });
+  if (diffHours < 24) return `hoy ${timeStr}`;
+  if (diffDays === 1) return `ayer ${timeStr}`;
+  if (diffDays < 7) {
+    const dayName = past.toLocaleDateString("es", { weekday: "long" });
+    return `${dayName} ${timeStr}`;
+  }
+  return past.toLocaleDateString("es", { day: "numeric", month: "short" }) + ` ${timeStr}`;
 }
 
 export function NotificationsDropdown() {
@@ -72,8 +111,9 @@ export function NotificationsDropdown() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const markingAsReadRef = useRef(false);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       const response = await fetch("/api/notifications");
       if (response.ok) {
@@ -89,14 +129,40 @@ export function NotificationsDropdown() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchNotifications();
-    // Poll every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchNotifications]);
+
+  // Mark all as read when dialog opens (server-side)
+  useEffect(() => {
+    if (!open || unreadCount === 0 || markingAsReadRef.current) return;
+
+    markingAsReadRef.current = true;
+
+    fetch("/api/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ all: true }),
+    })
+      .then((res) => {
+        if (res.ok) {
+          setUnreadCount(0);
+          setNotifications((prev) =>
+            prev.map((n) => (n.isRead ? n : { ...n, isRead: true }))
+          );
+        }
+      })
+      .catch(() => {
+        // Silently fail — will retry next time
+      })
+      .finally(() => {
+        markingAsReadRef.current = false;
+      });
+  }, [open, unreadCount]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -118,11 +184,6 @@ export function NotificationsDropdown() {
           <DialogTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
             Notificaciones
-            {unreadCount > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                {unreadCount}
-              </Badge>
-            )}
           </DialogTitle>
         </DialogHeader>
         <div className="max-h-[60vh] overflow-y-auto px-5 pb-5">
@@ -140,7 +201,8 @@ export function NotificationsDropdown() {
           ) : (
             <div className="space-y-2">
               {notifications.map((notification) => {
-                const style = NOTIFICATION_STYLES[notification.type];
+                const style = getNotificationStyle(notification.type);
+                const isUnread = !notification.isRead;
                 const content = (
                   <div className={cn("rounded-2xl p-4 transition-colors", style.bg)}>
                     <div className="flex gap-3">
@@ -148,12 +210,17 @@ export function NotificationsDropdown() {
                         {getNotificationIcon(notification.type)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm">{notification.title}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-medium text-sm">{notification.title}</p>
+                          {isUnread && (
+                            <span className="mt-1 shrink-0 size-2 rounded-full bg-primary" />
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground mt-0.5">
                           {notification.message}
                         </p>
                         <p className="mt-1.5 text-xs text-muted-foreground">
-                          {formatRelativeTime(notification.createdAt)}
+                          {formatNotificationTime(notification.createdAt)}
                         </p>
                       </div>
                     </div>

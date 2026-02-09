@@ -185,15 +185,20 @@ export async function calculateAssignmentScores(
   return scores;
 }
 
+interface BestAssigneeResult {
+  best: MemberScore | null;
+  scores: MemberScore[];
+}
+
 /**
- * Get the best member to assign a task to.
+ * Get the best member to assign a task to, along with all scores.
  * Spec: si tras filtrar por edad no queda nadie, usar solo adultos.
  */
 export async function getBestAssignee(
   householdId: string,
   taskId: string,
   forDate?: Date
-): Promise<MemberScore | null> {
+): Promise<BestAssigneeResult> {
   let scores = await calculateAssignmentScores(householdId, taskId, forDate);
   if (scores.length === 0) {
     const task = await prisma.task.findUnique({
@@ -206,7 +211,7 @@ export async function getBestAssignee(
       });
     }
   }
-  return scores[0] ?? null;
+  return { best: scores[0] ?? null, scores };
 }
 
 /**
@@ -217,17 +222,17 @@ export async function autoAssignTask(
   taskId: string,
   dueDate: Date
 ) {
-  // Use dueDate for absence checking
-  const bestAssignee = await getBestAssignee(householdId, taskId, dueDate);
+  // Use dueDate for absence checking — returns scores alongside best pick
+  const { best, scores } = await getBestAssignee(householdId, taskId, dueDate);
 
-  if (!bestAssignee) {
+  if (!best) {
     throw new Error("No eligible members for this task");
   }
 
   const assignment = await prisma.assignment.create({
     data: {
       taskId,
-      memberId: bestAssignee.memberId,
+      memberId: best.memberId,
       householdId,
       dueDate,
     },
@@ -250,8 +255,8 @@ export async function autoAssignTask(
 
   return {
     assignment,
-    scores: await calculateAssignmentScores(householdId, taskId, dueDate),
-    selectedMember: bestAssignee,
+    scores,
+    selectedMember: best,
   };
 }
 
@@ -299,19 +304,21 @@ export async function autoAssignAllTasks(
     select: { id: true, name: true, frequency: true },
   });
 
+  // Batch existence check: 1 query instead of N
+  const existingAssignments = await prisma.assignment.findMany({
+    where: {
+      taskId: { in: tasks.map((t) => t.id) },
+      status: { in: ["PENDING", "IN_PROGRESS"] },
+    },
+    select: { taskId: true },
+  });
+  const assignedTaskIds = new Set(existingAssignments.map((a) => a.taskId));
+
   const now = new Date();
   const details: Array<{ taskName: string; memberName: string }> = [];
 
   for (const task of tasks) {
-    // Check if task already has a pending assignment
-    const existingAssignment = await prisma.assignment.findFirst({
-      where: {
-        taskId: task.id,
-        status: { in: ["PENDING", "IN_PROGRESS"] },
-      },
-    });
-
-    if (existingAssignment) {
+    if (assignedTaskIds.has(task.id)) {
       continue; // Skip tasks that already have pending assignments
     }
 

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { computeDueDateForFrequency } from "@/lib/due-date";
+import { calculatePlanPerformance, generateAIRewards } from "@/lib/llm/ai-reward-generator";
+import { createNotificationForMembers } from "@/lib/notification-service";
 
 import type { NextRequest } from "next/server";
-import type { TaskFrequency } from "@prisma/client";
 
 interface AssignmentToApply {
   taskName: string;
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Get members and tasks for ID lookup
+    // Read-only lookups (outside transaction for efficiency)
     const [members, tasks] = await Promise.all([
       prisma.member.findMany({
         where: { householdId: member.householdId, isActive: true },
@@ -57,18 +57,17 @@ export async function POST(request: NextRequest) {
       }),
       prisma.task.findMany({
         where: { householdId: member.householdId, isActive: true },
-        select: { id: true, name: true, frequency: true },
+        select: { id: true, name: true },
       }),
     ]);
 
     const memberMap = new Map(members.map((m) => [m.name.toLowerCase(), m.id]));
     const taskMap = new Map(
-      tasks.map((t) => [t.name.toLowerCase(), { id: t.id, frequency: t.frequency }])
+      tasks.map((t) => [t.name.toLowerCase(), t.id])
     );
 
     const now = new Date();
 
-    // Look up plan to get expiresAt for due date capping
     let planEndDate: Date | undefined;
     if (planId) {
       const existingPlan = await prisma.weeklyPlan.findUnique({
@@ -80,18 +79,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Cancel all pending assignments for the household before applying new plan
-    // This ensures the plan replaces previous assignments
-    const cancelledCount = await prisma.assignment.updateMany({
-      where: {
-        householdId: member.householdId,
-        status: { in: ["PENDING", "IN_PROGRESS"] },
-      },
-      data: {
-        status: "CANCELLED",
-      },
-    });
-
+    // Build assignments data before transaction
     const assignmentsToCreate: Array<{
       taskId: string;
       memberId: string;
@@ -102,49 +90,141 @@ export async function POST(request: NextRequest) {
 
     const skipped: string[] = [];
 
+    // Plan-applied tasks are due end-of-today so they're immediately visible in "Mis tareas".
+    // When completed, computeDueDateForFrequency creates the next occurrence with the correct
+    // future due date (which stays hidden until it's due, preventing the "reappearing task" issue).
+    const endOfDay = new Date(now);
+    endOfDay.setHours(23, 59, 59, 999);
+    const planDueDate = planEndDate && planEndDate < endOfDay ? planEndDate : endOfDay;
+
     for (const assignment of assignments) {
       const memberId = memberMap.get(assignment.memberName.toLowerCase());
-      const taskInfo = taskMap.get(assignment.taskName.toLowerCase());
+      const taskId = taskMap.get(assignment.taskName.toLowerCase());
 
-      if (!memberId || !taskInfo) {
+      if (!memberId || !taskId) {
         skipped.push(`${assignment.taskName} → ${assignment.memberName}`);
         continue;
       }
 
-      const dueDate = computeDueDateForFrequency(taskInfo.frequency as TaskFrequency, now, planEndDate);
       assignmentsToCreate.push({
-        taskId: taskInfo.id,
+        taskId,
         memberId,
         householdId: member.householdId,
-        dueDate,
+        dueDate: planDueDate,
         status: "PENDING",
       });
     }
 
-    if (assignmentsToCreate.length > 0) {
-      await prisma.assignment.createMany({
-        data: assignmentsToCreate,
+    // Generate rewards for expiring APPLIED plan (best-effort, before transaction)
+    try {
+      const appliedPlan = await prisma.weeklyPlan.findFirst({
+        where: { householdId: member.householdId, status: "APPLIED" },
+        select: { id: true, createdAt: true, expiresAt: true },
       });
+
+      if (appliedPlan) {
+        const existingRewards = await prisma.householdReward.count({
+          where: { planId: appliedPlan.id, isAiGenerated: true },
+        });
+
+        if (existingRewards === 0) {
+          const performances = await calculatePlanPerformance(
+            member.householdId,
+            appliedPlan.createdAt,
+            appliedPlan.expiresAt,
+          );
+          const rewardResult = await generateAIRewards(member.householdId, appliedPlan.id, performances);
+
+          if (rewardResult && rewardResult.rewards.length > 0) {
+            const perfMap = new Map(
+              performances.map((p) => [p.memberName.toLowerCase(), p]),
+            );
+            const rewardsToCreate = rewardResult.rewards
+              .map((r) => {
+                const perf = perfMap.get(r.memberName.toLowerCase());
+                if (!perf) return null;
+                return {
+                  householdId: member.householdId,
+                  name: r.rewardName,
+                  description: r.rewardDescription,
+                  pointsCost: r.pointsCost,
+                  category: r.category,
+                  actionUrl: r.actionUrl ?? null,
+                  isAiGenerated: true,
+                  planId: appliedPlan.id,
+                  memberId: perf.memberId,
+                  completionRate: perf.completionRate,
+                };
+              })
+              .filter((r): r is NonNullable<typeof r> => r !== null);
+
+            if (rewardsToCreate.length > 0) {
+              await prisma.householdReward.createMany({ data: rewardsToCreate });
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error generating rewards for expiring plan (non-blocking):", err);
     }
 
-    // Update the plan status if planId was provided
-    if (planId) {
-      await prisma.weeklyPlan.update({
+    // Use a single timestamp for both assignments and plan to avoid race conditions
+    const appliedAt = new Date();
+
+    // Atomic transaction: expire old plans, cancel assignments, create new, update plan status
+    const result = await prisma.$transaction(async (tx) => {
+      // Expire old plans (except the one we're applying)
+      await tx.weeklyPlan.updateMany({
         where: {
-          id: planId,
           householdId: member.householdId,
+          status: { in: ["PENDING", "APPLIED", "COMPLETED"] },
+          ...(planId ? { id: { not: planId } } : {}),
         },
-        data: {
-          status: "APPLIED",
-          appliedAt: new Date(),
-        },
+        data: { status: "EXPIRED" },
       });
-    }
+
+      // Cancel pending/in-progress assignments
+      const cancelled = await tx.assignment.updateMany({
+        where: {
+          householdId: member.householdId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+        },
+        data: { status: "CANCELLED" },
+      });
+
+      // Create new assignments with the same timestamp as appliedAt
+      if (assignmentsToCreate.length > 0) {
+        await tx.assignment.createMany({
+          data: assignmentsToCreate.map((a) => ({ ...a, createdAt: appliedAt })),
+        });
+      }
+
+      // Update plan status with the same timestamp
+      if (planId) {
+        await tx.weeklyPlan.update({
+          where: { id: planId, householdId: member.householdId },
+          data: { status: "APPLIED", appliedAt },
+        });
+      }
+
+      return { cancelledCount: cancelled.count };
+    });
+
+    // Notify all household members that a new plan was applied
+    await createNotificationForMembers(
+      members.map((m) => m.id),
+      {
+        type: "PLAN_APPLIED",
+        title: "Nuevo plan aplicado",
+        message: `Se aplicó un plan con ${assignmentsToCreate.length} tareas asignadas`,
+        actionUrl: "/my-tasks",
+      }
+    );
 
     return NextResponse.json({
       success: true,
       assignmentsCreated: assignmentsToCreate.length,
-      assignmentsCancelled: cancelledCount.count,
+      assignmentsCancelled: result.cancelledCount,
       skipped: skipped.length > 0 ? skipped : undefined,
     });
   } catch (error) {

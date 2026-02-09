@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { getBestAssignee } from "./assignment-algorithm";
+import { createNotification } from "./notification-service";
 
 import type { TaskFrequency } from "@prisma/client";
 
@@ -16,21 +17,22 @@ export async function processRotations(): Promise<{
   const errors: string[] = [];
   let generated = 0;
 
-  // Get all active rotations that are due
+  // Get active rotations that are due (capped for safety)
   const dueRotations = await prisma.taskRotation.findMany({
     where: {
       isActive: true,
       nextDueDate: { lte: now },
     },
     include: {
-      task: true,
+      task: { select: { id: true, name: true, frequency: true } },
     },
+    take: 500,
   });
 
   for (const rotation of dueRotations) {
     try {
       // Find the best assignee
-      const bestAssignee = await getBestAssignee(
+      const { best: bestAssignee } = await getBestAssignee(
         rotation.householdId,
         rotation.taskId,
         rotation.nextDueDate ?? now
@@ -165,7 +167,7 @@ export async function processDueReminders(): Promise<{
 }> {
   const now = new Date();
 
-  // Get reminders that are due
+  // Get reminders that are due (capped for safety)
   const dueReminders = await prisma.taskReminder.findMany({
     where: {
       sentAt: null,
@@ -179,9 +181,10 @@ export async function processDueReminders(): Promise<{
       },
       member: { select: { name: true } },
     },
+    take: 500,
   });
 
-  // Mark them as sent
+  // Mark them as sent and create notifications
   if (dueReminders.length > 0) {
     await prisma.taskReminder.updateMany({
       where: {
@@ -189,6 +192,21 @@ export async function processDueReminders(): Promise<{
       },
       data: { sentAt: now },
     });
+
+    for (const reminder of dueReminders) {
+      const messageByType: Record<string, string> = {
+        DUE_SOON: `"${reminder.assignment.task.name}" vence mañana`,
+        DUE_TODAY: `"${reminder.assignment.task.name}" vence hoy`,
+        OVERDUE: `"${reminder.assignment.task.name}" está atrasada`,
+      };
+      await createNotification({
+        memberId: reminder.memberId,
+        type: "REMINDER_DUE",
+        title: "Recordatorio",
+        message: messageByType[reminder.reminderType] ?? `"${reminder.assignment.task.name}" necesita tu atención`,
+        actionUrl: "/my-tasks",
+      });
+    }
   }
 
   return {

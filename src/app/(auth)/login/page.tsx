@@ -1,7 +1,14 @@
 import { signIn } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 
-export default function LoginPage() {
+interface LoginPageProps {
+  searchParams: Promise<{ callbackUrl?: string }>;
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { callbackUrl } = await searchParams;
+  const redirectTo = callbackUrl?.startsWith("/") ? callbackUrl : "/dashboard";
+
   return (
     <div className="rounded-2xl border-2 border-border/60 bg-card p-6 shadow-lg sm:p-8">
       <div className="mb-6 text-center">
@@ -17,7 +24,7 @@ export default function LoginPage() {
       <form
         action={async () => {
           "use server";
-          await signIn("google", { redirectTo: "/dashboard" });
+          await signIn("google", { redirectTo });
         }}
       >
         <Button type="submit" className="w-full" size="lg">

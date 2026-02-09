@@ -19,64 +19,60 @@ export default async function ParentalPage() {
     redirect("/dashboard");
   }
 
-  // Get all kids and teens in the household
-  const kids = await prisma.member.findMany({
-    where: {
-      householdId: member.householdId,
-      memberType: { in: ["CHILD", "TEEN"] },
-      isActive: true,
-    },
-    include: {
-      level: true,
-      assignments: {
-        where: {
-          status: { in: ["PENDING", "IN_PROGRESS", "COMPLETED"] },
-        },
-        include: {
-          task: { select: { name: true, weight: true } },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-      },
-    },
-  });
-
-  // Get tasks pending verification (completed by kids but not verified)
-  const pendingVerification = await prisma.assignment.findMany({
-    where: {
-      householdId: member.householdId,
-      status: "COMPLETED",
-      member: {
-        memberType: { in: ["CHILD", "TEEN"] },
-      },
-    },
-    include: {
-      task: { select: { id: true, name: true, weight: true } },
-      member: { select: { id: true, name: true, memberType: true } },
-    },
-    orderBy: { completedAt: "desc" },
-  });
-
-  // Stats
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  const kidsCompletedToday = await prisma.assignment.count({
-    where: {
-      householdId: member.householdId,
-      member: { memberType: { in: ["CHILD", "TEEN"] } },
-      status: { in: ["COMPLETED", "VERIFIED"] },
-      completedAt: { gte: todayStart },
-    },
-  });
-
-  const kidsPendingTasks = await prisma.assignment.count({
-    where: {
-      householdId: member.householdId,
-      member: { memberType: { in: ["CHILD", "TEEN"] } },
-      status: { in: ["PENDING", "IN_PROGRESS"] },
-    },
-  });
+  const [kids, pendingVerification, kidsCompletedToday, kidsPendingTasks] = await Promise.all([
+    prisma.member.findMany({
+      where: {
+        householdId: member.householdId,
+        memberType: { in: ["CHILD", "TEEN"] },
+        isActive: true,
+      },
+      include: {
+        level: true,
+        assignments: {
+          where: {
+            status: { in: ["PENDING", "IN_PROGRESS", "COMPLETED"] },
+          },
+          include: {
+            task: { select: { name: true, weight: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        },
+      },
+    }),
+    prisma.assignment.findMany({
+      where: {
+        householdId: member.householdId,
+        status: "COMPLETED",
+        member: {
+          memberType: { in: ["CHILD", "TEEN"] },
+        },
+      },
+      include: {
+        task: { select: { id: true, name: true, weight: true } },
+        member: { select: { id: true, name: true, memberType: true } },
+      },
+      orderBy: { completedAt: "desc" },
+    }),
+    prisma.assignment.count({
+      where: {
+        householdId: member.householdId,
+        member: { memberType: { in: ["CHILD", "TEEN"] } },
+        status: { in: ["COMPLETED", "VERIFIED"] },
+        completedAt: { gte: todayStart },
+      },
+    }),
+    prisma.assignment.count({
+      where: {
+        householdId: member.householdId,
+        member: { memberType: { in: ["CHILD", "TEEN"] } },
+        status: { in: ["PENDING", "IN_PROGRESS"] },
+      },
+    }),
+  ]);
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8">

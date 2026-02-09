@@ -73,6 +73,7 @@ export async function PATCH(_request: NextRequest, { params }: RouteParams) {
         householdId: member.householdId,
         status: "ACTIVE",
       },
+      select: { id: true },
     });
 
     if (!competition) {
@@ -135,6 +136,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
         householdId: member.householdId,
         status: "ACTIVE",
       },
+      select: { id: true },
     });
 
     if (!competition) {

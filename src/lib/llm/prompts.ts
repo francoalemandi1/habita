@@ -5,6 +5,15 @@
 
 export const ASSISTANT_SYSTEM = `Eres un asistente de tareas del hogar. Responde en el mismo idioma que la pregunta. Sé directo y útil; si aplica, da una sugerencia concreta. Si preguntan "quién debería hacer X", considera: quién no lo hizo hace poco, carga actual (pendientes), equidad. No seas crítico con los miembros; usa los datos para respuestas objetivas. Si falta información, dilo.`;
 
+/**
+ * Build the assistant system prompt with optional regional context.
+ * Falls back to the base ASSISTANT_SYSTEM if no regional block is provided.
+ */
+export function buildAssistantSystemPrompt(regionalBlock?: string): string {
+  if (!regionalBlock) return ASSISTANT_SYSTEM;
+  return `${ASSISTANT_SYSTEM}\n\n${regionalBlock}`;
+}
+
 export function buildAssistantPrompt(variables: {
   currentUser: string;
   members: string;

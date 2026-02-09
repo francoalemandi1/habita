@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
+import { Input } from "@/components/ui/input";
 import {
   CheckCircle2,
   XCircle,
@@ -19,6 +20,10 @@ import {
   Clock,
   CheckCheck,
   CalendarDays,
+  History,
+  X,
+  Repeat,
+  Trash2,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -30,8 +35,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { DURATION_PRESETS, durationLabel } from "@/lib/plan-duration";
+import { TaskCatalogPicker } from "@/components/features/task-catalog-picker";
 
 import type { MemberType, WeeklyPlanStatus, TaskFrequency } from "@prisma/client";
 import type { ExcludedTask } from "@/lib/plan-duration";
@@ -144,6 +157,9 @@ export function PlanPageClient({
     );
   });
   const [isRegenerateDialogOpen, setIsRegenerateDialogOpen] = useState(false);
+  const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false);
+  const [isDiscarding, setIsDiscarding] = useState(false);
+  const [customDurationInput, setCustomDurationInput] = useState("");
   const [fairnessDetails, setFairnessDetails] = useState<{
     adultDistribution: Record<string, number>;
     isSymmetric: boolean;
@@ -212,6 +228,27 @@ export function PlanPageClient({
     await handleGeneratePlan();
   }, [handleGeneratePlan]);
 
+  const handleDiscardPlan = useCallback(async () => {
+    if (!plan || plan.status !== "PENDING") return;
+    setIsDiscarding(true);
+
+    try {
+      const response = await fetch(`/api/plans/${plan.id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Failed to discard plan");
+
+      setPlan(null);
+      setSelectedAssignments(new Set());
+      setFairnessDetails(null);
+      setIsDiscardDialogOpen(false);
+      toast.success("Plan descartado", "Podés generar uno nuevo cuando quieras");
+      router.refresh();
+    } catch {
+      toast.error("Error", "No se pudo descartar el plan");
+    } finally {
+      setIsDiscarding(false);
+    }
+  }, [plan, router, toast]);
+
   const handleApplyPlan = useCallback(async () => {
     if (!plan) return;
 
@@ -260,8 +297,8 @@ export function PlanPageClient({
     }
   }, [plan, selectedAssignments, router, toast]);
 
-  const toggleAssignment = (taskName: string, memberName: string, memberType: MemberType) => {
-    if (memberType === "ADULT" || plan?.status !== "PENDING") return;
+  const toggleAssignment = (taskName: string, memberName: string) => {
+    if (plan?.status !== "PENDING") return;
 
     const key = `${taskName}|${memberName}`;
     const newSet = new Set(selectedAssignments);
@@ -272,6 +309,199 @@ export function PlanPageClient({
     }
     setSelectedAssignments(newSet);
   };
+
+  const handleAddToPlan = useCallback(
+    async (taskName: string, memberName: string, memberType: MemberType) => {
+      if (!plan) return;
+
+      const newAssignment: PlanAssignment = {
+        taskName,
+        memberName,
+        memberType,
+        reason: "Agregada manualmente",
+      };
+
+      if (plan.status === "PENDING") {
+        setPlan((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            assignments: [...prev.assignments, newAssignment],
+          };
+        });
+        setSelectedAssignments((prev) => {
+          const next = new Set(prev);
+          next.add(`${taskName}|${memberName}`);
+          return next;
+        });
+        toast.success("Agregada", `${taskName} asignada a ${memberName}`);
+        return;
+      }
+
+      // APPLIED plan — call API
+      try {
+        const response = await fetch(`/api/plans/${plan.id}/assignments`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "add", taskName, memberName }),
+        });
+
+        if (!response.ok) throw new Error("Failed to add assignment");
+
+        setPlan((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            assignments: [...prev.assignments, newAssignment],
+          };
+        });
+        toast.success("Agregada", `${taskName} asignada a ${memberName}`);
+        router.refresh();
+      } catch {
+        toast.error("Error", "No se pudo agregar la asignación");
+      }
+    },
+    [plan, router, toast]
+  );
+
+  const handleRemoveFromPlan = useCallback(
+    async (taskName: string, memberName: string) => {
+      if (!plan) return;
+
+      if (plan.status === "PENDING") {
+        setPlan((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            assignments: prev.assignments.filter(
+              (a) =>
+                !(
+                  a.taskName === taskName &&
+                  a.memberName === memberName
+                )
+            ),
+          };
+        });
+        setSelectedAssignments((prev) => {
+          const next = new Set(prev);
+          next.delete(`${taskName}|${memberName}`);
+          return next;
+        });
+        toast.success("Quitada", `${taskName} quitada del plan`);
+        return;
+      }
+
+      // APPLIED plan — call API
+      try {
+        const response = await fetch(`/api/plans/${plan.id}/assignments`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "remove", taskName, memberName }),
+        });
+
+        if (!response.ok) throw new Error("Failed to remove assignment");
+
+        setPlan((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            assignments: prev.assignments.filter(
+              (a) =>
+                !(
+                  a.taskName === taskName &&
+                  a.memberName === memberName
+                )
+            ),
+          };
+        });
+        toast.success("Quitada", `${taskName} quitada del plan`);
+        router.refresh();
+      } catch {
+        toast.error("Error", "No se pudo quitar la asignación");
+      }
+    },
+    [plan, router, toast]
+  );
+
+  const handleReassign = useCallback(
+    async (taskName: string, oldMemberName: string, newMemberName: string) => {
+      if (!plan || oldMemberName === newMemberName) return;
+
+      const newMember = members.find((m) => m.name === newMemberName);
+      if (!newMember) return;
+
+      if (plan.status === "PENDING") {
+        setPlan((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            assignments: prev.assignments.map((a) => {
+              if (a.taskName === taskName && a.memberName === oldMemberName) {
+                return {
+                  ...a,
+                  memberName: newMemberName,
+                  memberType: newMember.type,
+                  reason: `Reasignada de ${oldMemberName}`,
+                };
+              }
+              return a;
+            }),
+          };
+        });
+        setSelectedAssignments((prev) => {
+          const next = new Set(prev);
+          const oldKey = `${taskName}|${oldMemberName}`;
+          const wasSelected = next.has(oldKey);
+          next.delete(oldKey);
+          if (wasSelected) {
+            next.add(`${taskName}|${newMemberName}`);
+          }
+          return next;
+        });
+        toast.success("Reasignada", `${taskName} ahora es de ${newMemberName}`);
+        return;
+      }
+
+      // APPLIED plan — call API
+      try {
+        const response = await fetch(`/api/plans/${plan.id}/assignments`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "reassign",
+            taskName,
+            memberName: oldMemberName,
+            newMemberName,
+          }),
+        });
+
+        if (!response.ok) throw new Error("Failed to reassign");
+
+        setPlan((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            assignments: prev.assignments.map((a) => {
+              if (a.taskName === taskName && a.memberName === oldMemberName) {
+                return {
+                  ...a,
+                  memberName: newMemberName,
+                  memberType: newMember.type,
+                  reason: `Reasignada de ${oldMemberName}`,
+                };
+              }
+              return a;
+            }),
+          };
+        });
+        toast.success("Reasignada", `${taskName} ahora es de ${newMemberName}`);
+        router.refresh();
+      } catch {
+        toast.error("Error", "No se pudo reasignar la tarea");
+      }
+    },
+    [plan, members, router, toast]
+  );
 
   // Group assignments by member
   const assignmentsByMember = new Map<string, PlanAssignment[]>();
@@ -301,13 +531,14 @@ export function PlanPageClient({
     <div className="container max-w-4xl px-4 py-6 sm:py-8">
       {/* Header */}
       <div className="mb-6 sm:mb-8">
-        <Link
-          href="/my-tasks"
+        <button
+          type="button"
+          onClick={() => router.back()}
           className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Volver a mis tareas
-        </Link>
+          Volver
+        </button>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
@@ -323,6 +554,13 @@ export function PlanPageClient({
                     : "Revisa y aprueba el plan propuesto"
                   : `${tasks.length} tareas para ${members.length} ${members.length === 1 ? "miembro" : "miembros"}`}
             </p>
+            <Link
+              href="/plan/history"
+              className="mt-2 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <History className="h-3.5 w-3.5" />
+              Ver historial de planes
+            </Link>
           </div>
           {plan?.status === "PENDING" && (
             <Button
@@ -384,33 +622,42 @@ export function PlanPageClient({
               </p>
             </div>
             {tasks.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No hay tareas activas en tu hogar.{" "}
-                <Link href="/tasks" className="text-primary underline">
-                  Agrega tareas
-                </Link>
-              </p>
-            ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {tasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-center justify-between rounded-2xl bg-muted/30 px-3 py-2"
-                  >
-                    <span className="text-sm font-medium">{task.name}</span>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {FREQUENCY_LABELS[task.frequency]}
-                      </Badge>
-                      {task.estimatedMinutes && (
-                        <Badge variant="secondary" className="text-xs">
-                          {task.estimatedMinutes} min
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div className="text-sm text-muted-foreground text-center py-4 space-y-3">
+                <p>No hay tareas activas en tu hogar.</p>
+                <TaskCatalogPicker
+                  existingTaskNames={[]}
+                  onTasksCreated={() => router.refresh()}
+                />
               </div>
+            ) : (
+              <>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {tasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-center justify-between rounded-2xl bg-muted/30 px-3 py-2"
+                    >
+                      <span className="text-sm font-medium">{task.name}</span>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {FREQUENCY_LABELS[task.frequency]}
+                        </Badge>
+                        {task.estimatedMinutes && (
+                          <Badge variant="secondary" className="text-xs">
+                            {task.estimatedMinutes} min
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <TaskCatalogPicker
+                    existingTaskNames={tasks.map((t) => t.name)}
+                    onTasksCreated={() => router.refresh()}
+                  />
+                </div>
+              </>
             )}
           </div>
 
@@ -446,17 +693,39 @@ export function PlanPageClient({
                 Las tareas con frecuencia mayor a la duración se excluirán automáticamente
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {DURATION_PRESETS.map((preset) => (
                 <Button
                   key={preset.days}
-                  variant={durationDays === preset.days ? "default" : "outline"}
+                  variant={durationDays === preset.days && !customDurationInput ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setDurationDays(preset.days)}
+                  onClick={() => {
+                    setDurationDays(preset.days);
+                    setCustomDurationInput("");
+                  }}
                 >
                   {preset.label}
                 </Button>
               ))}
+              <div className="flex items-center gap-1.5">
+                <Input
+                  type="number"
+                  min={1}
+                  max={30}
+                  placeholder="Días"
+                  value={customDurationInput}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setCustomDurationInput(value);
+                    const parsed = parseInt(value, 10);
+                    if (parsed >= 1 && parsed <= 30) {
+                      setDurationDays(parsed);
+                    }
+                  }}
+                  className="h-8 w-20 text-sm"
+                />
+                <span className="text-sm text-muted-foreground">días</span>
+              </div>
             </div>
           </div>
 
@@ -579,8 +848,8 @@ export function PlanPageClient({
             {Array.from(assignmentsByMember.entries()).map(([memberName, assignments]) => {
               const memberType =
                 assignments[0]?.memberType ?? "ADULT";
-              const isOptional = memberType !== "ADULT";
               const isPending = plan.status === "PENDING";
+              const memberData = members.find((m) => m.name === memberName);
 
               return (
                 <div key={memberName} className="rounded-2xl bg-white shadow-sm overflow-hidden">
@@ -590,48 +859,90 @@ export function PlanPageClient({
                     <Badge variant="outline" className="ml-auto">
                       {MEMBER_TYPE_LABELS[memberType]}
                     </Badge>
-                    {isOptional && isPending && (
-                      <span className="text-xs text-muted-foreground">(opcional)</span>
-                    )}
                   </div>
                   <ul>
                     {assignments.map((assignment, idx) => {
                       const key = `${assignment.taskName}|${assignment.memberName}`;
                       const isSelected = selectedAssignments.has(key);
-                      const canToggle = memberType !== "ADULT" && isPending;
 
                       return (
                         <li
                           key={key}
                           className={cn(
-                            "flex items-start gap-3 px-5 py-3 transition-colors",
+                            "flex items-center gap-3 px-5 py-3 transition-colors",
                             idx > 0 && "border-t border-muted/40",
-                            canToggle && "cursor-pointer hover:bg-muted/30",
+                            isPending && "cursor-pointer hover:bg-muted/30",
                             !isSelected && isPending && "opacity-50"
                           )}
-                          onClick={() =>
-                            toggleAssignment(assignment.taskName, memberName, memberType)
-                          }
                         >
-                          <div className="mt-0.5">
+                          <div
+                            className="mt-0.5 shrink-0"
+                            onClick={() => toggleAssignment(assignment.taskName, memberName)}
+                          >
                             {isSelected || plan.status === "APPLIED" ? (
-                              <CheckCircle2
-                                className={cn(
-                                  "h-5 w-5",
-                                  canToggle ? "text-green-600" : "text-primary"
-                                )}
-                              />
+                              <CheckCircle2 className="h-5 w-5 text-green-600" />
                             ) : (
                               <XCircle className="h-5 w-5 text-muted-foreground" />
                             )}
                           </div>
-                          <div className="flex-1 min-w-0">
+                          <div
+                            className="flex-1 min-w-0"
+                            onClick={() => toggleAssignment(assignment.taskName, memberName)}
+                          >
                             <p className="font-medium">{assignment.taskName}</p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {/* Reassign */}
+                            <Select
+                              value=""
+                              onValueChange={(newMember) =>
+                                handleReassign(assignment.taskName, memberName, newMember)
+                              }
+                            >
+                              <SelectTrigger className="h-8 w-8 border-0 p-0 shadow-none [&>svg]:hidden">
+                                <Repeat className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {members
+                                  .filter((m) => m.name !== memberName)
+                                  .map((m) => (
+                                    <SelectItem key={m.id} value={m.name}>
+                                      {m.name}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                            {/* Remove */}
+                            <button
+                              type="button"
+                              className="rounded-sm p-1 text-muted-foreground hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveFromPlan(assignment.taskName, memberName);
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
                           </div>
                         </li>
                       );
                     })}
                   </ul>
+                  {memberData && (
+                    <div className="border-t border-muted/40 px-5 py-3">
+                      <TaskCatalogPicker
+                        existingTaskNames={tasks.map((t) => t.name)}
+                        onTasksCreated={() => router.refresh()}
+                        planMode={{
+                          member: { id: memberData.id, name: memberData.name, type: memberData.type },
+                          existingAssignmentKeys: new Set(
+                            plan.assignments.map((a) => `${a.taskName}|${a.memberName}`)
+                          ),
+                          onAddToPlan: handleAddToPlan,
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -662,10 +973,12 @@ export function PlanPageClient({
                 <div className="flex gap-3">
                   <Button
                     variant="outline"
-                    onClick={() => router.push("/my-tasks")}
-                    disabled={isApplying}
+                    onClick={() => setIsDiscardDialogOpen(true)}
+                    disabled={isApplying || isDiscarding}
+                    className="gap-2 text-destructive hover:text-destructive"
                   >
-                    Cancelar
+                    <Trash2 className="h-4 w-4" />
+                    Descartar
                   </Button>
                   <Button
                     onClick={handleApplyPlan}
@@ -692,11 +1005,9 @@ export function PlanPageClient({
           {/* Actions after applied */}
           {plan.status === "APPLIED" && (
             <div className="flex flex-col sm:flex-row justify-center gap-3">
-              <Button asChild variant="outline">
-                <Link href="/my-tasks" className="gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  Ver mis tareas
-                </Link>
+              <Button variant="outline" className="gap-2" onClick={() => router.back()}>
+                <ArrowLeft className="h-4 w-4" />
+                Volver
               </Button>
               <Button
                 onClick={() => setIsRegenerateDialogOpen(true)}
@@ -739,6 +1050,38 @@ export function PlanPageClient({
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmRegenerate}>
               Regenerar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Discard confirmation dialog */}
+      <AlertDialog
+        open={isDiscardDialogOpen}
+        onOpenChange={setIsDiscardDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Descartar plan</AlertDialogTitle>
+            <AlertDialogDescription>
+              El plan generado se eliminará. No se crearán asignaciones. Podés generar uno nuevo después.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDiscarding}>Volver</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDiscardPlan}
+              disabled={isDiscarding}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDiscarding ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Descartando...
+                </>
+              ) : (
+                "Descartar plan"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

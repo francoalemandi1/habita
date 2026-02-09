@@ -3,6 +3,16 @@ import { z } from "zod";
 const taskFrequencySchema = z.enum(["DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY"]);
 const memberTypeSchema = z.enum(["adult", "teen", "child"]);
 
+export const householdLocationSchema = z.object({
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  timezone: z.string().max(100).optional(),
+  country: z.string().max(10).optional(),
+  city: z.string().max(100).optional(),
+});
+
+export type HouseholdLocationInput = z.infer<typeof householdLocationSchema>;
+
 export const createHouseholdSchema = z.object({
   name: z
     .string()
@@ -29,6 +39,7 @@ export const updateHouseholdSchema = z.object({
     .min(2, "El nombre debe tener al menos 2 caracteres")
     .max(50, "El nombre no puede exceder 50 caracteres")
     .optional(),
+  location: householdLocationSchema.optional(),
 });
 
 export const onboardingTaskSchema = z.object({
@@ -44,6 +55,7 @@ export const createHouseholdWithTasksSchema = z.object({
   memberName: z.string().max(50).optional(),
   memberType: memberTypeSchema.optional(),
   tasks: z.array(onboardingTaskSchema).min(1, "Selecciona al menos una tarea"),
+  location: householdLocationSchema.optional(),
 });
 
 export const joinHouseholdOnboardingSchema = z.object({

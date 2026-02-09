@@ -74,11 +74,16 @@ model VerificationToken {
 }
 
 model Household {
-  id        String   @id @default(cuid())
-  name      String
-  inviteCode String  @unique @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  name       String
+  inviteCode String   @unique @default(cuid())
+  latitude   Float?
+  longitude  Float?
+  timezone   String?  // IANA timezone, e.g. "America/Buenos_Aires"
+  country    String?  // ISO country code, e.g. "AR"
+  city       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   // Relations
   members      Member[]
@@ -117,6 +122,8 @@ model Member {
   reminders    TaskReminder[]
   competitionScores CompetitionScore[]
   penalties        Penalty[]
+  createdRewards   HouseholdReward[] @relation("MemberRewards")
+  notifications    Notification[]
 
   @@unique([userId, householdId])
   @@index([householdId])
@@ -183,6 +190,9 @@ model Assignment {
 
   @@index([householdId, dueDate])
   @@index([memberId, status])
+  @@index([taskId, status])
+  @@index([householdId, status, completedAt])
+  @@index([memberId, status, completedAt])
   @@map("assignments")
 }
 
@@ -248,9 +258,12 @@ model HouseholdReward {
   planId         String?
   memberId       String?
   completionRate Float?
+  category       String?
+  actionUrl      String?
   createdAt      DateTime @default(now())
 
   household   Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  member      Member?            @relation("MemberRewards", fields: [memberId], references: [id], onDelete: SetNull)
   redemptions RewardRedemption[]
 
   @@index([householdId])
@@ -491,8 +504,47 @@ model WeeklyPlan {
 enum WeeklyPlanStatus {
   PENDING   // Generated but not yet applied
   APPLIED   // User accepted and assignments created
+  COMPLETED // Plan finalized (all tasks done or manually closed)
   EXPIRED   // Plan expired without being applied
   REJECTED  // User explicitly rejected
+}
+
+// ============================================
+// NOTIFICATION MODEL
+// ============================================
+
+model Notification {
+  id        String           @id @default(cuid())
+  memberId  String
+  type      NotificationType
+  title     String
+  message   String
+  actionUrl String?
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, isRead, createdAt])
+  @@index([memberId, createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  TRANSFER_REQUEST
+  TRANSFER_ACCEPTED
+  TRANSFER_REJECTED
+  TASK_OVERDUE
+  ACHIEVEMENT_UNLOCKED
+  LEVEL_UP
+  PENALTY_APPLIED
+  REMINDER_DUE
+  PLAN_READY
+  PLAN_APPLIED
+  REWARD_REDEEMED
+  STREAK_MILESTONE
 }
 
 // ============================================

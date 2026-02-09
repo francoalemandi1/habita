@@ -4,6 +4,7 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled, getAIProviderType } from "./provider";
+import { buildRegionalContext } from "./regional-context";
 
 import type { LanguageModel } from "ai";
 
@@ -31,9 +32,11 @@ const rewardSchema = z.object({
   rewards: z.array(
     z.object({
       memberName: z.string(),
-      rewardName: z.string().describe("Nombre corto y divertido de la recompensa"),
-      rewardDescription: z.string().describe("Descripción lúdica de la recompensa"),
+      rewardName: z.string().describe("Nombre corto y atractivo de la actividad recomendada"),
+      rewardDescription: z.string().describe("Descripción concreta con lugar o actividad específica"),
       pointsCost: z.number().min(0).describe("Costo en puntos basado en rendimiento"),
+      category: z.enum(["OUTING", "GASTRONOMY", "OUTDOOR", "HOME"]).describe("Categoría de la recompensa"),
+      actionUrl: z.string().nullable().describe("URL real del lugar o actividad, null si no aplica"),
     })
   ),
 });
@@ -58,53 +61,52 @@ export async function calculatePlanPerformance(
   planCreatedAt: Date,
   planExpiresAt: Date
 ): Promise<MemberPerformance[]> {
-  const members = await prisma.member.findMany({
-    where: { householdId, isActive: true },
-    select: { id: true, name: true, memberType: true },
-  });
+  const periodFilter = { gte: planCreatedAt, lte: planExpiresAt };
 
-  const performances: MemberPerformance[] = [];
+  // 3 parallel queries instead of 3×M sequential queries
+  const [members, assignedByMember, completedByMember] = await Promise.all([
+    prisma.member.findMany({
+      where: { householdId, isActive: true },
+      select: { id: true, name: true, memberType: true },
+    }),
+    prisma.assignment.groupBy({
+      by: ["memberId"],
+      where: { householdId, createdAt: periodFilter },
+      _count: { id: true },
+    }),
+    prisma.assignment.groupBy({
+      by: ["memberId"],
+      where: {
+        householdId,
+        status: { in: ["COMPLETED", "VERIFIED"] },
+        createdAt: periodFilter,
+      },
+      _count: { id: true },
+      _sum: { pointsEarned: true },
+    }),
+  ]);
 
-  for (const member of members) {
-    const [assigned, completed, points] = await Promise.all([
-      prisma.assignment.count({
-        where: {
-          memberId: member.id,
-          householdId,
-          createdAt: { gte: planCreatedAt, lte: planExpiresAt },
-        },
-      }),
-      prisma.assignment.count({
-        where: {
-          memberId: member.id,
-          householdId,
-          status: { in: ["COMPLETED", "VERIFIED"] },
-          createdAt: { gte: planCreatedAt, lte: planExpiresAt },
-        },
-      }),
-      prisma.assignment.aggregate({
-        where: {
-          memberId: member.id,
-          householdId,
-          status: { in: ["COMPLETED", "VERIFIED"] },
-          createdAt: { gte: planCreatedAt, lte: planExpiresAt },
-        },
-        _sum: { pointsEarned: true },
-      }),
-    ]);
+  const assignedMap = new Map(assignedByMember.map((a) => [a.memberId, a._count.id]));
+  const completedMap = new Map(
+    completedByMember.map((c) => [c.memberId, { count: c._count.id, points: c._sum.pointsEarned ?? 0 }])
+  );
 
-    performances.push({
+  return members.map((member) => {
+    const assigned = assignedMap.get(member.id) ?? 0;
+    const completed = completedMap.get(member.id);
+    const completedCount = completed?.count ?? 0;
+    const totalPoints = completed?.points ?? 0;
+
+    return {
       memberId: member.id,
       memberName: member.name,
       memberType: member.memberType,
       assignedCount: assigned,
-      completedCount: completed,
-      completionRate: assigned > 0 ? Math.round((completed / assigned) * 100) : 0,
-      totalPoints: points._sum.pointsEarned ?? 0,
-    });
-  }
-
-  return performances;
+      completedCount,
+      completionRate: assigned > 0 ? Math.round((completedCount / assigned) * 100) : 0,
+      totalPoints,
+    };
+  });
 }
 
 /**
@@ -130,11 +132,19 @@ export async function generateAIRewards(
   const childCount = performances.filter((p) => p.memberType !== "ADULT").length;
   const householdType = childCount > 0 ? "familia con hijos" : adultCount <= 2 ? "pareja" : "grupo de adultos";
 
-  const prompt = buildRewardPrompt(performances, householdType);
+  // Build regional context for culturally adapted rewards
+  const household = await prisma.household.findUnique({
+    where: { id: householdId },
+    select: { latitude: true, longitude: true, timezone: true, country: true, city: true },
+  });
+  const regionalContext = await buildRegionalContext(household ?? {});
+  const regionalBlock = regionalContext.promptBlock;
+
+  const prompt = buildRewardPrompt(performances, householdType, regionalBlock);
 
   if (providerType === "openrouter") {
     try {
-      return await generateRewardsOpenRouter(performances, householdType);
+      return await generateRewardsOpenRouter(performances, householdType, regionalBlock);
     } catch (error) {
       console.error("OpenRouter reward generation error:", error);
       return null;
@@ -159,26 +169,40 @@ export async function generateAIRewards(
   }
 }
 
-function buildRewardPrompt(performances: MemberPerformance[], householdType: string): string {
+function buildRewardPrompt(performances: MemberPerformance[], householdType: string, regionalBlock = ""): string {
   const performanceInfo = performances
     .map((p) => `- ${p.memberName} (${p.memberType}): ${p.completedCount}/${p.assignedCount} tareas (${p.completionRate}%), ${p.totalPoints} puntos`)
     .join("\n");
 
-  return `Eres un sistema de recompensas gamificado para un hogar de tipo "${householdType}".
-Genera recompensas divertidas, lúdicas y personalizadas basadas en el rendimiento de cada miembro.
+  return `Eres un sistema de recompensas para un hogar de tipo "${householdType}".
+Genera actividades CONCRETAS y ACCIONABLES como premio por el rendimiento de cada miembro.
 
 ## Rendimiento del plan
 ${performanceInfo}
 
+## Categorías disponibles
+- OUTING: Salidas culturales (cine, teatro, museos, espectáculos)
+- GASTRONOMY: Gastronomía (restaurantes, heladerías, cafés, panaderías)
+- OUTDOOR: Aire libre (parques, plazas, caminatas, picnic)
+- HOME: Hogar (no cocinar, elegir película, día libre de tareas, desayuno en la cama)
+
 ## Instrucciones
 1. Genera UNA recompensa para CADA miembro
-2. Las recompensas deben ser divertidas y motivadoras (ej: "Rey/Reina del sofá por un día", "Elige la cena", "Día libre de tareas")
-3. Miembros con mayor rendimiento reciben recompensas mejores
-4. El costo en puntos debe ser proporcional al rendimiento (0 si no completó nada, más alto para quienes más hicieron)
-5. Para niños, las recompensas deben ser apropiadas y emocionantes
-6. Para parejas, las recompensas pueden ser más creativas y personales
-7. Los nombres deben ser cortos y divertidos
-8. Las descripciones deben ser motivadoras y celebrar el esfuerzo`;
+2. Sé ESPECÍFICO: nombrá lugares reales de la ciudad del hogar si tenés información de ubicación
+3. Escalá la calidad según rendimiento:
+   - >80% completado → actividades premium: salida al cine, restaurante, espectáculo (categoría OUTING o GASTRONOMY)
+   - 50-80% completado → actividades intermedias: parque, heladería, café (categoría OUTDOOR o GASTRONOMY)
+   - <50% completado → actividades en casa: elegir película, no cocinar, desayuno en la cama (categoría HOME)
+4. El costo en puntos debe ser proporcional al rendimiento (0 si no completó nada)
+5. Para niños (CHILD): actividades apropiadas y emocionantes (plaza, heladería, película infantil)
+6. Incluí una URL real cuando sea posible:
+   - Para cine: la cartelera online de la ciudad (ej: cinepolis.com.ar, hoyts.com.ar, cinemark.com.ar)
+   - Para restaurantes: URL de Google Maps o del restaurante
+   - Para parques/plazas: URL de Google Maps
+   - Si no tenés certeza de la URL, poné null
+7. Nombres cortos y atractivos (ej: "Noche de cine", "Heladería libre", "Chef libre por un día")
+8. Descripciones que mencionen el lugar específico y qué hacer ahí
+9. Adaptá las sugerencias al clima y estación actual si hay información disponible${regionalBlock ? `\n\n${regionalBlock}` : ""}`;
 }
 
 /**
@@ -186,12 +210,13 @@ ${performanceInfo}
  */
 async function generateRewardsOpenRouter(
   performances: MemberPerformance[],
-  householdType: string
+  householdType: string,
+  regionalBlock = ""
 ): Promise<AIRewardResult | null> {
   const { OpenRouter } = await import("@openrouter/sdk");
   const client = new OpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
 
-  const prompt = buildRewardPrompt(performances, householdType);
+  const prompt = buildRewardPrompt(performances, householdType, regionalBlock);
 
   const result = await client.chat.send({
     chatGenerationParams: {
@@ -202,7 +227,7 @@ async function generateRewardsOpenRouter(
           content: `Responde SOLO con JSON válido siguiendo este schema:
 {
   "rewards": [
-    { "memberName": "string", "rewardName": "string", "rewardDescription": "string", "pointsCost": number }
+    { "memberName": "string", "rewardName": "string", "rewardDescription": "string", "pointsCost": number, "category": "OUTING" | "GASTRONOMY" | "OUTDOOR" | "HOME", "actionUrl": "string | null" }
   ]
 }`,
         },

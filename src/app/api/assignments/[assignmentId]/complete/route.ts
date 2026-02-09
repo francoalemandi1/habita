@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { completeAssignmentSchema } from "@/lib/validations/assignment";
-import { calculatePoints } from "@/lib/points";
+import { calculatePointsWithBreakdown } from "@/lib/points";
 import { checkAndUnlockAchievements, calculateStreak } from "@/lib/achievements";
 import { getBestAssignee } from "@/lib/assignment-algorithm";
 import { computeDueDateForFrequency } from "@/lib/due-date";
+import { calculatePlanPerformance, generateAIRewards } from "@/lib/llm/ai-reward-generator";
+import { createNotification, createNotificationForMembers } from "@/lib/notification-service";
 
 import type { NextRequest } from "next/server";
 
@@ -38,7 +40,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         householdId: member.householdId,
       },
       include: {
-        task: true,
+        task: {
+          select: {
+            id: true,
+            name: true,
+            weight: true,
+            frequency: true,
+          },
+        },
         member: {
           include: {
             level: true,
@@ -59,28 +68,42 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "La tarea fue cancelada" }, { status: 400 });
     }
 
-    // Calculate points
+    // Calculate points with breakdown
     const now = new Date();
     const isOnTime = now <= assignment.dueDate;
     const streakDays = await calculateStreak(assignment.memberId);
-    const points = calculatePoints({
+    const pointsBreakdown = calculatePointsWithBreakdown({
       weight: assignment.task.weight,
       frequency: assignment.task.frequency,
       isOnTime,
       streakDays,
     });
+    const points = pointsBreakdown.total;
 
     // Update assignment and member level in transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Update assignment
-      const updatedAssignment = await tx.assignment.update({
-        where: { id: assignmentId },
+      // Atomic status guard: only complete if still PENDING/IN_PROGRESS
+      const updated = await tx.assignment.updateMany({
+        where: {
+          id: assignmentId,
+          householdId: member.householdId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+        },
         data: {
           status: "COMPLETED",
           completedAt: now,
           pointsEarned: points,
           notes: validation.data.notes ?? assignment.notes,
         },
+      });
+
+      if (updated.count === 0) {
+        throw new Error("ALREADY_COMPLETED");
+      }
+
+      // Re-fetch for response
+      const updatedAssignment = await tx.assignment.findUniqueOrThrow({
+        where: { id: assignmentId },
         include: {
           task: {
             select: {
@@ -130,11 +153,33 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       };
     });
 
+    // Notify level-up
+    if (result.leveledUp) {
+      await createNotification({
+        memberId: assignment.memberId,
+        type: "LEVEL_UP",
+        title: "Subiste de nivel",
+        message: `Alcanzaste el nivel ${result.newLevel}`,
+        actionUrl: "/profile",
+      });
+    }
+
     // Check for new achievements (after transaction)
     const newAchievements = await checkAndUnlockAchievements(
       assignment.memberId,
       { ...assignment, completedAt: now }
     );
+
+    // Notify each new achievement
+    for (const achievement of newAchievements) {
+      await createNotification({
+        memberId: assignment.memberId,
+        type: "ACHIEVEMENT_UNLOCKED",
+        title: "Logro desbloqueado",
+        message: `${achievement.name} (+${achievement.xpReward} XP)`,
+        actionUrl: "/achievements",
+      });
+    }
 
     // Update competition score if there's an active competition
     let competitionScoreUpdated = true;
@@ -144,6 +189,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           householdId: member.householdId,
           status: "ACTIVE",
         },
+        select: { id: true },
       });
 
       if (activeCompetition) {
@@ -180,7 +226,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           assignment.task.frequency,
           now
         );
-        const best = await getBestAssignee(
+        const { best } = await getBestAssignee(
           assignment.householdId,
           assignment.taskId,
           nextDue
@@ -202,9 +248,98 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // Auto-finalize plan if all assignments from the plan period are now completed
+    let planFinalized = false;
+    try {
+      const activePlan = await prisma.weeklyPlan.findFirst({
+        where: {
+          householdId: member.householdId,
+          status: "APPLIED",
+        },
+        select: { id: true, createdAt: true, expiresAt: true, appliedAt: true },
+      });
+
+      if (activePlan) {
+        const planStartDate = activePlan.appliedAt ?? activePlan.createdAt;
+        const remainingCount = await prisma.assignment.count({
+          where: {
+            householdId: member.householdId,
+            status: { in: ["PENDING", "IN_PROGRESS"] },
+            createdAt: { gte: planStartDate },
+          },
+        });
+
+        if (remainingCount === 0) {
+          await prisma.weeklyPlan.update({
+            where: { id: activePlan.id },
+            data: { status: "COMPLETED" },
+          });
+          planFinalized = true;
+
+          // Notify all members that the plan was completed
+          const householdMemberIds = await prisma.member.findMany({
+            where: { householdId: member.householdId, isActive: true },
+            select: { id: true },
+          });
+          await createNotificationForMembers(
+            householdMemberIds.map((m) => m.id),
+            {
+              type: "PLAN_APPLIED",
+              title: "Plan completado",
+              message: "Todas las tareas del plan fueron completadas",
+              actionUrl: "/plan",
+            }
+          );
+
+          // Best-effort: generate rewards for the finalized plan
+          try {
+            const performances = await calculatePlanPerformance(
+              member.householdId,
+              activePlan.createdAt,
+              activePlan.expiresAt,
+            );
+            const rewardResult = await generateAIRewards(member.householdId, activePlan.id, performances);
+            if (rewardResult && rewardResult.rewards.length > 0) {
+              const perfMap = new Map(performances.map((p) => [p.memberName.toLowerCase(), p]));
+              const rewardsToCreate = rewardResult.rewards
+                .map((r) => {
+                  const perf = perfMap.get(r.memberName.toLowerCase());
+                  if (!perf) return null;
+                  return {
+                    householdId: member.householdId,
+                    name: r.rewardName,
+                    description: r.rewardDescription,
+                    pointsCost: r.pointsCost,
+                    isAiGenerated: true,
+                    planId: activePlan.id,
+                    memberId: perf.memberId,
+                    completionRate: perf.completionRate,
+                  };
+                })
+                .filter((r): r is NonNullable<typeof r> => r !== null);
+              if (rewardsToCreate.length > 0) {
+                await prisma.householdReward.createMany({ data: rewardsToCreate });
+              }
+            }
+          } catch (err) {
+            console.error("Error generating rewards on auto-finalize (non-blocking):", err);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error auto-finalizing plan (non-blocking):", err);
+    }
+
     return NextResponse.json({
       ...result,
+      pointsBreakdown: {
+        base: pointsBreakdown.base,
+        onTimeBonus: pointsBreakdown.onTimeBonus,
+        streakBonus: pointsBreakdown.streakBonus,
+        streakDays: pointsBreakdown.streakDays,
+      },
       newAchievements,
+      planFinalized,
       nextAssignment: nextAssignment
         ? {
             id: nextAssignment.id,
@@ -218,6 +353,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "ALREADY_COMPLETED") {
+      return NextResponse.json({ error: "La tarea ya fue completada" }, { status: 400 });
+    }
+
     console.error("POST /api/assignments/[assignmentId]/complete error:", error);
 
     if (error instanceof Error && error.message === "Not a member of any household") {

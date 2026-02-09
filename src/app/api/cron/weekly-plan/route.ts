@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { autoAssignAllTasks } from "@/lib/assignment-algorithm";
 import { isAIEnabled } from "@/lib/llm/provider";
+import { getLocalDayOfWeek } from "@/lib/llm/regional-context";
 import { createNotificationForMembers } from "@/lib/notification-service";
+import { formatLocalDate, sendPlanSummaryToAdults } from "@/lib/email-service";
 
 import type { NextRequest } from "next/server";
 
@@ -17,9 +19,8 @@ interface HouseholdPlanResult {
 
 /**
  * POST /api/cron/weekly-plan
- * Weekly job: Generate and apply AI-powered task distribution for all households.
- * Run this on Sunday/Monday to plan the week ahead.
- * Protected by CRON_SECRET if defined.
+ * Generates and applies task distribution for households whose planningDay matches today.
+ * Runs every 6 hours to cover all timezones. Protected by CRON_SECRET.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -32,13 +33,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get all active households with at least one member and one task
-    const households = await prisma.household.findMany({
+    const now = new Date();
+
+    // Only process households with a configured planning day and timezone
+    const allHouseholds = await prisma.household.findMany({
       where: {
+        planningDay: { not: null },
+        timezone: { not: null },
         members: { some: { isActive: true } },
         tasks: { some: { isActive: true } },
       },
-      select: { id: true, name: true },
+      select: { id: true, name: true, planningDay: true, timezone: true },
+    });
+
+    // Filter to households where today (in their timezone) matches their planningDay
+    const households = allHouseholds.filter((h) => {
+      const localDay = getLocalDayOfWeek(now, h.timezone!);
+      return localDay === h.planningDay;
     });
 
     const results: HouseholdPlanResult[] = [];
@@ -56,8 +67,8 @@ export async function POST(request: NextRequest) {
           method: result.method,
         });
 
-        // Notify household members about the new plan
         if (result.success && result.assignmentsCreated > 0) {
+          // In-app notifications
           const householdMembers = await prisma.member.findMany({
             where: { householdId: household.id, isActive: true },
             select: { id: true },
@@ -71,6 +82,23 @@ export async function POST(request: NextRequest) {
               actionUrl: "/my-tasks",
             }
           );
+
+          // Email summary to adults
+          const adultMembers = await prisma.member.findMany({
+            where: { householdId: household.id, isActive: true, memberType: "ADULT" },
+            select: { name: true, user: { select: { email: true } } },
+          });
+
+          const adultEmails = adultMembers
+            .filter((m) => m.user.email)
+            .map((m) => ({ email: m.user.email, memberName: m.name }));
+
+          await sendPlanSummaryToAdults(adultEmails, {
+            householdName: household.name,
+            balanceScore: result.balanceScore ?? 0,
+            assignments: result.details,
+            localDateLabel: formatLocalDate(now, household.timezone),
+          });
         }
       } catch (error) {
         console.error(`Weekly plan failed for household ${household.name}:`, error);
@@ -92,7 +120,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       summary: {
-        householdsProcessed: households.length,
+        householdsEvaluated: allHouseholds.length,
+        householdsMatchedToday: households.length,
         householdsSuccessful: successCount,
         totalAssignmentsCreated: totalAssignments,
         usedAI: aiCount,
@@ -100,7 +129,7 @@ export async function POST(request: NextRequest) {
       },
       aiEnabled,
       results,
-      timestamp: new Date().toISOString(),
+      timestamp: now.toISOString(),
     });
   } catch (error) {
     console.error("POST /api/cron/weekly-plan error:", error);
@@ -113,7 +142,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/cron/weekly-plan
- * Status endpoint for monitoring. Protegido por CRON_SECRET.
+ * Status endpoint for monitoring. Protected by CRON_SECRET.
  */
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -130,8 +159,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     status: "ready",
     endpoint: "POST /api/cron/weekly-plan",
-    description: "Generates and applies AI-powered task distribution for all households",
+    description: "Generates task distribution for households on their configured planning day",
     aiEnabled,
-    recommendation: "Run weekly on Sunday or Monday morning",
+    schedule: "Every 6 hours (covers all timezones)",
   });
 }

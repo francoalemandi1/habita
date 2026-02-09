@@ -11,10 +11,9 @@ export interface GeolocationResult {
 }
 
 interface ReverseGeocodeResult {
-  results?: Array<{
-    country_code?: string;
-    name?: string;
-  }>;
+  countryCode?: string;
+  city?: string;
+  locality?: string;
 }
 
 /**
@@ -44,15 +43,12 @@ export function useGeolocation() {
 
         try {
           const response = await fetch(
-            `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${latitude}&longitude=${longitude}&count=1`
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
           );
           if (response.ok) {
             const data = (await response.json()) as ReverseGeocodeResult;
-            const result = data.results?.[0];
-            if (result) {
-              country = result.country_code ?? "";
-              city = result.name ?? "";
-            }
+            country = data.countryCode ?? "";
+            city = data.city || data.locality || "";
           }
         } catch {
           // Reverse geocode failed — still save coordinates and timezone

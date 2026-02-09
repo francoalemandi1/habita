@@ -10,6 +10,7 @@ import type { Prisma } from "@prisma/client";
 const updateHouseholdSchema = z.object({
   name: z.string().min(1, "El nombre es obligatorio").max(50, "Máximo 50 caracteres").optional(),
   location: householdLocationSchema.optional(),
+  planningDay: z.number().int().min(0).max(6).nullable().optional(),
 });
 
 /**
@@ -148,6 +149,9 @@ export async function PATCH(request: NextRequest) {
       if (loc.timezone) updateData.timezone = loc.timezone;
       if (loc.country) updateData.country = loc.country;
       if (loc.city) updateData.city = loc.city;
+    }
+    if (validation.data.planningDay !== undefined) {
+      updateData.planningDay = validation.data.planningDay;
     }
 
     const updated = await prisma.household.update({

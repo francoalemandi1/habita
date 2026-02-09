@@ -51,6 +51,7 @@ import type { ExcludedTask } from "@/lib/plan-duration";
 
 interface PlanAssignment {
   taskName: string;
+  memberId: string;
   memberName: string;
   memberType: MemberType;
   reason: string;
@@ -153,7 +154,7 @@ export function PlanPageClient({
   const [selectedAssignments, setSelectedAssignments] = useState<Set<string>>(() => {
     if (!existingPlan || existingPlan.status !== "PENDING") return new Set();
     return new Set(
-      existingPlan.assignments.map((a) => `${a.taskName}|${a.memberName}`)
+      existingPlan.assignments.map((a) => `${a.taskName}|${a.memberId}`)
     );
   });
   const [isRegenerateDialogOpen, setIsRegenerateDialogOpen] = useState(false);
@@ -212,7 +213,7 @@ export function PlanPageClient({
       setPlan(newPlan);
       setFairnessDetails(data.fairnessDetails);
       setSelectedAssignments(
-        new Set(data.plan.assignments.map((a) => `${a.taskName}|${a.memberName}`))
+        new Set(data.plan.assignments.map((a) => `${a.taskName}|${a.memberId}`))
       );
     } catch (error) {
       console.error("Generate plan error:", error);
@@ -256,8 +257,8 @@ export function PlanPageClient({
 
     try {
       const assignmentsToApply = plan.assignments
-        .filter((a) => selectedAssignments.has(`${a.taskName}|${a.memberName}`))
-        .map((a) => ({ taskName: a.taskName, memberName: a.memberName }));
+        .filter((a) => selectedAssignments.has(`${a.taskName}|${a.memberId}`))
+        .map((a) => ({ taskName: a.taskName, memberId: a.memberId, memberName: a.memberName }));
 
       const response = await fetch("/api/ai/apply-plan", {
         method: "POST",
@@ -297,10 +298,10 @@ export function PlanPageClient({
     }
   }, [plan, selectedAssignments, router, toast]);
 
-  const toggleAssignment = (taskName: string, memberName: string) => {
+  const toggleAssignment = (taskName: string, memberId: string) => {
     if (plan?.status !== "PENDING") return;
 
-    const key = `${taskName}|${memberName}`;
+    const key = `${taskName}|${memberId}`;
     const newSet = new Set(selectedAssignments);
     if (newSet.has(key)) {
       newSet.delete(key);
@@ -311,11 +312,12 @@ export function PlanPageClient({
   };
 
   const handleAddToPlan = useCallback(
-    async (taskName: string, memberName: string, memberType: MemberType) => {
+    async (taskName: string, memberId: string, memberName: string, memberType: MemberType) => {
       if (!plan) return;
 
       const newAssignment: PlanAssignment = {
         taskName,
+        memberId,
         memberName,
         memberType,
         reason: "Agregada manualmente",
@@ -331,7 +333,7 @@ export function PlanPageClient({
         });
         setSelectedAssignments((prev) => {
           const next = new Set(prev);
-          next.add(`${taskName}|${memberName}`);
+          next.add(`${taskName}|${memberId}`);
           return next;
         });
         toast.success("Agregada", `${taskName} asignada a ${memberName}`);
@@ -343,7 +345,7 @@ export function PlanPageClient({
         const response = await fetch(`/api/plans/${plan.id}/assignments`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "add", taskName, memberName }),
+          body: JSON.stringify({ action: "add", taskName, memberId }),
         });
 
         if (!response.ok) throw new Error("Failed to add assignment");
@@ -365,7 +367,7 @@ export function PlanPageClient({
   );
 
   const handleRemoveFromPlan = useCallback(
-    async (taskName: string, memberName: string) => {
+    async (taskName: string, memberId: string) => {
       if (!plan) return;
 
       if (plan.status === "PENDING") {
@@ -377,14 +379,14 @@ export function PlanPageClient({
               (a) =>
                 !(
                   a.taskName === taskName &&
-                  a.memberName === memberName
+                  a.memberId === memberId
                 )
             ),
           };
         });
         setSelectedAssignments((prev) => {
           const next = new Set(prev);
-          next.delete(`${taskName}|${memberName}`);
+          next.delete(`${taskName}|${memberId}`);
           return next;
         });
         toast.success("Quitada", `${taskName} quitada del plan`);
@@ -396,7 +398,7 @@ export function PlanPageClient({
         const response = await fetch(`/api/plans/${plan.id}/assignments`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "remove", taskName, memberName }),
+          body: JSON.stringify({ action: "remove", taskName, memberId }),
         });
 
         if (!response.ok) throw new Error("Failed to remove assignment");
@@ -409,7 +411,7 @@ export function PlanPageClient({
               (a) =>
                 !(
                   a.taskName === taskName &&
-                  a.memberName === memberName
+                  a.memberId === memberId
                 )
             ),
           };
@@ -424,10 +426,10 @@ export function PlanPageClient({
   );
 
   const handleReassign = useCallback(
-    async (taskName: string, oldMemberName: string, newMemberName: string) => {
-      if (!plan || oldMemberName === newMemberName) return;
+    async (taskName: string, oldMemberId: string, newMemberId: string) => {
+      if (!plan || oldMemberId === newMemberId) return;
 
-      const newMember = members.find((m) => m.name === newMemberName);
+      const newMember = members.find((m) => m.id === newMemberId);
       if (!newMember) return;
 
       if (plan.status === "PENDING") {
@@ -436,12 +438,13 @@ export function PlanPageClient({
           return {
             ...prev,
             assignments: prev.assignments.map((a) => {
-              if (a.taskName === taskName && a.memberName === oldMemberName) {
+              if (a.taskName === taskName && a.memberId === oldMemberId) {
                 return {
                   ...a,
-                  memberName: newMemberName,
+                  memberId: newMemberId,
+                  memberName: newMember.name,
                   memberType: newMember.type,
-                  reason: `Reasignada de ${oldMemberName}`,
+                  reason: `Reasignada manualmente`,
                 };
               }
               return a;
@@ -450,15 +453,15 @@ export function PlanPageClient({
         });
         setSelectedAssignments((prev) => {
           const next = new Set(prev);
-          const oldKey = `${taskName}|${oldMemberName}`;
+          const oldKey = `${taskName}|${oldMemberId}`;
           const wasSelected = next.has(oldKey);
           next.delete(oldKey);
           if (wasSelected) {
-            next.add(`${taskName}|${newMemberName}`);
+            next.add(`${taskName}|${newMemberId}`);
           }
           return next;
         });
-        toast.success("Reasignada", `${taskName} ahora es de ${newMemberName}`);
+        toast.success("Reasignada", `${taskName} ahora es de ${newMember.name}`);
         return;
       }
 
@@ -470,8 +473,8 @@ export function PlanPageClient({
           body: JSON.stringify({
             action: "reassign",
             taskName,
-            memberName: oldMemberName,
-            newMemberName,
+            memberId: oldMemberId,
+            newMemberId,
           }),
         });
 
@@ -482,19 +485,20 @@ export function PlanPageClient({
           return {
             ...prev,
             assignments: prev.assignments.map((a) => {
-              if (a.taskName === taskName && a.memberName === oldMemberName) {
+              if (a.taskName === taskName && a.memberId === oldMemberId) {
                 return {
                   ...a,
-                  memberName: newMemberName,
+                  memberId: newMemberId,
+                  memberName: newMember.name,
                   memberType: newMember.type,
-                  reason: `Reasignada de ${oldMemberName}`,
+                  reason: `Reasignada manualmente`,
                 };
               }
               return a;
             }),
           };
         });
-        toast.success("Reasignada", `${taskName} ahora es de ${newMemberName}`);
+        toast.success("Reasignada", `${taskName} ahora es de ${newMember.name}`);
         router.refresh();
       } catch {
         toast.error("Error", "No se pudo reasignar la tarea");
@@ -503,13 +507,13 @@ export function PlanPageClient({
     [plan, members, router, toast]
   );
 
-  // Group assignments by member
+  // Group assignments by memberId
   const assignmentsByMember = new Map<string, PlanAssignment[]>();
   if (plan) {
     for (const assignment of plan.assignments) {
-      const existing = assignmentsByMember.get(assignment.memberName) ?? [];
+      const existing = assignmentsByMember.get(assignment.memberId) ?? [];
       existing.push(assignment);
-      assignmentsByMember.set(assignment.memberName, existing);
+      assignmentsByMember.set(assignment.memberId, existing);
     }
   }
 
@@ -541,8 +545,8 @@ export function PlanPageClient({
         </button>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
-              <CalendarDays className="h-6 w-6 text-primary" />
+            <h1 className="text-xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
               Plan de Distribución
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -576,22 +580,6 @@ export function PlanPageClient({
                 <RefreshCw className="h-4 w-4" />
               )}
               Regenerar
-            </Button>
-          )}
-          {plan?.status === "APPLIED" && (
-            <Button
-              onClick={() => setIsRegenerateDialogOpen(true)}
-              disabled={isGenerating}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-            >
-              {isGenerating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-              Regenerar plan
             </Button>
           )}
         </div>
@@ -635,10 +623,10 @@ export function PlanPageClient({
                   {tasks.map((task) => (
                     <div
                       key={task.id}
-                      className="flex items-center justify-between rounded-2xl bg-muted/30 px-3 py-2"
+                      className="flex flex-col gap-2 rounded-2xl bg-muted/30 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <span className="text-sm font-medium">{task.name}</span>
-                      <div className="flex items-center gap-2">
+                      <span className="min-w-0 truncate text-sm font-medium">{task.name}</span>
+                      <div className="flex shrink-0 flex-wrap items-center gap-2">
                         <Badge variant="outline" className="text-xs">
                           {FREQUENCY_LABELS[task.frequency]}
                         </Badge>
@@ -757,15 +745,15 @@ export function PlanPageClient({
         <div className="space-y-6">
           {/* Status banner */}
           {plan.status === "APPLIED" && !isGenerating && (
-            <div className="rounded-2xl bg-green-50 p-4 shadow-sm dark:bg-green-950">
-              <div className="flex items-center gap-3">
-                <CheckCheck className="h-5 w-5 text-green-600" />
-                <div>
+            <div className="rounded-2xl bg-green-50 p-3 sm:p-4 shadow-sm dark:bg-green-950">
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <CheckCheck className="h-5 w-5 text-green-600 shrink-0" />
+                <div className="min-w-0">
                   <p className="font-medium text-green-800 dark:text-green-200">
                     Plan aplicado
                   </p>
-                  <p className="text-sm text-green-600 dark:text-green-400">
-                    Las asignaciones fueron creadas el{" "}
+                  <p className="text-sm text-green-600 dark:text-green-400 truncate">
+                    Creado el{" "}
                     {plan.appliedAt
                       ? new Date(plan.appliedAt).toLocaleDateString("es", {
                           day: "numeric",
@@ -781,10 +769,10 @@ export function PlanPageClient({
           )}
 
           {/* Balance Score */}
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Equidad de distribución</h3>
-              <span className={cn("text-3xl font-bold", getScoreColor(plan.balanceScore))}>
+          <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="min-w-0 text-base font-semibold sm:text-lg">Equidad de distribución</h3>
+              <span className={cn("shrink-0 text-2xl font-bold sm:text-3xl", getScoreColor(plan.balanceScore))}>
                 {plan.balanceScore}%
               </span>
             </div>
@@ -823,7 +811,7 @@ export function PlanPageClient({
 
           {/* Excluded tasks */}
           {plan.excludedTasks.length > 0 && (
-            <div className="rounded-2xl bg-amber-50 p-5 shadow-sm dark:bg-amber-950">
+            <div className="rounded-2xl bg-amber-50 p-4 sm:p-5 shadow-sm dark:bg-amber-950">
               <div className="mb-3">
                 <h3 className="text-base font-semibold text-amber-800 dark:text-amber-200">
                   Tareas fuera de este plan
@@ -845,31 +833,32 @@ export function PlanPageClient({
           {/* Assignments by Member */}
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Asignaciones propuestas</h2>
-            {Array.from(assignmentsByMember.entries()).map(([memberName, assignments]) => {
+            {Array.from(assignmentsByMember.entries()).map(([memberId, assignments]) => {
               const memberType =
                 assignments[0]?.memberType ?? "ADULT";
+              const displayName = assignments[0]?.memberName ?? memberId;
               const isPending = plan.status === "PENDING";
-              const memberData = members.find((m) => m.name === memberName);
+              const memberData = members.find((m) => m.id === memberId);
 
               return (
-                <div key={memberName} className="rounded-2xl bg-white shadow-sm overflow-hidden">
-                  <div className="flex items-center gap-2 bg-muted/30 px-5 py-3">
+                <div key={memberId} className="rounded-2xl bg-white shadow-sm overflow-hidden">
+                  <div className="flex items-center gap-2 bg-muted/30 px-3 py-2.5 sm:px-5 sm:py-3">
                     {MEMBER_TYPE_ICONS[memberType]}
-                    <span className="text-base font-semibold">{memberName}</span>
-                    <Badge variant="outline" className="ml-auto">
+                    <span className="text-sm font-semibold sm:text-base truncate">{displayName}</span>
+                    <Badge variant="outline" className="ml-auto shrink-0">
                       {MEMBER_TYPE_LABELS[memberType]}
                     </Badge>
                   </div>
                   <ul>
                     {assignments.map((assignment, idx) => {
-                      const key = `${assignment.taskName}|${assignment.memberName}`;
+                      const key = `${assignment.taskName}|${assignment.memberId}`;
                       const isSelected = selectedAssignments.has(key);
 
                       return (
                         <li
                           key={key}
                           className={cn(
-                            "flex items-center gap-3 px-5 py-3 transition-colors",
+                            "flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-5 sm:py-3 transition-colors",
                             idx > 0 && "border-t border-muted/40",
                             isPending && "cursor-pointer hover:bg-muted/30",
                             !isSelected && isPending && "opacity-50"
@@ -877,7 +866,7 @@ export function PlanPageClient({
                         >
                           <div
                             className="mt-0.5 shrink-0"
-                            onClick={() => toggleAssignment(assignment.taskName, memberName)}
+                            onClick={() => toggleAssignment(assignment.taskName, memberId)}
                           >
                             {isSelected || plan.status === "APPLIED" ? (
                               <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -887,16 +876,16 @@ export function PlanPageClient({
                           </div>
                           <div
                             className="flex-1 min-w-0"
-                            onClick={() => toggleAssignment(assignment.taskName, memberName)}
+                            onClick={() => toggleAssignment(assignment.taskName, memberId)}
                           >
-                            <p className="font-medium">{assignment.taskName}</p>
+                            <p className="font-medium truncate">{assignment.taskName}</p>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             {/* Reassign */}
                             <Select
                               value=""
-                              onValueChange={(newMember) =>
-                                handleReassign(assignment.taskName, memberName, newMember)
+                              onValueChange={(newMemberId) =>
+                                handleReassign(assignment.taskName, memberId, newMemberId)
                               }
                             >
                               <SelectTrigger className="h-8 w-8 border-0 p-0 shadow-none [&>svg]:hidden">
@@ -904,9 +893,9 @@ export function PlanPageClient({
                               </SelectTrigger>
                               <SelectContent>
                                 {members
-                                  .filter((m) => m.name !== memberName)
+                                  .filter((m) => m.id !== memberId)
                                   .map((m) => (
-                                    <SelectItem key={m.id} value={m.name}>
+                                    <SelectItem key={m.id} value={m.id}>
                                       {m.name}
                                     </SelectItem>
                                   ))}
@@ -918,7 +907,7 @@ export function PlanPageClient({
                               className="rounded-sm p-1 text-muted-foreground hover:text-destructive"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleRemoveFromPlan(assignment.taskName, memberName);
+                                handleRemoveFromPlan(assignment.taskName, memberId);
                               }}
                             >
                               <X className="h-4 w-4" />
@@ -929,14 +918,14 @@ export function PlanPageClient({
                     })}
                   </ul>
                   {memberData && (
-                    <div className="border-t border-muted/40 px-5 py-3">
+                    <div className="border-t border-muted/40 px-3 py-2.5 sm:px-5 sm:py-3">
                       <TaskCatalogPicker
                         existingTaskNames={tasks.map((t) => t.name)}
                         onTasksCreated={() => router.refresh()}
                         planMode={{
                           member: { id: memberData.id, name: memberData.name, type: memberData.type },
                           existingAssignmentKeys: new Set(
-                            plan.assignments.map((a) => `${a.taskName}|${a.memberName}`)
+                            plan.assignments.map((a) => `${a.taskName}|${a.memberId}`)
                           ),
                           onAddToPlan: handleAddToPlan,
                         }}
@@ -950,8 +939,8 @@ export function PlanPageClient({
 
           {/* Notes */}
           {plan.notes.length > 0 && (
-            <div className="rounded-2xl bg-white p-5 shadow-sm">
-              <h3 className="text-lg font-semibold mb-3">Notas del plan</h3>
+            <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm">
+              <h3 className="text-base font-semibold sm:text-lg mb-3">Notas del plan</h3>
               <ul className="space-y-2">
                 {plan.notes.map((note, idx) => (
                   <li key={idx} className="text-sm text-muted-foreground flex gap-2">
@@ -965,17 +954,17 @@ export function PlanPageClient({
 
           {/* Action buttons */}
           {plan.status === "PENDING" && (
-            <div className="rounded-2xl bg-white p-5 shadow-sm">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
                 <p className="text-sm text-muted-foreground">
                   {selectedCount} de {totalCount} asignaciones seleccionadas
                 </p>
-                <div className="flex gap-3">
+                <div className="flex gap-3 w-full sm:w-auto">
                   <Button
                     variant="outline"
                     onClick={() => setIsDiscardDialogOpen(true)}
                     disabled={isApplying || isDiscarding}
-                    className="gap-2 text-destructive hover:text-destructive"
+                    className="gap-2 text-destructive hover:text-destructive flex-1 sm:flex-initial"
                   >
                     <Trash2 className="h-4 w-4" />
                     Descartar
@@ -983,7 +972,7 @@ export function PlanPageClient({
                   <Button
                     onClick={handleApplyPlan}
                     disabled={isApplying || selectedCount === 0}
-                    className="gap-2"
+                    className="gap-2 flex-1 sm:flex-initial"
                   >
                     {isApplying ? (
                       <>

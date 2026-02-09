@@ -44,7 +44,7 @@ interface PlanModeConfig {
   /** The member this picker will assign tasks to (no member selector shown) */
   member: { id: string; name: string; type: MemberType };
   existingAssignmentKeys: Set<string>;
-  onAddToPlan: (taskName: string, memberName: string, memberType: MemberType) => void;
+  onAddToPlan: (taskName: string, memberId: string, memberName: string, memberType: MemberType) => void;
 }
 
 interface TaskCatalogPickerProps {
@@ -278,10 +278,10 @@ function CatalogPickerContent({
 
       // In plan mode, add to the plan for the fixed member
       if (planMode) {
-        const { name: memberName, type: memberType } = planMode.member;
-        const assignmentKey = `${taskName}|${memberName}`;
+        const { id: memberId, name: memberName, type: memberType } = planMode.member;
+        const assignmentKey = `${taskName}|${memberId}`;
         if (!planMode.existingAssignmentKeys.has(assignmentKey)) {
-          planMode.onAddToPlan(taskName, memberName, memberType);
+          planMode.onAddToPlan(taskName, memberId, memberName, memberType);
           addedToPlan++;
         }
       }

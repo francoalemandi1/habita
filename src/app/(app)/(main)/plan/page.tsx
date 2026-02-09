@@ -9,6 +9,7 @@ import type { ExcludedTask } from "@/lib/plan-duration";
 
 interface PlanAssignment {
   taskName: string;
+  memberId: string;
   memberName: string;
   memberType: MemberType;
   reason: string;
@@ -84,12 +85,27 @@ export default async function PlanPage() {
   // Transform the plan if it exists
   let storedPlan: StoredPlan | null = null;
   if (existingPlan) {
+    const rawAssignments = existingPlan.assignments as unknown as Array<{
+      taskName: string;
+      memberId?: string;
+      memberName: string;
+      memberType: MemberType;
+      reason: string;
+    }>;
+
+    // Backfill memberId for plans created before the memberId migration
+    const memberByName = new Map(members.map((m) => [m.name.toLowerCase(), m.id]));
+    const migratedAssignments: PlanAssignment[] = rawAssignments.map((a) => ({
+      ...a,
+      memberId: a.memberId ?? memberByName.get(a.memberName.toLowerCase()) ?? a.memberName,
+    }));
+
     storedPlan = {
       id: existingPlan.id,
       status: existingPlan.status,
       balanceScore: existingPlan.balanceScore,
       notes: existingPlan.notes,
-      assignments: existingPlan.assignments as unknown as PlanAssignment[],
+      assignments: migratedAssignments,
       durationDays: existingPlan.durationDays,
       excludedTasks: (existingPlan.excludedTasks as unknown as ExcludedTask[]) ?? [],
       createdAt: existingPlan.createdAt,

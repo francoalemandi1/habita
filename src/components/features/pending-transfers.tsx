@@ -132,9 +132,9 @@ export function PendingTransfers({ transfers, currentMemberId }: PendingTransfer
               {incomingTransfers.map((transfer) => (
                 <div
                   key={transfer.id}
-                  className="flex items-center justify-between rounded-2xl border border-yellow-500/50 bg-yellow-50/50 p-3 dark:bg-yellow-950/20"
+                  className="flex flex-col gap-3 rounded-2xl border border-yellow-500/50 bg-yellow-50/50 p-3 dark:bg-yellow-950/20 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="font-medium">{transfer.assignment.task.name}</p>
                     <p className="text-sm text-muted-foreground">
                       De {transfer.fromMember.name} · {formatRelativeTime(transfer.requestedAt)}
@@ -145,7 +145,7 @@ export function PendingTransfers({ transfers, currentMemberId }: PendingTransfer
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex shrink-0 gap-2">
                     <Button
                       size="sm"
                       variant="outline"
@@ -178,9 +178,9 @@ export function PendingTransfers({ transfers, currentMemberId }: PendingTransfer
               {outgoingTransfers.map((transfer) => (
                 <div
                   key={transfer.id}
-                  className="flex items-center justify-between rounded-2xl border p-3"
+                  className="flex flex-col gap-3 rounded-2xl border p-3 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="font-medium">{transfer.assignment.task.name}</p>
                     <p className="text-sm text-muted-foreground">
                       Para {transfer.toMember.name} · {formatRelativeTime(transfer.requestedAt)}
@@ -194,6 +194,7 @@ export function PendingTransfers({ transfers, currentMemberId }: PendingTransfer
                     variant="ghost"
                     onClick={() => handleCancel(transfer.id)}
                     disabled={loadingId === transfer.id}
+                    className="shrink-0 self-start sm:self-center"
                   >
                     Cancelar
                   </Button>

@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { InviteShareBlock } from "@/components/features/invite-share-block";
 import { Check, ChevronDown, Plus, Search, Sparkles, User, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
@@ -104,7 +105,6 @@ function OnboardingContent() {
   const [createdInviteCode, setCreatedInviteCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasInviteCode, setHasInviteCode] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [showCustomTask, setShowCustomTask] = useState(false);
   const [customTaskName, setCustomTaskName] = useState("");
   const [customTaskFrequency, setCustomTaskFrequency] = useState("WEEKLY");
@@ -435,17 +435,6 @@ function OnboardingContent() {
       setError(e instanceof Error ? e.message : "Error al unirse");
     } finally {
       setJoinLoading(false);
-    }
-  };
-
-  const handleCopyCode = async () => {
-    if (!createdInviteCode) return;
-    try {
-      await navigator.clipboard.writeText(createdInviteCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setError("No se pudo copiar");
     }
   };
 
@@ -943,25 +932,13 @@ function OnboardingContent() {
         <div className="space-y-6">
           <StepHeader
             title="¡Hogar creado!"
-            subtitle="Compartí este código con otras personas"
+            subtitle="Invitá a tu familia a unirse"
           />
 
-          {/* Invite code card */}
-          <div className="rounded-[32px] bg-[#d2ffa0] px-6 py-8 text-center">
-            <span className="font-mono text-3xl font-bold tracking-[0.3em] text-foreground">
-              {createdInviteCode}
-            </span>
-          </div>
-
-          {/* Copy button */}
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full border-2 border-primary text-primary hover:bg-primary/5 hover:text-primary"
-            onClick={handleCopyCode}
-          >
-            {copied ? "¡Copiado!" : "Copiar código"}
-          </Button>
+          <InviteShareBlock
+            inviteCode={createdInviteCode}
+            householdName={householdName || memberName}
+          />
         </div>
       </OnboardingLayout>
       </div>

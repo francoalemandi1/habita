@@ -6,9 +6,10 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { TransferRequestButton } from "@/components/features/transfer-request-button";
 import { useToast } from "@/components/ui/toast";
-import { CheckCircle, Clock, Star, Check, Loader2, ArrowRight, AlertTriangle } from "lucide-react";
+import { CheckCircle, Clock, Star, Check, Loader2, ArrowRight } from "lucide-react";
+import { calculatePoints } from "@/lib/points";
 
-import type { Assignment, Task } from "@prisma/client";
+import type { Assignment, Task, TaskFrequency } from "@prisma/client";
 
 interface AssignmentWithTask extends Assignment {
   task: Pick<Task, "id" | "name" | "description" | "weight" | "frequency" | "estimatedMinutes">;
@@ -130,9 +131,6 @@ export function MyAssignmentsList({
 
 interface PointsBreakdown {
   base: number;
-  onTimeBonus: number;
-  streakBonus: number;
-  streakDays: number;
 }
 
 interface CompleteResponse {
@@ -170,7 +168,7 @@ function AssignmentCard({
   const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;
   const isToday = dueDate ? dueDate.toDateString() === new Date().toDateString() : false;
   const colors = CARD_COLORS[colorIndex] ?? CARD_COLORS[0]!;
-  const points = assignment.task.weight * 10;
+  const points = calculatePoints({ weight: assignment.task.weight, frequency: assignment.task.frequency as TaskFrequency });
 
   // Completion animation sequence: show success → collapse → remove from parent
   useEffect(() => {
@@ -183,12 +181,6 @@ function AssignmentCard({
     const removeTimer = setTimeout(() => {
       const breakdown = completionData.pointsBreakdown;
       let message = `+${completionData.pointsEarned} pts`;
-      if (breakdown) {
-        const parts: string[] = [];
-        if (breakdown.onTimeBonus > 0) parts.push(`+${breakdown.onTimeBonus} puntualidad`);
-        if (breakdown.streakBonus > 0) parts.push(`+${breakdown.streakBonus} racha (${breakdown.streakDays}d)`);
-        if (parts.length > 0) message += ` (${parts.join(", ")})`;
-      }
       if (completionData.leveledUp) {
         message += ` · Nivel ${completionData.newLevel}!`;
       }
@@ -293,19 +285,6 @@ function AssignmentCard({
             {assignment.task.estimatedMinutes ? ` · ${assignment.task.estimatedMinutes} min` : ""}
           </span>
         </div>
-
-        {/* Penalty warning for overdue tasks */}
-        {isOverdue && dueDate && (() => {
-          const hoursLate = Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60));
-          const penalty = hoursLate >= 72 ? 3 : hoursLate >= 48 ? 2 : hoursLate >= 24 ? 1 : 0;
-          if (penalty === 0) return null;
-          return (
-            <div className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-red-600">
-              <AlertTriangle className="size-3.5" />
-              <span>-{penalty} XP penalidad · {hoursLate >= 72 ? "+72h" : hoursLate >= 48 ? "+48h" : "+24h"} de atraso</span>
-            </div>
-          );
-        })()}
 
         {/* Metadata row 2: points */}
         <div className={`mt-1 flex items-center gap-1.5 text-sm font-medium ${colors.text}`}>

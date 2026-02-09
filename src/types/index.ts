@@ -51,8 +51,5 @@ export const MEMBER_CAPACITY = {
 /** Points calculation constants */
 export const POINTS = {
   BASE_MULTIPLIER: 10,
-  ON_TIME_BONUS: 0.2,
-  STREAK_BONUS: 0.1,
-  STREAK_THRESHOLD: 3,
   XP_PER_LEVEL: 100,
 } as const;

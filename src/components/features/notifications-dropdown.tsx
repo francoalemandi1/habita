@@ -17,11 +17,9 @@ import {
   AlertTriangle,
   Trophy,
   TrendingUp,
-  ShieldAlert,
   Clock,
   CalendarCheck,
   Gift,
-  Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,12 +40,10 @@ const NOTIFICATION_STYLES: Record<string, { bg: string; iconColor: string }> = {
   TASK_OVERDUE: { bg: "bg-[#fff0d7]", iconColor: "text-red-500" },
   ACHIEVEMENT_UNLOCKED: { bg: "bg-[#fff0d7]", iconColor: "text-yellow-500" },
   LEVEL_UP: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-500" },
-  PENALTY_APPLIED: { bg: "bg-red-50", iconColor: "text-orange-500" },
   REMINDER_DUE: { bg: "bg-blue-50", iconColor: "text-blue-500" },
   PLAN_READY: { bg: "bg-[#e4d5ff]/50", iconColor: "text-primary" },
   PLAN_APPLIED: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-600" },
   REWARD_REDEEMED: { bg: "bg-[#fff0d7]", iconColor: "text-yellow-500" },
-  STREAK_MILESTONE: { bg: "bg-[#fff0d7]", iconColor: "text-orange-500" },
 };
 
 const DEFAULT_STYLE = { bg: "bg-muted/50", iconColor: "text-muted-foreground" };
@@ -69,8 +65,6 @@ function getNotificationIcon(type: string) {
       return <Trophy className={cn("h-4 w-4", style.iconColor)} />;
     case "LEVEL_UP":
       return <TrendingUp className={cn("h-4 w-4", style.iconColor)} />;
-    case "PENALTY_APPLIED":
-      return <ShieldAlert className={cn("h-4 w-4", style.iconColor)} />;
     case "REMINDER_DUE":
       return <Clock className={cn("h-4 w-4", style.iconColor)} />;
     case "PLAN_READY":
@@ -78,8 +72,6 @@ function getNotificationIcon(type: string) {
       return <CalendarCheck className={cn("h-4 w-4", style.iconColor)} />;
     case "REWARD_REDEEMED":
       return <Gift className={cn("h-4 w-4", style.iconColor)} />;
-    case "STREAK_MILESTONE":
-      return <Flame className={cn("h-4 w-4", style.iconColor)} />;
     default:
       return <Bell className="h-4 w-4" />;
   }

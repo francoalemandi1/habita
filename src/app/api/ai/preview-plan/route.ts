@@ -11,6 +11,7 @@ import type { ExcludedTask } from "@/lib/plan-duration";
 
 interface PlanAssignment {
   taskName: string;
+  memberId: string;
   memberName: string;
   memberType: MemberType;
   reason: string;
@@ -87,21 +88,26 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const memberTypeMap = new Map(members.map((m) => [m.name.toLowerCase(), m.memberType]));
+    const memberByIdMap = new Map(members.map((m) => [m.id, m]));
 
     // Enrich assignments with member type
-    const enrichedAssignments: PlanAssignment[] = plan.assignments.map((a) => ({
-      taskName: a.taskName,
-      memberName: a.memberName,
-      memberType: memberTypeMap.get(a.memberName.toLowerCase()) ?? "ADULT",
-      reason: a.reason,
-    }));
+    const enrichedAssignments: PlanAssignment[] = plan.assignments
+      .filter((a) => memberByIdMap.has(a.memberId))
+      .map((a) => {
+        const member = memberByIdMap.get(a.memberId)!;
+        return {
+          taskName: a.taskName,
+          memberId: a.memberId,
+          memberName: member.name,
+          memberType: member.memberType,
+          reason: a.reason,
+        };
+      });
 
     // Count assignments per member in the plan
     const assignmentCounts = new Map<string, number>();
     for (const a of enrichedAssignments) {
-      const key = a.memberName.toLowerCase();
-      assignmentCounts.set(key, (assignmentCounts.get(key) ?? 0) + 1);
+      assignmentCounts.set(a.memberId, (assignmentCounts.get(a.memberId) ?? 0) + 1);
     }
 
     // Build member summaries
@@ -110,7 +116,7 @@ export async function GET(request: NextRequest) {
       name: m.name,
       type: m.memberType,
       currentPending: m.assignments.length,
-      assignedInPlan: assignmentCounts.get(m.name.toLowerCase()) ?? 0,
+      assignedInPlan: assignmentCounts.get(m.id) ?? 0,
     }));
 
     // Calculate fairness details for adults only
@@ -118,7 +124,7 @@ export async function GET(request: NextRequest) {
     const adultDistribution: Record<string, number> = {};
 
     for (const adult of adultMembers) {
-      adultDistribution[adult.name] = assignmentCounts.get(adult.name.toLowerCase()) ?? 0;
+      adultDistribution[adult.name] = assignmentCounts.get(adult.id) ?? 0;
     }
 
     const adultCounts = Object.values(adultDistribution);

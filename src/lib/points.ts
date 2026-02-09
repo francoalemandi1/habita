@@ -5,8 +5,6 @@ import type { TaskFrequency } from "@prisma/client";
 interface CalculatePointsParams {
   weight: number;
   frequency: TaskFrequency;
-  isOnTime: boolean;
-  streakDays: number;
 }
 
 const FREQUENCY_MULTIPLIER: Record<TaskFrequency, number> = {
@@ -20,69 +18,34 @@ const FREQUENCY_MULTIPLIER: Record<TaskFrequency, number> = {
 /**
  * Calculate points earned for completing a task.
  *
- * Formula:
- * base_points = weight × frequency_multiplier × 10
- * on_time_bonus = +20% if completed on time
- * streak_bonus = +10% if streak >= 3 days
+ * Formula: base_points = weight × frequency_multiplier × 10
  *
  * @returns Total points earned (integer)
  */
 export function calculatePoints({
   weight,
   frequency,
-  isOnTime,
-  streakDays,
 }: CalculatePointsParams): number {
   const frequencyMultiplier = FREQUENCY_MULTIPLIER[frequency];
-  const basePoints = weight * frequencyMultiplier * POINTS.BASE_MULTIPLIER;
-
-  let totalPoints = basePoints;
-
-  // On-time bonus
-  if (isOnTime) {
-    totalPoints += basePoints * POINTS.ON_TIME_BONUS;
-  }
-
-  // Streak bonus
-  if (streakDays >= POINTS.STREAK_THRESHOLD) {
-    totalPoints += basePoints * POINTS.STREAK_BONUS;
-  }
-
-  return Math.round(totalPoints);
+  return Math.round(weight * frequencyMultiplier * POINTS.BASE_MULTIPLIER);
 }
 
 export interface PointsBreakdown {
   total: number;
   base: number;
-  onTimeBonus: number;
-  streakBonus: number;
-  isOnTime: boolean;
-  streakDays: number;
 }
 
 /**
- * Calculate points with detailed breakdown of each bonus.
+ * Calculate points with detailed breakdown.
  */
 export function calculatePointsWithBreakdown({
   weight,
   frequency,
-  isOnTime,
-  streakDays,
 }: CalculatePointsParams): PointsBreakdown {
   const frequencyMultiplier = FREQUENCY_MULTIPLIER[frequency];
-  const base = weight * frequencyMultiplier * POINTS.BASE_MULTIPLIER;
-  const onTimeBonus = isOnTime ? Math.round(base * POINTS.ON_TIME_BONUS) : 0;
-  const streakBonus =
-    streakDays >= POINTS.STREAK_THRESHOLD ? Math.round(base * POINTS.STREAK_BONUS) : 0;
+  const base = Math.round(weight * frequencyMultiplier * POINTS.BASE_MULTIPLIER);
 
-  return {
-    total: Math.round(base + onTimeBonus + streakBonus),
-    base: Math.round(base),
-    onTimeBonus,
-    streakBonus,
-    isOnTime,
-    streakDays,
-  };
+  return { total: base, base };
 }
 
 /**

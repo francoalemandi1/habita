@@ -273,6 +273,7 @@ export async function autoAssignAllTasks(
   assignmentsCreated: number;
   method: "ai" | "algorithm";
   details: Array<{ taskName: string; memberName: string }>;
+  balanceScore?: number;
 }> {
   const useAI = options?.useAI ?? true;
 
@@ -291,6 +292,7 @@ export async function autoAssignAllTasks(
             taskName: a.taskName,
             memberName: a.memberName,
           })),
+          balanceScore: result.plan.balanceScore,
         };
       }
     } catch (error) {

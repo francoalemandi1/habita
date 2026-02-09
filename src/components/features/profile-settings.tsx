@@ -5,10 +5,19 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { CopyButton } from "@/components/ui/copy-button";
+import { InviteShareBlock } from "@/components/features/invite-share-block";
 import { useToast } from "@/components/ui/toast";
-import { Pencil, Check, X, Users, UserPlus, MapPin, Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Pencil, Check, X, Users, UserPlus, MapPin, CalendarClock, Loader2, Bell, BellOff, MessageCircle, LinkIcon, Unlink } from "lucide-react";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { useWhatsAppLink } from "@/hooks/use-whatsapp-link";
 
 import type { MemberType } from "@prisma/client";
 
@@ -32,12 +41,23 @@ interface ProfileSettingsProps {
   members: HouseholdMember[];
   isAdult: boolean;
   location?: HouseholdLocation;
+  planningDay?: number | null;
 }
 
 const MEMBER_TYPE_LABELS: Record<MemberType, string> = {
   ADULT: "Adulto",
   TEEN: "Adolescente",
   CHILD: "Niño",
+};
+
+const DAY_LABELS: Record<number, string> = {
+  0: "Domingos",
+  1: "Lunes",
+  2: "Martes",
+  3: "Miércoles",
+  4: "Jueves",
+  5: "Viernes",
+  6: "Sábados",
 };
 
 export function ProfileSettings({
@@ -47,6 +67,7 @@ export function ProfileSettings({
   members,
   isAdult,
   location: savedLocation,
+  planningDay: initialPlanningDay,
 }: ProfileSettingsProps) {
   const router = useRouter();
   const toast = useToast();
@@ -61,6 +82,66 @@ export function ProfileSettings({
 
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const { location: geoLocation } = useGeolocation();
+
+  const [isSavingPlanningDay, setIsSavingPlanningDay] = useState(false);
+
+  const push = usePushNotifications();
+  const whatsapp = useWhatsAppLink();
+  const [whatsappPhone, setWhatsappPhone] = useState("");
+
+  const handleLinkWhatsApp = async () => {
+    if (!whatsappPhone.trim()) return;
+
+    const phoneNumber = whatsappPhone.startsWith("+")
+      ? whatsappPhone.trim()
+      : `+${whatsappPhone.trim()}`;
+
+    const result = await whatsapp.link(phoneNumber);
+    if (result.success) {
+      toast.success("Código enviado", "Revisá tu WhatsApp e ingresá el código de 6 dígitos");
+      setWhatsappPhone("");
+    } else {
+      toast.error("Error", result.error ?? "No se pudo vincular");
+    }
+  };
+
+  const handleResendCode = async () => {
+    const result = await whatsapp.resend();
+    if (result.success) {
+      toast.success("Código reenviado", "Revisá tu WhatsApp e ingresá el nuevo código");
+    } else {
+      toast.error("Error", result.error ?? "No se pudo reenviar");
+    }
+  };
+
+  const handleUnlinkWhatsApp = async () => {
+    const ok = await whatsapp.unlink();
+    if (ok) {
+      toast.success("WhatsApp desvinculado", "Ya no recibirás mensajes por WhatsApp");
+    } else {
+      toast.error("Error", "No se pudo desvincular");
+    }
+  };
+
+  const handleTogglePush = async () => {
+    if (push.isSubscribed) {
+      const ok = await push.unsubscribe();
+      if (ok) {
+        toast.success("Notificaciones desactivadas", "Ya no recibirás recordatorios push");
+      } else {
+        toast.error("Error", "No se pudieron desactivar las notificaciones");
+      }
+    } else {
+      const ok = await push.subscribe();
+      if (ok) {
+        toast.success("Notificaciones activadas", "Recibirás recordatorios de tus tareas");
+      } else if (push.permission === "denied") {
+        toast.error("Permiso denegado", "Habilitá las notificaciones desde la configuración de tu navegador");
+      } else {
+        toast.error("Error", "No se pudieron activar las notificaciones");
+      }
+    }
+  };
 
   const handleSaveName = async () => {
     const trimmed = nameValue.trim();
@@ -161,6 +242,35 @@ export function ProfileSettings({
       toast.error("Error", message);
     } finally {
       setIsDetectingLocation(false);
+    }
+  };
+
+  const handlePlanningDayChange = async (value: string) => {
+    const planningDay = value === "disabled" ? null : parseInt(value, 10);
+
+    setIsSavingPlanningDay(true);
+    try {
+      const response = await fetch("/api/households", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planningDay }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json() as { error?: string };
+        throw new Error(data.error ?? "Error al guardar");
+      }
+
+      toast.success(
+        "Día de planificación actualizado",
+        planningDay != null ? `Se generará el plan los ${DAY_LABELS[planningDay]}` : "Planificación automática desactivada"
+      );
+      router.refresh();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error al guardar";
+      toast.error("Error", message);
+    } finally {
+      setIsSavingPlanningDay(false);
     }
   };
 
@@ -281,19 +391,8 @@ export function ProfileSettings({
             )}
           </div>
 
-          {/* Invite code */}
-          <div>
-            <p className="text-sm text-muted-foreground mb-1">Código de invitación</p>
-            <div className="flex items-center gap-2">
-              <code className="rounded-full bg-muted px-3 py-1.5 font-mono text-sm font-semibold tracking-widest">
-                {inviteCode}
-              </code>
-              <CopyButton value={inviteCode} />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Compartí este código para que otros se unan a tu hogar
-            </p>
-          </div>
+          {/* Invite */}
+          <InviteShareBlock inviteCode={inviteCode} householdName={householdName} />
 
           {/* Members list */}
           <div>
@@ -319,8 +418,8 @@ export function ProfileSettings({
           {isAdult && (
             <div>
               <p className="text-sm text-muted-foreground mb-1">Ubicación</p>
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="flex flex-wrap items-center justify-between gap-2 sm:flex-nowrap">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
                   <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 truncate text-sm font-medium">
                     {currentLocationLabel ?? "Sin configurar"}
@@ -351,6 +450,204 @@ export function ProfileSettings({
               </p>
             </div>
           )}
+
+          {/* Planning Day */}
+          {isAdult && (
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Día de planificación automática</p>
+              <div className="flex items-center gap-2">
+                <CalendarClock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <Select
+                  value={initialPlanningDay != null ? String(initialPlanningDay) : "disabled"}
+                  onValueChange={handlePlanningDayChange}
+                  disabled={isSavingPlanningDay || !savedLocation?.timezone}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="disabled">Desactivado</SelectItem>
+                    <SelectItem value="0">Domingo</SelectItem>
+                    <SelectItem value="1">Lunes</SelectItem>
+                    <SelectItem value="2">Martes</SelectItem>
+                    <SelectItem value="3">Miércoles</SelectItem>
+                    <SelectItem value="4">Jueves</SelectItem>
+                    <SelectItem value="5">Viernes</SelectItem>
+                    <SelectItem value="6">Sábado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {!savedLocation?.timezone ? (
+                <p className="text-xs text-amber-600 mt-1">
+                  Configurá tu ubicación primero para activar la planificación automática
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Las tareas se distribuyen automáticamente el día elegido y recibís un email con el resumen
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Push Notifications */}
+          {push.isSupported && (
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Notificaciones push</p>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {push.isSubscribed ? (
+                    <Bell className="h-4 w-4 text-primary" />
+                  ) : (
+                    <BellOff className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  <span className="text-sm font-medium">
+                    {push.isSubscribed ? "Activadas" : "Desactivadas"}
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant={push.isSubscribed ? "outline" : "default"}
+                  onClick={handleTogglePush}
+                  disabled={push.isLoading}
+                  className="shrink-0 gap-2"
+                >
+                  {push.isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : push.isSubscribed ? (
+                    "Desactivar"
+                  ) : (
+                    "Activar"
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Recibí recordatorios para completar tus tareas del día
+              </p>
+            </div>
+          )}
+
+          {/* WhatsApp */}
+          <div>
+            <p className="text-sm text-muted-foreground mb-1">WhatsApp Bot</p>
+            {whatsapp.isLinked && whatsapp.isVerified ? (
+              /* Verified state */
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium">{whatsapp.phoneNumber}</span>
+                    <Badge variant="outline" className="text-xs text-green-600 border-green-600">
+                      Conectado
+                    </Badge>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleUnlinkWhatsApp}
+                    disabled={whatsapp.isLoading}
+                    className="shrink-0 gap-2"
+                  >
+                    {whatsapp.isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Unlink className="h-4 w-4" />
+                    )}
+                    Desvincular
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Escribí &quot;ayuda&quot; en el chat del bot para ver los comandos
+                </p>
+              </div>
+            ) : whatsapp.isLinked && !whatsapp.isVerified ? (
+              /* Pending verification state */
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-amber-600" />
+                    <span className="text-sm font-medium">{whatsapp.phoneNumber}</span>
+                    <Badge variant="outline" className="text-xs text-amber-600 border-amber-600">
+                      Pendiente
+                    </Badge>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleUnlinkWhatsApp}
+                    disabled={whatsapp.isLoading}
+                    className="shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="mt-2 rounded-xl bg-amber-50 px-3 py-2">
+                  {whatsapp.isVerificationExpired ? (
+                    <div>
+                      <p className="text-xs text-amber-700">
+                        El código expiró.
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="link"
+                        onClick={handleResendCode}
+                        disabled={whatsapp.isLoading}
+                        className="h-auto p-0 text-xs text-amber-700 underline"
+                      >
+                        Enviar nuevo código
+                      </Button>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-xs text-amber-700">
+                        Enviamos un código de 6 dígitos a tu WhatsApp. Ingresalo en el chat del bot para verificar.
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="link"
+                        onClick={handleResendCode}
+                        disabled={whatsapp.isLoading}
+                        className="h-auto p-0 text-xs text-amber-700 underline mt-1"
+                      >
+                        Reenviar código
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Not linked state */
+              <div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="tel"
+                    value={whatsappPhone}
+                    onChange={(e) => setWhatsappPhone(e.target.value)}
+                    placeholder="+5491123456789"
+                    maxLength={20}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleLinkWhatsApp();
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleLinkWhatsApp}
+                    disabled={whatsapp.isLoading || !whatsappPhone.trim()}
+                    className="shrink-0 gap-2 bg-green-600 hover:bg-green-700"
+                  >
+                    {whatsapp.isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <LinkIcon className="h-4 w-4" />
+                    )}
+                    Vincular
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Completá tareas y recibí recordatorios directo desde WhatsApp
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* Invite CTA */}
           {members.length === 1 && (

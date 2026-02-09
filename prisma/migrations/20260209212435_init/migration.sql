@@ -26,10 +26,10 @@ CREATE TYPE "CompetitionDuration" AS ENUM ('WEEK', 'MONTH', 'CUSTOM');
 CREATE TYPE "CompetitionStatus" AS ENUM ('ACTIVE', 'COMPLETED', 'CANCELLED');
 
 -- CreateEnum
-CREATE TYPE "PenaltyReason" AS ENUM ('OVERDUE_24H', 'OVERDUE_48H', 'OVERDUE_72H', 'TRANSFER_FAILED');
+CREATE TYPE "WeeklyPlanStatus" AS ENUM ('PENDING', 'APPLIED', 'COMPLETED', 'EXPIRED', 'REJECTED');
 
 -- CreateEnum
-CREATE TYPE "WeeklyPlanStatus" AS ENUM ('PENDING', 'APPLIED', 'EXPIRED', 'REJECTED');
+CREATE TYPE "NotificationType" AS ENUM ('TRANSFER_REQUEST', 'TRANSFER_ACCEPTED', 'TRANSFER_REJECTED', 'TASK_OVERDUE', 'ACHIEVEMENT_UNLOCKED', 'LEVEL_UP', 'REMINDER_DUE', 'PLAN_READY', 'PLAN_APPLIED', 'REWARD_REDEEMED');
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -84,6 +84,12 @@ CREATE TABLE "households" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "inviteCode" TEXT NOT NULL,
+    "latitude" DOUBLE PRECISION,
+    "longitude" DOUBLE PRECISION,
+    "timezone" TEXT,
+    "country" TEXT,
+    "city" TEXT,
+    "planningDay" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -180,6 +186,12 @@ CREATE TABLE "household_rewards" (
     "description" TEXT,
     "pointsCost" INTEGER NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "isAiGenerated" BOOLEAN NOT NULL DEFAULT false,
+    "planId" TEXT,
+    "memberId" TEXT,
+    "completionRate" DOUBLE PRECISION,
+    "category" TEXT,
+    "actionUrl" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "household_rewards_pkey" PRIMARY KEY ("id")
@@ -293,19 +305,6 @@ CREATE TABLE "competition_scores" (
 );
 
 -- CreateTable
-CREATE TABLE "penalties" (
-    "id" TEXT NOT NULL,
-    "memberId" TEXT NOT NULL,
-    "assignmentId" TEXT,
-    "reason" "PenaltyReason" NOT NULL,
-    "points" INTEGER NOT NULL,
-    "description" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "penalties_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "weekly_plans" (
     "id" TEXT NOT NULL,
     "householdId" TEXT NOT NULL,
@@ -313,11 +312,58 @@ CREATE TABLE "weekly_plans" (
     "balanceScore" INTEGER NOT NULL DEFAULT 0,
     "notes" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "assignments" JSONB NOT NULL,
+    "durationDays" INTEGER NOT NULL DEFAULT 7,
+    "excludedTasks" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "appliedAt" TIMESTAMP(3),
     "expiresAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "weekly_plans_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "notifications" (
+    "id" TEXT NOT NULL,
+    "memberId" TEXT NOT NULL,
+    "type" "NotificationType" NOT NULL,
+    "title" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "actionUrl" TEXT,
+    "isRead" BOOLEAN NOT NULL DEFAULT false,
+    "readAt" TIMESTAMP(3),
+    "metadata" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "push_subscriptions" (
+    "id" TEXT NOT NULL,
+    "memberId" TEXT NOT NULL,
+    "endpoint" TEXT NOT NULL,
+    "p256dh" TEXT NOT NULL,
+    "auth" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "push_subscriptions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "whatsapp_links" (
+    "id" TEXT NOT NULL,
+    "memberId" TEXT NOT NULL,
+    "phoneNumber" TEXT NOT NULL,
+    "waId" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "verificationCode" TEXT,
+    "verificationExpiresAt" TIMESTAMP(3),
+    "verificationAttempts" INTEGER NOT NULL DEFAULT 0,
+    "verifiedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "whatsapp_links_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -368,6 +414,15 @@ CREATE INDEX "assignments_householdId_dueDate_idx" ON "assignments"("householdId
 CREATE INDEX "assignments_memberId_status_idx" ON "assignments"("memberId", "status");
 
 -- CreateIndex
+CREATE INDEX "assignments_taskId_status_idx" ON "assignments"("taskId", "status");
+
+-- CreateIndex
+CREATE INDEX "assignments_householdId_status_completedAt_idx" ON "assignments"("householdId", "status", "completedAt");
+
+-- CreateIndex
+CREATE INDEX "assignments_memberId_status_completedAt_idx" ON "assignments"("memberId", "status", "completedAt");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "member_levels_memberId_key" ON "member_levels"("memberId");
 
 -- CreateIndex
@@ -378,6 +433,9 @@ CREATE UNIQUE INDEX "member_achievements_memberId_achievementId_key" ON "member_
 
 -- CreateIndex
 CREATE INDEX "household_rewards_householdId_idx" ON "household_rewards"("householdId");
+
+-- CreateIndex
+CREATE INDEX "household_rewards_planId_idx" ON "household_rewards"("planId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "member_preferences_memberId_taskId_key" ON "member_preferences"("memberId", "taskId");
@@ -410,13 +468,31 @@ CREATE INDEX "competitions_householdId_status_idx" ON "competitions"("householdI
 CREATE UNIQUE INDEX "competition_scores_competitionId_memberId_key" ON "competition_scores"("competitionId", "memberId");
 
 -- CreateIndex
-CREATE INDEX "penalties_memberId_createdAt_idx" ON "penalties"("memberId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "penalties_assignmentId_reason_idx" ON "penalties"("assignmentId", "reason");
-
--- CreateIndex
 CREATE INDEX "weekly_plans_householdId_status_idx" ON "weekly_plans"("householdId", "status");
+
+-- CreateIndex
+CREATE INDEX "notifications_memberId_isRead_createdAt_idx" ON "notifications"("memberId", "isRead", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "notifications_memberId_createdAt_idx" ON "notifications"("memberId", "createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "push_subscriptions_endpoint_key" ON "push_subscriptions"("endpoint");
+
+-- CreateIndex
+CREATE INDEX "push_subscriptions_memberId_idx" ON "push_subscriptions"("memberId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "whatsapp_links_memberId_key" ON "whatsapp_links"("memberId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "whatsapp_links_phoneNumber_key" ON "whatsapp_links"("phoneNumber");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "whatsapp_links_waId_key" ON "whatsapp_links"("waId");
+
+-- CreateIndex
+CREATE INDEX "whatsapp_links_phoneNumber_idx" ON "whatsapp_links"("phoneNumber");
 
 -- AddForeignKey
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -453,6 +529,12 @@ ALTER TABLE "member_achievements" ADD CONSTRAINT "member_achievements_achievemen
 
 -- AddForeignKey
 ALTER TABLE "household_rewards" ADD CONSTRAINT "household_rewards_householdId_fkey" FOREIGN KEY ("householdId") REFERENCES "households"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "household_rewards" ADD CONSTRAINT "household_rewards_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "members"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "household_rewards" ADD CONSTRAINT "household_rewards_planId_fkey" FOREIGN KEY ("planId") REFERENCES "weekly_plans"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "reward_redemptions" ADD CONSTRAINT "reward_redemptions_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -503,7 +585,13 @@ ALTER TABLE "competition_scores" ADD CONSTRAINT "competition_scores_competitionI
 ALTER TABLE "competition_scores" ADD CONSTRAINT "competition_scores_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "penalties" ADD CONSTRAINT "penalties_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "weekly_plans" ADD CONSTRAINT "weekly_plans_householdId_fkey" FOREIGN KEY ("householdId") REFERENCES "households"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "penalties" ADD CONSTRAINT "penalties_assignmentId_fkey" FOREIGN KEY ("assignmentId") REFERENCES "assignments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "push_subscriptions" ADD CONSTRAINT "push_subscriptions_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "whatsapp_links" ADD CONSTRAINT "whatsapp_links_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "members"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
 import { CURRENT_HOUSEHOLD_COOKIE } from "@/lib/session";
 import { joinHouseholdWithMemberSchema } from "@/lib/validations/household";
+import { sendWelcomeEmail } from "@/lib/email-service";
 
 import type { NextRequest } from "next/server";
 import type { MemberType } from "@prisma/client";
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { name: true },
+      select: { name: true, email: true },
     });
 
     const nameToUse = memberName?.trim() || user?.name?.trim() || "Usuario";
@@ -92,6 +93,14 @@ export async function POST(request: NextRequest) {
 
       return created;
     });
+
+    if (user?.email) {
+      await sendWelcomeEmail(user.email, {
+        memberName: nameToUse,
+        householdName: household.name,
+        isNewHousehold: false,
+      });
+    }
 
     const cookieStore = await cookies();
     cookieStore.set(CURRENT_HOUSEHOLD_COOKIE, household.id, {

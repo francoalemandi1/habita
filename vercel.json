@@ -1,0 +1,20 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/process",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-plan",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/rotations/process",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-insights",
+      "schedule": "0 */6 * * *"
+    }
+  ]
+}

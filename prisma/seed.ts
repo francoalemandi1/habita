@@ -54,9 +54,6 @@ const taskCatalog = [
 
 const achievements = [
   { code: "FIRST_TASK", name: "Primera tarea", description: "Completaste tu primera tarea", xpReward: 10 },
-  { code: "STREAK_3", name: "Racha de 3", description: "Completaste tareas 3 días seguidos", xpReward: 25 },
-  { code: "STREAK_7", name: "Semana perfecta", description: "Completaste tareas 7 días seguidos", xpReward: 50 },
-  { code: "STREAK_30", name: "Mes de oro", description: "Completaste tareas 30 días seguidos", xpReward: 200 },
   { code: "TASKS_10", name: "Ayudante", description: "Completaste 10 tareas", xpReward: 20 },
   { code: "TASKS_50", name: "Colaborador", description: "Completaste 50 tareas", xpReward: 75 },
   { code: "TASKS_100", name: "Experto doméstico", description: "Completaste 100 tareas", xpReward: 150 },
@@ -412,7 +409,6 @@ async function seedFamily(config: FamilyConfig) {
 
   const allAchievements = await prisma.achievement.findMany();
   const firstTaskAchievement = allAchievements.find((a) => a.code === "FIRST_TASK");
-  const streak3Achievement = allAchievements.find((a) => a.code === "STREAK_3");
   const tasks10Achievement = allAchievements.find((a) => a.code === "TASKS_10");
   const level5Achievement = allAchievements.find((a) => a.code === "LEVEL_5");
 
@@ -426,14 +422,6 @@ async function seedFamily(config: FamilyConfig) {
         })
       )
     );
-  }
-
-  if (streak3Achievement) {
-    await prisma.memberAchievement.upsert({
-      where: { memberId_achievementId: { memberId: memberAdult.id, achievementId: streak3Achievement.id } },
-      update: {},
-      create: { memberId: memberAdult.id, achievementId: streak3Achievement.id, unlockedAt: daysAgo(15) },
-    });
   }
 
   if (tasks10Achievement) {
@@ -694,24 +682,6 @@ async function seedFamily(config: FamilyConfig) {
   ]);
   console.log(`  ✓ Created competition scores`);
 
-  // ============================================
-  // PENALTIES
-  // ============================================
-  console.log("Creating penalties...");
-
-  const overdueAssignment = assignments.find((a) => a.status === "OVERDUE");
-  if (overdueAssignment) {
-    await prisma.penalty.create({
-      data: {
-        memberId: overdueAssignment.memberId,
-        assignmentId: overdueAssignment.id,
-        reason: "OVERDUE_24H",
-        points: -10,
-        description: "Tarea no completada en 24 horas",
-      },
-    });
-  }
-  console.log(`  ✓ Created penalties`);
 
   // ============================================
   // WEEKLY PLAN (AI)

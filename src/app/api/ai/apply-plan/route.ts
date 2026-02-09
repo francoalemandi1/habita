@@ -3,12 +3,14 @@ import { requireMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { calculatePlanPerformance, generateAIRewards } from "@/lib/llm/ai-reward-generator";
 import { createNotificationForMembers } from "@/lib/notification-service";
+import { sendPlanAppliedToAdults } from "@/lib/email-service";
 
 import type { NextRequest } from "next/server";
 
 interface AssignmentToApply {
   taskName: string;
-  memberName: string;
+  memberId: string;
+  memberName?: string;
 }
 
 interface ApplyPlanBody {
@@ -61,7 +63,7 @@ export async function POST(request: NextRequest) {
       }),
     ]);
 
-    const memberMap = new Map(members.map((m) => [m.name.toLowerCase(), m.id]));
+    const memberIdSet = new Set(members.map((m) => m.id));
     const taskMap = new Map(
       tasks.map((t) => [t.name.toLowerCase(), t.id])
     );
@@ -98,11 +100,11 @@ export async function POST(request: NextRequest) {
     const planDueDate = planEndDate && planEndDate < endOfDay ? planEndDate : endOfDay;
 
     for (const assignment of assignments) {
-      const memberId = memberMap.get(assignment.memberName.toLowerCase());
+      const memberId = memberIdSet.has(assignment.memberId) ? assignment.memberId : undefined;
       const taskId = taskMap.get(assignment.taskName.toLowerCase());
 
       if (!memberId || !taskId) {
-        skipped.push(`${assignment.taskName} → ${assignment.memberName}`);
+        skipped.push(`${assignment.taskName} → ${assignment.memberName ?? assignment.memberId}`);
         continue;
       }
 
@@ -220,6 +222,27 @@ export async function POST(request: NextRequest) {
         actionUrl: "/my-tasks",
       }
     );
+
+    // Email summary to adults
+    const adultMembers = await prisma.member.findMany({
+      where: { householdId: member.householdId, isActive: true, memberType: "ADULT" },
+      select: { user: { select: { email: true } } },
+    });
+
+    const adultEmails = adultMembers
+      .filter((m) => m.user.email)
+      .map((m) => ({ email: m.user.email }));
+
+    await sendPlanAppliedToAdults(adultEmails, {
+      householdName: member.household.name,
+      assignmentsCount: assignmentsToCreate.length,
+      assignments: assignmentsToCreate.map((a) => {
+        const taskName = tasks.find((t) => t.id === a.taskId)?.name ?? "";
+        const memberName = members.find((m) => m.id === a.memberId)?.name ?? "";
+        return { taskName, memberName };
+      }),
+      appliedByMemberName: member.name,
+    });
 
     return NextResponse.json({
       success: true,

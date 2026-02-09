@@ -37,7 +37,8 @@ const assignmentSchema = z.object({
   assignments: z.array(
     z.object({
       taskName: z.string(),
-      memberName: z.string(),
+      memberId: z.string().describe("ID del miembro (tal como aparece en la lista de miembros)"),
+      memberName: z.string().describe("Nombre del miembro (para referencia)"),
       reason: z.string().describe("Breve justificación de la asignación"),
     })
   ),
@@ -134,6 +135,7 @@ export async function generateAIPlan(
     try {
       const result = await generateAIPlanOpenRouter({
         members: filteredContext.members.map((m) => ({
+          id: m.id,
           name: m.name,
           type: m.type,
           pendingCount: m.pendingCount,
@@ -211,7 +213,7 @@ export async function generateAndApplyPlan(householdId: string): Promise<{
     }),
   ]);
 
-  const memberMap = new Map(members.map((m) => [m.name.toLowerCase(), m.id]));
+  const memberIdSet = new Set(members.map((m) => m.id));
   const taskMap = new Map(tasks.map((t) => [t.name.toLowerCase(), { id: t.id, frequency: t.frequency }]));
 
   const now = new Date();
@@ -242,7 +244,7 @@ export async function generateAndApplyPlan(householdId: string): Promise<{
   }> = [];
 
   for (const assignment of plan.assignments) {
-    const memberId = memberMap.get(assignment.memberName.toLowerCase());
+    const memberId = memberIdSet.has(assignment.memberId) ? assignment.memberId : undefined;
     const taskInfo = taskMap.get(assignment.taskName.toLowerCase());
 
     if (memberId && taskInfo) {
@@ -371,7 +373,7 @@ Capacidad por tipo de miembro:
 
   const membersInfo = context.members
     .map((m) => {
-      let info = `- ${m.name} (${m.type}, nivel ${m.level}): ${m.pendingCount} tareas pendientes, ${m.completedThisWeek} completadas esta semana`;
+      let info = `- [ID: ${m.id}] ${m.name} (${m.type}, nivel ${m.level}): ${m.pendingCount} tareas pendientes, ${m.completedThisWeek} completadas esta semana`;
       if (m.preferences.length > 0) {
         const prefs = m.preferences
           .map((p) => `${p.taskName}: ${p.preference === "PREFERRED" ? "prefiere" : "no desea"}`)
@@ -412,6 +414,7 @@ ${recentInfo || "(sin historial)"}
 5. Si alguien tiene muchas tareas pendientes, asignarle menos nuevas
 6. Los niños (CHILD) no deben recibir tareas complejas o peligrosas
 7. Proporciona una breve razón para cada asignación
+8. IMPORTANTE: Usa el ID exacto del miembro (campo "memberId") tal como aparece entre [ID: ...] en la lista de miembros. Dos miembros pueden tener el mismo nombre, así que el ID es la forma correcta de identificarlos.
 
 Genera un plan de asignaciones para los próximos ${durationLabel(durationDays)}. El objetivo es maximizar la equidad (balanceScore alto = más justo).${regionalBlock ? `\n\n${regionalBlock}` : ""}`;
 }

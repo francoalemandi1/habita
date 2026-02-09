@@ -161,7 +161,7 @@ function getLocalHour(now: Date, timezone?: string): number {
   }
 }
 
-function getLocalDayOfWeek(now: Date, timezone?: string): number {
+export function getLocalDayOfWeek(now: Date, timezone?: string): number {
   try {
     const formatter = new Intl.DateTimeFormat("en-US", {
       weekday: "short",

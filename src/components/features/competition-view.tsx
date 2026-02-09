@@ -117,10 +117,10 @@ export function CompetitionView({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Trophy className="h-6 w-6 text-yellow-500" />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
+            <Trophy className="h-6 w-6 shrink-0 text-yellow-500" />
             Competencias
           </h1>
           <p className="text-muted-foreground">

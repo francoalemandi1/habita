@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { calculatePointsWithBreakdown } from "@/lib/points";
-import { calculateStreak, checkAndUnlockAchievements } from "@/lib/achievements";
+import { checkAndUnlockAchievements } from "@/lib/achievements";
 import { calculatePlanPerformance, generateAIRewards } from "@/lib/llm/ai-reward-generator";
 
 import type { NextRequest } from "next/server";
@@ -80,15 +80,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         })
       : [];
 
-    // Pre-calculate streaks for each unique member
     const uniqueMemberIds = [...new Set(assignmentsToComplete.map((a) => a.memberId))];
-    const streaksByMember = new Map<string, number>();
-    await Promise.all(
-      uniqueMemberIds.map(async (memberId) => {
-        const streak = await calculateStreak(memberId);
-        streaksByMember.set(memberId, streak);
-      })
-    );
 
     // Transaction: complete assignments, cancel remaining, update XP, finalize plan
     const result = await prisma.$transaction(async (tx) => {
@@ -97,13 +89,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       // Complete each selected assignment
       for (const assignment of assignmentsToComplete) {
-        const isOnTime = now <= assignment.dueDate;
-        const streakDays = streaksByMember.get(assignment.memberId) ?? 0;
         const breakdown = calculatePointsWithBreakdown({
           weight: assignment.task.weight,
           frequency: assignment.task.frequency as TaskFrequency,
-          isOnTime,
-          streakDays,
         });
 
         const updated = await tx.assignment.updateMany({

@@ -6,8 +6,11 @@ import { isAIEnabled } from "@/lib/llm/provider";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatsCards } from "@/components/features/stats-cards";
 import { DailyBriefingWrapper } from "@/components/features/daily-briefing-wrapper";
+import { DailyChecklist } from "@/components/features/daily-checklist";
+import { PushOptInBanner } from "@/components/features/push-opt-in-banner";
+import { WhatsAppOptInBanner } from "@/components/features/whatsapp-opt-in-banner";
 import { PlanStatusCard } from "@/components/features/plan-status-card";
-import { CopyButton } from "@/components/ui/copy-button";
+import { InviteShareBlock } from "@/components/features/invite-share-block";
 import { UserPlus, Trophy, ChevronRight } from "lucide-react";
 
 import type { MemberType } from "@prisma/client";
@@ -21,11 +24,15 @@ export default async function DashboardPage() {
 
   const householdId = member.householdId;
   const now = new Date();
+  const endOfToday = new Date(now);
+  endOfToday.setHours(23, 59, 59, 999);
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
   const sevenDaysAgo = new Date(now);
   sevenDaysAgo.setDate(now.getDate() - 6);
   sevenDaysAgo.setHours(0, 0, 0, 0);
 
-  const [members, totalCompleted, pendingCount, overdueCount, recentAchievements, activePlan] =
+  const [members, totalCompleted, pendingCount, overdueCount, recentAchievements, activePlan, myAssignments, myCompletedToday] =
     await Promise.all([
       prisma.member.findMany({
         where: { householdId, isActive: true },
@@ -63,6 +70,24 @@ export default async function DashboardPage() {
           expiresAt: { gt: now },
         },
         orderBy: { createdAt: "desc" },
+      }),
+      prisma.assignment.findMany({
+        where: {
+          memberId: member.id,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+          dueDate: { lte: endOfToday },
+        },
+        include: {
+          task: { select: { name: true, estimatedMinutes: true } },
+        },
+        orderBy: { dueDate: "asc" },
+      }),
+      prisma.assignment.count({
+        where: {
+          memberId: member.id,
+          status: { in: ["COMPLETED", "VERIFIED"] },
+          completedAt: { gte: startOfToday },
+        },
       }),
     ]);
 
@@ -102,34 +127,45 @@ export default async function DashboardPage() {
 
   return (
     <div className="container max-w-6xl px-4 py-6 sm:py-8 md:px-8">
-      {/* Header: hogar + código */}
+      {/* Header */}
       <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{member.household.name}</h1>
-        <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-          Código: <code className="rounded-full bg-muted px-2.5 py-1 font-mono text-xs font-semibold">{member.household.inviteCode}</code>
-          <CopyButton value={member.household.inviteCode} />
-        </p>
       </div>
 
       {/* Invite banner - when only 1 member */}
       {members.length === 1 && (
         <Card className="mb-6 border-primary/20 bg-primary/5">
-          <CardContent className="flex items-center gap-4 py-4">
-            <UserPlus className="h-8 w-8 text-primary shrink-0" />
-            <div>
+          <CardContent className="py-4">
+            <div className="mb-3 flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-primary shrink-0" />
               <p className="font-medium">¡Invitá a los miembros de tu hogar!</p>
-              <p className="text-sm text-muted-foreground">
-                Compartí el código <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-semibold">{member.household.inviteCode}</code> para que se unan y puedan repartir las tareas.
-              </p>
             </div>
-            <CopyButton value={member.household.inviteCode} />
+            <InviteShareBlock inviteCode={member.household.inviteCode} householdName={member.household.name} />
           </CardContent>
         </Card>
       )}
 
+      {/* Opt-in banners */}
+      <div className="mb-6 space-y-3">
+        <PushOptInBanner />
+        <WhatsAppOptInBanner />
+      </div>
+
       {/* Daily briefing card */}
       <div className="mb-6">
         <DailyBriefingWrapper />
+      </div>
+
+      {/* Daily checklist - quick task completion */}
+      <div className="mb-6">
+        <DailyChecklist
+          assignments={myAssignments.map((a) => ({
+            id: a.id,
+            task: { name: a.task.name, estimatedMinutes: a.task.estimatedMinutes },
+            dueDate: a.dueDate,
+          }))}
+          completedToday={myCompletedToday}
+        />
       </div>
 
       {/* Plan Status Card */}
@@ -179,10 +215,10 @@ export default async function DashboardPage() {
           <Link href="/achievements">
             <Card className="border-[var(--color-xp)]/20 bg-[var(--color-xp)]/5 transition-colors hover:bg-[var(--color-xp)]/10">
               <CardContent className="py-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
                     <Trophy className="h-4 w-4 shrink-0 text-yellow-500" />
-                    <span className="text-sm font-medium">
+                    <span className="truncate text-sm font-medium">
                       {recentAchievements[0]!.member.name} desbloqueó: {recentAchievements[0]!.achievement.name}
                     </span>
                   </div>

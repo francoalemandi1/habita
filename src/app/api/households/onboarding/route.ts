@@ -5,7 +5,7 @@ import { requireAuth, getCurrentMember } from "@/lib/session";
 import { CURRENT_HOUSEHOLD_COOKIE } from "@/lib/session";
 import { createHouseholdWithTasksSchema } from "@/lib/validations/household";
 import { generateInviteCode } from "@/lib/invite-code";
-
+import { sendWelcomeEmail } from "@/lib/email-service";
 
 import type { NextRequest } from "next/server";
 import type { MemberType } from "@prisma/client";
@@ -44,12 +44,13 @@ export async function POST(request: NextRequest) {
       MEMBER_TYPE_MAP[memberType ?? "adult"] ?? "ADULT";
 
     // Fallback member name to Google account name
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true },
+    });
+
     let memberName = bodyMemberName?.trim();
     if (!memberName) {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { name: true },
-      });
       memberName = user?.name ?? "Usuario";
     }
 
@@ -115,6 +116,15 @@ export async function POST(request: NextRequest) {
         tasksCreated,
       };
     });
+
+    if (user?.email) {
+      await sendWelcomeEmail(user.email, {
+        memberName,
+        householdName: result.household.name,
+        isNewHousehold: true,
+        inviteCode: result.household.inviteCode,
+      });
+    }
 
     const cookieStore = await cookies();
     cookieStore.set(CURRENT_HOUSEHOLD_COOKIE, result.household.id, {

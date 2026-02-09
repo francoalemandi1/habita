@@ -11,3 +11,8 @@ export function generateInviteCode(length = 8): string {
   }
   return code;
 }
+
+export function getInviteUrl(inviteCode: string): string {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://habita.app";
+  return `${baseUrl}/join/${inviteCode}`;
+}

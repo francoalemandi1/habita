@@ -23,6 +23,7 @@ import type { MemberType, WeeklyPlanStatus } from "@prisma/client";
 
 interface PlanAssignment {
   taskName: string;
+  memberId?: string;
   memberName: string;
   memberType: MemberType;
   reason: string;

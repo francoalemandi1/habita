@@ -189,9 +189,9 @@ export function AbsencesManager({ absences }: AbsencesManagerProps) {
               {upcomingAbsences.map((absence) => (
                 <div
                   key={absence.id}
-                  className="flex items-center justify-between rounded-2xl border p-3"
+                  className="flex flex-col gap-3 rounded-2xl border p-3 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="font-medium">
                       {formatDate(absence.startDate)} - {formatDate(absence.endDate)}
                     </div>
@@ -199,7 +199,7 @@ export function AbsencesManager({ absences }: AbsencesManagerProps) {
                       <p className="text-sm text-muted-foreground">{absence.reason}</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
                     {new Date(absence.startDate) <= now && new Date(absence.endDate) >= now && (
                       <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
                         Activa

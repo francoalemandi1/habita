@@ -78,7 +78,7 @@ export function Leaderboard({ members, currentMemberId }: LeaderboardProps) {
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-semibold">{member.name}</span>
+                    <span className="truncate font-semibold">{member.name}</span>
                     {member.id === currentMemberId && (
                       <Badge className="text-xs">Tú</Badge>
                     )}

@@ -40,6 +40,7 @@ export const updateHouseholdSchema = z.object({
     .max(50, "El nombre no puede exceder 50 caracteres")
     .optional(),
   location: householdLocationSchema.optional(),
+  planningDay: z.number().int().min(0).max(6).nullable().optional(),
 });
 
 export const onboardingTaskSchema = z.object({

@@ -7,6 +7,7 @@ import type { MemberType } from "@prisma/client";
 
 interface PlanAssignment {
   taskName: string;
+  memberId: string;
   memberName: string;
   memberType: MemberType;
   reason: string;
@@ -15,8 +16,8 @@ interface PlanAssignment {
 interface PatchBody {
   action: "add" | "remove" | "reassign";
   taskName: string;
-  memberName: string;
-  newMemberName?: string;
+  memberId: string;
+  newMemberId?: string;
 }
 
 /**
@@ -39,7 +40,7 @@ export async function PATCH(
       body === null ||
       !("action" in body) ||
       !("taskName" in body) ||
-      !("memberName" in body)
+      !("memberId" in body)
     ) {
       return NextResponse.json(
         { error: "Invalid request body" },
@@ -47,7 +48,7 @@ export async function PATCH(
       );
     }
 
-    const { action, taskName, memberName, newMemberName } = body as PatchBody;
+    const { action, taskName, memberId: targetMemberId, newMemberId } = body as PatchBody;
 
     if (!["add", "remove", "reassign"].includes(action)) {
       return NextResponse.json(
@@ -74,7 +75,7 @@ export async function PATCH(
 
     const planAssignments = (plan.assignments as unknown as PlanAssignment[]) ?? [];
 
-    // Resolve names to IDs
+    // Resolve IDs
     const householdMembers = await prisma.member.findMany({
       where: { householdId: member.householdId, isActive: true },
       select: { id: true, name: true, memberType: true },
@@ -84,10 +85,10 @@ export async function PATCH(
       select: { id: true, name: true },
     });
 
-    const memberByName = new Map(householdMembers.map((m) => [m.name.toLowerCase(), m]));
+    const memberById = new Map(householdMembers.map((m) => [m.id, m]));
     const taskByName = new Map(householdTasks.map((t) => [t.name.toLowerCase(), t]));
 
-    const targetMember = memberByName.get(memberName.toLowerCase());
+    const targetMember = memberById.get(targetMemberId);
     const targetTask = taskByName.get(taskName.toLowerCase());
 
     if (!targetMember) {
@@ -118,7 +119,8 @@ export async function PATCH(
         ...planAssignments,
         {
           taskName,
-          memberName,
+          memberId: targetMember.id,
+          memberName: targetMember.name,
           memberType: targetMember.memberType,
           reason: "Agregada manualmente",
         },
@@ -155,7 +157,7 @@ export async function PATCH(
         (a) =>
           !(
             a.taskName.toLowerCase() === taskName.toLowerCase() &&
-            a.memberName.toLowerCase() === memberName.toLowerCase()
+            a.memberId === targetMemberId
           )
       );
 
@@ -168,14 +170,14 @@ export async function PATCH(
     }
 
     if (action === "reassign") {
-      if (!newMemberName) {
+      if (!newMemberId) {
         return NextResponse.json(
-          { error: "newMemberName is required for reassign" },
+          { error: "newMemberId is required for reassign" },
           { status: 400 }
         );
       }
 
-      const newMember = memberByName.get(newMemberName.toLowerCase());
+      const newMember = memberById.get(newMemberId);
       if (!newMember) {
         return NextResponse.json(
           { error: "Nuevo miembro no encontrado" },
@@ -219,13 +221,14 @@ export async function PATCH(
       const updatedAssignments = planAssignments.map((a) => {
         if (
           a.taskName.toLowerCase() === taskName.toLowerCase() &&
-          a.memberName.toLowerCase() === memberName.toLowerCase()
+          a.memberId === targetMemberId
         ) {
           return {
             ...a,
-            memberName: newMemberName,
+            memberId: newMember.id,
+            memberName: newMember.name,
             memberType: newMember.memberType,
-            reason: `Reasignada de ${memberName}`,
+            reason: `Reasignada manualmente`,
           };
         }
         return a;

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { completeAssignmentSchema } from "@/lib/validations/assignment";
 import { calculatePointsWithBreakdown } from "@/lib/points";
-import { checkAndUnlockAchievements, calculateStreak } from "@/lib/achievements";
+import { checkAndUnlockAchievements } from "@/lib/achievements";
 import { getBestAssignee } from "@/lib/assignment-algorithm";
 import { computeDueDateForFrequency } from "@/lib/due-date";
 import { calculatePlanPerformance, generateAIRewards } from "@/lib/llm/ai-reward-generator";
@@ -68,15 +68,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "La tarea fue cancelada" }, { status: 400 });
     }
 
-    // Calculate points with breakdown
+    // Calculate points
     const now = new Date();
-    const isOnTime = now <= assignment.dueDate;
-    const streakDays = await calculateStreak(assignment.memberId);
     const pointsBreakdown = calculatePointsWithBreakdown({
       weight: assignment.task.weight,
       frequency: assignment.task.frequency,
-      isOnTime,
-      streakDays,
     });
     const points = pointsBreakdown.total;
 
@@ -334,9 +330,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ...result,
       pointsBreakdown: {
         base: pointsBreakdown.base,
-        onTimeBonus: pointsBreakdown.onTimeBonus,
-        streakBonus: pointsBreakdown.streakBonus,
-        streakDays: pointsBreakdown.streakDays,
       },
       newAchievements,
       planFinalized,

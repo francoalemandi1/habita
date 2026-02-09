@@ -2,11 +2,9 @@ import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
-import { calculateStreak } from "@/lib/achievements";
 import { MyAssignmentsList } from "@/components/features/my-assignments-list";
 import { PendingTransfers } from "@/components/features/pending-transfers";
 import { WeeklyCelebrationWrapper } from "@/components/features/weekly-celebration-wrapper";
-import { Flame } from "lucide-react";
 
 export default async function MyTasksPage() {
   const member = await getCurrentMember();
@@ -25,7 +23,7 @@ export default async function MyTasksPage() {
   const startOfLastWeek = new Date(startOfWeek);
   startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
 
-  const [assignments, completedToday, completedThisWeek, totalCompleted, transfers, householdMembers, currentStreak, completedLastWeek] = await Promise.all([
+  const [assignments, completedToday, completedThisWeek, totalCompleted, transfers, householdMembers, completedLastWeek] = await Promise.all([
     prisma.assignment.findMany({
       where: {
         memberId: member.id,
@@ -103,7 +101,6 @@ export default async function MyTasksPage() {
       },
       select: { id: true, name: true },
     }),
-    calculateStreak(member.id),
     prisma.assignment.count({
       where: {
         memberId: member.id,
@@ -137,15 +134,7 @@ export default async function MyTasksPage() {
   return (
     <div className="mx-auto max-w-md px-4 py-6 sm:py-8 md:max-w-2xl md:px-6">
       <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Mis tareas</h1>
-          {currentStreak > 0 && (
-            <div className="flex items-center gap-1.5 rounded-full bg-[#fff0d7] px-3 py-1.5">
-              <Flame className="h-4 w-4 text-orange-500" />
-              <span className="text-sm font-semibold text-[#272727]">{currentStreak}d</span>
-            </div>
-          )}
-        </div>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Mis tareas</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {assignments.length} pendientes · {completedToday} completadas hoy
         </p>

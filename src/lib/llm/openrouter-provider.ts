@@ -226,7 +226,7 @@ Genera recomendaciones considerando:
  * Generate AI plan for task assignments using OpenRouter.
  */
 export async function generateAIPlanOpenRouter(context: {
-  members: Array<{ name: string; type: string; pendingCount: number }>;
+  members: Array<{ id: string; name: string; type: string; pendingCount: number }>;
   tasks: Array<{ name: string; frequency: string; weight: number }>;
   regionalBlock?: string;
 }) {
@@ -242,7 +242,7 @@ export async function generateAIPlanOpenRouter(context: {
 Responde SOLO con JSON válido siguiendo este schema:
 {
   "assignments": [
-    { "taskName": "string", "memberName": "string", "reason": "string" }
+    { "taskName": "string", "memberId": "string (ID exacto del miembro)", "memberName": "string (nombre del miembro)", "reason": "string" }
   ],
   "balanceScore": number (0-100),
   "notes": ["string"]
@@ -258,7 +258,7 @@ Capacidad por tipo de miembro:
 - CHILD: 30% de capacidad
 
 Miembros del hogar:
-${context.members.map((m) => `- ${m.name} (${m.type}): ${m.pendingCount} tareas pendientes`).join("\n")}
+${context.members.map((m) => `- [ID: ${m.id}] ${m.name} (${m.type}): ${m.pendingCount} tareas pendientes`).join("\n")}
 
 Tareas disponibles:
 ${context.tasks.map((t) => `- ${t.name} (${t.frequency}, peso ${t.weight})`).join("\n")}
@@ -270,6 +270,7 @@ Instrucciones:
 4. Si alguien tiene muchas tareas pendientes, asignarle menos nuevas
 5. Los niños (CHILD) no deben recibir tareas complejas o peligrosas
 6. Proporciona una breve razón para cada asignación
+7. IMPORTANTE: Usa el ID exacto del miembro (campo "memberId") tal como aparece entre [ID: ...]. Dos miembros pueden tener el mismo nombre.
 
 El objetivo es maximizar la equidad (balanceScore alto = más justo).${context.regionalBlock ? `\n\n${context.regionalBlock}` : ""}`,
         },
@@ -283,14 +284,14 @@ El objetivo es maximizar la equidad (balanceScore alto = más justo).${context.r
 
   try {
     return JSON.parse(text) as {
-      assignments: Array<{ taskName: string; memberName: string; reason: string }>;
+      assignments: Array<{ taskName: string; memberId: string; memberName: string; reason: string }>;
       balanceScore: number;
       notes: string[];
     };
   } catch {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]) as { assignments: Array<{ taskName: string; memberName: string; reason: string }>; balanceScore: number; notes: string[] };
+      return JSON.parse(jsonMatch[0]) as { assignments: Array<{ taskName: string; memberId: string; memberName: string; reason: string }>; balanceScore: number; notes: string[] };
     }
     return null;
   }

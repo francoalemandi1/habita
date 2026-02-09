@@ -24,14 +24,6 @@ export const FREQUENCY_OPTIONS = [
   { value: "MONTHLY", label: "Mensual" },
 ] as const;
 
-export const FREQUENCY_MULTIPLIERS: Record<TaskFrequency, number> = {
-  DAILY: 1.5,
-  WEEKLY: 1.0,
-  BIWEEKLY: 0.9,
-  MONTHLY: 0.8,
-  ONCE: 1.0,
-};
-
 // ============================================
 // MEMBER TYPES
 // ============================================
@@ -88,7 +80,3 @@ export const PAGINATION = {
 export const XP_PER_LEVEL = 100;
 
 export const POINTS_BASE_MULTIPLIER = 10;
-
-export const BONUS_ON_TIME = 0.2; // +20%
-export const BONUS_STREAK = 0.1; // +10% per 3 days
-export const STREAK_THRESHOLD = 3;

@@ -33,6 +33,7 @@ import type { WeeklyPlanStatus, MemberType } from "@prisma/client";
 
 interface PlanAssignment {
   taskName: string;
+  memberId?: string;
   memberName: string;
   memberType: MemberType;
   reason: string;
@@ -145,20 +146,20 @@ export function PlanStatusCard({
   if (!plan) {
     return (
       <div className="rounded-2xl bg-primary/5 p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-3">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3 sm:items-center">
             <div className="shrink-0 rounded-full bg-primary/10 p-2">
               <CalendarDays className="h-5 w-5 text-primary" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="font-medium">Genera un plan de distribución</p>
-              <p className="truncate text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Distribuye las tareas equitativamente entre los miembros
               </p>
             </div>
           </div>
-          <Button asChild size="sm" className="gap-2 shrink-0">
-            <Link href="/plan">
+          <Button asChild size="sm" className="w-full gap-2 sm:w-auto sm:shrink-0">
+            <Link href="/plan" className="inline-flex items-center justify-center gap-2">
               Generar
               <ArrowRight className="h-4 w-4" />
             </Link>
@@ -176,12 +177,12 @@ export function PlanStatusCard({
 
     return (
       <div className="rounded-2xl bg-amber-50 p-4 shadow-sm dark:bg-amber-950">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-3">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3 sm:items-center">
             <div className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-900 p-2">
               <Clock className="h-5 w-5 text-amber-600" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="font-medium text-amber-800 dark:text-amber-200">
                   Plan pendiente de aprobación
@@ -190,14 +191,14 @@ export function PlanStatusCard({
                   {plan.balanceScore}% equidad
                 </Badge>
               </div>
-              <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                <Users className="h-3 w-3" />
+              <p className="mt-0.5 text-sm text-amber-600 dark:text-amber-400 flex flex-wrap items-center gap-1">
+                <Users className="h-3 w-3 shrink-0" />
                 {taskCount} tareas para {memberCount} miembros
               </p>
             </div>
           </div>
-          <Button asChild size="sm" variant="outline" className="gap-2 shrink-0">
-            <Link href="/plan">
+          <Button asChild size="sm" variant="outline" className="w-full gap-2 sm:w-auto sm:shrink-0">
+            <Link href="/plan" className="inline-flex items-center justify-center gap-2">
               Revisar
               <ArrowRight className="h-4 w-4" />
             </Link>
@@ -211,12 +212,12 @@ export function PlanStatusCard({
   if (plan.status === "APPLIED" && allAssignmentsDone) {
     return (
       <div className="rounded-2xl bg-[#d2ffa0] p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-3">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3 sm:items-center">
             <div className="shrink-0 rounded-full bg-[#7aa649]/20 p-2">
               <CheckCheck className="h-5 w-5 text-[#7aa649]" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="font-medium text-[#272727]">
                 ¡Todas las tareas completadas!
               </p>
@@ -225,8 +226,8 @@ export function PlanStatusCard({
               </p>
             </div>
           </div>
-          <Button asChild size="sm" className="gap-2 shrink-0">
-            <Link href="/plan">
+          <Button asChild size="sm" className="w-full gap-2 sm:w-auto sm:shrink-0">
+            <Link href="/plan" className="inline-flex items-center justify-center gap-2">
               Nuevo plan
               <ArrowRight className="h-4 w-4" />
             </Link>
@@ -244,12 +245,12 @@ export function PlanStatusCard({
     return (
       <>
         <div className="rounded-2xl bg-green-50 p-4 shadow-sm dark:bg-green-950">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-3">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3 sm:items-center">
               <div className="shrink-0 rounded-full bg-green-100 dark:bg-green-900 p-2">
                 <CheckCheck className="h-5 w-5 text-green-600" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium text-green-800 dark:text-green-200">
                     Plan aplicado
@@ -258,31 +259,36 @@ export function PlanStatusCard({
                     {plan.balanceScore}% equidad
                   </Badge>
                 </div>
-                <p className="text-sm text-green-600 dark:text-green-400 flex flex-wrap items-center gap-1">
+                <p className="mt-0.5 text-sm text-green-600 dark:text-green-400 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                   <span>
                     Plan de {durationLabel(plan.durationDays ?? 7)} · {taskCount} tareas para {memberCount} miembros
                   </span>
                   <span className="inline-flex items-center gap-0.5 text-xs opacity-75">
-                    <Timer className="h-3 w-3" />
+                    <Timer className="h-3 w-3 shrink-0" />
                     {formatTimeRemaining(plan.expiresAt)}
                   </span>
                 </p>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
               <Button
                 size="sm"
                 variant="outline"
-                className="gap-1.5 border-green-200 text-green-700 hover:bg-green-100 hover:text-green-800 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-900"
+                className="min-w-0 flex-1 gap-1.5 border-green-200 text-green-700 hover:bg-green-100 hover:text-green-800 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-900 sm:flex-initial"
                 onClick={openFinalizeModal}
               >
-                <Flag className="h-3.5 w-3.5" />
+                <Flag className="h-3.5 w-3.5 shrink-0" />
                 Finalizar
               </Button>
-              <Button asChild size="sm" variant="ghost" className="gap-2 text-green-700 hover:text-green-800 hover:bg-green-100 dark:text-green-300 dark:hover:bg-green-900">
-                <Link href="/plan">
+              <Button
+                asChild
+                size="sm"
+                variant="ghost"
+                className="min-w-0 flex-1 gap-2 text-green-700 hover:text-green-800 hover:bg-green-100 dark:text-green-300 dark:hover:bg-green-900 sm:flex-initial"
+              >
+                <Link href="/plan" className="inline-flex items-center justify-center gap-2">
                   Ver detalles
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight className="h-4 w-4 shrink-0" />
                 </Link>
               </Button>
             </div>
@@ -352,20 +358,20 @@ export function PlanStatusCard({
   // Expired or rejected - show generate new prompt
   return (
     <div className="rounded-2xl bg-muted/30 p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3 sm:items-center">
           <div className="shrink-0 rounded-full bg-muted p-2">
             <CalendarDays className="h-5 w-5 text-muted-foreground" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="font-medium">Tu plan anterior expiró</p>
-            <p className="truncate text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Genera un nuevo plan de distribución
             </p>
           </div>
         </div>
-        <Button asChild size="sm" variant="outline" className="gap-2 shrink-0">
-          <Link href="/plan">
+        <Button asChild size="sm" variant="outline" className="w-full gap-2 sm:w-auto sm:shrink-0">
+          <Link href="/plan" className="inline-flex items-center justify-center gap-2">
             Nuevo plan
             <ArrowRight className="h-4 w-4" />
           </Link>

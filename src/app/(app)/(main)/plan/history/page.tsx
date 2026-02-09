@@ -19,6 +19,7 @@ import type { MemberType } from "@prisma/client";
 
 interface PlanAssignment {
   taskName: string;
+  memberId?: string;
   memberName: string;
   memberType: MemberType;
   reason: string;
@@ -214,8 +215,8 @@ export default async function PlanHistoryPage() {
                                 key={`${assignment.taskName}|${assignment.memberName}`}
                                 className="flex items-center gap-2 py-1 text-sm"
                               >
-                                <CheckCheck className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                                <span>{assignment.taskName}</span>
+                                <CheckCheck className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                                <span className="min-w-0 truncate">{assignment.taskName}</span>
                               </li>
                             ))}
                           </ul>

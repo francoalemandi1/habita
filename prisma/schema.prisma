@@ -81,8 +81,9 @@ model Household {
   longitude  Float?
   timezone   String?  // IANA timezone, e.g. "America/Buenos_Aires"
   country    String?  // ISO country code, e.g. "AR"
-  city       String?
-  createdAt  DateTime @default(now())
+  city        String?
+  planningDay Int?     // 0=Sunday..6=Saturday, null=manual planning only
+  createdAt   DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   // Relations
@@ -92,6 +93,7 @@ model Household {
   rewards      HouseholdReward[]
   rotations    TaskRotation[]
   competitions Competition[]
+  weeklyPlans  WeeklyPlan[]
 
   @@map("households")
 }
@@ -121,9 +123,11 @@ model Member {
   transfersTo   TaskTransfer[] @relation("TransferTo")
   reminders    TaskReminder[]
   competitionScores CompetitionScore[]
-  penalties        Penalty[]
+
   createdRewards   HouseholdReward[] @relation("MemberRewards")
   notifications    Notification[]
+  pushSubscriptions PushSubscription[]
+  whatsappLink     WhatsAppLink?
 
   @@unique([userId, householdId])
   @@index([householdId])
@@ -186,7 +190,6 @@ model Assignment {
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   transfers TaskTransfer[]
   reminders TaskReminder[]
-  penalties Penalty[]
 
   @@index([householdId, dueDate])
   @@index([memberId, status])
@@ -264,6 +267,7 @@ model HouseholdReward {
 
   household   Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   member      Member?            @relation("MemberRewards", fields: [memberId], references: [id], onDelete: SetNull)
+  plan        WeeklyPlan?        @relation(fields: [planId], references: [id], onDelete: SetNull)
   redemptions RewardRedemption[]
 
   @@index([householdId])
@@ -452,33 +456,6 @@ enum CompetitionStatus {
   CANCELLED
 }
 
-// ============================================
-// PENALTY MODEL
-// ============================================
-
-model Penalty {
-  id           String       @id @default(cuid())
-  memberId     String
-  assignmentId String?
-  reason       PenaltyReason
-  points       Int
-  description  String?
-  createdAt    DateTime     @default(now())
-
-  member     Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
-
-  @@index([memberId, createdAt])
-  @@index([assignmentId, reason])
-  @@map("penalties")
-}
-
-enum PenaltyReason {
-  OVERDUE_24H
-  OVERDUE_48H
-  OVERDUE_72H
-  TRANSFER_FAILED
-}
 
 // ============================================
 // AI PLAN MODEL
@@ -496,6 +473,9 @@ model WeeklyPlan {
   createdAt     DateTime         @default(now())
   appliedAt     DateTime?
   expiresAt     DateTime
+
+  household Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  rewards   HouseholdReward[]
 
   @@index([householdId, status])
   @@map("weekly_plans")
@@ -539,12 +519,51 @@ enum NotificationType {
   TASK_OVERDUE
   ACHIEVEMENT_UNLOCKED
   LEVEL_UP
-  PENALTY_APPLIED
   REMINDER_DUE
   PLAN_READY
   PLAN_APPLIED
   REWARD_REDEEMED
-  STREAK_MILESTONE
+}
+
+// ============================================
+// PUSH SUBSCRIPTION MODEL
+// ============================================
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  memberId  String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@map("push_subscriptions")
+}
+
+// ============================================
+// WHATSAPP BOT MODEL
+// ============================================
+
+model WhatsAppLink {
+  id                       String    @id @default(cuid())
+  memberId                 String    @unique
+  phoneNumber              String    @unique
+  waId                     String?   @unique
+  isActive                 Boolean   @default(true)
+  verificationCode         String?
+  verificationExpiresAt    DateTime?
+  verificationAttempts     Int       @default(0)
+  verifiedAt               DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([phoneNumber])
+  @@map("whatsapp_links")
 }
 
 // ============================================

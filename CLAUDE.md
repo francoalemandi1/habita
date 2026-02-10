@@ -270,6 +270,45 @@ Solo usar cuando hay un problema medido:
 - Queries unbounded (sin limit)
 - N+1 query patterns (usar joins)
 
+## Migraciones (Prisma Migrate)
+
+Este proyecto usa **Prisma Migrate** para cambios de schema en producción. Las migraciones se guardan en `prisma/migrations/` y se aplican en deploy con `prisma migrate deploy`.
+
+### Workflow para cambios de schema
+
+1. **Modificar `prisma/schema.prisma`** con el cambio deseado
+2. **Aplicar en dev local con `db:push`** para iterar rápido: `pnpm db:push`
+3. **Generar migración antes de commitear**:
+   - Crear shadow DB temporal: `PGPASSWORD=habita psql -h localhost -p 5434 -U habita -d habita -c "CREATE DATABASE habita_shadow;"`
+   - Generar diff SQL: `npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --script --shadow-database-url "postgresql://habita:habita@localhost:5434/habita_shadow?schema=public"`
+   - Crear directorio de migración: `mkdir -p prisma/migrations/<timestamp>_<nombre_descriptivo>/`
+   - Guardar el SQL generado en `migration.sql` dentro del directorio
+   - Marcar como aplicada en DB local: `npx prisma migrate resolve --applied <nombre_migración>`
+   - Verificar drift cero: repetir el `migrate diff` y confirmar que devuelve `-- This is an empty migration.`
+   - Limpiar shadow DB: `PGPASSWORD=habita psql -h localhost -p 5434 -U habita -d habita -c "DROP DATABASE habita_shadow;"`
+4. **En producción**: `prisma migrate deploy` aplica migraciones pendientes automáticamente
+
+### Naming de migraciones
+
+- Formato timestamp: `YYYYMMDDHHMMSS_descripcion_en_snake_case`
+- Ejemplos: `20260210010000_add_plan_start_date`, `20260215000000_add_member_avatar_field`
+
+### Reglas críticas
+
+- **NUNCA usar `db:push` en producción** — solo `migrate deploy`
+- **NUNCA borrar o editar migraciones ya aplicadas** en producción
+- **Siempre hacer campos nuevos nullable** (`?`) o con `@default()` para evitar breaking changes
+- **Siempre verificar drift cero** antes de commitear la migración
+- **Si hay drift** (schema fue modificado con `db:push` después de la última migración): generar una migración de catch-up con `migrate diff` y marcarla como applied con `migrate resolve`
+- **Migraciones destructivas** (DROP COLUMN, DROP TABLE, cambio de tipo) requieren plan de migración de datos previo
+
+### En el deploy (Vercel)
+
+El build command debe incluir `prisma migrate deploy` antes de `next build`:
+```bash
+prisma generate && prisma migrate deploy && next build
+```
+
 ---
 
 # REGLAS SEGURIDAD
@@ -453,7 +492,7 @@ pnpm db:seed      # Poblar datos iniciales
 
 **Levantar la DB:** Con Docker instalado, `pnpm db:up` inicia Postgres. En `.env` usa `DATABASE_URL="postgresql://habita:habita@localhost:5432/habita?schema=public"`. Luego `pnpm db:push`.
 
-**Migrations vs push:** Usa `db:push` para desarrollo rápido (sincroniza schema sin historial). Usa `db:migrate` cuando quieras historial de migraciones y despliegues reproducibles.
+**Migrations vs push:** Usa `db:push` para desarrollo local rápido (sincroniza schema sin historial). Para producción, SIEMPRE crear una migración con el workflow documentado en "REGLAS DATABASE > Migraciones" y deployar con `prisma migrate deploy`.
 
 ---
 

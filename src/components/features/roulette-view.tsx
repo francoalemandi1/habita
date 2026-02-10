@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { Dices, Loader2, Sparkles, Star, CheckCircle, Search, Plus } from "lucide-react";
+import { Dices, Loader2, Sparkles, Star, CheckCircle, Search, Plus, BookOpen } from "lucide-react";
 import { RouletteWheel } from "@/components/features/roulette-wheel";
 import { RouletteResultDialog } from "@/components/features/roulette-result-dialog";
 import { BackButton } from "@/components/ui/back-button";
@@ -30,8 +30,16 @@ interface RouletteMember {
   avatarUrl: string | null;
 }
 
+interface CatalogSuggestion {
+  name: string;
+  weight: number;
+  frequency: TaskFrequency;
+  estimatedMinutes: number | null;
+}
+
 type TaskSelection =
   | { type: "existing"; task: RouletteTask }
+  | { type: "catalog"; suggestion: CatalogSuggestion }
   | { type: "custom"; name: string };
 
 interface AssignResponse {
@@ -46,6 +54,7 @@ interface AssignResponse {
 
 interface RouletteViewProps {
   initialTasks: RouletteTask[];
+  catalogSuggestions: CatalogSuggestion[];
   initialMembers: RouletteMember[];
   currentMemberId: string;
 }
@@ -54,6 +63,7 @@ type RoulettePhase = "idle" | "loading-members" | "ready" | "spinning" | "result
 
 export function RouletteView({
   initialTasks,
+  catalogSuggestions,
   initialMembers,
   currentMemberId,
 }: RouletteViewProps) {
@@ -82,15 +92,24 @@ export function RouletteView({
   }, []);
 
   // Filtered tasks based on search
-  const filteredTasks = searchText.trim()
+  const searchLower = searchText.trim().toLowerCase();
+  const filteredTasks = searchLower
     ? initialTasks.filter((t) =>
-        t.name.toLowerCase().includes(searchText.toLowerCase()),
+        t.name.toLowerCase().includes(searchLower),
       )
     : initialTasks;
 
-  const exactMatch = initialTasks.some(
-    (t) => t.name.toLowerCase() === searchText.trim().toLowerCase(),
-  );
+  const filteredCatalog = searchLower
+    ? catalogSuggestions.filter((c) =>
+        c.name.toLowerCase().includes(searchLower),
+      )
+    : catalogSuggestions;
+
+  const allNames = [
+    ...initialTasks.map((t) => t.name.toLowerCase()),
+    ...catalogSuggestions.map((c) => c.name.toLowerCase()),
+  ];
+  const exactMatch = allNames.some((n) => n === searchLower);
   const showCustomOption = searchText.trim().length >= 2 && !exactMatch;
 
   // Fetch eligible members when a task is selected
@@ -124,17 +143,23 @@ export function RouletteView({
     [toast],
   );
 
+  const getSelectionName = useCallback((selection: TaskSelection): string => {
+    switch (selection.type) {
+      case "existing": return selection.task.name;
+      case "catalog": return selection.suggestion.name;
+      case "custom": return selection.name;
+    }
+  }, []);
+
   const handleSelectTask = useCallback(
     (selection: TaskSelection) => {
       setTaskSelection(selection);
-      setSearchText(
-        selection.type === "existing" ? selection.task.name : selection.name,
-      );
+      setSearchText(getSelectionName(selection));
       setIsDropdownOpen(false);
       setWinnerIndex(-1);
       fetchMembers(selection);
     },
-    [fetchMembers],
+    [fetchMembers, getSelectionName],
   );
 
   const handleInputChange = useCallback((value: string) => {
@@ -171,10 +196,24 @@ export function RouletteView({
     setIsAssigning(true);
 
     try {
-      const body =
-        taskSelection.type === "existing"
-          ? { taskId: taskSelection.task.id, memberId: winner.id }
-          : { customTaskName: taskSelection.name, memberId: winner.id };
+      const customName =
+        taskSelection.type === "catalog"
+          ? taskSelection.suggestion.name
+          : taskSelection.type === "custom"
+            ? taskSelection.name
+            : null;
+
+      const body = taskSelection.type === "existing"
+        ? { taskId: taskSelection.task.id, memberId: winner.id }
+        : {
+            customTaskName: customName!,
+            memberId: winner.id,
+            ...(taskSelection.type === "catalog" && {
+              customTaskWeight: taskSelection.suggestion.weight,
+              customTaskFrequency: taskSelection.suggestion.frequency,
+              customTaskEstimatedMinutes: taskSelection.suggestion.estimatedMinutes ?? undefined,
+            }),
+          };
 
       await apiFetch<AssignResponse>("/api/roulette/assign", {
         method: "POST",
@@ -206,17 +245,23 @@ export function RouletteView({
 
   // Computed values
   const winner = winnerIndex >= 0 ? eligibleMembers[winnerIndex] : undefined;
-  const taskName = taskSelection
-    ? taskSelection.type === "existing"
-      ? taskSelection.task.name
-      : taskSelection.name
-    : "";
-  const pointsPreview = taskSelection?.type === "existing"
-    ? calculatePoints({
+  const taskName = taskSelection ? getSelectionName(taskSelection) : "";
+  const pointsPreview = (() => {
+    if (!taskSelection) return 0;
+    if (taskSelection.type === "existing") {
+      return calculatePoints({
         weight: taskSelection.task.weight,
         frequency: taskSelection.task.frequency,
-      })
-    : 10; // Default for custom tasks (weight 1 × ONCE multiplier 1 × 10)
+      });
+    }
+    if (taskSelection.type === "catalog") {
+      return calculatePoints({
+        weight: taskSelection.suggestion.weight,
+        frequency: taskSelection.suggestion.frequency,
+      });
+    }
+    return 10; // Custom tasks: weight 1 × ONCE multiplier 1 × 10
+  })();
 
   const isSpinDisabled = phase !== "ready";
 
@@ -255,8 +300,9 @@ export function RouletteView({
           />
         </div>
 
-        {isDropdownOpen && (filteredTasks.length > 0 || showCustomOption) && (
+        {isDropdownOpen && (filteredTasks.length > 0 || filteredCatalog.length > 0 || showCustomOption) && (
           <div className="absolute z-30 mt-2 w-full rounded-2xl border border-border bg-card shadow-lg max-h-60 overflow-y-auto">
+            {/* Household tasks */}
             {filteredTasks.map((task) => (
               <button
                 key={task.id}
@@ -273,6 +319,36 @@ export function RouletteView({
                 </Badge>
               </button>
             ))}
+
+            {/* Catalog suggestions */}
+            {filteredCatalog.length > 0 && (
+              <>
+                {filteredTasks.length > 0 && (
+                  <div className="flex items-center gap-2 border-t border-border/50 px-4 py-2">
+                    <BookOpen className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Sugerencias</span>
+                  </div>
+                )}
+                {filteredCatalog.map((suggestion) => (
+                  <button
+                    key={`catalog-${suggestion.name}`}
+                    type="button"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-muted/50 transition-colors last:rounded-b-2xl"
+                    onClick={() =>
+                      handleSelectTask({ type: "catalog", suggestion })
+                    }
+                  >
+                    <span className="truncate text-muted-foreground">{suggestion.name}</span>
+                    <Badge variant="secondary" className="ml-2 shrink-0 gap-0.5 text-xs">
+                      <Star className="h-3 w-3 text-yellow-500" />
+                      {calculatePoints({ weight: suggestion.weight, frequency: suggestion.frequency })}
+                    </Badge>
+                  </button>
+                ))}
+              </>
+            )}
+
+            {/* Custom task option */}
             {showCustomOption && (
               <button
                 type="button"
@@ -300,6 +376,9 @@ export function RouletteView({
           <Badge variant="secondary" className="gap-1">
             <Star className="h-3 w-3 text-yellow-500" />
             {pointsPreview} XP
+            {taskSelection.type === "catalog" && (
+              <span className="text-muted-foreground ml-1">(sugerencia)</span>
+            )}
             {taskSelection.type === "custom" && (
               <span className="text-muted-foreground ml-1">(tarea nueva)</span>
             )}

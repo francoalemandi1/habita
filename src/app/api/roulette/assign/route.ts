@@ -26,7 +26,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { memberId, taskId, customTaskName } = validation.data;
+    const {
+      memberId,
+      taskId,
+      customTaskName,
+      customTaskWeight,
+      customTaskFrequency,
+      customTaskEstimatedMinutes,
+    } = validation.data;
     const householdId = member.householdId;
 
     // Verify the target member belongs to the same household
@@ -66,13 +73,14 @@ export async function POST(request: NextRequest) {
       taskWeight = task.weight;
       taskFrequency = task.frequency;
     } else {
-      // Custom task — create a new task with sensible defaults
+      // Custom task — create with catalog defaults if provided, else sensible defaults
       const newTask = await prisma.task.create({
         data: {
           name: customTaskName!,
           householdId,
-          frequency: "ONCE",
-          weight: 1,
+          frequency: customTaskFrequency ?? "ONCE",
+          weight: customTaskWeight ?? 1,
+          estimatedMinutes: customTaskEstimatedMinutes ?? null,
         },
         select: { id: true, name: true, weight: true, frequency: true },
       });

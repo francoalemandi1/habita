@@ -274,24 +274,95 @@ Solo usar cuando hay un problema medido:
 
 Este proyecto usa **Prisma Migrate** para cambios de schema en producción. Las migraciones se guardan en `prisma/migrations/` y se aplican en deploy con `prisma migrate deploy`.
 
+### Arquitectura de conexiones (Neon)
+
+La DB de producción es **Neon PostgreSQL**, que usa connection pooling (PgBouncer):
+
+```prisma
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")          // Pooled — para queries normales
+  directUrl = env("DATABASE_URL_UNPOOLED") // Direct — para migraciones
+}
+```
+
+- **`DATABASE_URL`**: conexión pooled (hostname con `-pooler`). Usada por Prisma Client en runtime.
+- **`DATABASE_URL_UNPOOLED`**: conexión directa (hostname sin `-pooler`). Usada por `prisma migrate deploy` porque las migraciones necesitan advisory locks (`pg_advisory_lock`) que no funcionan sobre pooled connections.
+- **Ambas variables deben existir** en Vercel Environment Variables y en `.env` local.
+
 ### Workflow para cambios de schema
 
 1. **Modificar `prisma/schema.prisma`** con el cambio deseado
 2. **Aplicar en dev local con `db:push`** para iterar rápido: `pnpm db:push`
 3. **Generar migración antes de commitear**:
-   - Crear shadow DB temporal: `PGPASSWORD=habita psql -h localhost -p 5434 -U habita -d habita -c "CREATE DATABASE habita_shadow;"`
-   - Generar diff SQL: `npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --script --shadow-database-url "postgresql://habita:habita@localhost:5434/habita_shadow?schema=public"`
-   - Crear directorio de migración: `mkdir -p prisma/migrations/<timestamp>_<nombre_descriptivo>/`
-   - Guardar el SQL generado en `migration.sql` dentro del directorio
-   - Marcar como aplicada en DB local: `npx prisma migrate resolve --applied <nombre_migración>`
-   - Verificar drift cero: repetir el `migrate diff` y confirmar que devuelve `-- This is an empty migration.`
-   - Limpiar shadow DB: `PGPASSWORD=habita psql -h localhost -p 5434 -U habita -d habita -c "DROP DATABASE habita_shadow;"`
-4. **En producción**: `prisma migrate deploy` aplica migraciones pendientes automáticamente
+   ```bash
+   # Crear shadow DB temporal
+   PGPASSWORD=habita psql -h localhost -p 5434 -U habita -d habita -c "CREATE DATABASE habita_shadow;"
+
+   # Generar diff SQL
+   npx prisma migrate diff \
+     --from-migrations prisma/migrations \
+     --to-schema-datamodel prisma/schema.prisma \
+     --script \
+     --shadow-database-url "postgresql://habita:habita@localhost:5434/habita_shadow?schema=public"
+
+   # Crear directorio de migración (formato: YYYYMMDDHHMMSS_descripcion)
+   mkdir -p prisma/migrations/<timestamp>_<nombre_descriptivo>/
+   # Guardar el SQL generado en migration.sql dentro del directorio
+
+   # Marcar como aplicada en DB local
+   npx prisma migrate resolve --applied <nombre_migración>
+
+   # Verificar drift cero (debe decir "empty migration")
+   # Repetir el migrate diff de arriba
+
+   # Limpiar shadow DB
+   PGPASSWORD=habita psql -h localhost -p 5434 -U habita -d habita -c "DROP DATABASE habita_shadow;"
+   ```
+4. **Commitear y pushear**: el deploy en Vercel aplica migraciones pendientes automáticamente
 
 ### Naming de migraciones
 
-- Formato timestamp: `YYYYMMDDHHMMSS_descripcion_en_snake_case`
+- Formato: `YYYYMMDDHHMMSS_descripcion_en_snake_case`
 - Ejemplos: `20260210010000_add_plan_start_date`, `20260215000000_add_member_avatar_field`
+
+### Deploy en Vercel
+
+El build command en `package.json` es:
+```bash
+prisma generate && prisma migrate deploy && next build
+```
+
+**IMPORTANTE — Vercel Build Command Override:**
+- Si en Vercel → Settings → General → Build Command hay un override, este **reemplaza** el script de `package.json`.
+- Verificar que el override (si existe) también incluya `prisma migrate deploy`.
+- Si no hay override, Vercel usa `pnpm run build` automáticamente (que ejecuta el script de `package.json`).
+
+### Baseline de migraciones (setup inicial en una DB existente)
+
+Si la DB de producción fue creada con `db:push` (sin historial de migraciones), `prisma migrate deploy` falla con `P3005: The database schema is not empty`. Para solucionarlo, hay que hacer un **baseline**:
+
+```sql
+-- Ejecutar contra la DB de producción (conexión directa/unpooled)
+CREATE TABLE IF NOT EXISTS "_prisma_migrations" (
+    "id" VARCHAR(36) NOT NULL PRIMARY KEY,
+    "checksum" VARCHAR(64) NOT NULL,
+    "finished_at" TIMESTAMPTZ,
+    "migration_name" VARCHAR(255) NOT NULL,
+    "logs" TEXT,
+    "rolled_back_at" TIMESTAMPTZ,
+    "started_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "applied_steps_count" INTEGER NOT NULL DEFAULT 0
+);
+
+-- Marcar como aplicadas TODAS las migraciones cuyo schema ya existe en la DB
+INSERT INTO "_prisma_migrations" ("id", "checksum", "migration_name", "finished_at", "applied_steps_count")
+VALUES
+    (gen_random_uuid(), 'baseline', '<nombre_migracion_1>', now(), 1),
+    (gen_random_uuid(), 'baseline', '<nombre_migracion_2>', now(), 1);
+```
+
+Después del baseline, `prisma migrate deploy` solo aplica las migraciones pendientes.
 
 ### Reglas críticas
 
@@ -302,12 +373,14 @@ Este proyecto usa **Prisma Migrate** para cambios de schema en producción. Las 
 - **Si hay drift** (schema fue modificado con `db:push` después de la última migración): generar una migración de catch-up con `migrate diff` y marcarla como applied con `migrate resolve`
 - **Migraciones destructivas** (DROP COLUMN, DROP TABLE, cambio de tipo) requieren plan de migración de datos previo
 
-### En el deploy (Vercel)
+### Troubleshooting
 
-El build command debe incluir `prisma migrate deploy` antes de `next build`:
-```bash
-prisma generate && prisma migrate deploy && next build
-```
+| Error | Causa | Solución |
+|-------|-------|----------|
+| `P1002` timeout en advisory lock | Usando conexión pooled para migraciones | Configurar `directUrl = env("DATABASE_URL_UNPOOLED")` en schema.prisma |
+| `P3005` database not empty | DB creada con `db:push`, sin tabla `_prisma_migrations` | Hacer baseline (ver sección arriba) |
+| `P2022` column does not exist | Migración no fue aplicada en producción | Verificar que `prisma migrate deploy` corre en el build y que la conexión directa funciona |
+| Deploy usa commit viejo | Vercel cache o webhook delay | Forzar redeploy desde Vercel dashboard o push nuevo commit |
 
 ---
 

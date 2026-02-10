@@ -1,10 +1,12 @@
+import { palette } from "@/lib/design-tokens";
+
 interface LoadingScreenProps {
   message: string;
 }
 
 export function LoadingScreen({ message }: LoadingScreenProps) {
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center gap-8 bg-[#5260fe]">
+    <div className="flex min-h-screen w-full flex-col items-center justify-center gap-8 bg-primary">
       {/* Spinner SVG – 3/4 arc, slow rotation */}
       <svg
         className="animate-[spin_3s_linear_infinite]"
@@ -18,7 +20,7 @@ export function LoadingScreen({ message }: LoadingScreenProps) {
           cx="87.5"
           cy="87.5"
           r="75"
-          stroke="#D2FFA0"
+          stroke={palette.lime}
           strokeWidth="12"
           strokeLinecap="round"
           strokeDasharray="353.43 471.24"

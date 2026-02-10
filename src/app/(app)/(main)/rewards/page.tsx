@@ -5,15 +5,16 @@ import { isAIEnabled } from "@/lib/llm/provider";
 import { Leaderboard } from "@/components/features/leaderboard";
 import { PlanRewardsSection } from "@/components/features/plan-rewards-section";
 import { Coins, ExternalLink, Film, Sofa, TreePine, Trophy, ShoppingBag, UtensilsCrossed } from "lucide-react";
+import { statCardColors, spacing, iconSize, radius } from "@/lib/design-tokens";
 
 import type { MemberType } from "@prisma/client";
 import type { ReactNode } from "react";
 
 const PAST_REWARD_CATEGORY_ICONS: Record<string, ReactNode> = {
-  OUTING: <Film className="h-3.5 w-3.5" />,
-  GASTRONOMY: <UtensilsCrossed className="h-3.5 w-3.5" />,
-  OUTDOOR: <TreePine className="h-3.5 w-3.5" />,
-  HOME: <Sofa className="h-3.5 w-3.5" />,
+  OUTING: <Film className={iconSize.sm} />,
+  GASTRONOMY: <UtensilsCrossed className={iconSize.sm} />,
+  OUTDOOR: <TreePine className={iconSize.sm} />,
+  HOME: <Sofa className={iconSize.sm} />,
 };
 
 interface LeaderboardMember {
@@ -148,7 +149,7 @@ export default async function RewardsPage() {
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <div className="mb-8">
+      <div className={spacing.pageHeader}>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Recompensas</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Recompensas generadas según tu rendimiento en cada plan
@@ -156,42 +157,42 @@ export default async function RewardsPage() {
       </div>
 
       {/* Points Summary */}
-      <div className="mb-8 grid grid-cols-3 gap-3 sm:gap-4">
-        <div className="rounded-[10px] bg-[#d2ffa0] p-4">
+      <div className={`${spacing.sectionGapLg} grid grid-cols-3 gap-3 sm:gap-4`}>
+        <div className={`${radius.cardCompact} ${statCardColors.lime.bg} p-4`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#272727] sm:text-sm">Disponibles</span>
-            <Coins className="h-4 w-4 shrink-0 text-[#272727] opacity-70" />
+            <span className={`text-xs font-semibold sm:text-sm ${statCardColors.lime.text}`}>Disponibles</span>
+            <Coins className={`${iconSize.md} shrink-0 opacity-70 ${statCardColors.lime.text}`} />
           </div>
-          <div className="mt-2 text-2xl font-bold text-[#272727] sm:text-3xl">{availablePoints}</div>
-          <p className="text-xs text-[#272727] opacity-60">puntos</p>
+          <div className={`mt-2 text-2xl font-bold sm:text-3xl ${statCardColors.lime.text}`}>{availablePoints}</div>
+          <p className={`text-xs opacity-60 ${statCardColors.lime.text}`}>puntos</p>
         </div>
 
-        <div className="rounded-[10px] bg-[#d0b6ff] p-4">
+        <div className={`${radius.cardCompact} ${statCardColors.purple.bg} p-4`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#522a97] sm:text-sm">Totales</span>
-            <Trophy className="h-4 w-4 shrink-0 text-[#522a97] opacity-70" />
+            <span className={`text-xs font-semibold sm:text-sm ${statCardColors.purple.text}`}>Totales</span>
+            <Trophy className={`${iconSize.md} shrink-0 opacity-70 ${statCardColors.purple.text}`} />
           </div>
-          <div className="mt-2 text-2xl font-bold text-[#522a97] sm:text-3xl">{memberLevel?.xp ?? 0}</div>
-          <p className="text-xs text-[#522a97] opacity-60">ganados</p>
+          <div className={`mt-2 text-2xl font-bold sm:text-3xl ${statCardColors.purple.text}`}>{memberLevel?.xp ?? 0}</div>
+          <p className={`text-xs opacity-60 ${statCardColors.purple.text}`}>ganados</p>
         </div>
 
-        <div className="rounded-[10px] bg-[#ffe8c3] p-4">
+        <div className={`${radius.cardCompact} ${statCardColors.tan.bg} p-4`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#272727] sm:text-sm">Canjeados</span>
-            <ShoppingBag className="h-4 w-4 shrink-0 text-[#272727] opacity-70" />
+            <span className={`text-xs font-semibold sm:text-sm ${statCardColors.tan.text}`}>Canjeados</span>
+            <ShoppingBag className={`${iconSize.md} shrink-0 opacity-70 ${statCardColors.tan.text}`} />
           </div>
-          <div className="mt-2 text-2xl font-bold text-[#272727] sm:text-3xl">{spentPoints}</div>
-          <p className="text-xs text-[#272727] opacity-60">gastados</p>
+          <div className={`mt-2 text-2xl font-bold sm:text-3xl ${statCardColors.tan.text}`}>{spentPoints}</div>
+          <p className={`text-xs opacity-60 ${statCardColors.tan.text}`}>gastados</p>
         </div>
       </div>
 
       {/* Leaderboard */}
-      <div className="mb-8">
+      <div className={spacing.sectionGapLg}>
         <Leaderboard members={leaderboard} currentMemberId={member.id} />
       </div>
 
       {/* AI Rewards Section */}
-      <div className="mb-8">
+      <div className={spacing.sectionGapLg}>
         <PlanRewardsSection
           planId={latestPlan?.id ?? null}
           rewards={aiRewards.map((r) => ({
@@ -221,7 +222,7 @@ export default async function RewardsPage() {
               const memberName = members.find((m) => m.id === reward.memberId)?.name ?? "Miembro";
               const categoryIcon = reward.category ? PAST_REWARD_CATEGORY_ICONS[reward.category] : null;
               return (
-                <div key={reward.id} className="rounded-2xl bg-[#e4d5ff]/40 p-4 opacity-70">
+                <div key={reward.id} className="rounded-2xl bg-brand-lavender-light/40 p-4 opacity-70">
                   <div className="flex items-center gap-1.5">
                     {categoryIcon && <span className="shrink-0 text-muted-foreground">{categoryIcon}</span>}
                     <p className="font-medium text-sm text-foreground truncate">{reward.name}</p>
@@ -239,7 +240,7 @@ export default async function RewardsPage() {
                       rel="noopener noreferrer"
                       className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                     >
-                      <ExternalLink className="h-3 w-3" />
+                      <ExternalLink className={iconSize.xs} />
                       Ver actividad
                     </a>
                   )}

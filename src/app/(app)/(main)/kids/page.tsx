@@ -3,6 +3,7 @@ import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { KidsTaskList } from "@/components/features/kids-task-list";
 import { KidsProgressCard } from "@/components/features/kids-progress-card";
+import { spacing } from "@/lib/design-tokens";
 
 export default async function KidsPage() {
   const member = await getCurrentMember();
@@ -66,7 +67,7 @@ export default async function KidsPage() {
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950">
       <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
         {/* Header */}
-        <div className="mb-8 text-center">
+        <div className={`${spacing.pageHeader} text-center`}>
           <h1 className="text-4xl font-bold text-primary">
             ¡Hola, {member.name}! 👋
           </h1>
@@ -78,7 +79,7 @@ export default async function KidsPage() {
         </div>
 
         {/* Progress Card */}
-        <div className="mb-8">
+        <div className={spacing.sectionGapLg}>
           <KidsProgressCard
             level={currentLevel}
             xpProgress={xpProgress}

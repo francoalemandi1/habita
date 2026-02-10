@@ -22,6 +22,7 @@ import {
   Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { notificationStyles, notificationStyleDefault, spacing, iconSize } from "@/lib/design-tokens";
 
 interface Notification {
   id: string;
@@ -33,23 +34,8 @@ interface Notification {
   actionUrl?: string | null;
 }
 
-const NOTIFICATION_STYLES: Record<string, { bg: string; iconColor: string }> = {
-  TRANSFER_REQUEST: { bg: "bg-[#e4d5ff]/50", iconColor: "text-primary" },
-  TRANSFER_ACCEPTED: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-600" },
-  TRANSFER_REJECTED: { bg: "bg-red-50", iconColor: "text-red-500" },
-  TASK_OVERDUE: { bg: "bg-[#fff0d7]", iconColor: "text-red-500" },
-  ACHIEVEMENT_UNLOCKED: { bg: "bg-[#fff0d7]", iconColor: "text-yellow-500" },
-  LEVEL_UP: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-500" },
-  REMINDER_DUE: { bg: "bg-blue-50", iconColor: "text-blue-500" },
-  PLAN_READY: { bg: "bg-[#e4d5ff]/50", iconColor: "text-primary" },
-  PLAN_APPLIED: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-600" },
-  REWARD_REDEEMED: { bg: "bg-[#fff0d7]", iconColor: "text-yellow-500" },
-};
-
-const DEFAULT_STYLE = { bg: "bg-muted/50", iconColor: "text-muted-foreground" };
-
 function getNotificationStyle(type: string) {
-  return NOTIFICATION_STYLES[type] ?? DEFAULT_STYLE;
+  return notificationStyles[type] ?? notificationStyleDefault;
 }
 
 function getNotificationIcon(type: string) {
@@ -58,22 +44,22 @@ function getNotificationIcon(type: string) {
     case "TRANSFER_REQUEST":
     case "TRANSFER_ACCEPTED":
     case "TRANSFER_REJECTED":
-      return <ArrowRightLeft className={cn("h-4 w-4", style.iconColor)} />;
+      return <ArrowRightLeft className={cn(iconSize.md, style.iconColor)} />;
     case "TASK_OVERDUE":
-      return <AlertTriangle className={cn("h-4 w-4", style.iconColor)} />;
+      return <AlertTriangle className={cn(iconSize.md, style.iconColor)} />;
     case "ACHIEVEMENT_UNLOCKED":
-      return <Trophy className={cn("h-4 w-4", style.iconColor)} />;
+      return <Trophy className={cn(iconSize.md, style.iconColor)} />;
     case "LEVEL_UP":
-      return <TrendingUp className={cn("h-4 w-4", style.iconColor)} />;
+      return <TrendingUp className={cn(iconSize.md, style.iconColor)} />;
     case "REMINDER_DUE":
-      return <Clock className={cn("h-4 w-4", style.iconColor)} />;
+      return <Clock className={cn(iconSize.md, style.iconColor)} />;
     case "PLAN_READY":
     case "PLAN_APPLIED":
-      return <CalendarCheck className={cn("h-4 w-4", style.iconColor)} />;
+      return <CalendarCheck className={cn(iconSize.md, style.iconColor)} />;
     case "REWARD_REDEEMED":
-      return <Gift className={cn("h-4 w-4", style.iconColor)} />;
+      return <Gift className={cn(iconSize.md, style.iconColor)} />;
     default:
-      return <Bell className="h-4 w-4" />;
+      return <Bell className={iconSize.md} />;
   }
 }
 
@@ -160,7 +146,7 @@ export function NotificationsDropdown() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm" className="relative">
-          <Bell className="h-4 w-4" />
+          <Bell className={iconSize.md} />
           {unreadCount > 0 && (
             <Badge
               variant="destructive"
@@ -174,7 +160,7 @@ export function NotificationsDropdown() {
       <DialogContent className="max-h-[80vh] w-[calc(100%-2rem)] min-w-0 overflow-hidden p-0 md:min-w-[380px]">
         <DialogHeader className="px-5 pt-5 pb-3">
           <DialogTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
+            <Bell className={iconSize.lg} />
             Notificaciones
           </DialogTitle>
         </DialogHeader>
@@ -184,14 +170,14 @@ export function NotificationsDropdown() {
           ) : notifications.length === 0 ? (
             <div className="py-10 text-center">
               <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-muted/50">
-                <Bell className="h-5 w-5 text-muted-foreground" />
+                <Bell className={`${iconSize.lg} text-muted-foreground`} />
               </div>
               <p className="text-sm text-muted-foreground">
                 No tienes notificaciones
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className={spacing.contentStackTight}>
               {notifications.map((notification) => {
                 const style = getNotificationStyle(notification.type);
                 const isUnread = !notification.isRead;

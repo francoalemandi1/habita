@@ -2,12 +2,13 @@
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { spacing, radius } from "@/lib/design-tokens";
 
 export function DashboardSkeleton() {
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
       {/* Header */}
-      <div className="mb-6 sm:mb-8">
+      <div className={spacing.pageHeader}>
         <Skeleton className="h-9 w-48" />
       </div>
 
@@ -36,7 +37,7 @@ export function DashboardSkeleton() {
         <div className="mt-8 space-y-4 lg:mt-0">
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 rounded-[10px]" />
+              <Skeleton key={i} className={`h-24 ${radius.cardCompact}`} />
             ))}
           </div>
         </div>
@@ -73,7 +74,7 @@ export function TaskListSkeleton() {
 export function ProfileSkeleton() {
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <div className="mb-8 flex items-center gap-6">
+      <div className={`${spacing.pageHeader} flex items-center gap-6`}>
         <Skeleton className="h-24 w-24 rounded-full" />
         <div>
           <Skeleton className="h-8 w-48" />
@@ -114,7 +115,7 @@ export function CardSkeleton() {
 export function PageSkeleton({ cards = 3 }: { cards?: number }) {
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <div className="mb-8">
+      <div className={spacing.pageHeader}>
         <Skeleton className="h-9 w-48" />
         <Skeleton className="mt-2 h-5 w-64" />
       </div>
@@ -184,7 +185,7 @@ export function CalendarSkeleton() {
 export function GridSkeleton({ items = 6 }: { items?: number }) {
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <div className="mb-8">
+      <div className={spacing.pageHeader}>
         <Skeleton className="h-9 w-48" />
         <Skeleton className="mt-2 h-5 w-64" />
       </div>

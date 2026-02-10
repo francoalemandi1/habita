@@ -61,11 +61,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Asignación no encontrada" }, { status: 404 });
     }
 
-    // Only the assigned member can complete their own assignment
-    if (assignment.memberId !== member.id) {
-      return NextResponse.json({ error: "Solo podés completar tus propias tareas" }, { status: 403 });
-    }
-
     if (assignment.status === "COMPLETED" || assignment.status === "VERIFIED") {
       return NextResponse.json({ error: "La tarea ya fue completada" }, { status: 400 });
     }

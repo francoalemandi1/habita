@@ -8,6 +8,8 @@ import { ChevronLeft, ChevronRight, Loader2, CalendarDays } from "lucide-react";
 import { FridgeCalendarDay } from "@/components/features/fridge-calendar-day";
 import { BackButton } from "@/components/ui/back-button";
 import { apiFetch } from "@/lib/api-client";
+import { useSwipeGesture } from "@/hooks/use-swipe-gesture";
+import { cn } from "@/lib/utils";
 import {
   getWeekMonday,
   getWeekSunday,
@@ -15,13 +17,13 @@ import {
   formatWeekRange,
   isSameDay,
 } from "@/lib/calendar-utils";
+import { cyclingColors, contrastText, spacing, iconSize } from "@/lib/design-tokens";
 
 import type { CalendarAssignment, CalendarMember } from "@/components/features/fridge-calendar-day";
 
 interface FridgeCalendarViewProps {
   initialAssignments: CalendarAssignment[];
   members: CalendarMember[];
-  currentMemberId: string;
   initialWeekStart: string;
 }
 
@@ -40,6 +42,9 @@ interface AssignmentsResponse {
 }
 
 const DAY_HEADER_LABELS = ["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"];
+
+/** Micro-rotations for handwritten imperfection — one per weekday */
+const DAY_ROTATIONS = [-0.3, 0.15, -0.1, 0.25, -0.2, 0.1, -0.15];
 
 /** Group assignments by day, then by member within each day */
 function groupByDayAndMember(
@@ -78,7 +83,6 @@ function groupByDayAndMember(
 export function FridgeCalendarView({
   initialAssignments,
   members,
-  currentMemberId,
   initialWeekStart,
 }: FridgeCalendarViewProps) {
   const [weekStart, setWeekStart] = useState(
@@ -88,6 +92,13 @@ export function FridgeCalendarView({
     useState<CalendarAssignment[]>(initialAssignments);
   const [isLoadingWeek, setIsLoadingWeek] = useState(false);
   const [completingId, setCompletingId] = useState<string | null>(null);
+  const [currentDayIndex, setCurrentDayIndex] = useState(() => {
+    const todayDate = new Date();
+    const monday = new Date(initialWeekStart);
+    const days = getWeekDays(monday);
+    const todayIdx = days.findIndex((d) => isSameDay(d, todayDate));
+    return todayIdx >= 0 ? todayIdx : 0;
+  });
 
   const router = useRouter();
   const toast = useToast();
@@ -122,6 +133,10 @@ export function FridgeCalendarView({
         );
         setAssignments(filtered);
         setWeekStart(newMonday);
+        // Reset mobile day view — show today if in current week, else Monday
+        const newDays = getWeekDays(newMonday);
+        const todayIdx = newDays.findIndex((d) => isSameDay(d, new Date()));
+        setCurrentDayIndex(todayIdx >= 0 ? todayIdx : 0);
       } catch {
         toast.error("Error", "No se pudo cargar la semana");
       } finally {
@@ -192,6 +207,58 @@ export function FridgeCalendarView({
     [completingId, toast, router],
   );
 
+  const handleUncomplete = useCallback(
+    async (assignmentId: string) => {
+      if (completingId) return;
+      setCompletingId(assignmentId);
+
+      try {
+        const response = await fetch(
+          `/api/assignments/${assignmentId}/uncomplete`,
+          { method: "POST" },
+        );
+
+        if (response.ok) {
+          setAssignments((prev) =>
+            prev.map((a) =>
+              a.id === assignmentId
+                ? { ...a, status: "PENDING" as const, completedAt: null }
+                : a,
+            ),
+          );
+          toast.success("Tarea desmarcada", "La tarea volvió a pendiente");
+          router.refresh();
+        } else {
+          const errorData = (await response.json()) as { error?: string };
+          toast.error(
+            "Error",
+            errorData.error ?? "No se pudo desmarcar la tarea",
+          );
+        }
+      } catch {
+        toast.error("Error", "No se pudo desmarcar la tarea");
+      } finally {
+        setCompletingId(null);
+      }
+    },
+    [completingId, toast, router],
+  );
+
+  // Mobile: swipe between days
+  const handleSwipeLeft = useCallback(() => {
+    setCurrentDayIndex((prev) => Math.min(prev + 1, 6));
+  }, []);
+
+  const handleSwipeRight = useCallback(() => {
+    setCurrentDayIndex((prev) => Math.max(prev - 1, 0));
+  }, []);
+
+  const { onTouchStart, onTouchMove, onTouchEnd, dragOffset } =
+    useSwipeGesture({
+      onSwipeLeft: handleSwipeLeft,
+      onSwipeRight: handleSwipeRight,
+    });
+
   const hasAnyAssignments = assignments.length > 0;
 
   // Count stats for the week summary
@@ -204,12 +271,12 @@ export function FridgeCalendarView({
   }, [assignments]);
 
   return (
-    <div className="space-y-5">
+    <div className={spacing.contentStackCompact}>
       {/* Header */}
       <div>
         <BackButton />
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
-          <CalendarDays className="h-6 w-6 text-primary shrink-0" />
+          <CalendarDays className={`${iconSize.xl} text-primary shrink-0`} />
           Calendario semanal
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -219,37 +286,47 @@ export function FridgeCalendarView({
         </p>
       </div>
 
-      {/* Fridge calendar "paper" container */}
+      {/* Notebook calendar container */}
       <div
-        className="relative overflow-hidden rounded-2xl border border-border/40 bg-white shadow-lg dark:bg-card"
+        className="notebook-paper notebook-binding relative overflow-hidden rounded-lg shadow-lg dark:bg-card"
         style={{
-          boxShadow: "0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)",
+          border: "1.5px solid #d4d0c8",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04), 2px 2px 0 #f0ece4",
         }}
       >
-        {/* Decorative top bar — like the metal strip on a fridge calendar */}
-        <div className="relative flex items-center justify-between bg-linear-to-r from-primary via-primary/90 to-primary px-4 py-3 sm:px-6 sm:py-4">
+        {/* Header strip — pen-drawn style */}
+        <div
+          className="relative flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4"
+          style={{
+            borderBottom: "1.5px solid #c4bfb3",
+            background: "linear-gradient(180deg, #fdfcf7 0%, #f8f4ec 100%)",
+          }}
+        >
           {/* Left nav */}
           <button
             type="button"
             onClick={() => navigateWeek(-1)}
             disabled={isLoadingWeek}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition-all hover:bg-white/30 active:scale-95 disabled:opacity-40"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/60 transition-all hover:bg-foreground/5 active:scale-95 disabled:opacity-40"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className={iconSize.md} />
           </button>
 
           {/* Center: month + week range */}
           <div className="flex flex-col items-center gap-0.5">
             <div className="flex items-center gap-2">
               {isLoadingWeek && (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-white/70" />
+                <Loader2 className={`${iconSize.sm} animate-spin text-foreground/40`} />
               )}
-              <span className="text-sm font-bold tracking-wide text-white sm:text-base">
+              <span
+                className="handwritten-title text-lg font-normal tracking-wide sm:text-xl"
+                style={{ transform: "rotate(-0.3deg)" }}
+              >
                 {weekLabel}
               </span>
             </div>
             {weekStats.total > 0 && (
-              <span className="text-[11px] text-white/70">
+              <span className="handwritten-note text-sm text-foreground/40">
                 {weekStats.completed}/{weekStats.total} completadas
               </span>
             )}
@@ -260,27 +337,29 @@ export function FridgeCalendarView({
             type="button"
             onClick={() => navigateWeek(1)}
             disabled={isLoadingWeek}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition-all hover:bg-white/30 active:scale-95 disabled:opacity-40"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/60 transition-all hover:bg-foreground/5 active:scale-95 disabled:opacity-40"
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className={iconSize.md} />
           </button>
-
-          {/* Decorative "pin" holes */}
-          <div className="absolute left-6 top-0 h-3 w-3 rounded-b-full bg-background/20 sm:left-10" />
-          <div className="absolute right-6 top-0 h-3 w-3 rounded-b-full bg-background/20 sm:right-10" />
         </div>
 
         {/* "Ir a hoy" strip */}
         {!isCurrentWeek && (
-          <div className="flex justify-center border-b border-border/30 bg-primary/5 py-1.5">
+          <div
+            className="flex justify-center py-1.5"
+            style={{ borderBottom: "1px dashed #d4d0c8" }}
+          >
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 rounded-full px-3 text-[11px] font-semibold text-primary hover:bg-primary/10"
+              className="handwritten-title h-6 rounded-full px-3 text-sm font-normal text-primary hover:bg-primary/10"
               onClick={() => {
                 const todayMonday = getWeekMonday(new Date());
                 setWeekStart(todayMonday);
                 setAssignments(initialAssignments);
+                const days = getWeekDays(todayMonday);
+                const todayIdx = days.findIndex((d) => isSameDay(d, new Date()));
+                setCurrentDayIndex(todayIdx >= 0 ? todayIdx : 0);
               }}
             >
               Ir a hoy
@@ -291,13 +370,13 @@ export function FridgeCalendarView({
         {/* Calendar body */}
         {!hasAnyAssignments && !isLoadingWeek ? (
           <div className="px-4 py-16 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/40">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-foreground/5">
               <span className="text-3xl">📋</span>
             </div>
-            <p className="font-semibold text-muted-foreground">
+            <p className="handwritten-title text-lg text-foreground/60">
               No hay tareas esta semana
             </p>
-            <p className="mt-1 text-sm text-muted-foreground/60">
+            <p className="handwritten-note mt-1 text-base text-foreground/35">
               Las asignaciones aparecerán aquí
             </p>
           </div>
@@ -306,17 +385,25 @@ export function FridgeCalendarView({
             {/* Desktop: 7-column grid calendar */}
             <div className="hidden sm:block">
               {/* Day-of-week header row */}
-              <div className="grid grid-cols-7 border-b border-border/30">
+              <div
+                className="grid grid-cols-7"
+                style={{ borderBottom: "1.5px solid #d4d0c8" }}
+              >
                 {DAY_HEADER_LABELS.map((label, i) => {
                   const isWeekend = i >= 5;
+                  const rotation = DAY_ROTATIONS[i] ?? 0;
                   return (
                     <div
                       key={label}
-                      className={`py-2 text-center text-[11px] font-bold uppercase tracking-wider ${
+                      className={`handwritten-title py-2 text-center text-base tracking-wider ${
                         isWeekend
-                          ? "text-muted-foreground/50"
-                          : "text-muted-foreground/70"
+                          ? "text-foreground/30"
+                          : "text-foreground/55"
                       }`}
+                      style={{
+                        transform: `rotate(${rotation}deg)`,
+                        letterSpacing: "1px",
+                      }}
                     >
                       {label}
                     </div>
@@ -325,21 +412,31 @@ export function FridgeCalendarView({
               </div>
 
               {/* Day number row */}
-              <div className="grid grid-cols-7 border-b border-border/20">
+              <div
+                className="grid grid-cols-7"
+                style={{ borderBottom: "1px solid #e8e4dc" }}
+              >
                 {dayData.map((day, i) => {
                   const isToday = isSameDay(day.date, today);
                   const dayNum = day.date.getDate();
+                  const rotation = DAY_ROTATIONS[i] ?? 0;
                   return (
                     <div
                       key={day.date.toISOString()}
-                      className={`flex justify-center py-1.5 ${i < 6 ? "border-r border-border/15" : ""}`}
+                      className={`flex justify-center py-1.5 ${i < 6 ? "" : ""}`}
+                      style={{
+                        borderRight: i < 6 ? "1px solid #e8e4dc" : "none",
+                      }}
                     >
                       <span
-                        className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${
+                        className={`handwritten-note flex h-8 w-8 items-center justify-center text-xl font-semibold ${
                           isToday
-                            ? "bg-primary text-white shadow-sm"
-                            : "text-foreground/80"
+                            ? "notebook-today-highlight rounded-full text-primary"
+                            : "text-foreground/60"
                         }`}
+                        style={{
+                          transform: `rotate(${rotation * 1.5}deg)`,
+                        }}
                       >
                         {dayNum}
                       </span>
@@ -356,8 +453,10 @@ export function FridgeCalendarView({
                     date={day.date}
                     isToday={isSameDay(day.date, today)}
                     memberGroups={day.memberGroups}
+                    allMembers={members}
                     completingId={completingId}
                     onComplete={handleComplete}
+                    onUncomplete={handleUncomplete}
                     isLast={i === 6}
                     variant="desktop"
                   />
@@ -365,31 +464,98 @@ export function FridgeCalendarView({
               </div>
             </div>
 
-            {/* Mobile: stacked day cards */}
-            <div className="space-y-0 sm:hidden">
-              {dayData.map((day) => (
-                <FridgeCalendarDay
-                  key={day.date.toISOString()}
-                  date={day.date}
-                  isToday={isSameDay(day.date, today)}
-                  memberGroups={day.memberGroups}
-                  completingId={completingId}
-                  onComplete={handleComplete}
-                  variant="mobile"
-                />
-              ))}
+            {/* Mobile: single-day swipe view */}
+            <div className="sm:hidden overflow-hidden">
+              {/* Day dots indicator */}
+              <div
+                className="flex items-center justify-center gap-1 py-2"
+                style={{ borderBottom: "1px dashed #e8e4dc" }}
+              >
+                {weekDays.map((day, index) => {
+                  const isActive = index === currentDayIndex;
+                  const isDayToday = isSameDay(day, today);
+                  const dayEntry = dayData[index];
+                  const hasTasks = dayEntry ? dayEntry.memberGroups.length > 0 : false;
+
+                  return (
+                    <button
+                      key={day.toISOString()}
+                      type="button"
+                      onClick={() => setCurrentDayIndex(index)}
+                      className={cn(
+                        "flex flex-col items-center gap-0.5 rounded-lg px-1.5 py-1 transition-colors",
+                        isActive && "bg-primary/10",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "handwritten-title text-[10px]",
+                          isActive ? "text-primary" : "text-foreground/40",
+                        )}
+                      >
+                        {DAY_HEADER_LABELS[index] ?? ""}
+                      </span>
+                      <span
+                        className={cn(
+                          "flex h-6 w-6 items-center justify-center rounded-full text-sm handwritten-note",
+                          isActive && isDayToday && "bg-primary text-white",
+                          isActive && !isDayToday && "bg-primary/15 text-primary",
+                          !isActive && isDayToday && "text-primary font-bold",
+                          !isActive && !isDayToday && "text-foreground/50",
+                        )}
+                      >
+                        {day.getDate()}
+                      </span>
+                      {hasTasks && !isActive && (
+                        <div className="h-1 w-1 rounded-full bg-foreground/25" />
+                      )}
+                      {!hasTasks && !isActive && (
+                        <div className="h-1 w-1" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Swipeable day content */}
+              <div
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
+              >
+                <div
+                  className={cn(
+                    "day-slide-container",
+                    dragOffset !== 0 && "day-slide-container--dragging",
+                  )}
+                  style={{
+                    transform: `translateX(${dragOffset}px)`,
+                  }}
+                >
+                  {dayData[currentDayIndex] ? (
+                    <FridgeCalendarDay
+                      date={dayData[currentDayIndex].date}
+                      isToday={isSameDay(dayData[currentDayIndex].date, today)}
+                      memberGroups={dayData[currentDayIndex].memberGroups}
+                      allMembers={members}
+                      completingId={completingId}
+                      onComplete={handleComplete}
+                      onUncomplete={handleUncomplete}
+                      variant="mobile"
+                    />
+                  ) : null}
+                </div>
+              </div>
             </div>
           </>
         )}
       </div>
 
-      {/* Member legend — shows who's who with their colors */}
+      {/* Member legend — handwritten style */}
       {members.length > 0 && hasAnyAssignments && (
         <div className="flex flex-wrap items-center justify-center gap-3 px-2">
           {members.map((member, i) => {
-            const colors = ["#5260fe", "#d2ffa0", "#d0b6ff", "#ff9f43", "#ff6b6b", "#54a0ff"];
-            const bgColor = colors[i % colors.length]!;
-            const isLightBg = bgColor === "#d2ffa0" || bgColor === "#d0b6ff" || bgColor === "#ffd32a";
+            const bgColor = cyclingColors[i % cyclingColors.length]!;
             const firstName = member.name.split(" ")[0] ?? member.name;
 
             return (
@@ -398,13 +564,13 @@ export function FridgeCalendarView({
                   className="flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold"
                   style={{
                     backgroundColor: bgColor,
-                    color: isLightBg ? "#272727" : "#ffffff",
+                    color: contrastText(bgColor),
                     boxShadow: `0 1px 3px ${bgColor}40`,
                   }}
                 >
                   {(member.name[0] ?? "?").toUpperCase()}
                 </div>
-                <span className="text-xs text-muted-foreground">{firstName}</span>
+                <span className="handwritten-note text-sm text-foreground/60">{firstName}</span>
               </div>
             );
           })}

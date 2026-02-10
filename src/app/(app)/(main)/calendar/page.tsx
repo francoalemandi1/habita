@@ -74,7 +74,6 @@ export default async function CalendarPage() {
       <FridgeCalendarView
         initialAssignments={serializedAssignments}
         members={members}
-        currentMemberId={member.id}
         initialWeekStart={monday.toISOString()}
       />
     </div>

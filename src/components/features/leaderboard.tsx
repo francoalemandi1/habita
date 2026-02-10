@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Medal, Award } from "lucide-react";
+import { spacing, iconSize } from "@/lib/design-tokens";
 
 import type { MemberType } from "@prisma/client";
 
@@ -31,11 +32,11 @@ const MEMBER_TYPE_LABELS: Record<MemberType, string> = {
 function getRankIcon(rank: number) {
   switch (rank) {
     case 1:
-      return <Trophy className="h-5 w-5 text-yellow-500" />;
+      return <Trophy className={`${iconSize.lg} text-yellow-500`} />;
     case 2:
-      return <Medal className="h-5 w-5 text-gray-400" />;
+      return <Medal className={`${iconSize.lg} text-gray-400`} />;
     case 3:
-      return <Award className="h-5 w-5 text-amber-600" />;
+      return <Award className={`${iconSize.lg} text-amber-600`} />;
     default:
       return <span className="flex h-5 w-5 items-center justify-center text-sm font-medium text-muted-foreground">{rank}</span>;
   }
@@ -56,12 +57,12 @@ export function Leaderboard({ members, currentMemberId }: LeaderboardProps) {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-          <Trophy className="h-5 w-5 text-[var(--color-level)]" />
+          <Trophy className={`${iconSize.lg} text-[var(--color-level)]`} />
           Tabla de posiciones
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
+        <div className={spacing.contentStackTight}>
           {members.map((member, index) => (
             <div
               key={member.id}

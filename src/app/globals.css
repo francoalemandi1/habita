@@ -27,6 +27,25 @@
   --xp: 38 92% 50%;
   --level: 262 83% 58%;
   --radius: 1rem;
+
+  /* Brand palette tokens — keep in sync with src/lib/design-tokens.ts */
+  --brand-primary: #5260fe;
+  --brand-primary-light: #626efe;
+  --brand-lime: #d2ffa0;
+  --brand-success-dark: #7aa649;
+  --brand-lavender: #d0b6ff;
+  --brand-lavender-light: #e4d5ff;
+  --brand-purple-dark: #522a97;
+  --brand-tan: #ffe8c3;
+  --brand-cream: #fff0d7;
+  --brand-orange: #fd7c52;
+  --brand-peach: #fed9cb;
+
+  /* Shadow tokens */
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.05);
+  --shadow-card-hover: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-elevated: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --shadow-float: 0 20px 25px -5px rgb(0 0 0 / 0.1);
 }
 
 .dark {
@@ -52,6 +71,14 @@
   --success: 142 71% 40%;
   --xp: 38 92% 55%;
   --level: 262 83% 65%;
+
+  /* Dark mode brand palette adjustments */
+  --brand-lime: #c5f07a;
+  --brand-lavender: #c4a8f0;
+  --brand-lavender-light: #d8c9f5;
+  --brand-cream: #3d3520;
+  --brand-tan: #3d3520;
+  --brand-success-dark: #8cc462;
 }
 
 @theme inline {
@@ -79,11 +106,25 @@
   --color-level: hsl(var(--level));
   --font-sans: var(--font-nunito);
   --font-display: var(--font-nunito);
+  --font-handwritten: var(--font-indie-flower);
+  --font-handwritten-title: var(--font-indie-flower);
   --radius-sm: calc(var(--radius) - 6px);
   --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
+  /* Brand palette — enables bg-brand-lime, text-brand-purple-dark, etc. */
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-light: var(--brand-primary-light);
+  --color-brand-lime: var(--brand-lime);
+  --color-brand-success-dark: var(--brand-success-dark);
+  --color-brand-lavender: var(--brand-lavender);
+  --color-brand-lavender-light: var(--brand-lavender-light);
+  --color-brand-purple-dark: var(--brand-purple-dark);
+  --color-brand-tan: var(--brand-tan);
+  --color-brand-cream: var(--brand-cream);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-peach: var(--brand-peach);
 }
 
 /* Center container utility globally */
@@ -246,6 +287,308 @@ body {
   animation: shimmer-sweep 6s ease-in-out infinite;
   pointer-events: none;
   border-radius: inherit;
+}
+
+/* CTA principal: sombra que “respira” (siempre visible, también en mobile) */
+@keyframes button-breathe {
+  0%,
+  100% {
+    box-shadow: 0 2px 6px hsl(var(--primary) / 0.2);
+  }
+  50% {
+    box-shadow: 0 6px 20px hsl(var(--primary) / 0.4), 0 0 0 1px hsl(var(--primary) / 0.25);
+  }
+}
+
+.animate-button-breathe {
+  animation: button-breathe 2.5s ease-in-out infinite;
+}
+
+/* Ruleta: icono con balanceo + card con sombra que “respira” (siempre visible) */
+@keyframes dice-idle {
+  0%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(6deg);
+  }
+}
+
+@keyframes ruleta-card-glow {
+  0%,
+  100% {
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.06), 0 0 0 1px rgb(139 92 246 / 0.12);
+  }
+  50% {
+    box-shadow: 0 4px 14px rgb(139 92 246 / 0.18), 0 0 0 1px rgb(139 92 246 / 0.2);
+  }
+}
+
+.animate-dice-idle {
+  animation: dice-idle 2.8s ease-in-out infinite;
+}
+
+.ruleta-card-alive {
+  animation: ruleta-card-glow 2.8s ease-in-out infinite;
+}
+
+/* Calendario: barra lateral siempre visible y con pulso (siempre visible) */
+@keyframes accent-bar-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.calendar-card-alive {
+  position: relative;
+  overflow: hidden;
+}
+
+.calendar-card-alive::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 5px;
+  border-radius: 16px 0 0 16px;
+  background: hsl(199 89% 48% / 0.6);
+  animation: accent-bar-pulse 2.6s ease-in-out infinite;
+}
+
+.calendar-card-alive:hover::before {
+  opacity: 1;
+}
+
+/* ==============================
+   Handwritten calendar system
+   ============================== */
+
+/* Paper background — warm off-white with subtle noise grain */
+.notebook-paper {
+  background-color: #fdfcf7;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' viewBox='0 0 4 4'%3E%3Cpath fill='%239C9284' fill-opacity='0.03' d='M1 3h1v1H1V3zm2-2h1v1H3V1z'%3E%3C/path%3E%3C/svg%3E");
+  position: relative;
+}
+
+.dark .notebook-paper {
+  background-color: hsl(220 13% 13%);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' viewBox='0 0 4 4'%3E%3Cpath fill='%23666' fill-opacity='0.04' d='M1 3h1v1H1V3zm2-2h1v1H3V1z'%3E%3C/path%3E%3C/svg%3E");
+}
+
+/* Handwritten title — weekday headers, month label */
+.handwritten-title {
+  font-family: var(--font-indie-flower), cursive;
+  letter-spacing: 0.8px;
+  color: #1f1f1f;
+}
+
+.dark .handwritten-title {
+  color: hsl(39 30% 93%);
+}
+
+/* Handwritten note — day numbers, task names, event labels */
+.handwritten-note {
+  font-family: var(--font-indie-flower), cursive;
+  letter-spacing: 0.2px;
+  color: #1f1f1f;
+}
+
+.dark .handwritten-note {
+  color: hsl(39 30% 93%);
+}
+
+/* Handwritten cell — pen-stroke borders, paper feel */
+.handwritten-cell {
+  border: 1.5px solid #d4d0c8;
+  border-radius: 4px;
+  position: relative;
+}
+
+.dark .handwritten-cell {
+  border-color: hsl(220 13% 22%);
+}
+
+/* Pen-stroke dividers — thinner, ink-like */
+.notebook-divider {
+  border-color: #d4d0c8;
+  border-style: solid;
+  border-width: 0 0 1px 0;
+}
+
+.dark .notebook-divider {
+  border-color: hsl(220 13% 22%);
+}
+
+/* Notebook grid lines — subtle horizontal rules */
+.notebook-ruled {
+  background-image:
+    repeating-linear-gradient(
+      transparent,
+      transparent 27px,
+      #e8e4dc 27px,
+      #e8e4dc 28px
+    );
+}
+
+.dark .notebook-ruled {
+  background-image:
+    repeating-linear-gradient(
+      transparent,
+      transparent 27px,
+      hsl(220 13% 18%) 27px,
+      hsl(220 13% 18%) 28px
+    );
+}
+
+/* Pastel marker highlight for today — like a real highlighter swipe */
+.notebook-today-highlight {
+  background: linear-gradient(
+    180deg,
+    transparent 40%,
+    hsl(234 99% 66% / 0.08) 40%,
+    hsl(234 99% 66% / 0.08) 85%,
+    transparent 85%
+  );
+}
+
+/* Spiral ring binding decoration */
+.notebook-binding::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 4px;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 14px,
+    #c4bfb3 14px,
+    #c4bfb3 18px,
+    transparent 18px,
+    transparent 28px
+  );
+  border-radius: 0 0 2px 2px;
+  z-index: 10;
+}
+
+.dark .notebook-binding::before {
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 14px,
+    hsl(220 13% 25%) 14px,
+    hsl(220 13% 25%) 18px,
+    transparent 18px,
+    transparent 28px
+  );
+}
+
+/* Hand-drawn strikethrough — pen stroke animation */
+@keyframes pen-strikethrough {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+.task-strikethrough {
+  position: relative;
+  display: inline;
+}
+
+.task-strikethrough::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 52%;
+  height: 2px;
+  width: 0%;
+  background: currentColor;
+  opacity: 0.45;
+  border-radius: 1px;
+  transform: rotate(-0.5deg);
+  pointer-events: none;
+}
+
+.task-strikethrough--active::after {
+  width: 100%;
+  animation: pen-strikethrough 350ms ease-out forwards;
+}
+
+/* Loading pulse for task name during API call */
+@keyframes task-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.task-loading-pulse {
+  animation: task-pulse 1.2s ease-in-out infinite;
+}
+
+/* Day-by-day swipe transitions */
+.day-slide-container {
+  transition: transform 300ms ease-out;
+  will-change: transform;
+}
+
+.day-slide-container--dragging {
+  transition: none;
+}
+
+/* Roulette confetti burst */
+@keyframes confetti-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(120vh) rotate(720deg); opacity: 0; }
+}
+
+@keyframes confetti-appear {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.confetti-piece {
+  position: fixed;
+  top: -10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  animation: confetti-fall var(--confetti-duration, 3s) ease-in forwards;
+  animation-delay: var(--confetti-delay, 0s);
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* Roulette result celebration — bigger entrance */
+@keyframes result-pop-in {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-result-pop-in {
+  animation: result-pop-in 500ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Winner name shimmer */
+@keyframes winner-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.animate-winner-shimmer {
+  background: linear-gradient(90deg, hsl(var(--foreground)) 40%, hsl(var(--primary)) 50%, hsl(var(--foreground)) 60%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: winner-shimmer 2s ease-in-out 1;
 }
 
 /* Accessibility: respect user motion preferences */

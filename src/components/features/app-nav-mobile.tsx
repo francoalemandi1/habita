@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ClipboardCheck, Home, CalendarDays, Gift, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { iconSize } from "@/lib/design-tokens";
 
 const NAV_ITEMS = [
   { href: "/dashboard", icon: Home, label: "Hogar" },
@@ -29,11 +30,11 @@ export function AppNavMobile() {
               className={cn(
                 "flex items-center justify-center rounded-full p-3 transition-all duration-200 touch-manipulation",
                 isActive
-                  ? "bg-[#ffe8c3] text-foreground scale-110"
+                  ? "bg-brand-tan text-foreground scale-110"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Icon className="size-6" strokeWidth={isActive ? 2.5 : 2} />
+              <Icon className={iconSize.xl} strokeWidth={isActive ? 2.5 : 2} />
             </Link>
           );
         })}

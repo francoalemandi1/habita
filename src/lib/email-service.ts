@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { palette } from "@/lib/design-tokens";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -15,7 +16,7 @@ const APP_URL = process.env.NEXTAUTH_URL ?? "https://habita.app";
 // ============================================
 
 const COLORS = {
-  primary: "#5260fe",
+  primary: palette.primary,
   primaryDark: "#3d4adb",
   text: "#1a1a2e",
   textSecondary: "#6b7280",

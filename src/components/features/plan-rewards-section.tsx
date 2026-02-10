@@ -16,6 +16,7 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { memberRewardColors, spacing, iconSize } from "@/lib/design-tokens";
 import { useState } from "react";
 
 import type { ReactNode } from "react";
@@ -45,10 +46,10 @@ interface PlanRewardsSectionProps {
 }
 
 const CATEGORY_META: Record<string, { icon: ReactNode; label: string }> = {
-  OUTING: { icon: <Film className="h-3.5 w-3.5" />, label: "Salida" },
-  GASTRONOMY: { icon: <UtensilsCrossed className="h-3.5 w-3.5" />, label: "Gastronomía" },
-  OUTDOOR: { icon: <TreePine className="h-3.5 w-3.5" />, label: "Aire libre" },
-  HOME: { icon: <Sofa className="h-3.5 w-3.5" />, label: "Hogar" },
+  OUTING: { icon: <Film className={iconSize.sm} />, label: "Salida" },
+  GASTRONOMY: { icon: <UtensilsCrossed className={iconSize.sm} />, label: "Gastronomía" },
+  OUTDOOR: { icon: <TreePine className={iconSize.sm} />, label: "Aire libre" },
+  HOME: { icon: <Sofa className={iconSize.sm} />, label: "Hogar" },
 };
 
 export function PlanRewardsSection({
@@ -99,8 +100,8 @@ export function PlanRewardsSection({
   // No plan and no rewards - show empty state
   if (!planId && rewards.length === 0) {
     return (
-      <div className="rounded-2xl bg-[#fff0d7] px-6 py-8 text-center">
-        <Sparkles className="mx-auto mb-3 h-8 w-8 text-[#272727]/50" />
+      <div className="rounded-2xl bg-brand-cream px-6 py-8 text-center">
+        <Sparkles className={`mx-auto mb-3 ${iconSize["2xl"]} text-foreground/50`} />
         <p className="font-medium text-foreground">Sin recompensas aún</p>
         <p className="text-sm text-muted-foreground mt-1">
           Las recompensas se generan automáticamente al finalizar un plan
@@ -112,11 +113,11 @@ export function PlanRewardsSection({
   // Plan exists but no rewards yet - show generate button
   if (canGenerate && rewards.length === 0) {
     return (
-      <div className="rounded-2xl bg-[#e4d5ff]/50 p-6">
+      <div className="rounded-2xl bg-brand-lavender-light/50 p-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-start sm:items-center gap-4 flex-1">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#d0b6ff]">
-              <Sparkles className="h-6 w-6 text-[#522a97]" />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-lavender">
+              <Sparkles className={`${iconSize.xl} text-brand-purple-dark`} />
             </div>
             <div>
               <p className="font-semibold text-foreground">Generar recompensas</p>
@@ -132,12 +133,12 @@ export function PlanRewardsSection({
           >
             {isGenerating ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className={`${iconSize.md} animate-spin`} />
                 Generando...
               </>
             ) : (
               <>
-                <Sparkles className="h-4 w-4" />
+                <Sparkles className={iconSize.md} />
                 Generar
               </>
             )}
@@ -156,17 +157,11 @@ export function PlanRewardsSection({
     rewardsByMember.set(key, existing);
   }
 
-  const MEMBER_COLORS = [
-    { bg: "bg-[#d2ffa0]/50", text: "text-[#272727]", rewardBg: "bg-white/70" },
-    { bg: "bg-[#d0b6ff]/40", text: "text-[#522a97]", rewardBg: "bg-white/70" },
-    { bg: "bg-[#ffe8c3]/60", text: "text-[#272727]", rewardBg: "bg-white/70" },
-    { bg: "bg-[#e4d5ff]/40", text: "text-[#272727]", rewardBg: "bg-white/70" },
-  ];
 
   return (
-    <div className="space-y-4">
+    <div className={spacing.contentStack}>
       <div className="flex items-center gap-2">
-        <Trophy className="h-5 w-5 text-yellow-500" />
+        <Trophy className={`${iconSize.lg} text-yellow-500`} />
         <h2 className="text-xl font-semibold">Recompensas del plan</h2>
       </div>
 
@@ -174,17 +169,17 @@ export function PlanRewardsSection({
         {Array.from(rewardsByMember.entries()).map(([memberId, memberRewards], index) => {
           const memberName = memberMap.get(memberId) ?? "Miembro";
           const completionRate = memberRewards[0]?.completionRate ?? 0;
-          const colors = MEMBER_COLORS[index % MEMBER_COLORS.length]!;
+          const colors = memberRewardColors[index % memberRewardColors.length]!;
 
           return (
-            <div key={memberId} className={`rounded-2xl ${colors.bg} p-5`}>
+            <div key={memberId} className={`rounded-2xl ${colors.bg} ${spacing.cardPaddingWide}`}>
               <div className="flex items-center gap-2 mb-1">
-                <User className={`h-4 w-4 ${colors.text} opacity-60`} />
+                <User className={`${iconSize.md} ${colors.text} opacity-60`} />
                 <span className={`font-semibold ${colors.text}`}>{memberName}</span>
               </div>
               <p className="text-sm text-muted-foreground mb-3">{completionRate}% completado</p>
               <Progress value={completionRate} className="mb-4 h-2" />
-              <div className="space-y-2">
+              <div className={spacing.contentStackTight}>
                 {memberRewards.map((reward) => {
                   const categoryMeta = reward.category ? CATEGORY_META[reward.category] : null;
 
@@ -213,7 +208,7 @@ export function PlanRewardsSection({
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                         >
-                          <ExternalLink className="h-3 w-3" />
+                          <ExternalLink className={iconSize.xs} />
                           Ver actividad
                         </a>
                       )}
@@ -237,9 +232,9 @@ export function PlanRewardsSection({
             className="gap-2 text-muted-foreground"
           >
             {isGenerating ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <Loader2 className={`${iconSize.xs} animate-spin`} />
             ) : (
-              <Sparkles className="h-3 w-3" />
+              <Sparkles className={iconSize.xs} />
             )}
             Forzar regeneración
           </Button>

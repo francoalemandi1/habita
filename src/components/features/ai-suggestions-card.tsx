@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, RefreshCw, Lightbulb, ChevronRight, AlertCircle } from "lucide-react";
+import { priorityColors, spacing, iconSize } from "@/lib/design-tokens";
 
 interface Recommendation {
   taskName: string;
@@ -17,12 +18,6 @@ interface AiRecommendations {
   recommendations: Recommendation[];
   insights: string[];
 }
-
-const PRIORITY_COLORS = {
-  high: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-  medium: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-  low: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-};
 
 const PRIORITY_LABELS = {
   high: "Alta",
@@ -78,10 +73,10 @@ export function AiSuggestionsCard() {
       <Card className="border-dashed">
         <CardContent className="flex items-center justify-center py-6">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className={iconSize.md} />
             <span className="text-sm">No se pudieron cargar las sugerencias</span>
             <Button variant="ghost" size="sm" onClick={fetchRecommendations}>
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className={iconSize.md} />
             </Button>
           </div>
         </CardContent>
@@ -94,7 +89,7 @@ export function AiSuggestionsCard() {
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
+            <Sparkles className={`${iconSize.lg} text-primary`} />
             <CardTitle className="text-base">Sugerencias IA</CardTitle>
           </div>
           <Button
@@ -104,15 +99,15 @@ export function AiSuggestionsCard() {
             disabled={isLoading}
             className="h-8 w-8"
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`${iconSize.md} ${isLoading ? "animate-spin" : ""}`} />
           </Button>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className={spacing.contentStack}>
         {isLoading && !data ? (
           <div className="flex items-center justify-center py-4">
-            <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+            <RefreshCw className={`${iconSize.lg} animate-spin text-muted-foreground`} />
             <span className="ml-2 text-sm text-muted-foreground">
               Analizando tu hogar...
             </span>
@@ -123,7 +118,7 @@ export function AiSuggestionsCard() {
             {data.insights.length > 0 && (
               <div className="rounded-2xl bg-muted/50 p-3">
                 <div className="mb-2 flex items-center gap-1.5">
-                  <Lightbulb className="h-4 w-4 text-yellow-500" />
+                  <Lightbulb className={`${iconSize.md} text-yellow-500`} />
                   <span className="text-xs font-medium">Observaciones</span>
                 </div>
                 <ul className="space-y-1">
@@ -138,7 +133,7 @@ export function AiSuggestionsCard() {
 
             {/* Recommendations */}
             {data.recommendations.length > 0 && (
-              <div className="space-y-2">
+              <div className={spacing.contentStackTight}>
                 <p className="text-xs font-medium text-muted-foreground">
                   Recomendaciones de asignación
                 </p>
@@ -158,7 +153,7 @@ export function AiSuggestionsCard() {
                           {rec.reason}
                         </p>
                       </div>
-                      <Badge className={PRIORITY_COLORS[rec.priority]} variant="secondary">
+                      <Badge className={priorityColors[rec.priority]} variant="secondary">
                         {PRIORITY_LABELS[rec.priority]}
                       </Badge>
                     </div>
@@ -173,7 +168,7 @@ export function AiSuggestionsCard() {
                   >
                     {isExpanded ? "Ver menos" : `Ver ${data.recommendations.length - 3} más`}
                     <ChevronRight
-                      className={`ml-1 h-4 w-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                      className={`${iconSize.md} ml-1 transition-transform ${isExpanded ? "rotate-90" : ""}`}
                     />
                   </Button>
                 )}

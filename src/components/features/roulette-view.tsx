@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { Dices, Loader2, Sparkles, Star, CheckCircle, Search, Plus, BookOpen } from "lucide-react";
+import { Dices, Loader2, Star, CheckCircle, Search, Plus, BookOpen } from "lucide-react";
 import { RouletteWheel } from "@/components/features/roulette-wheel";
 import { RouletteResultDialog } from "@/components/features/roulette-result-dialog";
 import { BackButton } from "@/components/ui/back-button";
 import { apiFetch } from "@/lib/api-client";
 import { calculatePoints } from "@/lib/points";
+import { spacing, iconSize, wheelColors } from "@/lib/design-tokens";
 
 import type { TaskFrequency, MemberType } from "@prisma/client";
 
@@ -61,6 +62,41 @@ interface RouletteViewProps {
 
 type RoulettePhase = "idle" | "loading-members" | "ready" | "spinning" | "result" | "assigned";
 
+const CONFETTI_COUNT = 40;
+
+function spawnConfetti(containerEl: HTMLDivElement | null) {
+  if (!containerEl) return;
+
+  // Clear previous confetti
+  containerEl.innerHTML = "";
+
+  for (let i = 0; i < CONFETTI_COUNT; i++) {
+    const piece = document.createElement("div");
+    piece.className = "confetti-piece";
+    const color = wheelColors[i % wheelColors.length]!;
+    const leftPos = Math.random() * 100;
+    const duration = 2 + Math.random() * 2;
+    const delay = Math.random() * 0.5;
+    const size = 6 + Math.random() * 8;
+
+    piece.style.cssText = `
+      left: ${leftPos}%;
+      width: ${size}px;
+      height: ${size * 0.6}px;
+      background: ${color};
+      --confetti-duration: ${duration}s;
+      --confetti-delay: ${delay}s;
+      border-radius: ${Math.random() > 0.5 ? "50%" : "2px"};
+    `;
+    containerEl.appendChild(piece);
+  }
+
+  // Cleanup after animations
+  setTimeout(() => {
+    if (containerEl) containerEl.innerHTML = "";
+  }, 4000);
+}
+
 export function RouletteView({
   initialTasks,
   catalogSuggestions,
@@ -78,6 +114,7 @@ export function RouletteView({
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const confettiRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
 
   // Close dropdown on click outside
@@ -165,14 +202,13 @@ export function RouletteView({
   const handleInputChange = useCallback((value: string) => {
     setSearchText(value);
     setIsDropdownOpen(true);
-    // Clear current selection when typing
     setTaskSelection(null);
     setPhase("idle");
     setWinnerIndex(-1);
     setEligibleMembers([]);
   }, []);
 
-  // Client-side spin — no API call
+  // Client-side spin — triggered from wheel center button
   const handleSpin = useCallback(() => {
     if (!taskSelection || eligibleMembers.length < 2) return;
 
@@ -185,6 +221,7 @@ export function RouletteView({
   const handleSpinComplete = useCallback(() => {
     setPhase("result");
     setIsDialogOpen(true);
+    spawnConfetti(confettiRef.current);
   }, []);
 
   // Confirm assignment via API
@@ -260,29 +297,32 @@ export function RouletteView({
         frequency: taskSelection.suggestion.frequency,
       });
     }
-    return 10; // Custom tasks: weight 1 × ONCE multiplier 1 × 10
+    return 10;
   })();
 
-  const isSpinDisabled = phase !== "ready";
+  const canSpin = phase === "ready" && !!taskSelection && eligibleMembers.length >= 2;
 
   return (
-    <div className="space-y-6">
+    <div className={spacing.contentStackWide}>
+      {/* Confetti container (portal-like, fixed positioned pieces) */}
+      <div ref={confettiRef} aria-hidden="true" />
+
       {/* Header */}
-      <div className="mb-6 sm:mb-8">
+      <div className={spacing.pageHeader}>
         <BackButton />
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
-          <Dices className="h-6 w-6 text-primary shrink-0" />
+          <Dices className={`${iconSize.xl} text-primary shrink-0`} />
           Ruleta de tareas
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Elegí una tarea y girá la ruleta para asignarla al azar
+          Elegí una tarea y tocá el centro de la ruleta para girar
         </p>
       </div>
 
       {/* Task Combobox */}
       <div className="relative mx-auto max-w-sm" ref={dropdownRef}>
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <Search className={`${iconSize.md} absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none`} />
           <Input
             ref={inputRef}
             placeholder="Buscar o crear tarea..."
@@ -314,7 +354,7 @@ export function RouletteView({
               >
                 <span className="truncate font-medium">{task.name}</span>
                 <Badge variant="secondary" className="ml-2 shrink-0 gap-0.5 text-xs">
-                  <Star className="h-3 w-3 text-yellow-500" />
+                  <Star className={`${iconSize.xs} text-yellow-500`} />
                   {calculatePoints({ weight: task.weight, frequency: task.frequency })}
                 </Badge>
               </button>
@@ -325,7 +365,7 @@ export function RouletteView({
               <>
                 {filteredTasks.length > 0 && (
                   <div className="flex items-center gap-2 border-t border-border/50 px-4 py-2">
-                    <BookOpen className="h-3 w-3 text-muted-foreground" />
+                    <BookOpen className={`${iconSize.xs} text-muted-foreground`} />
                     <span className="text-xs text-muted-foreground">Sugerencias</span>
                   </div>
                 )}
@@ -340,7 +380,7 @@ export function RouletteView({
                   >
                     <span className="truncate text-muted-foreground">{suggestion.name}</span>
                     <Badge variant="secondary" className="ml-2 shrink-0 gap-0.5 text-xs">
-                      <Star className="h-3 w-3 text-yellow-500" />
+                      <Star className={`${iconSize.xs} text-yellow-500`} />
                       {calculatePoints({ weight: suggestion.weight, frequency: suggestion.frequency })}
                     </Badge>
                   </button>
@@ -360,7 +400,7 @@ export function RouletteView({
                   })
                 }
               >
-                <Plus className="h-4 w-4 shrink-0" />
+                <Plus className={`${iconSize.md} shrink-0`} />
                 <span>
                   Crear: <span className="font-medium">{searchText.trim()}</span>
                 </span>
@@ -374,7 +414,7 @@ export function RouletteView({
       {taskSelection && (
         <div className="flex justify-center">
           <Badge variant="secondary" className="gap-1">
-            <Star className="h-3 w-3 text-yellow-500" />
+            <Star className={`${iconSize.xs} text-yellow-500`} />
             {pointsPreview} XP
             {taskSelection.type === "catalog" && (
               <span className="text-muted-foreground ml-1">(sugerencia)</span>
@@ -386,47 +426,39 @@ export function RouletteView({
         </div>
       )}
 
-      {/* Wheel */}
+      {/* Wheel — now includes the spin button in center */}
       <RouletteWheel
         members={!taskSelection ? initialMembers : eligibleMembers}
         isSpinning={phase === "spinning"}
         winnerIndex={winnerIndex}
         onSpinComplete={handleSpinComplete}
+        onSpin={handleSpin}
+        canSpin={canSpin}
       />
 
-      {/* Action buttons */}
-      <div className="flex justify-center">
-        {phase === "ready" && (
-          <Button
-            size="lg"
-            className="rounded-full px-8 text-lg"
-            onClick={handleSpin}
-            disabled={isSpinDisabled}
-          >
-            <Sparkles className="mr-2 h-5 w-5" />
-            Girar
-          </Button>
-        )}
-        {phase === "loading-members" && (
-          <Button size="lg" className="rounded-full px-8" disabled>
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Cargando...
-          </Button>
-        )}
-        {phase === "spinning" && (
-          <Button size="lg" className="rounded-full px-8" disabled>
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Girando...
-          </Button>
-        )}
-      </div>
+      {/* Loading indicator (replaces old separate button) */}
+      {phase === "loading-members" && (
+        <div className="flex justify-center">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className={`${iconSize.md} animate-spin`} />
+            Cargando miembros...
+          </div>
+        </div>
+      )}
+
+      {/* Hint text when ready */}
+      {phase === "ready" && (
+        <p className="text-center text-sm text-muted-foreground animate-fade-in">
+          Tocá el centro de la ruleta para girar
+        </p>
+      )}
 
       {/* Assigned success card */}
       {phase === "assigned" && winner && (
         <Card className="animate-fade-in mx-auto max-w-sm border-2 border-green-500/30">
-          <CardContent className="space-y-4 py-6 text-center">
+          <CardContent className={`${spacing.contentStack} py-6 text-center`}>
             <div className="flex items-center justify-center gap-2 text-green-600">
-              <CheckCircle className="h-5 w-5" />
+              <CheckCircle className={iconSize.lg} />
               <span className="font-medium">Asignación creada para hoy</span>
             </div>
             <div>

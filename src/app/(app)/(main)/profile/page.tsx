@@ -5,6 +5,7 @@ import { levelProgress } from "@/lib/points";
 import { ProfileSettings } from "@/components/features/profile-settings";
 import { SignOutButton } from "@/components/features/sign-out-button";
 import { ChevronRight } from "lucide-react";
+import { statCardColors, spacing, iconSize, radius } from "@/lib/design-tokens";
 import Link from "next/link";
 
 export default async function ProfilePage() {
@@ -46,13 +47,13 @@ export default async function ProfilePage() {
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
       {/* Header */}
-      <h1 className="mb-6 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+      <h1 className={`${spacing.pageHeader} text-2xl font-bold tracking-tight text-foreground sm:text-3xl`}>
         Mi Perfil
       </h1>
 
       {/* Score + Stats: two columns on desktop */}
-      <div className="mb-8 grid gap-6 md:grid-cols-2">
-        <div className="relative flex h-[164px] flex-col justify-between overflow-hidden rounded-[10px] bg-[#5260fe] p-5">
+      <div className={`${spacing.sectionGapLg} grid gap-6 md:grid-cols-2`}>
+        <div className={`relative flex h-[164px] flex-col justify-between overflow-hidden ${radius.cardCompact} ${statCardColors.primary.bg} p-5`}>
           <p className="text-sm font-medium text-white/80">Puntaje Total</p>
           <p className="self-end text-8xl font-bold leading-none text-white">
             {points}
@@ -61,12 +62,12 @@ export default async function ProfilePage() {
         <div>
           <h2 className="mb-2 text-2xl font-bold text-foreground">Estadísticas</h2>
           <div className="flex gap-2">
-            <div className="flex h-[130px] flex-1 flex-col justify-between rounded-[10px] bg-[#d0b6ff] p-4">
-              <p className="text-xs font-semibold text-[#522a97]">Completadas</p>
-              <p className="text-4xl font-bold text-[#522a97]">{completedTasks}</p>
+            <div className={`flex h-[130px] flex-1 flex-col justify-between ${radius.cardCompact} ${statCardColors.purple.bg} p-4`}>
+              <p className={`text-xs font-semibold ${statCardColors.purple.text}`}>Completadas</p>
+              <p className={`text-4xl font-bold ${statCardColors.purple.text}`}>{completedTasks}</p>
             </div>
-            <div className="flex h-[130px] flex-1 flex-col justify-between rounded-[10px] bg-[#fd7c52] p-4">
-              <p className="text-xs font-semibold text-[#fed9cb]">Progreso</p>
+            <div className={`flex h-[130px] flex-1 flex-col justify-between ${radius.cardCompact} ${statCardColors.orange.bg} p-4`}>
+              <p className="text-xs font-semibold text-brand-peach">Progreso</p>
               <p className="text-4xl font-bold text-white">{progress}%</p>
             </div>
           </div>
@@ -74,19 +75,19 @@ export default async function ProfilePage() {
       </div>
 
       {/* Mi Hogar Section */}
-      <div className="mb-6">
+      <div className={spacing.sectionGap}>
         <h2 className="mb-2 text-2xl font-bold text-foreground">Mi Hogar</h2>
         <Link
           href="/dashboard"
           className="flex items-center justify-between gap-2 rounded-2xl bg-white p-4 shadow-sm"
         >
           <span className="min-w-0 truncate font-medium text-foreground">{member.household.name}</span>
-          <ChevronRight className="size-5 shrink-0 text-primary" />
+          <ChevronRight className={`${iconSize.lg} shrink-0 text-primary`} />
         </Link>
       </div>
 
       {/* Settings (edit name, household, invite code, members list) */}
-      <div className="mb-6">
+      <div className={spacing.sectionGap}>
         <ProfileSettings
           memberName={member.name}
           householdName={member.household.name}

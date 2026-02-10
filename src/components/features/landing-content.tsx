@@ -23,7 +23,7 @@ export function LandingContent() {
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="container flex min-h-[60vh] flex-col items-center justify-center px-4 py-12 text-center sm:min-h-[65vh] sm:py-20">
-          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-[#e4d5ff] sm:h-24 sm:w-24">
+          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-brand-lavender-light sm:h-24 sm:w-24">
             <span className="text-5xl sm:text-6xl">🏠</span>
           </div>
           <h1 className="mb-3 text-4xl font-bold tracking-tight text-foreground sm:mb-4 sm:text-5xl lg:text-6xl">
@@ -57,32 +57,32 @@ export function LandingContent() {
                 icon={<Scale className="h-7 w-7" />}
                 title="Asignación justa"
                 description="Un algoritmo distribuye las tareas según disponibilidad, preferencias y carga actual. Nadie elige, todos colaboran."
-                bg="bg-[#d2ffa0]/50"
-                iconBg="bg-[#d2ffa0]"
+                bg="bg-brand-lime/50"
+                iconBg="bg-brand-lime"
               />
               <FeatureCard
                 index={1}
                 icon={<Brain className="h-7 w-7" />}
                 title="Plan semanal con IA"
                 description="Generá el plan de la semana en 2 minutos. La IA distribuye las tareas automáticamente."
-                bg="bg-[#e4d5ff]/50"
-                iconBg="bg-[#d0b6ff]"
+                bg="bg-brand-lavender-light/50"
+                iconBg="bg-brand-lavender"
               />
               <FeatureCard
                 index={2}
                 icon={<Trophy className="h-7 w-7" />}
                 title="XP, niveles y recompensas"
                 description="Cada tarea suma XP. Subí de nivel, desbloqueá logros y canjeá recompensas reales."
-                bg="bg-[#fff0d7]/60"
-                iconBg="bg-[#ffe8c3]"
+                bg="bg-brand-cream/60"
+                iconBg="bg-brand-tan"
               />
               <FeatureCard
                 index={3}
                 icon={<MessageCircle className="h-7 w-7" />}
                 title="WhatsApp integrado"
                 description="Recibí recordatorios y completá tareas directo desde WhatsApp, sin abrir la app."
-                bg="bg-[#e4d5ff]/40"
-                iconBg="bg-[#e4d5ff]"
+                bg="bg-brand-lavender-light/40"
+                iconBg="bg-brand-lavender-light"
               />
             </div>
           </div>
@@ -98,7 +98,7 @@ export function LandingContent() {
             </h2>
             <div className="relative grid gap-8 sm:grid-cols-3 sm:gap-6">
               {/* Dotted connector line (desktop only) */}
-              <div className="absolute left-[16.67%] right-[16.67%] top-10 hidden border-t-2 border-dashed border-[#d0b6ff]/50 sm:block" />
+              <div className="absolute left-[16.67%] right-[16.67%] top-10 hidden border-t-2 border-dashed border-brand-lavender/50 sm:block" />
 
               <StepCard
                 index={0}
@@ -106,7 +106,7 @@ export function LandingContent() {
                 icon={<Home className="h-6 w-6" />}
                 title="Creá tu hogar"
                 description="Registrate gratis y creá tu grupo familiar en segundos."
-                bg="bg-[#e4d5ff]"
+                bg="bg-brand-lavender-light"
               />
               <StepCard
                 index={1}
@@ -114,7 +114,7 @@ export function LandingContent() {
                 icon={<ClipboardList className="h-6 w-6" />}
                 title="Agregá tareas"
                 description="Elegí del catálogo o creá las tuyas. Configurá frecuencia y listo."
-                bg="bg-[#d2ffa0]"
+                bg="bg-brand-lime"
               />
               <StepCard
                 index={2}
@@ -122,7 +122,7 @@ export function LandingContent() {
                 icon={<Trophy className="h-6 w-6" />}
                 title="Habita hace el resto"
                 description="Asigna tareas con IA, reparte XP y motiva a toda la familia."
-                bg="bg-[#fff0d7]"
+                bg="bg-brand-cream"
               />
             </div>
           </div>
@@ -135,7 +135,7 @@ export function LandingContent() {
           <div className="container px-4">
             <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-12">
               <div>
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#e4d5ff] px-4 py-2 text-sm font-semibold text-[#522a97]">
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-brand-lavender-light px-4 py-2 text-sm font-semibold text-brand-purple-dark">
                   <Sparkles className="h-4 w-4" />
                   Modo niños
                 </div>
@@ -150,24 +150,24 @@ export function LandingContent() {
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 shrink-0 text-[#7aa649]" />
+                    <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-success-dark" />
                     <span>Interfaz divertida para niños</span>
                   </li>
                   <li className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 shrink-0 text-[#7aa649]" />
+                    <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-success-dark" />
                     <span>Verificación parental de tareas</span>
                   </li>
                   <li className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 shrink-0 text-[#7aa649]" />
+                    <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-success-dark" />
                     <span>Recompensas personalizables</span>
                   </li>
                 </ul>
               </div>
-              <div className="rounded-2xl bg-[#e4d5ff]/40 p-6 sm:p-8">
+              <div className="rounded-2xl bg-brand-lavender-light/40 p-6 sm:p-8">
                 <div className="space-y-3">
                   <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#d2ffa0]">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-lime">
                         <span className="text-xl">🧹</span>
                       </div>
                       <div>
@@ -180,7 +180,7 @@ export function LandingContent() {
                   </div>
                   <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#fff0d7]">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-cream">
                         <span className="text-xl">🍽️</span>
                       </div>
                       <div>
@@ -212,7 +212,7 @@ export function LandingContent() {
                 name="Martín"
                 role="Papá de 2"
                 emoji="🧔"
-                bg="bg-[#e4d5ff]/30"
+                bg="bg-brand-lavender-light/30"
               />
               <TestimonialCard
                 index={1}
@@ -220,7 +220,7 @@ export function LandingContent() {
                 name="Laura"
                 role="Mamá de 3"
                 emoji="👩"
-                bg="bg-[#d2ffa0]/30"
+                bg="bg-brand-lime/30"
               />
               <TestimonialCard
                 index={2}
@@ -228,7 +228,7 @@ export function LandingContent() {
                 name="Nico"
                 role="26 años"
                 emoji="😎"
-                bg="bg-[#fff0d7]/40"
+                bg="bg-brand-cream/40"
               />
             </div>
           </div>
@@ -439,7 +439,7 @@ function FAQAccordion() {
         const isOpen = openIndex === index;
 
         return (
-          <div key={index} className="rounded-2xl bg-[#e4d5ff]/20">
+          <div key={index} className="rounded-2xl bg-brand-lavender-light/20">
             <button
               type="button"
               onClick={() => setOpenIndex(isOpen ? null : index)}

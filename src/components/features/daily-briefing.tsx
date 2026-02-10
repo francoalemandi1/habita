@@ -2,6 +2,7 @@
 
 import { CheckCircle2, ListTodo, Lightbulb } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { spacing, iconSize } from "@/lib/design-tokens";
 
 interface DailyBriefingProps {
   greeting: string;
@@ -28,13 +29,13 @@ export function DailyBriefing({
     <Card>
       <CardContent className="pt-4 pb-4 sm:pt-6 sm:pb-6">
         <p className="mb-3 text-sm font-semibold">{greeting}</p>
-        <div className="space-y-2">
+        <div className={spacing.contentStackTight}>
           {lines.map((line, index) => {
             const config = LINES_CONFIG[index]!;
             const Icon = config.icon;
             return (
               <div key={index} className="flex items-start gap-3">
-                <Icon className={`h-4 w-4 shrink-0 mt-0.5 ${config.color}`} />
+                <Icon className={`${iconSize.md} shrink-0 mt-0.5 ${config.color}`} />
                 <p className="text-sm leading-relaxed text-muted-foreground">{line}</p>
               </div>
             );

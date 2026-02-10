@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { PendingVerifications } from "@/components/features/pending-verifications";
 import { KidsSummary } from "@/components/features/kids-summary";
 import { Shield, Users, CheckCircle, AlertTriangle } from "lucide-react";
+import { spacing } from "@/lib/design-tokens";
 
 export default async function ParentalPage() {
   const member = await getCurrentMember();
@@ -76,7 +77,7 @@ export default async function ParentalPage() {
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <div className="mb-8">
+      <div className={spacing.pageHeader}>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-3xl">
           <Shield className="h-7 w-7" />
           Control parental
@@ -87,7 +88,7 @@ export default async function ParentalPage() {
       </div>
 
       {/* Summary Stats */}
-      <div className="mb-8 grid gap-4 sm:grid-cols-4">
+      <div className={`${spacing.sectionGapLg} grid gap-4 sm:grid-cols-4`}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Niños/Teens</CardTitle>
@@ -131,7 +132,7 @@ export default async function ParentalPage() {
 
       {/* Pending Verifications */}
       {pendingVerification.length > 0 && (
-        <section className="mb-8">
+        <section className={spacing.sectionGapLg}>
           <h2 className="mb-4 text-xl font-semibold">Tareas por verificar</h2>
           <PendingVerifications assignments={pendingVerification} />
         </section>

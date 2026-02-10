@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { durationLabel } from "@/lib/plan-duration";
+import { spacing } from "@/lib/design-tokens";
 
 import type { MemberType, WeeklyPlanStatus } from "@prisma/client";
 
@@ -143,7 +144,7 @@ export default async function PlansPage() {
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
       {/* Header */}
-      <div className="mb-8">
+      <div className={spacing.pageHeader}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
@@ -167,7 +168,7 @@ export default async function PlansPage() {
 
       {/* Active plan */}
       {activePlan && (
-        <div className="mb-8">
+        <div className={spacing.sectionGapLg}>
           <h2 className="text-sm font-medium text-muted-foreground mb-3">Plan en curso</h2>
           <ActivePlanCard plan={activePlan} />
         </div>

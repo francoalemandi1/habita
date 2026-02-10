@@ -6,6 +6,7 @@ import { MyAssignmentsList } from "@/components/features/my-assignments-list";
 import { PendingTransfers } from "@/components/features/pending-transfers";
 import { WeeklyCelebrationWrapper } from "@/components/features/weekly-celebration-wrapper";
 import { ClipboardList } from "lucide-react";
+import { spacing } from "@/lib/design-tokens";
 
 export default async function MyTasksPage() {
   const member = await getCurrentMember();
@@ -24,7 +25,10 @@ export default async function MyTasksPage() {
   const startOfLastWeek = new Date(startOfWeek);
   startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
 
-  const [assignments, completedToday, completedThisWeek, totalCompleted, transfers, householdMembers, completedLastWeek] = await Promise.all([
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [assignments, completedTodayAssignments, completedToday, completedThisWeek, totalCompleted, transfers, householdMembers, completedLastWeek] = await Promise.all([
     prisma.assignment.findMany({
       where: {
         memberId: member.id,
@@ -53,6 +57,28 @@ export default async function MyTasksPage() {
       },
       orderBy: {
         dueDate: "asc",
+      },
+    }),
+    prisma.assignment.findMany({
+      where: {
+        memberId: member.id,
+        status: { in: ["COMPLETED", "VERIFIED"] },
+        completedAt: { gte: todayStart },
+      },
+      include: {
+        task: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            weight: true,
+            frequency: true,
+            estimatedMinutes: true,
+          },
+        },
+      },
+      orderBy: {
+        completedAt: "desc",
       },
     }),
     prisma.assignment.count({
@@ -134,7 +160,7 @@ export default async function MyTasksPage() {
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <div className="mb-6 sm:mb-8">
+      <div className={spacing.pageHeader}>
         <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl flex items-center gap-2">
           <ClipboardList className="h-6 w-6 text-primary shrink-0" />
           Mis tareas
@@ -151,7 +177,7 @@ export default async function MyTasksPage() {
 
       {/* Celebration when all tasks complete */}
       {showCelebration && (
-        <div className="mb-8">
+        <div className={spacing.sectionGapLg}>
           <WeeklyCelebrationWrapper
             weeklyCompleted={completedThisWeek}
             totalCompleted={totalCompleted}
@@ -160,12 +186,13 @@ export default async function MyTasksPage() {
       )}
 
       {/* Pending Transfers */}
-      <div className="mb-8">
+      <div className={spacing.sectionGapLg}>
         <PendingTransfers transfers={transfers} currentMemberId={member.id} />
       </div>
 
       <MyAssignmentsList
         assignments={assignments}
+        completedAssignments={completedTodayAssignments}
         members={householdMembers}
         currentMemberId={member.id}
         completedToday={completedToday}

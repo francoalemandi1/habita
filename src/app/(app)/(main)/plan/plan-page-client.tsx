@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 import { Input } from "@/components/ui/input";
+import { spacing, cyclingColors, contrastText } from "@/lib/design-tokens";
 import {
   CheckCircle2,
   XCircle,
@@ -22,8 +23,9 @@ import {
   CalendarDays,
   History,
   X,
-  Repeat,
   Trash2,
+  ListTodo,
+  Timer,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -35,17 +37,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { DURATION_PRESETS, durationLabel } from "@/lib/plan-duration";
 import { TaskCatalogPicker } from "@/components/features/task-catalog-picker";
 import { BackButton } from "@/components/ui/back-button";
+import { Card, CardContent } from "@/components/ui/card";
+import { getTaskIcon, getTaskCategoryMeta } from "@/data/onboarding-catalog";
 
 import type { MemberType, WeeklyPlanStatus, TaskFrequency } from "@prisma/client";
 import type { ExcludedTask } from "@/lib/plan-duration";
@@ -168,6 +165,17 @@ function getScoreBgColor(score: number): string {
   return "bg-red-500";
 }
 
+/** Returns a stable color for a member based on their position in the members list */
+function getMemberColor(memberId: string, allMembers: { id: string }[]): string {
+  const index = allMembers.findIndex((m) => m.id === memberId);
+  const safeIndex = index === -1 ? 0 : index;
+  return cyclingColors[safeIndex % cyclingColors.length]!;
+}
+
+function getInitial(name: string): string {
+  return (name[0] ?? "?").toUpperCase();
+}
+
 export function PlanPageClient({
   householdId,
   members,
@@ -187,15 +195,36 @@ export function PlanPageClient({
   const [isRegenerateDialogOpen, setIsRegenerateDialogOpen] = useState(false);
   const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false);
   const [isDiscarding, setIsDiscarding] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<{ taskName: string; memberId: string; memberName: string; dayOfWeek?: number } | null>(null);
   const [customDurationInput, setCustomDurationInput] = useState("");
   const [fairnessDetails, setFairnessDetails] = useState<{
     adultDistribution: Record<string, number>;
     isSymmetric: boolean;
     maxDifference: number;
   } | null>(null);
-
   const router = useRouter();
   const toast = useToast();
+
+  const categorizedTasks = useMemo(
+    () => {
+      const groups = new Map<string, { label: string; icon: string; tasks: TaskSummary[] }>();
+
+      for (const task of tasks) {
+        const meta = getTaskCategoryMeta(task.name);
+        const key = meta.label;
+        const existing = groups.get(key);
+
+        if (existing) {
+          existing.tasks.push(task);
+        } else {
+          groups.set(key, { label: meta.label, icon: meta.icon, tasks: [task] });
+        }
+      }
+
+      return Array.from(groups.values());
+    },
+    [tasks],
+  );
 
   const handleGeneratePlan = useCallback(async () => {
     setIsGenerating(true);
@@ -450,90 +479,6 @@ export function PlanPageClient({
     [plan, router, toast]
   );
 
-  const handleReassign = useCallback(
-    async (taskName: string, oldMemberId: string, newMemberId: string, dayOfWeek?: number) => {
-      if (!plan || oldMemberId === newMemberId) return;
-
-      const newMember = members.find((m) => m.id === newMemberId);
-      if (!newMember) return;
-
-      if (plan.status === "PENDING") {
-        let reassigned = false;
-        setPlan((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            assignments: prev.assignments.map((a) => {
-              if (a.taskName === taskName && a.memberId === oldMemberId && a.dayOfWeek === dayOfWeek && !reassigned) {
-                reassigned = true;
-                return {
-                  ...a,
-                  memberId: newMemberId,
-                  memberName: newMember.name,
-                  memberType: newMember.type,
-                  reason: `Reasignada manualmente`,
-                };
-              }
-              return a;
-            }),
-          };
-        });
-        setSelectedAssignments((prev) => {
-          const next = new Set(prev);
-          const oldKey = assignmentKey({ taskName, memberId: oldMemberId, dayOfWeek });
-          const wasSelected = next.has(oldKey);
-          next.delete(oldKey);
-          if (wasSelected) {
-            next.add(assignmentKey({ taskName, memberId: newMemberId, dayOfWeek }));
-          }
-          return next;
-        });
-        toast.success("Reasignada", `${taskName} ahora es de ${newMember.name}`);
-        return;
-      }
-
-      // APPLIED plan — call API
-      try {
-        const response = await fetch(`/api/plans/${plan.id}/assignments`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "reassign",
-            taskName,
-            memberId: oldMemberId,
-            newMemberId,
-          }),
-        });
-
-        if (!response.ok) throw new Error("Failed to reassign");
-
-        setPlan((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            assignments: prev.assignments.map((a) => {
-              if (a.taskName === taskName && a.memberId === oldMemberId) {
-                return {
-                  ...a,
-                  memberId: newMemberId,
-                  memberName: newMember.name,
-                  memberType: newMember.type,
-                  reason: `Reasignada manualmente`,
-                };
-              }
-              return a;
-            }),
-          };
-        });
-        toast.success("Reasignada", `${taskName} ahora es de ${newMember.name}`);
-        router.refresh();
-      } catch {
-        toast.error("Error", "No se pudo reasignar la tarea");
-      }
-    },
-    [plan, members, router, toast]
-  );
-
   // Group assignments by memberId
   const assignmentsByMember = new Map<string, PlanAssignment[]>();
   if (plan) {
@@ -573,7 +518,7 @@ export function PlanPageClient({
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
       {/* Header */}
-      <div className="mb-6 sm:mb-8">
+      <div className={spacing.pageHeader}>
         <BackButton />
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -634,141 +579,186 @@ export function PlanPageClient({
       {!plan && !isGenerating && (
         <div className="space-y-6">
           {/* Tasks that will be distributed */}
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold">Tareas a distribuir</h3>
-              <p className="text-sm text-muted-foreground">
-                {tasks.length} tareas serán asignadas equitativamente entre {members.length} {members.length === 1 ? "miembro" : "miembros"}
-              </p>
-            </div>
-            {tasks.length === 0 ? (
-              <div className="text-sm text-muted-foreground text-center py-4 space-y-3">
-                <p>No hay tareas activas en tu hogar.</p>
-                <TaskCatalogPicker
-                  existingTaskNames={[]}
-                  onTasksCreated={() => router.refresh()}
-                />
-              </div>
-            ) : (
-              <>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex flex-col gap-2 rounded-2xl bg-muted/30 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <span className="min-w-0 truncate text-sm font-medium">{task.name}</span>
-                      <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {FREQUENCY_LABELS[task.frequency]}
-                        </Badge>
-                        {task.estimatedMinutes && (
-                          <Badge variant="secondary" className="text-xs">
-                            {task.estimatedMinutes} min
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+          <Card className="border-primary/15 bg-primary/3 shadow-sm">
+            <CardContent className="pt-5 pb-5 sm:pt-6 sm:pb-6">
+              <div className="mb-4 flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                  <ListTodo className="h-5 w-5 text-primary" />
                 </div>
-                <div className="mt-3">
+                <div className="min-w-0">
+                  <h3 className="text-lg font-semibold">Tareas a distribuir</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {tasks.length} tareas serán asignadas equitativamente entre {members.length} {members.length === 1 ? "miembro" : "miembros"}
+                  </p>
+                </div>
+              </div>
+              {tasks.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-primary/20 bg-primary/5 py-6 text-center">
+                  <ListTodo className="mx-auto h-8 w-8 text-primary/40 mb-2" />
+                  <p className="text-sm text-muted-foreground mb-3">No hay tareas activas en tu hogar.</p>
                   <TaskCatalogPicker
-                    existingTaskNames={tasks.map((t) => t.name)}
+                    existingTaskNames={[]}
                     onTasksCreated={() => router.refresh()}
                   />
                 </div>
-              </>
-            )}
-          </div>
+              ) : (
+                <>
+                  <div className="space-y-4">
+                    {categorizedTasks.map((group) => (
+                      <div key={group.label}>
+                        <div className="mb-2 flex items-center gap-2">
+                          <span className="text-xl leading-none">{group.icon}</span>
+                          <p className="text-sm font-semibold">
+                            {group.label}
+                            <span className="ml-1 text-xs font-normal text-muted-foreground">
+                              ({group.tasks.length} {group.tasks.length === 1 ? "tarea" : "tareas"})
+                            </span>
+                          </p>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {group.tasks.map((task) => (
+                            <div
+                              key={task.id}
+                              className="flex items-center gap-3 rounded-xl border border-primary/10 bg-white px-3 py-2.5 shadow-sm sm:justify-between"
+                            >
+                              <div className="flex min-w-0 flex-1 items-center gap-3">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-lg leading-none">
+                                  {getTaskIcon(task.name)}
+                                </div>
+                                <span className="min-w-0 truncate text-sm font-medium">{task.name}</span>
+                              </div>
+                              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                                <Badge variant="outline" className="text-xs">
+                                  {FREQUENCY_LABELS[task.frequency]}
+                                </Badge>
+                                {task.estimatedMinutes != null && (
+                                  <Badge variant="secondary" className="text-xs gap-0.5">
+                                    <Timer className="h-3 w-3" />
+                                    {task.estimatedMinutes} min
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4">
+                    <TaskCatalogPicker
+                      existingTaskNames={tasks.map((t) => t.name)}
+                      onTasksCreated={() => router.refresh()}
+                    />
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Members summary */}
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold">Miembros del hogar</h3>
-              <p className="text-sm text-muted-foreground">
-                El plan considerará el tipo y capacidad de cada miembro
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              {members.map((m) => (
-                <div
-                  key={m.id}
-                  className="flex items-center gap-2 rounded-2xl bg-muted/30 px-3 py-2"
-                >
-                  {MEMBER_TYPE_ICONS[m.type]}
-                  <span className="font-medium">{m.name}</span>
-                  <Badge variant="outline" className="text-xs">
-                    {MEMBER_TYPE_LABELS[m.type]}
-                  </Badge>
+          <Card className="border-primary/15 bg-primary/3 shadow-sm">
+            <CardContent className="pt-5 pb-5 sm:pt-6 sm:pb-6">
+              <div className="mb-4 flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                  <Users className="h-5 w-5 text-primary" />
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="min-w-0">
+                  <h3 className="text-lg font-semibold">Miembros del hogar</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    El plan considerará el tipo y capacidad de cada miembro
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {members.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-2.5 rounded-xl border border-primary/10 bg-white px-3 py-2.5 shadow-sm"
+                  >
+                    {MEMBER_TYPE_ICONS[m.type]}
+                    <span className="font-medium">{m.name}</span>
+                    <Badge variant="outline" className="text-xs">
+                      {MEMBER_TYPE_LABELS[m.type]}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Duration selector */}
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold">Duración del plan</h3>
-              <p className="text-sm text-muted-foreground">
-                Las tareas con frecuencia mayor a la duración se excluirán automáticamente
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {DURATION_PRESETS.map((preset) => (
-                <Button
-                  key={preset.days}
-                  variant={durationDays === preset.days && !customDurationInput ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    setDurationDays(preset.days);
-                    setCustomDurationInput("");
-                  }}
-                >
-                  {preset.label}
-                </Button>
-              ))}
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="number"
-                  min={1}
-                  max={30}
-                  placeholder="Días"
-                  value={customDurationInput}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setCustomDurationInput(value);
-                    const parsed = parseInt(value, 10);
-                    if (parsed >= 1 && parsed <= 30) {
-                      setDurationDays(parsed);
-                    }
-                  }}
-                  className="h-8 w-20 text-sm"
-                />
-                <span className="text-sm text-muted-foreground">días</span>
+          <Card className="border-primary/15 bg-primary/3 shadow-sm">
+            <CardContent className="pt-5 pb-5 sm:pt-6 sm:pb-6">
+              <div className="mb-4 flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                  <Clock className="h-5 w-5 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-lg font-semibold">Duración del plan</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Las tareas con frecuencia mayor a la duración se excluirán automáticamente
+                  </p>
+                </div>
               </div>
-            </div>
-          </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {DURATION_PRESETS.map((preset) => (
+                  <Button
+                    key={preset.days}
+                    variant={durationDays === preset.days && !customDurationInput ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setDurationDays(preset.days);
+                      setCustomDurationInput("");
+                    }}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={30}
+                    placeholder="Días"
+                    value={customDurationInput}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setCustomDurationInput(value);
+                      const parsed = parseInt(value, 10);
+                      if (parsed >= 1 && parsed <= 30) {
+                        setDurationDays(parsed);
+                      }
+                    }}
+                    className="h-8 w-20 text-sm"
+                  />
+                  <span className="text-sm text-muted-foreground">días</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Generate button */}
-          <div className="rounded-2xl bg-primary/5 p-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div>
-                <p className="font-medium">¿Listo para distribuir?</p>
-                <p className="text-sm text-muted-foreground">
-                  Se generará un plan de {durationLabel(durationDays)} para tu hogar
-                </p>
+          <Card className="border-primary/20 bg-primary/5 shadow-sm">
+            <CardContent className="flex min-h-[100px] items-center py-6">
+              <div className="flex w-full flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <p className="font-medium">¿Listo para distribuir?</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Se generará un plan de {durationLabel(durationDays)} para tu hogar
+                  </p>
+                </div>
+                <Button
+                  onClick={handleGeneratePlan}
+                  disabled={isGenerating || tasks.length === 0}
+                  className="gap-2 sm:shrink-0"
+                  size="lg"
+                >
+                  <CalendarDays className="h-5 w-5" />
+                  Generar plan
+                </Button>
               </div>
-              <Button
-                onClick={handleGeneratePlan}
-                disabled={isGenerating || tasks.length === 0}
-                className="gap-2"
-                size="lg"
-              >
-                <CalendarDays className="h-5 w-5" />
-                Generar plan
-              </Button>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -921,36 +911,28 @@ export function PlanPageClient({
                                 onClick={() => toggleAssignment(assignment.taskName, assignment.memberId, assignment.dayOfWeek)}
                               >
                                 <p className="font-medium truncate">{assignment.taskName}</p>
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {assignment.memberName}
-                                </p>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span
+                                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[8px] font-bold leading-none"
+                                    style={{
+                                      backgroundColor: getMemberColor(assignment.memberId, members),
+                                      color: contrastText(getMemberColor(assignment.memberId, members)),
+                                    }}
+                                  >
+                                    {getInitial(assignment.memberName)}
+                                  </span>
+                                  <span className="text-xs font-medium truncate" style={{ color: getMemberColor(assignment.memberId, members) }}>
+                                    {assignment.memberName.split(" ")[0] ?? assignment.memberName}
+                                  </span>
+                                </div>
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
-                                <Select
-                                  value=""
-                                  onValueChange={(newMemberId) =>
-                                    handleReassign(assignment.taskName, assignment.memberId, newMemberId, assignment.dayOfWeek)
-                                  }
-                                >
-                                  <SelectTrigger className="h-8 w-8 border-0 p-0 shadow-none [&>svg]:hidden">
-                                    <Repeat className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {members
-                                      .filter((m) => m.id !== assignment.memberId)
-                                      .map((m) => (
-                                        <SelectItem key={m.id} value={m.id}>
-                                          {m.name}
-                                        </SelectItem>
-                                      ))}
-                                  </SelectContent>
-                                </Select>
                                 <button
                                   type="button"
                                   className="rounded-sm p-1 text-muted-foreground hover:text-destructive"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleRemoveFromPlan(assignment.taskName, assignment.memberId, assignment.dayOfWeek);
+                                    setRemoveTarget({ taskName: assignment.taskName, memberId: assignment.memberId, memberName: assignment.memberName, dayOfWeek: assignment.dayOfWeek });
                                   }}
                                 >
                                   <X className="h-4 w-4" />
@@ -1015,31 +997,12 @@ export function PlanPageClient({
                                 <p className="font-medium truncate">{assignment.taskName}</p>
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
-                                <Select
-                                  value=""
-                                  onValueChange={(newMemberId) =>
-                                    handleReassign(assignment.taskName, memberId, newMemberId)
-                                  }
-                                >
-                                  <SelectTrigger className="h-8 w-8 border-0 p-0 shadow-none [&>svg]:hidden">
-                                    <Repeat className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {members
-                                      .filter((m) => m.id !== memberId)
-                                      .map((m) => (
-                                        <SelectItem key={m.id} value={m.id}>
-                                          {m.name}
-                                        </SelectItem>
-                                      ))}
-                                  </SelectContent>
-                                </Select>
                                 <button
                                   type="button"
                                   className="rounded-sm p-1 text-muted-foreground hover:text-destructive"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleRemoveFromPlan(assignment.taskName, memberId);
+                                    setRemoveTarget({ taskName: assignment.taskName, memberId, memberName: displayName });
                                   }}
                                 >
                                   <X className="h-4 w-4" />
@@ -1205,6 +1168,35 @@ export function PlanPageClient({
               ) : (
                 "Descartar plan"
               )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Remove assignment confirmation dialog */}
+      <AlertDialog
+        open={removeTarget !== null}
+        onOpenChange={(open) => { if (!open) setRemoveTarget(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Quitar tarea del plan</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Quitar <span className="font-semibold">{removeTarget?.taskName}</span> asignada a {removeTarget?.memberName}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (removeTarget) {
+                  handleRemoveFromPlan(removeTarget.taskName, removeTarget.memberId, removeTarget.dayOfWeek);
+                  setRemoveTarget(null);
+                }
+              }}
+            >
+              Quitar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

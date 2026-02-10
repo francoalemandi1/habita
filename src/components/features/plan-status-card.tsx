@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { durationLabel } from "@/lib/plan-duration";
+import { spacing, iconSize } from "@/lib/design-tokens";
 
 import type { WeeklyPlanStatus, MemberType } from "@prisma/client";
 
@@ -142,14 +143,14 @@ export function PlanStatusCard({
     return null;
   }
 
-  // No plan exists - show prompt to generate
+  // No plan exists - show prompt to generate (card estática, CTA clara sin efectos que distraigan)
   if (!plan) {
     return (
-      <div className="rounded-2xl bg-primary/5 p-4 shadow-sm">
+      <div className={`rounded-2xl border border-primary/15 bg-primary/5 ${spacing.cardPaddingCompact} shadow-sm transition-colors hover:border-primary/25 hover:bg-primary/[0.07]`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-start gap-3 sm:items-center">
             <div className="shrink-0 rounded-full bg-primary/10 p-2">
-              <CalendarDays className="h-5 w-5 text-primary" />
+              <CalendarDays className={`${iconSize.lg} text-primary`} />
             </div>
             <div className="min-w-0 flex-1">
               <p className="font-medium">Genera un plan de distribución</p>
@@ -158,10 +159,10 @@ export function PlanStatusCard({
               </p>
             </div>
           </div>
-          <Button asChild size="sm" className="w-full gap-2 sm:w-auto sm:shrink-0">
+          <Button asChild size="sm" className="w-full gap-2 sm:w-auto sm:shrink-0 animate-button-breathe">
             <Link href="/plan" className="inline-flex items-center justify-center gap-2">
               Generar
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className={iconSize.md} />
             </Link>
           </Button>
         </div>
@@ -176,11 +177,11 @@ export function PlanStatusCard({
     const taskCount = plan.assignments.length;
 
     return (
-      <div className="rounded-2xl bg-amber-50 p-4 shadow-sm dark:bg-amber-950">
+      <div className={`rounded-2xl bg-amber-50 ${spacing.cardPaddingCompact} shadow-sm dark:bg-amber-950`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-start gap-3 sm:items-center">
             <div className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-900 p-2">
-              <Clock className="h-5 w-5 text-amber-600" />
+              <Clock className={`${iconSize.lg} text-amber-600`} />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -192,7 +193,7 @@ export function PlanStatusCard({
                 </Badge>
               </div>
               <p className="mt-0.5 text-sm text-amber-600 dark:text-amber-400 flex flex-wrap items-center gap-1">
-                <Users className="h-3 w-3 shrink-0" />
+                <Users className={`${iconSize.xs} shrink-0`} />
                 {taskCount} tareas para {memberCount} miembros
               </p>
             </div>
@@ -200,7 +201,7 @@ export function PlanStatusCard({
           <Button asChild size="sm" variant="outline" className="w-full gap-2 sm:w-auto sm:shrink-0">
             <Link href="/plan" className="inline-flex items-center justify-center gap-2">
               Revisar
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className={iconSize.md} />
             </Link>
           </Button>
         </div>
@@ -211,17 +212,17 @@ export function PlanStatusCard({
   // All assignments completed — prompt to generate a new plan
   if (plan.status === "APPLIED" && allAssignmentsDone) {
     return (
-      <div className="rounded-2xl bg-[#d2ffa0] p-4 shadow-sm">
+      <div className={`rounded-2xl bg-brand-lime ${spacing.cardPaddingCompact} shadow-sm`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-start gap-3 sm:items-center">
-            <div className="shrink-0 rounded-full bg-[#7aa649]/20 p-2">
-              <CheckCheck className="h-5 w-5 text-[#7aa649]" />
+            <div className="shrink-0 rounded-full bg-brand-success-dark/20 p-2">
+              <CheckCheck className={`${iconSize.lg} text-brand-success-dark`} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="font-medium text-[#272727]">
+              <p className="font-medium text-foreground">
                 ¡Todas las tareas completadas!
               </p>
-              <p className="text-sm text-[#272727]/60">
+              <p className="text-sm text-foreground/60">
                 Al generar un nuevo plan se crearán recompensas por tu rendimiento
               </p>
             </div>
@@ -229,7 +230,7 @@ export function PlanStatusCard({
           <Button asChild size="sm" className="w-full gap-2 sm:w-auto sm:shrink-0">
             <Link href="/plan" className="inline-flex items-center justify-center gap-2">
               Nuevo plan
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className={iconSize.md} />
             </Link>
           </Button>
         </div>
@@ -244,11 +245,11 @@ export function PlanStatusCard({
 
     return (
       <>
-        <div className="rounded-2xl bg-green-50 p-4 shadow-sm dark:bg-green-950">
+        <div className={`rounded-2xl bg-green-50 ${spacing.cardPaddingCompact} shadow-sm dark:bg-green-950`}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-start gap-3 sm:items-center">
               <div className="shrink-0 rounded-full bg-green-100 dark:bg-green-900 p-2">
-                <CheckCheck className="h-5 w-5 text-green-600" />
+                <CheckCheck className={`${iconSize.lg} text-green-600`} />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -264,7 +265,7 @@ export function PlanStatusCard({
                     Plan de {durationLabel(plan.durationDays ?? 7)} · {taskCount} tareas para {memberCount} miembros
                   </span>
                   <span className="inline-flex items-center gap-0.5 text-xs opacity-75">
-                    <Timer className="h-3 w-3 shrink-0" />
+                    <Timer className={`${iconSize.xs} shrink-0`} />
                     {formatTimeRemaining(plan.expiresAt)}
                   </span>
                 </p>
@@ -277,7 +278,7 @@ export function PlanStatusCard({
                 className="min-w-0 flex-1 gap-1.5 border-green-200 text-green-700 hover:bg-green-100 hover:text-green-800 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-900 sm:flex-initial"
                 onClick={openFinalizeModal}
               >
-                <Flag className="h-3.5 w-3.5 shrink-0" />
+                <Flag className={`${iconSize.sm} shrink-0`} />
                 Finalizar
               </Button>
               <Button
@@ -288,7 +289,7 @@ export function PlanStatusCard({
               >
                 <Link href="/plan" className="inline-flex items-center justify-center gap-2">
                   Ver detalles
-                  <ArrowRight className="h-4 w-4 shrink-0" />
+                  <ArrowRight className={`${iconSize.md} shrink-0`} />
                 </Link>
               </Button>
             </div>
@@ -309,7 +310,7 @@ export function PlanStatusCard({
                 No hay tareas pendientes en este plan.
               </p>
             ) : (
-              <div className="space-y-2 py-2">
+              <div className={`${spacing.contentStackTight} py-2`}>
                 {pendingAssignments.map((assignment) => (
                   <label
                     key={assignment.id}
@@ -341,7 +342,7 @@ export function PlanStatusCard({
               <Button onClick={handleFinalize} disabled={isFinalizing}>
                 {isFinalizing ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className={`mr-2 ${iconSize.md} animate-spin`} />
                     Finalizando...
                   </>
                 ) : (
@@ -357,11 +358,11 @@ export function PlanStatusCard({
 
   // Expired or rejected - show generate new prompt
   return (
-    <div className="rounded-2xl bg-muted/30 p-4 shadow-sm">
+    <div className={`rounded-2xl bg-muted/30 ${spacing.cardPaddingCompact} shadow-sm`}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-start gap-3 sm:items-center">
           <div className="shrink-0 rounded-full bg-muted p-2">
-            <CalendarDays className="h-5 w-5 text-muted-foreground" />
+            <CalendarDays className={`${iconSize.lg} text-muted-foreground`} />
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-medium">Tu plan anterior expiró</p>
@@ -373,7 +374,7 @@ export function PlanStatusCard({
         <Button asChild size="sm" variant="outline" className="w-full gap-2 sm:w-auto sm:shrink-0">
           <Link href="/plan" className="inline-flex items-center justify-center gap-2">
             Nuevo plan
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight className={iconSize.md} />
           </Link>
         </Button>
       </div>
@@ -389,7 +390,7 @@ function HistoryLink() {
         href="/plan/history"
         className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
-        <History className="h-3 w-3" />
+        <History className={iconSize.xs} />
         Ver historial de planes
       </Link>
     </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +9,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Star } from "lucide-react";
+import { Loader2, Star, Trophy } from "lucide-react";
 
 import type { MemberType } from "@prisma/client";
 
@@ -41,11 +40,15 @@ export function RouletteResultDialog({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-sm">
         <DialogHeader className="text-center">
-          <div className="animate-celebrate-pulse mx-auto text-4xl">🎉</div>
-          <DialogTitle className="text-xl">
+          <div className="animate-result-pop-in mx-auto mb-1">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+              <Trophy className="h-8 w-8 text-primary" />
+            </div>
+          </div>
+          <DialogTitle className="text-2xl animate-winner-shimmer">
             {winner.name}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-base">
             {isCurrentMember ? "¡Te tocó!" : "fue elegido/a"}
           </DialogDescription>
         </DialogHeader>

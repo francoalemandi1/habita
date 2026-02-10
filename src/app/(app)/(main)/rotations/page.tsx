@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { RotationToggle } from "@/components/features/rotation-toggle";
 import { RefreshCw } from "lucide-react";
+import { spacing } from "@/lib/design-tokens";
 
 export default async function RotationsPage() {
   const member = await getCurrentMember();
@@ -54,7 +55,7 @@ export default async function RotationsPage() {
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <div className="mb-8">
+      <div className={spacing.pageHeader}>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-3xl">
           <RefreshCw className="h-7 w-7" />
           Rotaciones automáticas
@@ -65,7 +66,7 @@ export default async function RotationsPage() {
       </div>
 
       {/* Summary */}
-      <div className="mb-8 grid gap-4 sm:grid-cols-3">
+      <div className={`${spacing.sectionGapLg} grid gap-4 sm:grid-cols-3`}>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Rotaciones activas</CardTitle>
@@ -95,7 +96,7 @@ export default async function RotationsPage() {
       </div>
 
       {/* Active rotations */}
-      <section className="mb-12">
+      <section className={spacing.sectionGapXl}>
         <h2 className="mb-4 text-xl font-semibold">Rotaciones configuradas</h2>
         <RotationsList rotations={rotations} />
       </section>

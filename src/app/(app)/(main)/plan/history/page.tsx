@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { durationLabel } from "@/lib/plan-duration";
 import { BackButton } from "@/components/ui/back-button";
+import { spacing } from "@/lib/design-tokens";
 
 import type { MemberType } from "@prisma/client";
 
@@ -75,7 +76,7 @@ export default async function PlanHistoryPage() {
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
       {/* Header */}
-      <div className="mb-6 sm:mb-8">
+      <div className={spacing.pageHeader}>
         <BackButton />
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
           <CalendarDays className="h-6 w-6 text-primary" />

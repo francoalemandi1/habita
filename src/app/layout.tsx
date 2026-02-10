@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Nunito } from "next/font/google";
+import { Nunito, Indie_Flower } from "next/font/google";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
@@ -9,6 +9,12 @@ const nunito = Nunito({
   variable: "--font-nunito",
   subsets: ["latin"],
   weight: ["400", "600", "700", "800"],
+});
+
+const indieFlower = Indie_Flower({
+  variable: "--font-indie-flower",
+  subsets: ["latin"],
+  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -66,7 +72,7 @@ interface RootLayoutProps {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={`${nunito.variable} font-sans antialiased min-h-screen`}>
+      <body className={`${nunito.variable} ${indieFlower.variable} font-sans antialiased min-h-screen`}>
         <QueryProvider>
           <ToastProvider>{children}</ToastProvider>
         </QueryProvider>

@@ -398,15 +398,15 @@ function OnboardingContent() {
   if (step === "name") {
     return (
       <div key="name" className={stepAnimationClass}>
-        <div className="flex min-h-screen w-full flex-col items-center bg-[#626efe] px-6">
+        <div className="flex min-h-screen w-full flex-col items-center bg-brand-primary-light px-6">
           {/* Logo — centrado verticalmente */}
           <div className="flex flex-1 flex-col items-center justify-center">
-            <h1 className="text-[98px] font-bold leading-none tracking-tighter text-[#d2ffa0]">
+            <h1 className="text-[98px] font-bold leading-none tracking-tighter text-brand-lime">
               Hábita
             </h1>
-            <p className="mt-3 flex items-center gap-1.5 text-lg text-[#fff7ea]">
+            <p className="mt-3 flex items-center gap-1.5 text-lg text-background">
               Que las tareas no sean el problema
-              <Sparkles className="size-4 text-[#d2ffa0]" />
+              <Sparkles className="size-4 text-brand-lime" />
             </p>
           </div>
 
@@ -419,7 +419,7 @@ function OnboardingContent() {
                 setHasInviteCode(false);
                 goToStep("household", "forward");
               }}
-              className="w-full rounded-full bg-white py-4 text-base font-bold text-[#5260fe] transition-all duration-200 active:scale-[0.98]"
+              className="w-full rounded-full bg-white py-4 text-base font-bold text-primary transition-all duration-200 active:scale-[0.98]"
             >
               Crear hogar
             </button>
@@ -768,7 +768,7 @@ function OnboardingContent() {
           />
 
           {/* Card 1: Household info */}
-          <div className="rounded-[32px] bg-[#e4d5ff] p-5">
+          <div className="rounded-[32px] bg-brand-lavender-light p-5">
             <p className="text-lg font-semibold text-foreground">
               {householdName || `${memberName}'s Home`}
             </p>
@@ -814,7 +814,7 @@ function OnboardingContent() {
           </div>
 
           {/* Card 3: Info notice */}
-          <div className="rounded-[24px] bg-[#fff0d7] px-5 py-4 text-center">
+          <div className="rounded-[24px] bg-brand-cream px-5 py-4 text-center">
             <p className="text-sm text-foreground/80">
               La asignación automática de tareas se realizará cada domingo a las 20:00
             </p>

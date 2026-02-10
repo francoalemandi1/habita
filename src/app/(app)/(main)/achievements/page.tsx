@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { Trophy, Lock, Sparkles } from "lucide-react";
+import { spacing, iconSize } from "@/lib/design-tokens";
 
 export default async function AchievementsPage() {
   const member = await getCurrentMember();
@@ -37,9 +38,9 @@ export default async function AchievementsPage() {
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <div className="mb-8">
+      <div className={spacing.pageHeader}>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-3xl">
-          <Trophy className="h-7 w-7 text-yellow-500" />
+          <Trophy className={`${iconSize.xl} text-yellow-500`} />
           Logros
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -49,7 +50,7 @@ export default async function AchievementsPage() {
       </div>
 
       {/* Progress bar */}
-      <div className="mb-8">
+      <div className={spacing.sectionGapLg}>
         <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
           <div
             className="h-full rounded-full bg-yellow-500 transition-all"
@@ -65,7 +66,7 @@ export default async function AchievementsPage() {
             key={achievement.id}
             className={`relative rounded-2xl p-4 transition-colors ${
               achievement.isUnlocked
-                ? "bg-[#fff0d7]"
+                ? "bg-brand-cream"
                 : "bg-muted/30 opacity-60"
             }`}
           >
@@ -78,9 +79,9 @@ export default async function AchievementsPage() {
                 }`}
               >
                 {achievement.isUnlocked ? (
-                  <Sparkles className="h-5 w-5 text-yellow-600" />
+                  <Sparkles className={`${iconSize.lg} text-yellow-600`} />
                 ) : (
-                  <Lock className="h-4 w-4 text-muted-foreground" />
+                  <Lock className={`${iconSize.md} text-muted-foreground`} />
                 )}
               </div>
               <div className="min-w-0 flex-1">
@@ -111,7 +112,7 @@ export default async function AchievementsPage() {
 
       {achievements.length === 0 && (
         <div className="rounded-2xl bg-muted/30 py-12 text-center">
-          <Trophy className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+          <Trophy className="mx-auto mb-4 size-12 text-muted-foreground" />
           <p className="text-lg font-medium">Sin logros disponibles</p>
           <p className="text-sm text-muted-foreground">
             Los logros se desbloquean completando tareas

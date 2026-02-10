@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PreferencesManager } from "@/components/features/preferences-manager";
 import { AbsencesManager } from "@/components/features/absences-manager";
 import { Settings } from "lucide-react";
+import { spacing } from "@/lib/design-tokens";
 
 export default async function PreferencesPage() {
   const member = await getCurrentMember();
@@ -41,7 +42,7 @@ export default async function PreferencesPage() {
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <div className="mb-8">
+      <div className={spacing.pageHeader}>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-3xl">
           <Settings className="h-7 w-7" />
           Preferencias

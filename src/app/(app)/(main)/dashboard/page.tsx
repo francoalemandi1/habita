@@ -104,19 +104,21 @@ export default async function DashboardPage() {
 
       {/* Row 1 desktop: Invite + Opt-in (Push + WhatsApp) en misma fila cuando hay 1 miembro; misma altura Invite y WhatsApp */}
       {members.length === 1 ? (
-        <div className="mb-6 grid gap-4 md:grid-cols-2 md:items-stretch">
-          <Card className="border-primary/20 bg-primary/5">
-            <CardContent className="pt-4 pb-4 sm:pt-6 sm:pb-6">
-              <div className="mb-3 flex items-center gap-2">
-                <UserPlus className="h-5 w-5 text-primary shrink-0" />
-                <p className="font-medium">¡Invitá a los miembros de tu hogar!</p>
+        <div className="mb-6 grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 md:items-stretch">
+          <Card className="min-w-0 border-primary/20 bg-primary/5">
+            <CardContent className="min-w-0 pt-4 pb-4 sm:pt-6 sm:pb-6">
+              <div className="mb-3 flex min-w-0 items-center gap-2">
+                <UserPlus className="h-5 w-5 shrink-0 text-primary" />
+                <p className="min-w-0 font-medium">¡Invitá a los miembros de tu hogar!</p>
               </div>
-              <InviteShareBlock inviteCode={member.household.inviteCode} householdName={member.household.name} />
+              <div className="min-w-0">
+                <InviteShareBlock inviteCode={member.household.inviteCode} householdName={member.household.name} />
+              </div>
             </CardContent>
           </Card>
-          <div className="flex flex-col gap-3 pt-4 md:pt-0">
+          <div className="flex min-w-0 flex-col gap-3 pt-4 md:pt-0">
             <PushOptInBanner />
-            <div className="flex min-h-0 flex-col md:flex-1">
+            <div className="flex min-h-0 min-w-0 flex-col md:flex-1">
               <WhatsAppOptInBanner />
             </div>
           </div>

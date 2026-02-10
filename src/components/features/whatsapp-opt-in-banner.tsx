@@ -35,18 +35,18 @@ export function WhatsAppOptInBanner() {
   };
 
   return (
-    <Card className="h-full border-green-600/20 bg-green-50">
-      <CardContent className="flex h-full flex-col pt-4 pb-4 sm:pt-6 sm:pb-6">
-        <div className="flex items-start gap-3">
+    <Card className="h-full min-w-0 border-green-600/20 bg-green-50">
+      <CardContent className="flex h-full min-w-0 flex-col pt-4 pb-4 sm:pt-6 sm:pb-6">
+        <div className="flex min-w-0 items-start gap-3">
           <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-green-100">
             <MessageCircle className="h-4 w-4 text-green-600" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-medium">Conectá WhatsApp</p>
-            <p className="mt-0.5 text-sm text-muted-foreground">
+            <p className="mt-0.5 text-sm text-muted-foreground break-words">
               Completá tareas y recibí recordatorios directo desde WhatsApp
             </p>
-            <div className="mt-3 flex items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
                 className="bg-green-600 hover:bg-green-700"

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
+import { hasPermission } from "@/lib/permissions";
 import { updateMemberSchema } from "@/lib/validations/member";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -43,16 +45,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ member });
   } catch (error) {
-    console.error("GET /api/members/[memberId] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Error fetching member" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/members/[memberId]", method: "GET" });
   }
 }
 
@@ -74,11 +67,28 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Only adults can change memberType or isActive on other members
+    const wantsAdminFields = validation.data.memberType !== undefined || validation.data.isActive !== undefined;
+    if (wantsAdminFields && !hasPermission(currentMember.memberType, "member:manage")) {
+      return NextResponse.json(
+        { error: "Solo los adultos pueden cambiar tipo o estado de miembros" },
+        { status: 403 }
+      );
+    }
+
+    // Non-adults can only edit their own profile (name, avatar)
+    if (memberId !== currentMember.id && !hasPermission(currentMember.memberType, "member:manage")) {
+      return NextResponse.json(
+        { error: "Solo los adultos pueden editar otros miembros" },
+        { status: 403 }
+      );
+    }
+
     // Verify member belongs to same household
     const existingMember = await prisma.member.findFirst({
       where: {
         id: memberId,
-        householdId: currentMember.householdId, // Data isolation
+        householdId: currentMember.householdId,
       },
       select: { id: true },
     });
@@ -100,15 +110,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ member: updatedMember });
   } catch (error) {
-    console.error("PATCH /api/members/[memberId] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Error updating member" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/members/[memberId]", method: "PATCH" });
   }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { updateAssignmentSchema } from "@/lib/validations/assignment";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -39,13 +40,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ assignment });
   } catch (error) {
-    console.error("GET /api/assignments/[assignmentId] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error fetching assignment" }, { status: 500 });
+    return handleApiError(error, { route: "/api/assignments/[assignmentId]", method: "GET" });
   }
 }
 
@@ -102,13 +97,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ assignment });
   } catch (error) {
-    console.error("PATCH /api/assignments/[assignmentId] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error updating assignment" }, { status: 500 });
+    return handleApiError(error, { route: "/api/assignments/[assignmentId]", method: "PATCH" });
   }
 }
 
@@ -142,12 +131,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("DELETE /api/assignments/[assignmentId] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error cancelling assignment" }, { status: 500 });
+    return handleApiError(error, { route: "/api/assignments/[assignmentId]", method: "DELETE" });
   }
 }

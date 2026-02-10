@@ -3,17 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { redeemRewardSchema } from "@/lib/validations/gamification";
 import { createNotification } from "@/lib/notification-service";
+import { handleApiError } from "@/lib/api-response";
+import { InsufficientPointsError } from "@/lib/errors";
 
 import type { NextRequest } from "next/server";
-
-class InsufficientPointsError extends Error {
-  constructor(
-    public needed: number,
-    public available: number,
-  ) {
-    super("Insufficient points");
-  }
-}
 
 /**
  * POST /api/rewards/redeem
@@ -90,21 +83,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof InsufficientPointsError) {
-      return NextResponse.json(
-        {
-          error: `No tienes suficientes puntos. Necesitas ${error.needed}, tienes ${error.available}`,
-        },
-        { status: 400 }
-      );
-    }
-
-    console.error("POST /api/rewards/redeem error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error redeeming reward" }, { status: 500 });
+    return handleApiError(error, { route: "/api/rewards/redeem", method: "POST" });
   }
 }

@@ -148,7 +148,7 @@ export default async function RewardsPage() {
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <div className="mb-6 sm:mb-8">
+      <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Recompensas</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Recompensas generadas según tu rendimiento en cada plan
@@ -216,7 +216,7 @@ export default async function RewardsPage() {
           <h2 className="mb-4 text-lg font-semibold text-muted-foreground">
             Recompensas anteriores
           </h2>
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             {pastRewards.map((reward) => {
               const memberName = members.find((m) => m.id === reward.memberId)?.name ?? "Miembro";
               const categoryIcon = reward.category ? PAST_REWARD_CATEGORY_ICONS[reward.category] : null;

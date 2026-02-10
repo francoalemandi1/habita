@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, getCurrentMember } from "@/lib/session";
 import { createHouseholdSchema, householdLocationSchema } from "@/lib/validations/household";
+import { handleApiError } from "@/lib/api-response";
 import { z } from "zod";
 
 import type { NextRequest } from "next/server";
@@ -27,11 +28,7 @@ export async function GET() {
 
     return NextResponse.json({ household: member.household });
   } catch (error) {
-    console.error("GET /api/households error:", error);
-    return NextResponse.json(
-      { error: "Error fetching household" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/households", method: "GET" });
   }
 }
 
@@ -100,16 +97,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ household }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/households error:", error);
-
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    return NextResponse.json(
-      { error: "Error creating household" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/households", method: "POST" });
   }
 }
 
@@ -161,10 +149,6 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ household: updated });
   } catch (error) {
-    console.error("PATCH /api/households error:", error);
-    return NextResponse.json(
-      { error: "Error al actualizar el hogar" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/households", method: "PATCH" });
   }
 }

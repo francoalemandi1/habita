@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export default function CompetitionsLoading() {
   return (
-    <div className="container max-w-4xl px-4 py-6 space-y-6 sm:py-8">
+    <div className="container max-w-4xl px-4 py-6 space-y-6 sm:py-8 md:px-8">
       <div className="flex items-center justify-between">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-10 w-40" />

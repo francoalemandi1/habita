@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireMember } from "@/lib/session";
-import { createAssignmentSchema } from "@/lib/validations/assignment";
+import { requireMember, requirePermission } from "@/lib/session";
+import { assignmentStatusSchema, createAssignmentSchema } from "@/lib/validations/assignment";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -18,22 +19,31 @@ export async function GET(request: NextRequest) {
     const member = await requireMember();
     const searchParams = request.nextUrl.searchParams;
 
-    const status = searchParams.get("status");
+    const statusParam = searchParams.get("status");
     const memberId = searchParams.get("memberId");
     const from = searchParams.get("from");
     const to = searchParams.get("to");
     const limit = Math.min(
-      parseInt(searchParams.get("limit") ?? String(DEFAULT_LIMIT), 10),
+      Math.max(parseInt(searchParams.get("limit") ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT, 1),
       MAX_LIMIT
     );
-    const offset = parseInt(searchParams.get("offset") ?? "0", 10);
+    const offset = Math.max(parseInt(searchParams.get("offset") ?? "0", 10) || 0, 0);
+
+    const parsedStatus = statusParam ? assignmentStatusSchema.safeParse(statusParam) : null;
+
+    const dueDateFilter = from && to
+      ? { gte: new Date(from), lte: new Date(to) }
+      : from
+        ? { gte: new Date(from) }
+        : to
+          ? { lte: new Date(to) }
+          : undefined;
 
     const whereClause = {
       householdId: member.householdId,
-      ...(status && { status: status as never }),
+      ...(parsedStatus?.success && { status: parsedStatus.data }),
       ...(memberId && { memberId }),
-      ...(from && { dueDate: { gte: new Date(from) } }),
-      ...(to && { dueDate: { lte: new Date(to) } }),
+      ...(dueDateFilter && { dueDate: dueDateFilter }),
     };
 
     const [assignments, total] = await Promise.all([
@@ -69,13 +79,7 @@ export async function GET(request: NextRequest) {
       pagination: { total, limit, offset, hasMore: offset + assignments.length < total },
     });
   } catch (error) {
-    console.error("GET /api/assignments error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error fetching assignments" }, { status: 500 });
+    return handleApiError(error, { route: "/api/assignments", method: "GET" });
   }
 }
 
@@ -85,7 +89,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const member = await requireMember();
+    const member = await requirePermission("task:assign");
     const body: unknown = await request.json();
 
     const validation = createAssignmentSchema.safeParse(body);
@@ -151,12 +155,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ assignment }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/assignments error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error creating assignment" }, { status: 500 });
+    return handleApiError(error, { route: "/api/assignments", method: "POST" });
   }
 }

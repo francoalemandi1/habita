@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 
 /**
  * GET /api/rewards
@@ -17,6 +18,7 @@ export async function GET() {
           isActive: true,
         },
         orderBy: { pointsCost: "asc" },
+        take: 200,
       }),
       prisma.memberLevel.findUnique({
         where: { memberId: member.id },
@@ -40,13 +42,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("GET /api/rewards error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error fetching rewards" }, { status: 500 });
+    return handleApiError(error, { route: "/api/rewards", method: "GET" });
   }
 }
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { markNotificationsAsRead, markAllNotificationsAsRead } from "@/lib/notification-service";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -49,13 +50,7 @@ export async function GET(request: NextRequest) {
       nextCursor,
     });
   } catch (error) {
-    console.error("GET /api/notifications error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error fetching notifications" }, { status: 500 });
+    return handleApiError(error, { route: "/api/notifications", method: "GET" });
   }
 }
 
@@ -81,12 +76,6 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ updated: updatedCount });
   } catch (error) {
-    console.error("PATCH /api/notifications error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error updating notifications" }, { status: 500 });
+    return handleApiError(error, { route: "/api/notifications", method: "PATCH" });
   }
 }

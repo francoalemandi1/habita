@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -38,15 +39,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("DELETE /api/plans/[planId] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Error descartando el plan" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/plans/[planId]", method: "DELETE" });
   }
 }

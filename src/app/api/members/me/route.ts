@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -23,11 +24,7 @@ export async function GET() {
 
     return NextResponse.json({ member });
   } catch (error) {
-    console.error("GET /api/members/me error:", error);
-    return NextResponse.json(
-      { error: "Error fetching current member" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/members/me", method: "GET" });
   }
 }
 
@@ -58,10 +55,6 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ member: updated });
   } catch (error) {
-    console.error("PATCH /api/members/me error:", error);
-    return NextResponse.json(
-      { error: "Error al actualizar el perfil" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/members/me", method: "PATCH" });
   }
 }

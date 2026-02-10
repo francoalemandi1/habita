@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { z } from "zod";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -88,26 +89,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         status: "VERIFIED",
       });
     } else {
-      // Reject - set back to pending
-      await prisma.assignment.update({
-        where: { id: assignmentId },
-        data: {
-          status: "PENDING",
-          completedAt: null,
-          pointsEarned: null,
-          notes: feedback ? `Rechazado: ${feedback}` : "Rechazado - debe rehacerse",
-        },
-      });
-
-      // Remove XP that was awarded
-      if (assignment.pointsEarned) {
-        await prisma.memberLevel.update({
-          where: { memberId: assignment.memberId },
+      // Reject - reset assignment and remove XP in a single transaction
+      await prisma.$transaction(async (tx) => {
+        await tx.assignment.update({
+          where: { id: assignmentId },
           data: {
-            xp: { decrement: assignment.pointsEarned },
+            status: "PENDING",
+            completedAt: null,
+            pointsEarned: null,
+            notes: feedback ? `Rechazado: ${feedback}` : "Rechazado - debe rehacerse",
           },
         });
-      }
+
+        if (assignment.pointsEarned) {
+          await tx.memberLevel.update({
+            where: { memberId: assignment.memberId },
+            data: {
+              xp: { decrement: assignment.pointsEarned },
+            },
+          });
+        }
+      });
 
       return NextResponse.json({
         success: true,
@@ -116,12 +118,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
     }
   } catch (error) {
-    console.error("POST /api/assignments/[assignmentId]/verify error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error verifying assignment" }, { status: 500 });
+    return handleApiError(error, { route: "/api/assignments/[assignmentId]/verify", method: "POST" });
   }
 }

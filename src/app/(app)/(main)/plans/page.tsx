@@ -141,9 +141,9 @@ export default async function PlansPage() {
   ]);
 
   return (
-    <div className="container max-w-4xl px-4 py-6 sm:py-8">
+    <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
       {/* Header */}
-      <div className="mb-6 sm:mb-8">
+      <div className="mb-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
@@ -189,7 +189,7 @@ export default async function PlansPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
             {pastPlans.map((plan) => (
               <PastPlanCard key={plan.id} plan={plan} />
             ))}

@@ -5,6 +5,7 @@ import { isAIEnabled } from "@/lib/llm/provider";
 import { MyAssignmentsList } from "@/components/features/my-assignments-list";
 import { PendingTransfers } from "@/components/features/pending-transfers";
 import { WeeklyCelebrationWrapper } from "@/components/features/weekly-celebration-wrapper";
+import { ClipboardList } from "lucide-react";
 
 export default async function MyTasksPage() {
   const member = await getCurrentMember();
@@ -132,9 +133,12 @@ export default async function MyTasksPage() {
   const showPlanCta = aiEnabled && !activePlan;
 
   return (
-    <div className="mx-auto max-w-md px-4 py-6 sm:py-8 md:max-w-2xl md:px-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Mis tareas</h1>
+    <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl flex items-center gap-2">
+          <ClipboardList className="h-6 w-6 text-primary shrink-0" />
+          Mis tareas
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {assignments.length} pendientes · {completedToday} completadas hoy
         </p>

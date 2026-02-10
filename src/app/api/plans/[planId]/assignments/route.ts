@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { handleApiError } from "@/lib/api-response";
+import { z } from "zod";
 
 import type { NextRequest } from "next/server";
 import type { MemberType } from "@prisma/client";
@@ -13,12 +15,12 @@ interface PlanAssignment {
   reason: string;
 }
 
-interface PatchBody {
-  action: "add" | "remove" | "reassign";
-  taskName: string;
-  memberId: string;
-  newMemberId?: string;
-}
+const patchAssignmentSchema = z.object({
+  action: z.enum(["add", "remove", "reassign"]),
+  taskName: z.string().min(1).max(200),
+  memberId: z.string().min(1),
+  newMemberId: z.string().min(1).optional(),
+});
 
 /**
  * PATCH /api/plans/[planId]/assignments
@@ -34,28 +36,15 @@ export async function PATCH(
     const { planId } = await params;
 
     const body: unknown = await request.json();
-
-    if (
-      typeof body !== "object" ||
-      body === null ||
-      !("action" in body) ||
-      !("taskName" in body) ||
-      !("memberId" in body)
-    ) {
+    const validation = patchAssignmentSchema.safeParse(body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "Invalid request body" },
+        { error: validation.error.errors[0]?.message ?? "Invalid input" },
         { status: 400 }
       );
     }
 
-    const { action, taskName, memberId: targetMemberId, newMemberId } = body as PatchBody;
-
-    if (!["add", "remove", "reassign"].includes(action)) {
-      return NextResponse.json(
-        { error: "Invalid action. Expected: add, remove, reassign" },
-        { status: 400 }
-      );
-    }
+    const { action, taskName, memberId: targetMemberId, newMemberId } = validation.data;
 
     // Verify plan belongs to household and is APPLIED
     const plan = await prisma.weeklyPlan.findFirst({
@@ -99,22 +88,10 @@ export async function PATCH(
     }
 
     if (action === "add") {
-      // Create a real assignment
       const endOfDay = new Date();
       endOfDay.setHours(23, 59, 59, 999);
       const dueDate = plan.expiresAt < endOfDay ? plan.expiresAt : endOfDay;
 
-      await prisma.assignment.create({
-        data: {
-          taskId: targetTask.id,
-          memberId: targetMember.id,
-          householdId: member.householdId,
-          dueDate,
-          status: "PENDING",
-        },
-      });
-
-      // Update plan JSON
       const updatedAssignments: PlanAssignment[] = [
         ...planAssignments,
         {
@@ -126,33 +103,26 @@ export async function PATCH(
         },
       ];
 
-      await prisma.weeklyPlan.update({
-        where: { id: planId },
-        data: { assignments: updatedAssignments as never },
+      await prisma.$transaction(async (tx) => {
+        await tx.assignment.create({
+          data: {
+            taskId: targetTask.id,
+            memberId: targetMember.id,
+            householdId: member.householdId,
+            dueDate,
+            status: "PENDING",
+          },
+        });
+        await tx.weeklyPlan.update({
+          where: { id: planId },
+          data: { assignments: updatedAssignments as never },
+        });
       });
 
       return NextResponse.json({ success: true, action: "add" });
     }
 
     if (action === "remove") {
-      // Cancel the matching assignment
-      const existingAssignment = await prisma.assignment.findFirst({
-        where: {
-          taskId: targetTask.id,
-          memberId: targetMember.id,
-          householdId: member.householdId,
-          status: { in: ["PENDING", "IN_PROGRESS"] },
-        },
-      });
-
-      if (existingAssignment) {
-        await prisma.assignment.update({
-          where: { id: existingAssignment.id },
-          data: { status: "CANCELLED" },
-        });
-      }
-
-      // Update plan JSON
       const updatedAssignments = planAssignments.filter(
         (a) =>
           !(
@@ -161,9 +131,27 @@ export async function PATCH(
           )
       );
 
-      await prisma.weeklyPlan.update({
-        where: { id: planId },
-        data: { assignments: updatedAssignments as never },
+      await prisma.$transaction(async (tx) => {
+        const existingAssignment = await tx.assignment.findFirst({
+          where: {
+            taskId: targetTask.id,
+            memberId: targetMember.id,
+            householdId: member.householdId,
+            status: { in: ["PENDING", "IN_PROGRESS"] },
+          },
+        });
+
+        if (existingAssignment) {
+          await tx.assignment.update({
+            where: { id: existingAssignment.id },
+            data: { status: "CANCELLED" },
+          });
+        }
+
+        await tx.weeklyPlan.update({
+          where: { id: planId },
+          data: { assignments: updatedAssignments as never },
+        });
       });
 
       return NextResponse.json({ success: true, action: "remove" });
@@ -185,39 +173,10 @@ export async function PATCH(
         );
       }
 
-      // Cancel old assignment
-      const oldAssignment = await prisma.assignment.findFirst({
-        where: {
-          taskId: targetTask.id,
-          memberId: targetMember.id,
-          householdId: member.householdId,
-          status: { in: ["PENDING", "IN_PROGRESS"] },
-        },
-      });
-
-      if (oldAssignment) {
-        await prisma.assignment.update({
-          where: { id: oldAssignment.id },
-          data: { status: "CANCELLED" },
-        });
-      }
-
-      // Create new assignment
       const endOfDay = new Date();
       endOfDay.setHours(23, 59, 59, 999);
       const dueDate = plan.expiresAt < endOfDay ? plan.expiresAt : endOfDay;
 
-      await prisma.assignment.create({
-        data: {
-          taskId: targetTask.id,
-          memberId: newMember.id,
-          householdId: member.householdId,
-          dueDate,
-          status: "PENDING",
-        },
-      });
-
-      // Update plan JSON
       const updatedAssignments = planAssignments.map((a) => {
         if (
           a.taskName.toLowerCase() === taskName.toLowerCase() &&
@@ -234,9 +193,37 @@ export async function PATCH(
         return a;
       });
 
-      await prisma.weeklyPlan.update({
-        where: { id: planId },
-        data: { assignments: updatedAssignments as never },
+      await prisma.$transaction(async (tx) => {
+        const oldAssignment = await tx.assignment.findFirst({
+          where: {
+            taskId: targetTask.id,
+            memberId: targetMember.id,
+            householdId: member.householdId,
+            status: { in: ["PENDING", "IN_PROGRESS"] },
+          },
+        });
+
+        if (oldAssignment) {
+          await tx.assignment.update({
+            where: { id: oldAssignment.id },
+            data: { status: "CANCELLED" },
+          });
+        }
+
+        await tx.assignment.create({
+          data: {
+            taskId: targetTask.id,
+            memberId: newMember.id,
+            householdId: member.householdId,
+            dueDate,
+            status: "PENDING",
+          },
+        });
+
+        await tx.weeklyPlan.update({
+          where: { id: planId },
+          data: { assignments: updatedAssignments as never },
+        });
       });
 
       return NextResponse.json({ success: true, action: "reassign" });
@@ -244,15 +231,6 @@ export async function PATCH(
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {
-    console.error("PATCH /api/plans/[planId]/assignments error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Error modifying plan assignment" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/plans/[planId]/assignments", method: "PATCH" });
   }
 }

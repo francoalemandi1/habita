@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 import { generateAIPlan } from "@/lib/llm/ai-planner";
 import { isAIEnabled } from "@/lib/llm/provider";
 import { prisma } from "@/lib/prisma";
@@ -15,6 +16,7 @@ interface PlanAssignment {
   memberName: string;
   memberType: MemberType;
   reason: string;
+  dayOfWeek?: number;
 }
 
 interface MemberSummary {
@@ -44,14 +46,16 @@ export interface PlanPreviewResponse {
   fairnessDetails: FairnessDetails;
 }
 
-const durationDaysSchema = z.coerce.number().int().min(1).max(30).default(7);
+const previewPlanSchema = z.object({
+  durationDays: z.number().int().min(1).max(30).default(7),
+});
 
 /**
- * GET /api/ai/preview-plan?durationDays=N
+ * POST /api/ai/preview-plan
  * Generate an AI-powered task distribution plan preview without applying it.
  * Returns the plan details for user review before confirmation.
  */
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const member = await requireMember();
 
@@ -62,10 +66,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Parse duration from query params
-    const { searchParams } = new URL(request.url);
-    const rawDuration = searchParams.get("durationDays");
-    const durationDays = durationDaysSchema.parse(rawDuration ?? undefined);
+    const body: unknown = await request.json();
+    const validation = previewPlanSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.error.errors[0]?.message ?? "Invalid input" },
+        { status: 400 }
+      );
+    }
+
+    const { durationDays } = validation.data;
 
     // Generate plan without applying
     const plan = await generateAIPlan(member.householdId, { durationDays });
@@ -90,7 +100,7 @@ export async function GET(request: NextRequest) {
 
     const memberByIdMap = new Map(members.map((m) => [m.id, m]));
 
-    // Enrich assignments with member type
+    // Enrich assignments with member type, preserving dayOfWeek from AI
     const enrichedAssignments: PlanAssignment[] = plan.assignments
       .filter((a) => memberByIdMap.has(a.memberId))
       .map((a) => {
@@ -101,6 +111,7 @@ export async function GET(request: NextRequest) {
           memberName: member.name,
           memberType: member.memberType,
           reason: a.reason,
+          dayOfWeek: a.dayOfWeek,
         };
       });
 
@@ -183,15 +194,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error("GET /api/ai/preview-plan error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Error generating plan preview" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/ai/preview-plan", method: "POST" });
   }
 }

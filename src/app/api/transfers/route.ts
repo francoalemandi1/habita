@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireMember } from "@/lib/session";
+import { requireMember, requirePermission } from "@/lib/session";
 import { createTransferSchema } from "@/lib/validations/transfer";
 import { createNotification } from "@/lib/notification-service";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -47,13 +48,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ transfers });
   } catch (error) {
-    console.error("GET /api/transfers error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error fetching transfers" }, { status: 500 });
+    return handleApiError(error, { route: "/api/transfers", method: "GET" });
   }
 }
 
@@ -63,7 +58,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const member = await requireMember();
+    const member = await requirePermission("transfer:request");
     const body: unknown = await request.json();
 
     const validation = createTransferSchema.safeParse(body);
@@ -164,12 +159,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ transfer }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/transfers error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error creating transfer" }, { status: 500 });
+    return handleApiError(error, { route: "/api/transfers", method: "POST" });
   }
 }

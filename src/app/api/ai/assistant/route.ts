@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 import { getLLMProvider } from "@/lib/llm/provider";
 import { buildAssistantPrompt } from "@/lib/llm/prompts";
 import { buildAssistantContext } from "@/lib/llm/assistant-context";
-import type { AssistantOutput } from "@/lib/llm/types";
+import { z } from "zod";
 
+import type { AssistantOutput } from "@/lib/llm/types";
 import type { NextRequest } from "next/server";
+
+const assistantSchema = z.object({
+  question: z.string().min(1, "question es requerido").max(2000),
+});
 
 const OUTPUT_SCHEMA = {
   answer: "string (respuesta principal)",
@@ -21,17 +27,15 @@ export async function POST(request: NextRequest) {
     const member = await requireMember();
 
     const body: unknown = await request.json();
-    const question =
-      typeof body === "object" && body !== null && "question" in body
-        ? String((body as { question: unknown }).question)
-        : "";
-
-    if (!question.trim()) {
+    const validation = assistantSchema.safeParse(body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "question es requerido" },
+        { error: validation.error.errors[0]?.message ?? "Invalid input" },
         { status: 400 }
       );
     }
+
+    const { question } = validation.data;
 
     const context = await buildAssistantContext(
       member.householdId,
@@ -63,15 +67,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("POST /api/ai/assistant error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Error en el asistente" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/ai/assistant", method: "POST" });
   }
 }

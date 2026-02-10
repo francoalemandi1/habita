@@ -26,6 +26,7 @@ export const createTaskSchema = z.object({
     .default(1),
   minAge: z.number().int().min(0).max(100).nullable().optional(),
   estimatedMinutes: z.number().int().min(1).max(480).nullable().optional(),
+  isRouletteEligible: z.boolean().optional().default(false),
 });
 
 export const updateTaskSchema = z.object({
@@ -49,6 +50,7 @@ export const updateTaskSchema = z.object({
   minAge: z.number().int().min(0).max(100).nullable().optional(),
   estimatedMinutes: z.number().int().min(1).max(480).nullable().optional(),
   isActive: z.boolean().optional(),
+  isRouletteEligible: z.boolean().optional(),
 });
 
 export type TaskFrequency = z.infer<typeof taskFrequencySchema>;

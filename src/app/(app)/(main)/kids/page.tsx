@@ -64,7 +64,7 @@ export default async function KidsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950">
-      <div className="container max-w-4xl px-4 py-6 sm:py-8">
+      <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
         {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold text-primary">

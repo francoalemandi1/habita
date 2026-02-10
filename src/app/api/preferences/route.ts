@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireMember } from "@/lib/session";
+import { requireMember, requirePermission } from "@/lib/session";
 import { setPreferenceSchema } from "@/lib/validations/preferences";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -26,6 +27,7 @@ export async function GET() {
         },
       },
       orderBy: { createdAt: "desc" },
+      take: 200,
     });
 
     const preferred = preferences.filter((p) => p.preference === "PREFERRED");
@@ -42,13 +44,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("GET /api/preferences error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error fetching preferences" }, { status: 500 });
+    return handleApiError(error, { route: "/api/preferences", method: "GET" });
   }
 }
 
@@ -58,7 +54,7 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
-    const member = await requireMember();
+    const member = await requirePermission("preference:manage");
     const body: unknown = await request.json();
 
     const validation = setPreferenceSchema.safeParse(body);
@@ -110,13 +106,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ preference: memberPreference });
   } catch (error) {
-    console.error("POST /api/preferences error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error setting preference" }, { status: 500 });
+    return handleApiError(error, { route: "/api/preferences", method: "POST" });
   }
 }
 
@@ -126,7 +116,7 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const member = await requireMember();
+    const member = await requirePermission("preference:manage");
     const taskId = request.nextUrl.searchParams.get("taskId");
 
     if (!taskId) {
@@ -142,12 +132,6 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("DELETE /api/preferences error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error removing preference" }, { status: 500 });
+    return handleApiError(error, { route: "/api/preferences", method: "DELETE" });
   }
 }

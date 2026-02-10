@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 
 /**
  * GET /api/members
@@ -21,22 +22,11 @@ export async function GET() {
       orderBy: {
         createdAt: "asc",
       },
+      take: 100,
     });
 
     return NextResponse.json({ members });
   } catch (error) {
-    console.error("GET /api/members error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json(
-        { error: "No eres miembro de ningún hogar" },
-        { status: 403 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Error fetching members" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/members", method: "GET" });
   }
 }

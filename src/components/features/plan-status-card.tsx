@@ -296,7 +296,7 @@ export function PlanStatusCard({
         </div>
 
         <Dialog open={showFinalizeModal} onOpenChange={setShowFinalizeModal}>
-          <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+          <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md md:max-w-xl">
             <DialogHeader>
               <DialogTitle>Finalizar plan</DialogTitle>
               <DialogDescription>

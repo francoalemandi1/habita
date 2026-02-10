@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -40,13 +41,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ competition });
   } catch (error) {
-    console.error("GET /api/competitions/[id] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error fetching competition" }, { status: 500 });
+    return handleApiError(error, { route: "/api/competitions/[competitionId]", method: "GET" });
   }
 }
 
@@ -103,13 +98,7 @@ export async function PATCH(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ competition: updatedCompetition });
   } catch (error) {
-    console.error("PATCH /api/competitions/[id] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error ending competition" }, { status: 500 });
+    return handleApiError(error, { route: "/api/competitions/[competitionId]", method: "PATCH" });
   }
 }
 
@@ -153,12 +142,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("DELETE /api/competitions/[id] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error cancelling competition" }, { status: 500 });
+    return handleApiError(error, { route: "/api/competitions/[competitionId]", method: "DELETE" });
   }
 }

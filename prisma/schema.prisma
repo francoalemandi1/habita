@@ -149,9 +149,10 @@ model Task {
   weight       Int           @default(1) // 1-5 difficulty/importance
   minAge       Int?          // Minimum age to be assigned
   estimatedMinutes Int?
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  isActive           Boolean       @default(true)
+  isRouletteEligible Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   // Relations
   household   Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)

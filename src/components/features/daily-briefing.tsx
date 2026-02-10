@@ -26,7 +26,7 @@ export function DailyBriefing({
 
   return (
     <Card>
-      <CardContent className="py-4">
+      <CardContent className="pt-4 pb-4 sm:pt-6 sm:pb-6">
         <p className="mb-3 text-sm font-semibold">{greeting}</p>
         <div className="space-y-2">
           {lines.map((line, index) => {

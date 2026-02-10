@@ -3,12 +3,18 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { streamText } from "ai";
 import { OpenRouter } from "@openrouter/sdk";
 import { requireMember } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 import { buildAssistantContext } from "@/lib/llm/assistant-context";
 import { buildAssistantSystemPrompt } from "@/lib/llm/prompts";
 import { isAIEnabled, getAIProviderType } from "@/lib/llm/provider";
+import { z } from "zod";
 
 import type { NextRequest } from "next/server";
 import type { LanguageModel } from "ai";
+
+const chatSchema = z.object({
+  message: z.string().min(1, "message es requerido").max(2000),
+});
 
 function getModel(): LanguageModel | null {
   const providerType = getAIProviderType();
@@ -67,17 +73,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body: unknown = await request.json();
-    const message =
-      typeof body === "object" && body !== null && "message" in body
-        ? String((body as { message: unknown }).message)
-        : "";
-
-    if (!message.trim()) {
+    const validation = chatSchema.safeParse(body);
+    if (!validation.success) {
       return new Response(
-        JSON.stringify({ error: "message es requerido" }),
+        JSON.stringify({ error: validation.error.errors[0]?.message ?? "Invalid input" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
+
+    const { message } = validation.data;
 
     // Build context from household data
     const context = await buildAssistantContext(member.householdId, member.name);
@@ -145,18 +149,6 @@ ${context.memberStats}
 
     return result.toTextStreamResponse();
   } catch (error) {
-    console.error("POST /api/ai/chat error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return new Response(
-        JSON.stringify({ error: "Forbidden" }),
-        { status: 403, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    return new Response(
-      JSON.stringify({ error: "Error en el chat" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    return handleApiError(error, { route: "/api/ai/chat", method: "POST" });
   }
 }

@@ -1,11 +1,10 @@
 "use client";
 
-import { CheckCircle2, Clock, AlertTriangle, Users } from "lucide-react";
+import { CheckCircle2, Clock, Users } from "lucide-react";
 
 interface StatsCardsProps {
   completed: number;
   pending: number;
-  overdue: number;
   members: number;
 }
 
@@ -27,14 +26,6 @@ const STATS_CONFIG = [
     icon: Clock,
   },
   {
-    key: "overdue",
-    label: "Atrasadas",
-    sublabel: "atención",
-    bg: "bg-[#fd7c52]",
-    text: "text-white",
-    icon: AlertTriangle,
-  },
-  {
     key: "members",
     label: "Miembros",
     sublabel: "activos",
@@ -44,11 +35,11 @@ const STATS_CONFIG = [
   },
 ] as const;
 
-export function StatsCards({ completed, pending, overdue, members }: StatsCardsProps) {
-  const values: Record<string, number> = { completed, pending, overdue, members };
+export function StatsCards({ completed, pending, members }: StatsCardsProps) {
+  const values: Record<string, number> = { completed, pending, members };
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
       {STATS_CONFIG.map((stat, index) => {
         const Icon = stat.icon;
         const value = values[stat.key] ?? 0;

@@ -13,6 +13,7 @@ interface PlanAssignment {
   memberName: string;
   memberType: MemberType;
   reason: string;
+  dayOfWeek?: number;
 }
 
 interface StoredPlan {
@@ -91,6 +92,7 @@ export default async function PlanPage() {
       memberName: string;
       memberType: MemberType;
       reason: string;
+      dayOfWeek?: number;
     }>;
 
     // Backfill memberId for plans created before the memberId migration

@@ -45,6 +45,7 @@ import {
 import { cn } from "@/lib/utils";
 import { DURATION_PRESETS, durationLabel } from "@/lib/plan-duration";
 import { TaskCatalogPicker } from "@/components/features/task-catalog-picker";
+import { BackButton } from "@/components/ui/back-button";
 
 import type { MemberType, WeeklyPlanStatus, TaskFrequency } from "@prisma/client";
 import type { ExcludedTask } from "@/lib/plan-duration";
@@ -55,6 +56,7 @@ interface PlanAssignment {
   memberName: string;
   memberType: MemberType;
   reason: string;
+  dayOfWeek?: number;
 }
 
 interface MemberSummary {
@@ -129,6 +131,31 @@ const MEMBER_TYPE_LABELS: Record<MemberType, string> = {
   CHILD: "Niño",
 };
 
+const DAY_OF_WEEK_LABELS: Record<number, string> = {
+  1: "Lunes",
+  2: "Martes",
+  3: "Miércoles",
+  4: "Jueves",
+  5: "Viernes",
+  6: "Sábado",
+  7: "Domingo",
+};
+
+const DAY_OF_WEEK_SHORT: Record<number, string> = {
+  1: "Lun",
+  2: "Mar",
+  3: "Mié",
+  4: "Jue",
+  5: "Vie",
+  6: "Sáb",
+  7: "Dom",
+};
+
+/** Unique key for an assignment — includes dayOfWeek so daily tasks on different days are distinct */
+function assignmentKey(a: { taskName: string; memberId: string; dayOfWeek?: number }): string {
+  return a.dayOfWeek ? `${a.taskName}|${a.memberId}|${a.dayOfWeek}` : `${a.taskName}|${a.memberId}`;
+}
+
 function getScoreColor(score: number): string {
   if (score >= 80) return "text-green-600";
   if (score >= 60) return "text-yellow-600";
@@ -154,7 +181,7 @@ export function PlanPageClient({
   const [selectedAssignments, setSelectedAssignments] = useState<Set<string>>(() => {
     if (!existingPlan || existingPlan.status !== "PENDING") return new Set();
     return new Set(
-      existingPlan.assignments.map((a) => `${a.taskName}|${a.memberId}`)
+      existingPlan.assignments.map((a) => assignmentKey(a))
     );
   });
   const [isRegenerateDialogOpen, setIsRegenerateDialogOpen] = useState(false);
@@ -174,7 +201,11 @@ export function PlanPageClient({
     setIsGenerating(true);
 
     try {
-      const response = await fetch(`/api/ai/preview-plan?durationDays=${durationDays}`);
+      const response = await fetch("/api/ai/preview-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ durationDays }),
+      });
 
       if (response.status === 503) {
         toast.error(
@@ -213,7 +244,7 @@ export function PlanPageClient({
       setPlan(newPlan);
       setFairnessDetails(data.fairnessDetails);
       setSelectedAssignments(
-        new Set(data.plan.assignments.map((a) => `${a.taskName}|${a.memberId}`))
+        new Set(data.plan.assignments.map((a) => assignmentKey(a)))
       );
     } catch (error) {
       console.error("Generate plan error:", error);
@@ -257,8 +288,8 @@ export function PlanPageClient({
 
     try {
       const assignmentsToApply = plan.assignments
-        .filter((a) => selectedAssignments.has(`${a.taskName}|${a.memberId}`))
-        .map((a) => ({ taskName: a.taskName, memberId: a.memberId, memberName: a.memberName }));
+        .filter((a) => selectedAssignments.has(assignmentKey(a)))
+        .map((a) => ({ taskName: a.taskName, memberId: a.memberId, memberName: a.memberName, dayOfWeek: a.dayOfWeek }));
 
       const response = await fetch("/api/ai/apply-plan", {
         method: "POST",
@@ -298,10 +329,10 @@ export function PlanPageClient({
     }
   }, [plan, selectedAssignments, router, toast]);
 
-  const toggleAssignment = (taskName: string, memberId: string) => {
+  const toggleAssignment = (taskName: string, memberId: string, dayOfWeek?: number) => {
     if (plan?.status !== "PENDING") return;
 
-    const key = `${taskName}|${memberId}`;
+    const key = assignmentKey({ taskName, memberId, dayOfWeek });
     const newSet = new Set(selectedAssignments);
     if (newSet.has(key)) {
       newSet.delete(key);
@@ -333,7 +364,7 @@ export function PlanPageClient({
         });
         setSelectedAssignments((prev) => {
           const next = new Set(prev);
-          next.add(`${taskName}|${memberId}`);
+          next.add(assignmentKey({ taskName, memberId }));
           return next;
         });
         toast.success("Agregada", `${taskName} asignada a ${memberName}`);
@@ -367,26 +398,25 @@ export function PlanPageClient({
   );
 
   const handleRemoveFromPlan = useCallback(
-    async (taskName: string, memberId: string) => {
+    async (taskName: string, memberId: string, dayOfWeek?: number) => {
       if (!plan) return;
+
+      const matchesAssignment = (a: PlanAssignment) =>
+        a.taskName === taskName && a.memberId === memberId && a.dayOfWeek === dayOfWeek;
 
       if (plan.status === "PENDING") {
         setPlan((prev) => {
           if (!prev) return prev;
-          return {
-            ...prev,
-            assignments: prev.assignments.filter(
-              (a) =>
-                !(
-                  a.taskName === taskName &&
-                  a.memberId === memberId
-                )
-            ),
-          };
+          // Remove only the first match (one assignment per call)
+          const idx = prev.assignments.findIndex(matchesAssignment);
+          if (idx === -1) return prev;
+          const next = [...prev.assignments];
+          next.splice(idx, 1);
+          return { ...prev, assignments: next };
         });
         setSelectedAssignments((prev) => {
           const next = new Set(prev);
-          next.delete(`${taskName}|${memberId}`);
+          next.delete(assignmentKey({ taskName, memberId, dayOfWeek }));
           return next;
         });
         toast.success("Quitada", `${taskName} quitada del plan`);
@@ -405,16 +435,11 @@ export function PlanPageClient({
 
         setPlan((prev) => {
           if (!prev) return prev;
-          return {
-            ...prev,
-            assignments: prev.assignments.filter(
-              (a) =>
-                !(
-                  a.taskName === taskName &&
-                  a.memberId === memberId
-                )
-            ),
-          };
+          const idx = prev.assignments.findIndex(matchesAssignment);
+          if (idx === -1) return prev;
+          const next = [...prev.assignments];
+          next.splice(idx, 1);
+          return { ...prev, assignments: next };
         });
         toast.success("Quitada", `${taskName} quitada del plan`);
         router.refresh();
@@ -426,19 +451,21 @@ export function PlanPageClient({
   );
 
   const handleReassign = useCallback(
-    async (taskName: string, oldMemberId: string, newMemberId: string) => {
+    async (taskName: string, oldMemberId: string, newMemberId: string, dayOfWeek?: number) => {
       if (!plan || oldMemberId === newMemberId) return;
 
       const newMember = members.find((m) => m.id === newMemberId);
       if (!newMember) return;
 
       if (plan.status === "PENDING") {
+        let reassigned = false;
         setPlan((prev) => {
           if (!prev) return prev;
           return {
             ...prev,
             assignments: prev.assignments.map((a) => {
-              if (a.taskName === taskName && a.memberId === oldMemberId) {
+              if (a.taskName === taskName && a.memberId === oldMemberId && a.dayOfWeek === dayOfWeek && !reassigned) {
+                reassigned = true;
                 return {
                   ...a,
                   memberId: newMemberId,
@@ -453,11 +480,11 @@ export function PlanPageClient({
         });
         setSelectedAssignments((prev) => {
           const next = new Set(prev);
-          const oldKey = `${taskName}|${oldMemberId}`;
+          const oldKey = assignmentKey({ taskName, memberId: oldMemberId, dayOfWeek });
           const wasSelected = next.has(oldKey);
           next.delete(oldKey);
           if (wasSelected) {
-            next.add(`${taskName}|${newMemberId}`);
+            next.add(assignmentKey({ taskName, memberId: newMemberId, dayOfWeek }));
           }
           return next;
         });
@@ -517,6 +544,18 @@ export function PlanPageClient({
     }
   }
 
+  // Group assignments by dayOfWeek for the calendar view
+  const hasDayInfo = plan?.assignments.some((a) => a.dayOfWeek);
+  const assignmentsByDay = new Map<number, PlanAssignment[]>();
+  if (plan && hasDayInfo) {
+    for (const assignment of plan.assignments) {
+      const day = assignment.dayOfWeek ?? 1;
+      const existing = assignmentsByDay.get(day) ?? [];
+      existing.push(assignment);
+      assignmentsByDay.set(day, existing);
+    }
+  }
+
   // Calculate adult distribution from current plan
   const adultDistribution = fairnessDetails?.adultDistribution ?? {};
   if (plan && !fairnessDetails) {
@@ -532,21 +571,14 @@ export function PlanPageClient({
   const totalCount = plan?.assignments.length ?? 0;
 
   return (
-    <div className="container max-w-4xl px-4 py-6 sm:py-8">
+    <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
       {/* Header */}
       <div className="mb-6 sm:mb-8">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver
-        </button>
+        <BackButton />
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
+              <CalendarDays className="h-6 w-6 text-primary shrink-0" />
               Plan de Distribución
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -830,111 +862,213 @@ export function PlanPageClient({
             </div>
           )}
 
-          {/* Assignments by Member */}
+          {/* Assignments — grouped by day when available, by member as fallback */}
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Asignaciones propuestas</h2>
-            {Array.from(assignmentsByMember.entries()).map(([memberId, assignments]) => {
-              const memberType =
-                assignments[0]?.memberType ?? "ADULT";
-              const displayName = assignments[0]?.memberName ?? memberId;
-              const isPending = plan.status === "PENDING";
-              const memberData = members.find((m) => m.id === memberId);
+            <h2 className="text-lg font-semibold">
+              {hasDayInfo ? "Distribución semanal" : "Asignaciones propuestas"}
+            </h2>
 
-              return (
-                <div key={memberId} className="rounded-2xl bg-white shadow-sm overflow-hidden">
-                  <div className="flex items-center gap-2 bg-muted/30 px-3 py-2.5 sm:px-5 sm:py-3">
-                    {MEMBER_TYPE_ICONS[memberType]}
-                    <span className="text-sm font-semibold sm:text-base truncate">{displayName}</span>
-                    <Badge variant="outline" className="ml-auto shrink-0">
-                      {MEMBER_TYPE_LABELS[memberType]}
-                    </Badge>
-                  </div>
-                  <ul>
-                    {assignments.map((assignment, idx) => {
-                      const key = `${assignment.taskName}|${assignment.memberId}`;
-                      const isSelected = selectedAssignments.has(key);
+            {hasDayInfo ? (
+              /* Day-based view: shows assignments grouped by day of week */
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5, 6, 7].map((day) => {
+                  const dayAssignments = assignmentsByDay.get(day) ?? [];
+                  if (dayAssignments.length === 0) return null;
+                  const isPending = plan.status === "PENDING";
 
-                      return (
-                        <li
-                          key={key}
-                          className={cn(
-                            "flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-5 sm:py-3 transition-colors",
-                            idx > 0 && "border-t border-muted/40",
-                            isPending && "cursor-pointer hover:bg-muted/30",
-                            !isSelected && isPending && "opacity-50"
-                          )}
-                        >
-                          <div
-                            className="mt-0.5 shrink-0"
-                            onClick={() => toggleAssignment(assignment.taskName, memberId)}
-                          >
-                            {isSelected || plan.status === "APPLIED" ? (
-                              <CheckCircle2 className="h-5 w-5 text-green-600" />
-                            ) : (
-                              <XCircle className="h-5 w-5 text-muted-foreground" />
-                            )}
-                          </div>
-                          <div
-                            className="flex-1 min-w-0"
-                            onClick={() => toggleAssignment(assignment.taskName, memberId)}
-                          >
-                            <p className="font-medium truncate">{assignment.taskName}</p>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            {/* Reassign */}
-                            <Select
-                              value=""
-                              onValueChange={(newMemberId) =>
-                                handleReassign(assignment.taskName, memberId, newMemberId)
-                              }
+                  return (
+                    <div key={day} className="rounded-2xl bg-white shadow-sm overflow-hidden">
+                      <div className="flex items-center justify-between bg-primary/5 px-3 py-2.5 sm:px-5 sm:py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                            {DAY_OF_WEEK_SHORT[day]}
+                          </span>
+                          <span className="text-sm font-semibold sm:text-base">
+                            {DAY_OF_WEEK_LABELS[day]}
+                          </span>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">
+                          {dayAssignments.length} {dayAssignments.length === 1 ? "tarea" : "tareas"}
+                        </Badge>
+                      </div>
+                      <ul>
+                        {dayAssignments.map((assignment, idx) => {
+                          const key = assignmentKey(assignment);
+                          const isSelected = selectedAssignments.has(key);
+
+                          return (
+                            <li
+                              key={key}
+                              className={cn(
+                                "flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-5 sm:py-3 transition-colors",
+                                idx > 0 && "border-t border-muted/40",
+                                isPending && "cursor-pointer hover:bg-muted/30",
+                                !isSelected && isPending && "opacity-50"
+                              )}
                             >
-                              <SelectTrigger className="h-8 w-8 border-0 p-0 shadow-none [&>svg]:hidden">
-                                <Repeat className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {members
-                                  .filter((m) => m.id !== memberId)
-                                  .map((m) => (
-                                    <SelectItem key={m.id} value={m.id}>
-                                      {m.name}
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
-                            {/* Remove */}
-                            <button
-                              type="button"
-                              className="rounded-sm p-1 text-muted-foreground hover:text-destructive"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveFromPlan(assignment.taskName, memberId);
-                              }}
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  {memberData && (
-                    <div className="border-t border-muted/40 px-3 py-2.5 sm:px-5 sm:py-3">
-                      <TaskCatalogPicker
-                        existingTaskNames={tasks.map((t) => t.name)}
-                        onTasksCreated={() => router.refresh()}
-                        planMode={{
-                          member: { id: memberData.id, name: memberData.name, type: memberData.type },
-                          existingAssignmentKeys: new Set(
-                            plan.assignments.map((a) => `${a.taskName}|${a.memberId}`)
-                          ),
-                          onAddToPlan: handleAddToPlan,
-                        }}
-                      />
+                              <div
+                                className="mt-0.5 shrink-0"
+                                onClick={() => toggleAssignment(assignment.taskName, assignment.memberId, assignment.dayOfWeek)}
+                              >
+                                {isSelected || plan.status === "APPLIED" ? (
+                                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                ) : (
+                                  <XCircle className="h-5 w-5 text-muted-foreground" />
+                                )}
+                              </div>
+                              <div
+                                className="flex-1 min-w-0"
+                                onClick={() => toggleAssignment(assignment.taskName, assignment.memberId, assignment.dayOfWeek)}
+                              >
+                                <p className="font-medium truncate">{assignment.taskName}</p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {assignment.memberName}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Select
+                                  value=""
+                                  onValueChange={(newMemberId) =>
+                                    handleReassign(assignment.taskName, assignment.memberId, newMemberId, assignment.dayOfWeek)
+                                  }
+                                >
+                                  <SelectTrigger className="h-8 w-8 border-0 p-0 shadow-none [&>svg]:hidden">
+                                    <Repeat className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {members
+                                      .filter((m) => m.id !== assignment.memberId)
+                                      .map((m) => (
+                                        <SelectItem key={m.id} value={m.id}>
+                                          {m.name}
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                                <button
+                                  type="button"
+                                  className="rounded-sm p-1 text-muted-foreground hover:text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveFromPlan(assignment.taskName, assignment.memberId, assignment.dayOfWeek);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            ) : (
+              /* Member-based fallback view (for plans generated before dayOfWeek) */
+              <div className="space-y-4">
+                {Array.from(assignmentsByMember.entries()).map(([memberId, assignments]) => {
+                  const memberType =
+                    assignments[0]?.memberType ?? "ADULT";
+                  const displayName = assignments[0]?.memberName ?? memberId;
+                  const isPending = plan.status === "PENDING";
+                  const memberData = members.find((m) => m.id === memberId);
+
+                  return (
+                    <div key={memberId} className="rounded-2xl bg-white shadow-sm overflow-hidden">
+                      <div className="flex items-center gap-2 bg-muted/30 px-3 py-2.5 sm:px-5 sm:py-3">
+                        {MEMBER_TYPE_ICONS[memberType]}
+                        <span className="text-sm font-semibold sm:text-base truncate">{displayName}</span>
+                        <Badge variant="outline" className="ml-auto shrink-0">
+                          {MEMBER_TYPE_LABELS[memberType]}
+                        </Badge>
+                      </div>
+                      <ul>
+                        {assignments.map((assignment, idx) => {
+                          const key = assignmentKey(assignment);
+                          const isSelected = selectedAssignments.has(key);
+
+                          return (
+                            <li
+                              key={key}
+                              className={cn(
+                                "flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-5 sm:py-3 transition-colors",
+                                idx > 0 && "border-t border-muted/40",
+                                isPending && "cursor-pointer hover:bg-muted/30",
+                                !isSelected && isPending && "opacity-50"
+                              )}
+                            >
+                              <div
+                                className="mt-0.5 shrink-0"
+                                onClick={() => toggleAssignment(assignment.taskName, memberId)}
+                              >
+                                {isSelected || plan.status === "APPLIED" ? (
+                                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                ) : (
+                                  <XCircle className="h-5 w-5 text-muted-foreground" />
+                                )}
+                              </div>
+                              <div
+                                className="flex-1 min-w-0"
+                                onClick={() => toggleAssignment(assignment.taskName, memberId)}
+                              >
+                                <p className="font-medium truncate">{assignment.taskName}</p>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Select
+                                  value=""
+                                  onValueChange={(newMemberId) =>
+                                    handleReassign(assignment.taskName, memberId, newMemberId)
+                                  }
+                                >
+                                  <SelectTrigger className="h-8 w-8 border-0 p-0 shadow-none [&>svg]:hidden">
+                                    <Repeat className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {members
+                                      .filter((m) => m.id !== memberId)
+                                      .map((m) => (
+                                        <SelectItem key={m.id} value={m.id}>
+                                          {m.name}
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                                <button
+                                  type="button"
+                                  className="rounded-sm p-1 text-muted-foreground hover:text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveFromPlan(assignment.taskName, memberId);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      {memberData && (
+                        <div className="border-t border-muted/40 px-3 py-2.5 sm:px-5 sm:py-3">
+                          <TaskCatalogPicker
+                            existingTaskNames={tasks.map((t) => t.name)}
+                            onTasksCreated={() => router.refresh()}
+                            planMode={{
+                              member: { id: memberData.id, name: memberData.name, type: memberData.type },
+                              existingAssignmentKeys: new Set(
+                                plan.assignments.map((a) => assignmentKey(a))
+                              ),
+                              onAddToPlan: handleAddToPlan,
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Notes */}

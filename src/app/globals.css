@@ -200,6 +200,54 @@ body {
   animation: check-pop 200ms ease-out;
 }
 
+@keyframes celebrate-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.animate-celebrate-pulse {
+  animation: celebrate-pulse 600ms ease-in-out 2;
+}
+
+/* Dashboard feature card glow */
+@keyframes glow-breathe {
+  0%, 100% { box-shadow: 0 0 12px -2px var(--glow-color, hsl(234 99% 66% / 0.15)); }
+  50% { box-shadow: 0 0 24px 0px var(--glow-color, hsl(234 99% 66% / 0.25)); }
+}
+
+.animate-glow-breathe {
+  animation: glow-breathe 3s ease-in-out infinite;
+}
+
+/* Shimmer sweep for feature cards */
+@keyframes shimmer-sweep {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.feature-card-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    hsl(var(--primary) / 0.06) 45%,
+    hsl(var(--primary) / 0.10) 50%,
+    hsl(var(--primary) / 0.06) 55%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-sweep 6s ease-in-out infinite;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
 /* Accessibility: respect user motion preferences */
 @media (prefers-reduced-motion: reduce) {
   *,

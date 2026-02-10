@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireMember } from "@/lib/session";
+import { requireMember, requirePermission } from "@/lib/session";
 import { updateRotationSchema } from "@/lib/validations/rotation";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -42,13 +43,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ rotation });
   } catch (error) {
-    console.error("GET /api/rotations/[rotationId] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error fetching rotation" }, { status: 500 });
+    return handleApiError(error, { route: "/api/rotations/[rotationId]", method: "GET" });
   }
 }
 
@@ -58,7 +53,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const member = await requireMember();
+    const member = await requirePermission("rotation:manage");
     const { rotationId } = await params;
     const body: unknown = await request.json();
 
@@ -110,13 +105,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ rotation });
   } catch (error) {
-    console.error("PATCH /api/rotations/[rotationId] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error updating rotation" }, { status: 500 });
+    return handleApiError(error, { route: "/api/rotations/[rotationId]", method: "PATCH" });
   }
 }
 
@@ -126,7 +115,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
-    const member = await requireMember();
+    const member = await requirePermission("rotation:manage");
     const { rotationId } = await params;
 
     // Verify rotation belongs to household
@@ -147,12 +136,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("DELETE /api/rotations/[rotationId] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error deleting rotation" }, { status: 500 });
+    return handleApiError(error, { route: "/api/rotations/[rotationId]", method: "DELETE" });
   }
 }

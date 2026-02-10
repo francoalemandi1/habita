@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { createAbsenceSchema } from "@/lib/validations/preferences";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -35,13 +36,7 @@ export async function GET(request: NextRequest) {
       isCurrentlyAbsent: current.length > 0,
     });
   } catch (error) {
-    console.error("GET /api/absences error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error fetching absences" }, { status: 500 });
+    return handleApiError(error, { route: "/api/absences", method: "GET" });
   }
 }
 
@@ -83,12 +78,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ absence }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/absences error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error creating absence" }, { status: 500 });
+    return handleApiError(error, { route: "/api/absences", method: "POST" });
   }
 }

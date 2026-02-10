@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled, getAIProviderType } from "@/lib/llm/provider";
 import { generateWeeklyPlan } from "@/lib/llm/anthropic-provider";
@@ -78,15 +79,6 @@ export async function GET() {
 
     return NextResponse.json(recommendations);
   } catch (error) {
-    console.error("GET /api/ai/recommendations error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Error getting recommendations" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/ai/recommendations", method: "GET" });
   }
 }

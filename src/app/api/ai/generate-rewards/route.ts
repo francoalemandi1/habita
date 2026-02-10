@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
 import { calculatePlanPerformance, generateAIRewards } from "@/lib/llm/ai-reward-generator";

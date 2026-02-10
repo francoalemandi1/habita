@@ -6,6 +6,7 @@ import { CURRENT_HOUSEHOLD_COOKIE } from "@/lib/session";
 import { createHouseholdWithTasksSchema } from "@/lib/validations/household";
 import { generateInviteCode } from "@/lib/invite-code";
 import { sendWelcomeEmail } from "@/lib/email-service";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 import type { MemberType } from "@prisma/client";
@@ -136,15 +137,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    console.error("POST /api/households/onboarding error:", error);
-
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    return NextResponse.json(
-      { error: "Error al crear el hogar" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/households/onboarding", method: "POST" });
   }
 }

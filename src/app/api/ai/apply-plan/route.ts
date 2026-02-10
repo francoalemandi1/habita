@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
+import { getWeekMonday } from "@/lib/calendar-utils";
 import { calculatePlanPerformance, generateAIRewards } from "@/lib/llm/ai-reward-generator";
 import { createNotificationForMembers } from "@/lib/notification-service";
 import { sendPlanAppliedToAdults } from "@/lib/email-service";
@@ -11,6 +13,7 @@ interface AssignmentToApply {
   taskName: string;
   memberId: string;
   memberName?: string;
+  dayOfWeek?: number;
 }
 
 interface ApplyPlanBody {
@@ -59,7 +62,7 @@ export async function POST(request: NextRequest) {
       }),
       prisma.task.findMany({
         where: { householdId: member.householdId, isActive: true },
-        select: { id: true, name: true },
+        select: { id: true, name: true, frequency: true },
       }),
     ]);
 
@@ -69,6 +72,7 @@ export async function POST(request: NextRequest) {
     );
 
     const now = new Date();
+    const monday = getWeekMonday(now);
 
     let planEndDate: Date | undefined;
     if (planId) {
@@ -92,12 +96,9 @@ export async function POST(request: NextRequest) {
 
     const skipped: string[] = [];
 
-    // Plan-applied tasks are due end-of-today so they're immediately visible in "Mis tareas".
-    // When completed, computeDueDateForFrequency creates the next occurrence with the correct
-    // future due date (which stays hidden until it's due, preventing the "reappearing task" issue).
-    const endOfDay = new Date(now);
-    endOfDay.setHours(23, 59, 59, 999);
-    const planDueDate = planEndDate && planEndDate < endOfDay ? planEndDate : endOfDay;
+    // Fallback: end-of-today for assignments without dayOfWeek
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
 
     for (const assignment of assignments) {
       const memberId = memberIdSet.has(assignment.memberId) ? assignment.memberId : undefined;
@@ -108,11 +109,31 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
+      // Use dayOfWeek from AI plan when available (1=Mon..7=Sun)
+      let dueDate: Date;
+      if (assignment.dayOfWeek && assignment.dayOfWeek >= 1 && assignment.dayOfWeek <= 7) {
+        dueDate = new Date(monday);
+        dueDate.setDate(monday.getDate() + assignment.dayOfWeek - 1);
+        dueDate.setHours(23, 59, 59, 999);
+        // If the computed date is in the past (e.g. plan applied mid-week), push to today
+        if (dueDate < now) {
+          dueDate = new Date(endOfToday);
+        }
+      } else {
+        dueDate = new Date(endOfToday);
+      }
+
+      // Cap at plan end date
+      if (planEndDate && dueDate > planEndDate) {
+        dueDate = new Date(planEndDate);
+        dueDate.setHours(23, 59, 59, 999);
+      }
+
       assignmentsToCreate.push({
         taskId,
         memberId,
         householdId: member.householdId,
-        dueDate: planDueDate,
+        dueDate,
         status: "PENDING",
       });
     }
@@ -251,15 +272,6 @@ export async function POST(request: NextRequest) {
       skipped: skipped.length > 0 ? skipped : undefined,
     });
   } catch (error) {
-    console.error("POST /api/ai/apply-plan error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Error applying plan" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/ai/apply-plan", method: "POST" });
   }
 }

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { auth } from "./auth";
 import { prisma } from "./prisma";
+import { hasPermission } from "./permissions";
 
 import type { Member, Household, MemberLevel } from "@prisma/client";
 
@@ -92,6 +93,20 @@ export async function requireMember(): Promise<CurrentMember> {
 
   if (!member) {
     throw new Error("Not a member of any household");
+  }
+
+  return member;
+}
+
+/**
+ * Require member with a specific permission.
+ * Throws "Forbidden" if the member's type doesn't have the required permission.
+ */
+export async function requirePermission(permission: string): Promise<CurrentMember> {
+  const member = await requireMember();
+
+  if (!hasPermission(member.memberType, permission)) {
+    throw new Error("Forbidden");
   }
 
   return member;

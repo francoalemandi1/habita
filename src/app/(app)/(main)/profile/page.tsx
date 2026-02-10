@@ -44,33 +44,31 @@ export default async function ProfilePage() {
   const points = totalPoints._sum.pointsEarned ?? 0;
 
   return (
-    <div className="mx-auto max-w-md px-4 py-6 sm:py-8">
+    <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
       {/* Header */}
-      <h1 className="mb-6 text-3xl font-bold tracking-tight text-foreground">
+      <h1 className="mb-6 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
         Mi Perfil
       </h1>
 
-      {/* Score Card */}
-      <div className="relative mb-6 flex h-[164px] flex-col justify-between overflow-hidden rounded-[10px] bg-[#5260fe] p-5">
-        <p className="text-sm font-medium text-white/80">Puntaje Total</p>
-        <p className="self-end text-8xl font-bold leading-none text-white">
-          {points}
-        </p>
-      </div>
-
-      {/* Stats Section */}
-      <div className="mb-6">
-        <h2 className="mb-2 text-2xl font-bold text-foreground">Estadísticas</h2>
-        <div className="flex gap-2">
-          {/* Completadas */}
-          <div className="flex h-[130px] flex-1 flex-col justify-between rounded-[10px] bg-[#d0b6ff] p-4">
-            <p className="text-xs font-semibold text-[#522a97]">Completadas</p>
-            <p className="text-4xl font-bold text-[#522a97]">{completedTasks}</p>
-          </div>
-          {/* Progreso */}
-          <div className="flex h-[130px] flex-1 flex-col justify-between rounded-[10px] bg-[#fd7c52] p-4">
-            <p className="text-xs font-semibold text-[#fed9cb]">Progreso</p>
-            <p className="text-4xl font-bold text-white">{progress}%</p>
+      {/* Score + Stats: two columns on desktop */}
+      <div className="mb-8 grid gap-6 md:grid-cols-2">
+        <div className="relative flex h-[164px] flex-col justify-between overflow-hidden rounded-[10px] bg-[#5260fe] p-5">
+          <p className="text-sm font-medium text-white/80">Puntaje Total</p>
+          <p className="self-end text-8xl font-bold leading-none text-white">
+            {points}
+          </p>
+        </div>
+        <div>
+          <h2 className="mb-2 text-2xl font-bold text-foreground">Estadísticas</h2>
+          <div className="flex gap-2">
+            <div className="flex h-[130px] flex-1 flex-col justify-between rounded-[10px] bg-[#d0b6ff] p-4">
+              <p className="text-xs font-semibold text-[#522a97]">Completadas</p>
+              <p className="text-4xl font-bold text-[#522a97]">{completedTasks}</p>
+            </div>
+            <div className="flex h-[130px] flex-1 flex-col justify-between rounded-[10px] bg-[#fd7c52] p-4">
+              <p className="text-xs font-semibold text-[#fed9cb]">Progreso</p>
+              <p className="text-4xl font-bold text-white">{progress}%</p>
+            </div>
           </div>
         </div>
       </div>
@@ -88,7 +86,7 @@ export default async function ProfilePage() {
       </div>
 
       {/* Settings (edit name, household, invite code, members list) */}
-      <div className="mb-8">
+      <div className="mb-6">
         <ProfileSettings
           memberName={member.name}
           householdName={member.household.name}

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireMember } from "@/lib/session";
+import { requireMember, requirePermission } from "@/lib/session";
 import { updateTaskSchema } from "@/lib/validations/task";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -31,13 +32,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ task });
   } catch (error) {
-    console.error("GET /api/tasks/[taskId] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error fetching task" }, { status: 500 });
+    return handleApiError(error, { route: "/api/tasks/[taskId]", method: "GET" });
   }
 }
 
@@ -47,7 +42,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const member = await requireMember();
+    const member = await requirePermission("task:edit");
     const { taskId } = await params;
     const body: unknown = await request.json();
 
@@ -78,13 +73,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ task });
   } catch (error) {
-    console.error("PATCH /api/tasks/[taskId] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error updating task" }, { status: 500 });
+    return handleApiError(error, { route: "/api/tasks/[taskId]", method: "PATCH" });
   }
 }
 
@@ -94,7 +83,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
-    const member = await requireMember();
+    const member = await requirePermission("task:delete");
     const { taskId } = await params;
 
     // Verify task belongs to household
@@ -117,12 +106,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("DELETE /api/tasks/[taskId] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error deleting task" }, { status: 500 });
+    return handleApiError(error, { route: "/api/tasks/[taskId]", method: "DELETE" });
   }
 }

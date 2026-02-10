@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireMember } from "@/lib/session";
+import { requireMember, requirePermission } from "@/lib/session";
 import { createRotationSchema } from "@/lib/validations/rotation";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -26,17 +27,12 @@ export async function GET() {
         },
       },
       orderBy: { nextDueDate: "asc" },
+      take: 200,
     });
 
     return NextResponse.json({ rotations });
   } catch (error) {
-    console.error("GET /api/rotations error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error fetching rotations" }, { status: 500 });
+    return handleApiError(error, { route: "/api/rotations", method: "GET" });
   }
 }
 
@@ -46,7 +42,7 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
-    const member = await requireMember();
+    const member = await requirePermission("rotation:manage");
     const body: unknown = await request.json();
 
     const validation = createRotationSchema.safeParse(body);
@@ -110,13 +106,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ rotation }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/rotations error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error creating rotation" }, { status: 500 });
+    return handleApiError(error, { route: "/api/rotations", method: "POST" });
   }
 }
 

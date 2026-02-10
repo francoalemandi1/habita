@@ -53,13 +53,13 @@ export default async function RotationsPage() {
   ).length;
 
   return (
-    <div className="container max-w-4xl px-4 py-6 sm:py-8">
+    <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
       <div className="mb-8">
-        <h1 className="flex items-center gap-2 text-3xl font-bold">
-          <RefreshCw className="h-8 w-8" />
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-3xl">
+          <RefreshCw className="h-7 w-7" />
           Rotaciones automáticas
         </h1>
-        <p className="text-muted-foreground">
+        <p className="mt-1 text-sm text-muted-foreground">
           Configura la generación automática de asignaciones
         </p>
       </div>

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireMember } from "@/lib/session";
+import { requireMember, requirePermission } from "@/lib/session";
 import { createCompetitionSchema } from "@/lib/validations/competition";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -54,17 +55,12 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
+      take: 50,
     });
 
     return NextResponse.json({ competitions });
   } catch (error) {
-    console.error("GET /api/competitions error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error fetching competitions" }, { status: 500 });
+    return handleApiError(error, { route: "/api/competitions", method: "GET" });
   }
 }
 
@@ -152,12 +148,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ competition }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/competitions error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error creating competition" }, { status: 500 });
+    return handleApiError(error, { route: "/api/competitions", method: "POST" });
   }
 }

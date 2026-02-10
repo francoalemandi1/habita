@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
 import { getCategoryMeta } from "@/lib/catalog-meta";
+import { handleApiError } from "@/lib/api-response";
 
 const FREQUENCY_TO_LOWER: Record<string, string> = {
   DAILY: "daily",
@@ -61,15 +62,6 @@ export async function GET() {
 
     return NextResponse.json({ categories });
   } catch (error) {
-    console.error("GET /api/tasks/catalog error:", error);
-
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    return NextResponse.json(
-      { error: "Error fetching catalog" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/tasks/catalog", method: "GET" });
   }
 }

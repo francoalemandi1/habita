@@ -17,7 +17,7 @@ export const createAssignmentSchema = z.object({
 });
 
 export const updateAssignmentSchema = z.object({
-  status: assignmentStatusSchema.optional(),
+  status: z.enum(["IN_PROGRESS"]).optional(),
   notes: z.string().max(500).nullable().optional(),
 });
 

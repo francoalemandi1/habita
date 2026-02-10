@@ -8,6 +8,7 @@ import { getBestAssignee } from "@/lib/assignment-algorithm";
 import { computeDueDateForFrequency } from "@/lib/due-date";
 import { calculatePlanPerformance, generateAIRewards } from "@/lib/llm/ai-reward-generator";
 import { createNotification, createNotificationForMembers } from "@/lib/notification-service";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -58,6 +59,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (!assignment) {
       return NextResponse.json({ error: "Asignación no encontrada" }, { status: 404 });
+    }
+
+    // Only the assigned member can complete their own assignment
+    if (assignment.memberId !== member.id) {
+      return NextResponse.json({ error: "Solo podés completar tus propias tareas" }, { status: 403 });
     }
 
     if (assignment.status === "COMPLETED" || assignment.status === "VERIFIED") {
@@ -349,13 +355,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (error instanceof Error && error.message === "ALREADY_COMPLETED") {
       return NextResponse.json({ error: "La tarea ya fue completada" }, { status: 400 });
     }
-
-    console.error("POST /api/assignments/[assignmentId]/complete error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error completing assignment" }, { status: 500 });
+    return handleApiError(error, { route: "/api/assignments/[assignmentId]/complete", method: "POST" });
   }
 }

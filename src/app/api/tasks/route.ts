@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireMember } from "@/lib/session";
+import { requireMember, requirePermission } from "@/lib/session";
 import { createTaskSchema } from "@/lib/validations/task";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -47,13 +48,7 @@ export async function GET(request: NextRequest) {
       pagination: { total, limit, offset, hasMore: offset + tasks.length < total },
     });
   } catch (error) {
-    console.error("GET /api/tasks error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error fetching tasks" }, { status: 500 });
+    return handleApiError(error, { route: "/api/tasks", method: "GET" });
   }
 }
 
@@ -63,7 +58,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const member = await requireMember();
+    const member = await requirePermission("task:create");
     const body: unknown = await request.json();
 
     const validation = createTaskSchema.safeParse(body);
@@ -83,12 +78,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ task }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/tasks error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error creating task" }, { status: 500 });
+    return handleApiError(error, { route: "/api/tasks", method: "POST" });
   }
 }

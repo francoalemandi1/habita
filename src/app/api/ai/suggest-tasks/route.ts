@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 import { isAIEnabled, getLLMProvider } from "@/lib/llm/provider";
+import { z } from "zod";
+import { ONBOARDING_CATALOG } from "@/data/onboarding-catalog";
 
 import type { NextRequest } from "next/server";
 
-interface SuggestTasksBody {
-  hasChildren?: boolean;
-  hasPets?: boolean;
-  location?: string;
-  householdDescription?: string;
-}
+const suggestTasksSchema = z.object({
+  hasChildren: z.boolean().optional().default(false),
+  hasPets: z.boolean().optional().default(false),
+  location: z.string().max(200).optional(),
+  householdDescription: z.string().max(1000).optional(),
+});
 
 interface SuggestedTask {
   name: string;
@@ -28,89 +31,32 @@ interface TaskCategory {
   tasks: SuggestedTask[];
 }
 
-// Default tasks organized by category
-const DEFAULT_CATEGORIES: TaskCategory[] = [
-  {
-    name: "cocina",
-    label: "Cocina",
-    icon: "🍳",
-    tasks: [
-      { name: "Lavar platos", frequency: "DAILY", category: "cocina", icon: "🍽️", estimatedMinutes: 15, weight: 2 },
-      { name: "Limpiar cocina", frequency: "DAILY", category: "cocina", icon: "🧽", estimatedMinutes: 20, weight: 3 },
-      { name: "Preparar desayuno", frequency: "DAILY", category: "cocina", icon: "🥣", estimatedMinutes: 15, weight: 2 },
-      { name: "Preparar almuerzo", frequency: "DAILY", category: "cocina", icon: "🍲", estimatedMinutes: 30, weight: 3 },
-      { name: "Preparar cena", frequency: "DAILY", category: "cocina", icon: "🍽️", estimatedMinutes: 30, weight: 3 },
-      { name: "Organizar despensa", frequency: "WEEKLY", category: "cocina", icon: "🗄️", estimatedMinutes: 20, weight: 2 },
-    ],
-  },
-  {
-    name: "limpieza",
-    label: "Limpieza",
-    icon: "🧹",
-    tasks: [
-      { name: "Barrer pisos", frequency: "DAILY", category: "limpieza", icon: "🧹", estimatedMinutes: 15, weight: 2 },
-      { name: "Trapear pisos", frequency: "WEEKLY", category: "limpieza", icon: "🪣", estimatedMinutes: 20, weight: 2 },
-      { name: "Aspirar alfombras", frequency: "WEEKLY", category: "limpieza", icon: "🧹", estimatedMinutes: 20, weight: 2 },
-      { name: "Limpiar baños", frequency: "WEEKLY", category: "limpieza", icon: "🚽", estimatedMinutes: 25, weight: 3 },
-      { name: "Sacar basura", frequency: "DAILY", category: "limpieza", icon: "🗑️", estimatedMinutes: 5, weight: 1 },
-      { name: "Limpiar ventanas", frequency: "MONTHLY", category: "limpieza", icon: "🪟", estimatedMinutes: 30, weight: 3 },
-    ],
-  },
-  {
-    name: "lavanderia",
-    label: "Lavandería",
-    icon: "👕",
-    tasks: [
-      { name: "Lavar ropa", frequency: "WEEKLY", category: "lavanderia", icon: "🧺", estimatedMinutes: 20, weight: 2 },
-      { name: "Tender ropa", frequency: "WEEKLY", category: "lavanderia", icon: "👕", estimatedMinutes: 15, weight: 2 },
-      { name: "Planchar ropa", frequency: "WEEKLY", category: "lavanderia", icon: "🧥", estimatedMinutes: 30, weight: 3 },
-      { name: "Doblar y guardar ropa", frequency: "WEEKLY", category: "lavanderia", icon: "📦", estimatedMinutes: 20, weight: 2 },
-    ],
-  },
-  {
-    name: "exterior",
-    label: "Exterior",
-    icon: "🌳",
-    tasks: [
-      { name: "Regar plantas", frequency: "DAILY", category: "exterior", icon: "🌱", estimatedMinutes: 10, weight: 1 },
-      { name: "Cortar pasto", frequency: "BIWEEKLY", category: "exterior", icon: "🌿", estimatedMinutes: 45, weight: 4 },
-      { name: "Limpiar patio", frequency: "WEEKLY", category: "exterior", icon: "🧹", estimatedMinutes: 30, weight: 3 },
-    ],
-  },
-  {
-    name: "compras",
-    label: "Compras",
-    icon: "🛒",
-    tasks: [
-      { name: "Hacer lista de compras", frequency: "WEEKLY", category: "compras", icon: "📝", estimatedMinutes: 10, weight: 1 },
-      { name: "Ir al supermercado", frequency: "WEEKLY", category: "compras", icon: "🛒", estimatedMinutes: 60, weight: 3 },
-      { name: "Guardar compras", frequency: "WEEKLY", category: "compras", icon: "📦", estimatedMinutes: 15, weight: 2 },
-    ],
-  },
-];
-
-const PET_CATEGORY: TaskCategory = {
-  name: "mascotas",
-  label: "Mascotas",
-  icon: "🐾",
-  tasks: [
-    { name: "Alimentar mascotas", frequency: "DAILY", category: "mascotas", icon: "🐕", estimatedMinutes: 10, weight: 1 },
-    { name: "Pasear al perro", frequency: "DAILY", category: "mascotas", icon: "🦮", estimatedMinutes: 30, weight: 2 },
-    { name: "Limpiar arenero", frequency: "DAILY", category: "mascotas", icon: "🐱", estimatedMinutes: 10, weight: 1 },
-    { name: "Bañar mascotas", frequency: "BIWEEKLY", category: "mascotas", icon: "🛁", estimatedMinutes: 30, weight: 3 },
-  ],
+const FREQ_UP: Record<string, SuggestedTask["frequency"]> = {
+  daily: "DAILY",
+  weekly: "WEEKLY",
+  biweekly: "BIWEEKLY",
+  monthly: "MONTHLY",
 };
 
-const CHILDREN_CATEGORY: TaskCategory = {
-  name: "niños",
-  label: "Niños",
-  icon: "👶",
-  tasks: [
-    { name: "Preparar lonchera", frequency: "DAILY", category: "niños", icon: "🎒", estimatedMinutes: 15, weight: 2 },
-    { name: "Revisar tareas escolares", frequency: "DAILY", category: "niños", icon: "📚", estimatedMinutes: 20, weight: 2 },
-    { name: "Ordenar juguetes", frequency: "DAILY", category: "niños", icon: "🧸", estimatedMinutes: 15, weight: 1 },
-  ],
-};
+function catalogToTaskCategories(hasPets: boolean, hasChildren: boolean): TaskCategory[] {
+  return ONBOARDING_CATALOG.filter((cat) => {
+    if (cat.category === "Mascotas") return hasPets;
+    if (cat.category === "Niños") return hasChildren;
+    return true;
+  }).map((cat) => ({
+    name: cat.category.toLowerCase(),
+    label: cat.label,
+    icon: cat.icon,
+    tasks: cat.tasks.map((t) => ({
+      name: t.name,
+      frequency: (FREQ_UP[t.defaultFrequency] ?? "WEEKLY") as SuggestedTask["frequency"],
+      category: cat.category.toLowerCase(),
+      icon: t.icon,
+      estimatedMinutes: t.estimatedMinutes,
+      weight: t.defaultWeight,
+    })),
+  }));
+}
 
 /**
  * POST /api/ai/suggest-tasks
@@ -122,28 +68,21 @@ export async function POST(request: NextRequest) {
     await requireAuth();
 
     const body: unknown = await request.json();
-    const {
-      hasChildren = false,
-      hasPets = false,
-      location,
-      householdDescription
-    } = body as SuggestTasksBody;
+    const validation = suggestTasksSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.error.errors[0]?.message ?? "Invalid input" },
+        { status: 400 }
+      );
+    }
 
-    // Start with default categories
-    const categories: TaskCategory[] = DEFAULT_CATEGORIES.map((cat) => ({
+    const { hasChildren, hasPets, location, householdDescription } = validation.data;
+
+    // Base categories from deterministic catalog (Mascotas/Niños only if hasPets/hasChildren)
+    const categories: TaskCategory[] = catalogToTaskCategories(hasPets, hasChildren).map((cat) => ({
       ...cat,
       tasks: [...cat.tasks],
     }));
-
-    // Add pet tasks if applicable
-    if (hasPets) {
-      categories.push({ ...PET_CATEGORY, tasks: [...PET_CATEGORY.tasks] });
-    }
-
-    // Add children tasks if applicable
-    if (hasChildren) {
-      categories.push({ ...CHILDREN_CATEGORY, tasks: [...CHILDREN_CATEGORY.tasks] });
-    }
 
     let insights: string[] = [];
 
@@ -230,20 +169,11 @@ export async function POST(request: NextRequest) {
       insights,
     });
   } catch (error) {
-    console.error("POST /api/ai/suggest-tasks error:", error);
-
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    return NextResponse.json(
-      { error: "Error al sugerir tareas" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/ai/suggest-tasks", method: "POST" });
   }
 }
 
-function buildAIPrompt(context: SuggestTasksBody): string {
+function buildAIPrompt(context: z.infer<typeof suggestTasksSchema>): string {
   return `Eres un experto en organización del hogar. Genera sugerencias de tareas adicionales basadas en el contexto.
 
 ## Contexto del hogar

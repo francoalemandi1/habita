@@ -91,7 +91,7 @@ export function TaskCatalogPicker({
           {planMode ? "Asignar más tareas" : "Agregar tareas"}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg md:max-w-xl">
         <DialogHeader>
           <DialogTitle>
             {planMode ? `Asignar tareas a ${planMode.member.name}` : "Agregar tareas"}

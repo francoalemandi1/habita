@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 
 /**
  * GET /api/reminders

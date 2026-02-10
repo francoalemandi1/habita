@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireMember } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 import { generateAndApplyPlan } from "@/lib/llm/ai-planner";
 import { isAIEnabled } from "@/lib/llm/provider";
 
@@ -10,7 +11,7 @@ import { isAIEnabled } from "@/lib/llm/provider";
  */
 export async function POST() {
   try {
-    const member = await requireMember();
+    const member = await requirePermission("task:assign");
 
     if (!isAIEnabled()) {
       return NextResponse.json(
@@ -23,15 +24,6 @@ export async function POST() {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("POST /api/ai/generate-plan error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Error generating plan" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/ai/generate-plan", method: "POST" });
   }
 }

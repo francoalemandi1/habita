@@ -17,9 +17,10 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InviteShareBlock } from "@/components/features/invite-share-block";
+import { ONBOARDING_CATALOG } from "@/data/onboarding-catalog";
 import { Check, ChevronDown, Plus, Search, Sparkles, User, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type StepId = "name" | "household" | "catalog" | "frequency" | "summary" | "creating" | "invite" | "join";
 
@@ -116,12 +117,23 @@ function OnboardingContent() {
 
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
 
-  const [catalogTasks, setCatalogTasks] = useState<Record<string, CatalogTask[]>>({});
-  const [catalogLoading, setCatalogLoading] = useState(false);
+  const initialCatalog = useMemo(() => {
+    const byCategory: Record<string, CatalogTask[]> = { other: [] };
+    for (const cat of ONBOARDING_CATALOG) {
+      byCategory[cat.category] = cat.tasks.map((t) => ({
+        ...t,
+        estimatedMinutes: t.estimatedMinutes ?? null,
+        selected: false,
+        category: cat.category,
+      }));
+    }
+    return byCategory;
+  }, []);
+
+  const [catalogTasks, setCatalogTasks] = useState<Record<string, CatalogTask[]>>(initialCatalog);
   const [createLoading, setCreateLoading] = useState(false);
   const [joinLoading, setJoinLoading] = useState(false);
   const [showAllSummaryTasks, setShowAllSummaryTasks] = useState(false);
-  const hasFetchedCatalogRef = useRef(false);
 
   useEffect(() => {
     if (searchParams.get("mode") === "join") {
@@ -146,87 +158,6 @@ function OnboardingContent() {
   }, [router]);
 
   const steps = hasInviteCode ? STEPS_JOIN : STEPS_CREATE;
-
-  const fetchCatalog = useCallback(async () => {
-    setCatalogLoading(true);
-    try {
-      const res = await fetch("/api/ai/suggest-tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          hasChildren,
-          hasPets,
-        }),
-      });
-
-      if (!res.ok) {
-        const fallbackRes = await fetch("/api/tasks/catalog");
-        if (!fallbackRes.ok) throw new Error("Error al cargar catálogo");
-        const data = (await fallbackRes.json()) as { categories: CategoryFromApi[] };
-        const byCategory: Record<string, CatalogTask[]> = {};
-        let firstCategory: string | null = null;
-        for (const cat of data.categories) {
-          byCategory[cat.category] = cat.tasks.map((t) => ({
-            ...t,
-            selected: false,
-            category: cat.category,
-          }));
-          if (!firstCategory) firstCategory = cat.category;
-        }
-        setCatalogTasks(byCategory);
-        return;
-      }
-
-      const data = (await res.json()) as {
-        categories: Array<{
-          name: string;
-          label: string;
-          icon: string;
-          tasks: Array<{
-            name: string;
-            frequency: string;
-            icon: string;
-            estimatedMinutes: number;
-            weight: number;
-          }>;
-        }>;
-        insights: string[];
-      };
-
-      const byCategory: Record<string, CatalogTask[]> = {};
-      let firstCategory: string | null = null;
-
-      for (const cat of data.categories) {
-        byCategory[cat.name] = cat.tasks.map((t) => ({
-          name: t.name,
-          icon: t.icon,
-          defaultFrequency: t.frequency.toLowerCase(),
-          defaultWeight: t.weight,
-          estimatedMinutes: t.estimatedMinutes,
-          minAge: null,
-          selected: false,
-          category: cat.name,
-        }));
-        if (!firstCategory) firstCategory = cat.name;
-      }
-
-      setCatalogTasks(byCategory);
-    } catch {
-      setError("No se pudo cargar el catálogo de tareas");
-    } finally {
-      setCatalogLoading(false);
-    }
-  }, [hasChildren, hasPets]);
-
-  useEffect(() => {
-    if (step !== "catalog") {
-      hasFetchedCatalogRef.current = false;
-      return;
-    }
-    if (hasFetchedCatalogRef.current) return;
-    hasFetchedCatalogRef.current = true;
-    fetchCatalog();
-  }, [step, fetchCatalog]);
 
   const selectedCount = Object.values(catalogTasks).flat().filter((t) => t.selected).length;
 
@@ -310,6 +241,18 @@ function OnboardingContent() {
     });
   };
 
+  const toggleCategory = (categoryKey: string) => {
+    setCatalogTasks((prev) => {
+      const cat = prev[categoryKey];
+      if (!cat) return prev;
+      const allSelected = cat.every((t) => t.selected);
+      return {
+        ...prev,
+        [categoryKey]: cat.map((t) => ({ ...t, selected: !allSelected })),
+      };
+    });
+  };
+
   const addCustomTask = () => {
     const name = customTaskName.trim();
     if (!name) return;
@@ -346,17 +289,23 @@ function OnboardingContent() {
     }, 1500);
 
     try {
-      const tasksPayload = Object.entries(catalogTasks).flatMap(([cat, tasks]) =>
-        tasks
-          .filter((t) => t.selected)
-          .map((t) => ({
-            name: t.name,
-            category: cat,
-            frequency: frequencyToApi(t.defaultFrequency),
-            weight: t.defaultWeight ?? 2,
-            estimatedMinutes: t.estimatedMinutes ?? undefined,
-          }))
-      );
+      const tasksPayload = Object.entries(catalogTasks)
+        .filter(([cat]) => {
+          if (cat === "Mascotas") return hasPets;
+          if (cat === "Niños") return hasChildren;
+          return true;
+        })
+        .flatMap(([cat, tasks]) =>
+          tasks
+            .filter((t) => t.selected)
+            .map((t) => ({
+              name: t.name,
+              category: cat,
+              frequency: frequencyToApi(t.defaultFrequency),
+              weight: t.defaultWeight ?? 2,
+              estimatedMinutes: t.estimatedMinutes ?? undefined,
+            }))
+        );
 
       const [res] = await Promise.all([
         fetch("/api/households/onboarding", {
@@ -583,13 +532,13 @@ function OnboardingContent() {
             )}
           </div>
 
-          {catalogLoading ? (
-            <p className="py-8 text-center text-muted-foreground">
-              Generando sugerencias personalizadas...
-            </p>
-          ) : (
             <div className="space-y-6">
               {Object.entries(catalogTasks)
+                .filter(([categoryKey]) => {
+                  if (categoryKey === "Mascotas") return hasPets;
+                  if (categoryKey === "Niños") return hasChildren;
+                  return true;
+                })
                 .map(([categoryKey, tasks]) => {
                   const filteredTasks = searchQuery
                     ? tasks.filter((t) =>
@@ -605,36 +554,45 @@ function OnboardingContent() {
                     : { label: categoryKey.charAt(0).toUpperCase() + categoryKey.slice(1), icon: tasks[0]?.icon ?? "📋" };
                   const isExpanded = expandedCategories.has(categoryKey) || !!searchQuery;
                   const selectedInCategory = filteredTasks.filter((t) => t.selected).length;
+                  const allInCategorySelected = tasks.length > 0 && tasks.every((t) => t.selected);
 
                   return (
                     <div key={categoryKey} className="rounded-2xl border border-primary p-3">
-                      <button
-                        type="button"
-                        className="flex w-full items-center justify-between px-1 py-2"
-                        onClick={() => {
-                          setExpandedCategories((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(categoryKey)) {
-                              next.delete(categoryKey);
-                            } else {
-                              next.add(categoryKey);
-                            }
-                            return next;
-                          });
-                        }}
-                      >
-                        <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                          {meta.icon} {meta.label}
-                          {selectedInCategory > 0 && (
-                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
-                              {selectedInCategory}
-                            </span>
-                          )}
-                        </span>
-                        <ChevronDown
-                          className={`size-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                      <div className="flex w-full items-center gap-2 px-1 py-2">
+                        <Checkbox
+                          checked={allInCategorySelected}
+                          onCheckedChange={() => toggleCategory(categoryKey)}
+                          aria-label={`Seleccionar todas las tareas de ${meta.label}`}
+                          className="shrink-0"
                         />
-                      </button>
+                        <button
+                          type="button"
+                          className="flex min-w-0 flex-1 items-center justify-between"
+                          onClick={() => {
+                            setExpandedCategories((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(categoryKey)) {
+                                next.delete(categoryKey);
+                              } else {
+                                next.add(categoryKey);
+                              }
+                              return next;
+                            });
+                          }}
+                        >
+                          <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                            {meta.icon} {meta.label}
+                            {selectedInCategory > 0 && (
+                              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                                {selectedInCategory}
+                              </span>
+                            )}
+                          </span>
+                          <ChevronDown
+                            className={`size-4 shrink-0 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                          />
+                        </button>
+                      </div>
                       {isExpanded && (
                         <div>
                           {filteredTasks.map((t) => (
@@ -725,7 +683,6 @@ function OnboardingContent() {
                 </div>
               )}
             </div>
-          )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>

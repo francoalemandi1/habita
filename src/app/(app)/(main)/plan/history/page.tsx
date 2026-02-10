@@ -1,10 +1,8 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import {
-  ArrowLeft,
   CalendarDays,
   CheckCheck,
   Clock,
@@ -14,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { durationLabel } from "@/lib/plan-duration";
+import { BackButton } from "@/components/ui/back-button";
 
 import type { MemberType } from "@prisma/client";
 
@@ -74,16 +73,10 @@ export default async function PlanHistoryPage() {
   });
 
   return (
-    <div className="container max-w-4xl px-4 py-6 sm:py-8">
+    <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
       {/* Header */}
       <div className="mb-6 sm:mb-8">
-        <Link
-          href="/plan"
-          className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver al plan
-        </Link>
+        <BackButton />
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
           <CalendarDays className="h-6 w-6 text-primary" />
           Historial de Planes

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
 import { autoAssignSchema } from "@/lib/validations/assignment";
 import { autoAssignTask, calculateAssignmentScores } from "@/lib/assignment-algorithm";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -28,24 +29,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    console.error("POST /api/assignments/auto-assign error:", error);
-
-    if (error instanceof Error) {
-      if (error.message === "Not a member of any household") {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-      if (error.message === "Task not found") {
-        return NextResponse.json({ error: "Tarea no encontrada" }, { status: 404 });
-      }
-      if (error.message === "No eligible members for this task") {
-        return NextResponse.json(
-          { error: "No hay miembros elegibles para esta tarea" },
-          { status: 400 }
-        );
-      }
-    }
-
-    return NextResponse.json({ error: "Error auto-assigning task" }, { status: 500 });
+    return handleApiError(error, { route: "/api/assignments/auto-assign", method: "POST" });
   }
 }
 
@@ -66,17 +50,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ scores });
   } catch (error) {
-    console.error("GET /api/assignments/auto-assign error:", error);
-
-    if (error instanceof Error) {
-      if (error.message === "Not a member of any household") {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-      if (error.message === "Task not found") {
-        return NextResponse.json({ error: "Tarea no encontrada" }, { status: 404 });
-      }
-    }
-
-    return NextResponse.json({ error: "Error calculating scores" }, { status: 500 });
+    return handleApiError(error, { route: "/api/assignments/auto-assign", method: "GET" });
   }
 }

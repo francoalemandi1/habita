@@ -35,8 +35,8 @@ export function WhatsAppOptInBanner() {
   };
 
   return (
-    <Card className="border-green-600/20 bg-green-50">
-      <CardContent className="py-4">
+    <Card className="h-full border-green-600/20 bg-green-50">
+      <CardContent className="flex h-full flex-col pt-4 pb-4 sm:pt-6 sm:pb-6">
         <div className="flex items-start gap-3">
           <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-green-100">
             <MessageCircle className="h-4 w-4 text-green-600" />

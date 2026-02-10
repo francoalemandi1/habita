@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireMember } from "@/lib/session";
+import { requireMember, requirePermission } from "@/lib/session";
 import { respondTransferSchema } from "@/lib/validations/transfer";
 import { createNotification } from "@/lib/notification-service";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -44,13 +45,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ transfer });
   } catch (error) {
-    console.error("GET /api/transfers/[transferId] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error fetching transfer" }, { status: 500 });
+    return handleApiError(error, { route: "/api/transfers/[transferId]", method: "GET" });
   }
 }
 
@@ -60,7 +55,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const member = await requireMember();
+    const member = await requirePermission("transfer:respond");
     const { transferId } = await params;
     const body: unknown = await request.json();
 
@@ -160,13 +155,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ transfer: updatedTransfer });
     }
   } catch (error) {
-    console.error("PATCH /api/transfers/[transferId] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error responding to transfer" }, { status: 500 });
+    return handleApiError(error, { route: "/api/transfers/[transferId]", method: "PATCH" });
   }
 }
 
@@ -176,7 +165,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
-    const member = await requireMember();
+    const member = await requirePermission("transfer:request");
     const { transferId } = await params;
 
     // Verify transfer belongs to sender and is pending
@@ -205,12 +194,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("DELETE /api/transfers/[transferId] error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error canceling transfer" }, { status: 500 });
+    return handleApiError(error, { route: "/api/transfers/[transferId]", method: "DELETE" });
   }
 }

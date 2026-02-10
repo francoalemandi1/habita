@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
 import { CURRENT_HOUSEHOLD_COOKIE } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 import { z } from "zod";
 
 const switchSchema = z.object({
@@ -53,13 +54,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, householdId });
   } catch (error) {
-    console.error("POST /api/households/switch error:", error);
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-    return NextResponse.json(
-      { error: "Error al cambiar de hogar" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/households/switch", method: "POST" });
   }
 }

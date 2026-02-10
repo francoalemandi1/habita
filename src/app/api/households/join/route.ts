@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/session";
 import { CURRENT_HOUSEHOLD_COOKIE } from "@/lib/session";
 import { joinHouseholdWithMemberSchema } from "@/lib/validations/household";
 import { sendWelcomeEmail } from "@/lib/email-service";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 import type { MemberType } from "@prisma/client";
@@ -115,15 +116,6 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("POST /api/households/join error:", error);
-
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    return NextResponse.json(
-      { error: "Error al unirse al hogar" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/households/join", method: "POST" });
   }
 }

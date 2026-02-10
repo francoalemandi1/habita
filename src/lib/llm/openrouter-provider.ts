@@ -228,8 +228,11 @@ Genera recomendaciones considerando:
 export async function generateAIPlanOpenRouter(context: {
   members: Array<{ id: string; name: string; type: string; pendingCount: number }>;
   tasks: Array<{ name: string; frequency: string; weight: number }>;
+  durationDays?: number;
   regionalBlock?: string;
 }) {
+  const planDays = context.durationDays ?? 7;
+  const dailyCount = Math.min(planDays, 7);
   const client = getClient();
 
   const result = await client.chat.send({
@@ -242,7 +245,7 @@ export async function generateAIPlanOpenRouter(context: {
 Responde SOLO con JSON válido siguiendo este schema:
 {
   "assignments": [
-    { "taskName": "string", "memberId": "string (ID exacto del miembro)", "memberName": "string (nombre del miembro)", "reason": "string" }
+    { "taskName": "string", "memberId": "string (ID exacto del miembro)", "memberName": "string (nombre del miembro)", "reason": "string", "dayOfWeek": number (1=Lunes..7=Domingo) }
   ],
   "balanceScore": number (0-100),
   "notes": ["string"]
@@ -271,6 +274,11 @@ Instrucciones:
 5. Los niños (CHILD) no deben recibir tareas complejas o peligrosas
 6. Proporciona una breve razón para cada asignación
 7. IMPORTANTE: Usa el ID exacto del miembro (campo "memberId") tal como aparece entre [ID: ...]. Dos miembros pueden tener el mismo nombre.
+8. DISTRIBUYE las tareas en los DÍAS DE LA SEMANA usando "dayOfWeek" (1=Lunes..7=Domingo). El plan cubre ${planDays} días.
+   - Tareas DAILY: genera EXACTAMENTE ${dailyCount} asignaciones (una por cada día, dayOfWeek 1 a ${dailyCount}). Puedes rotar miembros.
+   - Tareas WEEKLY: genera UNA sola asignación.
+   - Tareas BIWEEKLY/ONCE: genera UNA sola asignación.
+   - Balancea la carga diaria.
 
 El objetivo es maximizar la equidad (balanceScore alto = más justo).${context.regionalBlock ? `\n\n${context.regionalBlock}` : ""}`,
         },
@@ -284,14 +292,14 @@ El objetivo es maximizar la equidad (balanceScore alto = más justo).${context.r
 
   try {
     return JSON.parse(text) as {
-      assignments: Array<{ taskName: string; memberId: string; memberName: string; reason: string }>;
+      assignments: Array<{ taskName: string; memberId: string; memberName: string; reason: string; dayOfWeek?: number }>;
       balanceScore: number;
       notes: string[];
     };
   } catch {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]) as { assignments: Array<{ taskName: string; memberId: string; memberName: string; reason: string }>; balanceScore: number; notes: string[] };
+      return JSON.parse(jsonMatch[0]) as { assignments: Array<{ taskName: string; memberId: string; memberName: string; reason: string; dayOfWeek?: number }>; balanceScore: number; notes: string[] };
     }
     return null;
   }

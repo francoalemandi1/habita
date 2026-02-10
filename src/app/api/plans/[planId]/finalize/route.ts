@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 import { calculatePointsWithBreakdown } from "@/lib/points";
 import { checkAndUnlockAchievements } from "@/lib/achievements";
 import { calculatePlanPerformance, generateAIRewards } from "@/lib/llm/ai-reward-generator";
+import { z } from "zod";
 
 import type { NextRequest } from "next/server";
 import type { TaskFrequency } from "@prisma/client";
@@ -12,9 +14,9 @@ interface RouteParams {
   params: Promise<{ planId: string }>;
 }
 
-interface FinalizeBody {
-  assignmentIds: string[];
-}
+const finalizeSchema = z.object({
+  assignmentIds: z.array(z.string().min(1)).max(500),
+});
 
 /**
  * POST /api/plans/[planId]/finalize
@@ -26,19 +28,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { planId } = await params;
 
     const body: unknown = await request.json();
-    if (
-      typeof body !== "object" ||
-      body === null ||
-      !("assignmentIds" in body) ||
-      !Array.isArray((body as FinalizeBody).assignmentIds)
-    ) {
+    const validation = finalizeSchema.safeParse(body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "Se requiere { assignmentIds: string[] }" },
+        { error: validation.error.errors[0]?.message ?? "Invalid input" },
         { status: 400 }
       );
     }
 
-    const { assignmentIds } = body as FinalizeBody;
+    const { assignmentIds } = validation.data;
 
     // Verify plan exists, belongs to household, and is APPLIED
     const plan = await prisma.weeklyPlan.findFirst({
@@ -209,12 +207,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       rewardsGenerated,
     });
   } catch (error) {
-    console.error("POST /api/plans/[planId]/finalize error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error finalizando el plan" }, { status: 500 });
+    return handleApiError(error, { route: "/api/plans/[planId]/finalize", method: "POST" });
   }
 }

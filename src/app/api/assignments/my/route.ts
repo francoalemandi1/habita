@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
+import { assignmentStatusSchema } from "@/lib/validations/assignment";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -14,14 +16,16 @@ export async function GET(request: NextRequest) {
     const member = await requireMember();
     const searchParams = request.nextUrl.searchParams;
 
-    const status = searchParams.get("status");
+    const statusParam = searchParams.get("status");
     const from = searchParams.get("from");
     const to = searchParams.get("to");
+
+    const parsedStatus = statusParam ? assignmentStatusSchema.safeParse(statusParam) : null;
 
     const assignments = await prisma.assignment.findMany({
       where: {
         memberId: member.id,
-        ...(status && { status: status as never }),
+        ...(parsedStatus?.success && { status: parsedStatus.data }),
         ...(from && { dueDate: { gte: new Date(from) } }),
         ...(to && { dueDate: { lte: new Date(to) } }),
       },
@@ -65,12 +69,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("GET /api/assignments/my error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error fetching assignments" }, { status: 500 });
+    return handleApiError(error, { route: "/api/assignments/my", method: "GET" });
   }
 }

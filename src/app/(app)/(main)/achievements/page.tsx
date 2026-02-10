@@ -36,8 +36,8 @@ export default async function AchievementsPage() {
     .reduce((sum, a) => sum + a.xpReward, 0);
 
   return (
-    <div className="container max-w-4xl px-4 py-6 sm:py-8">
-      <div className="mb-6 sm:mb-8">
+    <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
+      <div className="mb-8">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-3xl">
           <Trophy className="h-7 w-7 text-yellow-500" />
           Logros

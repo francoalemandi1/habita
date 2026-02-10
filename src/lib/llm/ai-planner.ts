@@ -40,6 +40,7 @@ const assignmentSchema = z.object({
       memberId: z.string().describe("ID del miembro (tal como aparece en la lista de miembros)"),
       memberName: z.string().describe("Nombre del miembro (para referencia)"),
       reason: z.string().describe("Breve justificación de la asignación"),
+      dayOfWeek: z.number().min(1).max(7).describe("Día de la semana: 1=Lunes, 2=Martes, ..., 7=Domingo").optional(),
     })
   ),
   balanceScore: z.number().min(0).max(100).describe("Puntuación de equidad 0-100"),
@@ -145,6 +146,7 @@ export async function generateAIPlan(
           frequency: t.frequency,
           weight: t.weight,
         })),
+        durationDays,
         regionalBlock: regionalContext.promptBlock,
       });
       if (result) {
@@ -170,6 +172,7 @@ export async function generateAIPlan(
       model,
       schema: assignmentSchema,
       prompt,
+      maxOutputTokens: 8192,
     });
 
     return { ...result.object, excludedTasks };
@@ -415,6 +418,12 @@ ${recentInfo || "(sin historial)"}
 6. Los niños (CHILD) no deben recibir tareas complejas o peligrosas
 7. Proporciona una breve razón para cada asignación
 8. IMPORTANTE: Usa el ID exacto del miembro (campo "memberId") tal como aparece entre [ID: ...] en la lista de miembros. Dos miembros pueden tener el mismo nombre, así que el ID es la forma correcta de identificarlos.
+9. DISTRIBUYE las tareas en los DÍAS DE LA SEMANA usando el campo "dayOfWeek" (1=Lunes, 2=Martes, ..., 7=Domingo). El plan cubre ${durationDays} días.
+   - Tareas DAILY: genera EXACTAMENTE ${Math.min(durationDays, 7)} asignaciones (una por cada día, dayOfWeek 1 a ${Math.min(durationDays, 7)}). Puedes rotar miembros distintos en distintos días.
+   - Tareas WEEKLY: genera UNA sola asignación.
+   - Tareas BIWEEKLY: genera UNA sola asignación.
+   - Tareas ONCE: genera UNA sola asignación.
+   - Balancea la carga diaria.
 
 Genera un plan de asignaciones para los próximos ${durationLabel(durationDays)}. El objetivo es maximizar la equidad (balanceScore alto = más justo).${regionalBlock ? `\n\n${regionalBlock}` : ""}`;
 }

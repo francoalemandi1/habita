@@ -171,7 +171,7 @@ export function NotificationsDropdown() {
           )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[80vh] overflow-hidden p-0">
+      <DialogContent className="max-h-[80vh] w-[calc(100%-2rem)] min-w-0 overflow-hidden p-0 md:min-w-[380px]">
         <DialogHeader className="px-5 pt-5 pb-3">
           <DialogTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />

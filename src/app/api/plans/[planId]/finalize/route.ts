@@ -45,7 +45,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         householdId: member.householdId,
         status: "APPLIED",
       },
-      select: { id: true, createdAt: true, expiresAt: true, appliedAt: true },
+      select: { id: true, createdAt: true, expiresAt: true, appliedAt: true, startDate: true },
     });
 
     if (!plan) {
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const now = new Date();
-    const planStartDate = plan.appliedAt ?? plan.createdAt;
+    const planStartDate = plan.startDate ?? plan.appliedAt ?? plan.createdAt;
 
     // Fetch assignments to complete (only PENDING/IN_PROGRESS from this plan period)
     const assignmentsToComplete = assignmentIds.length > 0

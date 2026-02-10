@@ -470,6 +470,7 @@ model WeeklyPlan {
   notes         String[]         @default([])
   assignments   Json             // Array of { taskName, memberName, memberType, reason }
   durationDays  Int              @default(7)
+  startDate     DateTime?        // Explicit plan start date (null for legacy plans)
   excludedTasks Json?            // Array of { taskName, frequency } - tasks outside plan period
   createdAt     DateTime         @default(now())
   appliedAt     DateTime?

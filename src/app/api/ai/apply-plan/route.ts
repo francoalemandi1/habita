@@ -72,18 +72,23 @@ export async function POST(request: NextRequest) {
     );
 
     const now = new Date();
-    const monday = getWeekMonday(now);
 
+    let planStartDate: Date | undefined;
     let planEndDate: Date | undefined;
     if (planId) {
       const existingPlan = await prisma.weeklyPlan.findUnique({
         where: { id: planId },
-        select: { expiresAt: true },
+        select: { expiresAt: true, startDate: true },
       });
       if (existingPlan) {
         planEndDate = existingPlan.expiresAt;
+        planStartDate = existingPlan.startDate ?? undefined;
       }
     }
+
+    // Use plan's explicit startDate as the reference for dayOfWeek mapping,
+    // falling back to current week's Monday for legacy plans without startDate
+    const referenceDate = planStartDate ?? getWeekMonday(now);
 
     // Build assignments data before transaction
     const assignmentsToCreate: Array<{
@@ -109,13 +114,13 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Use dayOfWeek from AI plan when available (1=Mon..7=Sun)
+      // Use dayOfWeek from AI plan when available (1=Mon..7=Sun), relative to plan startDate
       let dueDate: Date;
       if (assignment.dayOfWeek && assignment.dayOfWeek >= 1 && assignment.dayOfWeek <= 7) {
-        dueDate = new Date(monday);
-        dueDate.setDate(monday.getDate() + assignment.dayOfWeek - 1);
+        dueDate = new Date(referenceDate);
+        dueDate.setDate(referenceDate.getDate() + assignment.dayOfWeek - 1);
         dueDate.setHours(23, 59, 59, 999);
-        // If the computed date is in the past (e.g. plan applied mid-week), push to today
+        // If the computed date is in the past, push to today
         if (dueDate < now) {
           dueDate = new Date(endOfToday);
         }
@@ -206,11 +211,11 @@ export async function POST(request: NextRequest) {
         data: { status: "EXPIRED" },
       });
 
-      // Cancel pending/in-progress assignments
+      // Cancel ALL assignments from the old plan (including completed ones)
       const cancelled = await tx.assignment.updateMany({
         where: {
           householdId: member.householdId,
-          status: { in: ["PENDING", "IN_PROGRESS"] },
+          status: { in: ["PENDING", "IN_PROGRESS", "COMPLETED", "VERIFIED"] },
         },
         data: { status: "CANCELLED" },
       });

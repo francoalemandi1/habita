@@ -128,6 +128,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Miembro no encontrado" }, { status: 404 });
     }
 
+    // Prevent duplicate: skip if a pending/in-progress assignment already exists for this task + member
+    const existingAssignment = await prisma.assignment.findFirst({
+      where: {
+        taskId,
+        memberId,
+        householdId: member.householdId,
+        status: { in: ["PENDING", "IN_PROGRESS"] },
+      },
+      include: {
+        task: { select: { id: true, name: true, weight: true } },
+        member: { select: { id: true, name: true } },
+      },
+    });
+
+    if (existingAssignment) {
+      return NextResponse.json({ assignment: existingAssignment }, { status: 200 });
+    }
+
     const assignment = await prisma.assignment.create({
       data: {
         taskId,

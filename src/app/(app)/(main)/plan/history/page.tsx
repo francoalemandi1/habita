@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
@@ -133,7 +135,9 @@ export default async function PlanHistoryPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium">
-                        Plan de {durationLabel(plan.durationDays)}
+                        {plan.startDate
+                          ? `${format(new Date(plan.startDate), "d MMM", { locale: es })} – ${format(plan.expiresAt, "d MMM yyyy", { locale: es })}`
+                          : `Plan de ${durationLabel(plan.durationDays)}`}
                       </p>
                       <Badge
                         variant="outline"

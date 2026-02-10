@@ -5,6 +5,7 @@ import { generateAIPlan } from "@/lib/llm/ai-planner";
 import { isAIEnabled } from "@/lib/llm/provider";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { computeDurationDays, validateDateRange } from "@/lib/plan-duration";
 
 import type { NextRequest } from "next/server";
 import type { MemberType } from "@prisma/client";
@@ -40,6 +41,8 @@ export interface PlanPreviewResponse {
     balanceScore: number;
     notes: string[];
     durationDays: number;
+    startDate: string;
+    endDate: string;
     excludedTasks: ExcludedTask[];
   };
   members: MemberSummary[];
@@ -47,7 +50,8 @@ export interface PlanPreviewResponse {
 }
 
 const previewPlanSchema = z.object({
-  durationDays: z.number().int().min(1).max(30).default(7),
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date(),
 });
 
 /**
@@ -75,7 +79,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { durationDays } = validation.data;
+    const { startDate, endDate } = validation.data;
+
+    const dateValidation = validateDateRange(startDate, endDate);
+    if (!dateValidation.isValid) {
+      return NextResponse.json(
+        { error: dateValidation.error ?? "Rango de fechas inválido" },
+        { status: 400 }
+      );
+    }
+
+    const durationDays = computeDurationDays(startDate, endDate);
 
     // Generate plan without applying
     const plan = await generateAIPlan(member.householdId, { durationDays });
@@ -159,8 +173,8 @@ export async function POST(request: NextRequest) {
     });
 
     // Save the new plan to the database
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + durationDays);
+    const expiresAt = new Date(endDate);
+    expiresAt.setHours(23, 59, 59, 999);
 
     const savedPlan = await prisma.weeklyPlan.create({
       data: {
@@ -170,6 +184,7 @@ export async function POST(request: NextRequest) {
         notes: plan.notes,
         assignments: JSON.parse(JSON.stringify(enrichedAssignments)),
         durationDays,
+        startDate,
         excludedTasks: excludedTasks.length > 0 ? JSON.parse(JSON.stringify(excludedTasks)) : undefined,
         expiresAt,
       },
@@ -182,6 +197,8 @@ export async function POST(request: NextRequest) {
         balanceScore: plan.balanceScore,
         notes: plan.notes,
         durationDays,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
         excludedTasks,
       },
       members: memberSummaries,

@@ -91,6 +91,32 @@ export async function POST(request: NextRequest) {
       taskFrequency = newTask.frequency;
     }
 
+    // Check for existing pending assignment for the same task + member
+    const existingAssignment = await prisma.assignment.findFirst({
+      where: {
+        taskId: resolvedTaskId,
+        memberId: targetMember.id,
+        householdId,
+        status: { in: ["PENDING", "IN_PROGRESS"] },
+      },
+      include: {
+        task: { select: { id: true, name: true, weight: true, frequency: true } },
+        member: { select: { id: true, name: true, avatarUrl: true, memberType: true } },
+      },
+    });
+
+    if (existingAssignment) {
+      const pointsPreview = calculatePoints({
+        weight: taskWeight,
+        frequency: taskFrequency,
+      });
+
+      return NextResponse.json(
+        { assignment: existingAssignment, taskName, pointsPreview },
+        { status: 200 },
+      );
+    }
+
     // Create assignment with dueDate = end of today
     const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);

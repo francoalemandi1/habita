@@ -3,10 +3,11 @@
 import { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { addDays, startOfDay, format } from "date-fns";
+import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
-import { Input } from "@/components/ui/input";
 import { spacing, cyclingColors, contrastText } from "@/lib/design-tokens";
 import {
   CheckCircle2,
@@ -38,7 +39,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { DURATION_PRESETS, durationLabel } from "@/lib/plan-duration";
+import { computeDurationDays, MAX_PLAN_DURATION_DAYS, validateDateRange, durationLabel } from "@/lib/plan-duration";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { TaskCatalogPicker } from "@/components/features/task-catalog-picker";
 import { BackButton } from "@/components/ui/back-button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,6 +48,7 @@ import { getTaskIcon, getTaskCategoryMeta } from "@/data/onboarding-catalog";
 
 import type { MemberType, WeeklyPlanStatus, TaskFrequency } from "@prisma/client";
 import type { ExcludedTask } from "@/lib/plan-duration";
+import type { DateRange } from "react-day-picker";
 
 interface PlanAssignment {
   taskName: string;
@@ -78,6 +81,7 @@ interface StoredPlan {
   notes: string[];
   assignments: PlanAssignment[];
   durationDays: number;
+  startDate: Date | null;
   excludedTasks: ExcludedTask[];
   createdAt: Date;
   appliedAt: Date | null;
@@ -92,6 +96,8 @@ interface PlanPreviewResponse {
     notes: string[];
     durationDays: number;
     excludedTasks: ExcludedTask[];
+    startDate: string;
+    endDate: string;
   };
   members: Array<MemberSummary & { assignedInPlan: number }>;
   fairnessDetails: {
@@ -185,7 +191,16 @@ export function PlanPageClient({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [plan, setPlan] = useState<StoredPlan | null>(existingPlan);
-  const [durationDays, setDurationDays] = useState(existingPlan?.durationDays ?? 7);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    if (existingPlan?.startDate) {
+      return {
+        from: new Date(existingPlan.startDate),
+        to: new Date(existingPlan.expiresAt),
+      };
+    }
+    const today = startOfDay(new Date());
+    return { from: today, to: addDays(today, 6) };
+  });
   const [selectedAssignments, setSelectedAssignments] = useState<Set<string>>(() => {
     if (!existingPlan || existingPlan.status !== "PENDING") return new Set();
     return new Set(
@@ -196,7 +211,6 @@ export function PlanPageClient({
   const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false);
   const [isDiscarding, setIsDiscarding] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<{ taskName: string; memberId: string; memberName: string; dayOfWeek?: number } | null>(null);
-  const [customDurationInput, setCustomDurationInput] = useState("");
   const [fairnessDetails, setFairnessDetails] = useState<{
     adultDistribution: Record<string, number>;
     isSymmetric: boolean;
@@ -227,13 +241,27 @@ export function PlanPageClient({
   );
 
   const handleGeneratePlan = useCallback(async () => {
+    if (!dateRange?.from || !dateRange?.to) {
+      toast.error("Fechas requeridas", "Seleccioná las fechas de inicio y fin del plan");
+      return;
+    }
+
+    const rangeValidation = validateDateRange(dateRange.from, dateRange.to);
+    if (!rangeValidation.isValid) {
+      toast.error("Rango inválido", rangeValidation.error ?? "Rango de fechas inválido");
+      return;
+    }
+
     setIsGenerating(true);
 
     try {
       const response = await fetch("/api/ai/preview-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ durationDays }),
+        body: JSON.stringify({
+          startDate: dateRange.from.toISOString(),
+          endDate: dateRange.to.toISOString(),
+        }),
       });
 
       if (response.status === 503) {
@@ -256,7 +284,6 @@ export function PlanPageClient({
 
       const data = (await response.json()) as PlanPreviewResponse;
 
-      // Create stored plan structure
       const newPlan: StoredPlan = {
         id: data.plan.id,
         status: "PENDING",
@@ -264,10 +291,11 @@ export function PlanPageClient({
         notes: data.plan.notes,
         assignments: data.plan.assignments,
         durationDays: data.plan.durationDays,
+        startDate: new Date(data.plan.startDate),
         excludedTasks: data.plan.excludedTasks,
         createdAt: new Date(),
         appliedAt: null,
-        expiresAt: new Date(Date.now() + data.plan.durationDays * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(data.plan.endDate),
       };
 
       setPlan(newPlan);
@@ -281,7 +309,7 @@ export function PlanPageClient({
     } finally {
       setIsGenerating(false);
     }
-  }, [toast, durationDays]);
+  }, [toast, dateRange]);
 
   const handleConfirmRegenerate = useCallback(async () => {
     setIsRegenerateDialogOpen(false);
@@ -686,7 +714,7 @@ export function PlanPageClient({
             </CardContent>
           </Card>
 
-          {/* Duration selector */}
+          {/* Date range selector */}
           <Card className="border-primary/15 bg-primary/3 shadow-sm">
             <CardContent className="pt-5 pb-5 sm:pt-6 sm:pb-6">
               <div className="mb-4 flex items-start gap-3">
@@ -694,46 +722,23 @@ export function PlanPageClient({
                   <Clock className="h-5 w-5 text-primary" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-lg font-semibold">Duración del plan</h3>
+                  <h3 className="text-lg font-semibold">Periodo del plan</h3>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    Las tareas con frecuencia mayor a la duración se excluirán automáticamente
+                    Seleccioná las fechas de inicio y fin (máx {MAX_PLAN_DURATION_DAYS} días)
                   </p>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {DURATION_PRESETS.map((preset) => (
-                  <Button
-                    key={preset.days}
-                    variant={durationDays === preset.days && !customDurationInput ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      setDurationDays(preset.days);
-                      setCustomDurationInput("");
-                    }}
-                  >
-                    {preset.label}
-                  </Button>
-                ))}
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={30}
-                    placeholder="Días"
-                    value={customDurationInput}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setCustomDurationInput(value);
-                      const parsed = parseInt(value, 10);
-                      if (parsed >= 1 && parsed <= 30) {
-                        setDurationDays(parsed);
-                      }
-                    }}
-                    className="h-8 w-20 text-sm"
-                  />
-                  <span className="text-sm text-muted-foreground">días</span>
-                </div>
-              </div>
+              <DateRangePicker
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+                minDate={startOfDay(new Date())}
+                maxDate={addDays(startOfDay(new Date()), MAX_PLAN_DURATION_DAYS - 1)}
+              />
+              {dateRange?.from && dateRange?.to && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Duración: {computeDurationDays(dateRange.from, dateRange.to)} días
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -744,12 +749,14 @@ export function PlanPageClient({
                 <div>
                   <p className="font-medium">¿Listo para distribuir?</p>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    Se generará un plan de {durationLabel(durationDays)} para tu hogar
+                    {dateRange?.from && dateRange?.to
+                      ? `${format(dateRange.from, "d MMM", { locale: es })} – ${format(dateRange.to, "d MMM yyyy", { locale: es })} (${computeDurationDays(dateRange.from, dateRange.to)} días)`
+                      : "Seleccioná las fechas del plan"}
                   </p>
                 </div>
                 <Button
                   onClick={handleGeneratePlan}
-                  disabled={isGenerating || tasks.length === 0}
+                  disabled={isGenerating || tasks.length === 0 || !dateRange?.from || !dateRange?.to}
                   className="gap-2 sm:shrink-0"
                   size="lg"
                 >
@@ -775,15 +782,11 @@ export function PlanPageClient({
                     Plan aplicado
                   </p>
                   <p className="text-sm text-green-600 dark:text-green-400 truncate">
-                    Creado el{" "}
-                    {plan.appliedAt
-                      ? new Date(plan.appliedAt).toLocaleDateString("es", {
-                          day: "numeric",
-                          month: "long",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : ""}
+                    {plan.startDate
+                      ? `${format(new Date(plan.startDate), "d MMM", { locale: es })} – ${format(new Date(plan.expiresAt), "d MMM yyyy", { locale: es })}`
+                      : plan.appliedAt
+                        ? `Aplicado el ${new Date(plan.appliedAt).toLocaleDateString("es", { day: "numeric", month: "long" })}`
+                        : ""}
                   </p>
                 </div>
               </div>
@@ -817,16 +820,14 @@ export function PlanPageClient({
             )}
           </div>
 
-          {/* Expiration notice */}
+          {/* Date range notice */}
           {plan.status === "PENDING" && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-2xl px-4 py-3">
               <Clock className="h-4 w-4" />
               <span>
-                Este plan expira el{" "}
-                {new Date(plan.expiresAt).toLocaleDateString("es", {
-                  day: "numeric",
-                  month: "long",
-                })}
+                {plan.startDate
+                  ? `${format(new Date(plan.startDate), "d MMM", { locale: es })} – ${format(new Date(plan.expiresAt), "d MMM yyyy", { locale: es })}`
+                  : `Expira el ${new Date(plan.expiresAt).toLocaleDateString("es", { day: "numeric", month: "long" })}`}
               </span>
             </div>
           )}
@@ -1124,10 +1125,12 @@ export function PlanPageClient({
             <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <p>
-                  Se cancelarán todas las asignaciones pendientes y en progreso del plan actual.
+                  Se cancelarán todas las asignaciones del plan actual (incluyendo completadas).
                 </p>
                 <p>
-                  El nuevo plan se generará desde hoy y cubrirá los próximos {durationLabel(durationDays)}.
+                  {dateRange?.from && dateRange?.to
+                    ? `El nuevo plan cubrirá del ${format(dateRange.from, "d MMM", { locale: es })} al ${format(dateRange.to, "d MMM yyyy", { locale: es })}.`
+                    : "Seleccioná las fechas para el nuevo plan."}
                 </p>
               </div>
             </AlertDialogDescription>

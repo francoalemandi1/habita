@@ -88,6 +88,20 @@ export async function PATCH(
     }
 
     if (action === "add") {
+      // Skip if a pending assignment already exists for this task + member
+      const existingAssignment = await prisma.assignment.findFirst({
+        where: {
+          taskId: targetTask.id,
+          memberId: targetMember.id,
+          householdId: member.householdId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+        },
+      });
+
+      if (existingAssignment) {
+        return NextResponse.json({ success: true, action: "add" });
+      }
+
       const endOfDay = new Date();
       endOfDay.setHours(23, 59, 59, 999);
       const dueDate = plan.expiresAt < endOfDay ? plan.expiresAt : endOfDay;

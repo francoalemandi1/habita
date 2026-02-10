@@ -43,9 +43,11 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       setPermission(Notification.permission);
 
       try {
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.getSubscription();
-        setIsSubscribed(!!subscription);
+        const registration = await navigator.serviceWorker.getRegistration("/sw.js");
+        if (registration) {
+          const subscription = await registration.pushManager.getSubscription();
+          setIsSubscribed(!!subscription);
+        }
       } catch {
         setIsSubscribed(false);
       }

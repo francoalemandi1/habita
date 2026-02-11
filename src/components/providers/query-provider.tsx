@@ -18,6 +18,9 @@ export function QueryProvider({ children }: QueryProviderProps) {
             staleTime: 60 * 1000, // 1 minute
             refetchOnWindowFocus: false,
           },
+          mutations: {
+            gcTime: 30 * 60 * 1000, // 30 min — keep AI mutation results in cache across navigation
+          },
         },
       })
   );

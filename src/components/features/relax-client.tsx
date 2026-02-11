@@ -29,11 +29,13 @@ import {
   Loader2,
   Sparkles,
   Info,
+  AlertTriangle,
   Users,
   Lightbulb,
   Compass,
 } from "lucide-react";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { useRelaxSuggestions, useRefreshRelaxSection } from "@/hooks/use-relax-suggestions";
 import { cn } from "@/lib/utils";
 import { radius, spacing, iconSize } from "@/lib/design-tokens";
 
@@ -63,15 +65,6 @@ interface TabConfig {
   key: RelaxSection;
   label: string;
   icon: LucideIcon;
-}
-
-interface SectionState {
-  events: RelaxEvent[] | null;
-  generatedAt: string | null;
-  isGenerating: boolean;
-  fetchError: string | null;
-  activeCategory: string | null;
-  hasFetched: boolean;
 }
 
 // Tab definitions
@@ -145,17 +138,6 @@ function getCurrentMealPeriod(): MealPeriod {
   return "dinner";
 }
 
-function createEmptyState(): SectionState {
-  return {
-    events: null,
-    generatedAt: null,
-    isGenerating: false,
-    fetchError: null,
-    activeCategory: null,
-    hasFetched: false,
-  };
-}
-
 // ============================================
 // Component
 // ============================================
@@ -170,96 +152,90 @@ export function RelaxClient({
   const { location, isLoading: isGeoLoading } = useGeolocation();
   const [activeTab, setActiveTab] = useState<RelaxSection>("culture");
 
-  const [sectionStates, setSectionStates] = useState<Record<RelaxSection, SectionState>>({
-    culture: {
-      ...createEmptyState(),
-      events: cachedCultureEvents,
-      generatedAt: cachedCultureAt,
-      hasFetched: !!cachedCultureEvents,
-    },
-    restaurants: createEmptyState(),
-    weekend: createEmptyState(),
-  });
-
-  const currentState = sectionStates[activeTab];
-  const categories = SECTION_CATEGORIES[activeTab];
-
-  const fetchSuggestions = useCallback(
-    async (section: RelaxSection, forceRefresh = false) => {
-      setSectionStates((prev) => ({
-        ...prev,
-        [section]: { ...prev[section], isGenerating: true, fetchError: null },
-      }));
-
-      try {
-        const body: Record<string, unknown> = { section, forceRefresh };
-
-        if (location && location.latitude !== 0 && location.longitude !== 0) {
-          body.latitude = location.latitude;
-          body.longitude = location.longitude;
-          body.city = location.city;
-          body.country = location.country;
-          body.timezone = location.timezone;
-        }
-
-        const response = await fetch("/api/ai/relax-suggestions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-
-        if (!response.ok) {
-          const data = (await response.json()) as { error?: string };
-          throw new Error(data.error ?? "Error al obtener sugerencias");
-        }
-
-        const data = (await response.json()) as {
-          events: RelaxEvent[];
-          generatedAt: string;
-        };
-
-        setSectionStates((prev) => ({
-          ...prev,
-          [section]: {
-            ...prev[section],
-            events: data.events,
-            generatedAt: data.generatedAt,
-            isGenerating: false,
-            hasFetched: true,
-          },
-        }));
-      } catch (err) {
-        setSectionStates((prev) => ({
-          ...prev,
-          [section]: {
-            ...prev[section],
-            fetchError: err instanceof Error ? err.message : "Error desconocido",
-            isGenerating: false,
-            hasFetched: true,
-          },
-        }));
-      }
-    },
-    [location]
+  // Track which tabs have been visited for lazy-loading
+  const [visitedTabs, setVisitedTabs] = useState<Set<RelaxSection>>(
+    new Set<RelaxSection>(["culture"])
   );
 
-  // Lazy-fetch when tab changes and geo is ready
+  // Category filter state per section
+  const [activeCategoryBySection, setActiveCategoryBySection] = useState<
+    Record<RelaxSection, string | null>
+  >({
+    culture: null,
+    restaurants: null,
+    weekend: null,
+  });
+
+  // Mark tab as visited when switched
   useEffect(() => {
-    const state = sectionStates[activeTab];
-    if (state.hasFetched || state.isGenerating || !aiEnabled) return;
-    if (isGeoLoading) return;
+    setVisitedTabs((prev) => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
 
-    const hasGeo = location && location.latitude !== 0 && location.longitude !== 0;
-    if (hasGeo || hasHouseholdLocation) {
-      fetchSuggestions(activeTab);
-    }
-  }, [activeTab, isGeoLoading, location, hasHouseholdLocation, aiEnabled, sectionStates, fetchSuggestions]);
+  // Common query options shared across all sections
+  const commonQueryOptions = useMemo(
+    () => ({ location, isGeoLoading, hasHouseholdLocation, aiEnabled }),
+    [location, isGeoLoading, hasHouseholdLocation, aiEnabled]
+  );
 
+  // Build initialData for culture from server pre-fetch
+  const cultureInitialData = useMemo(() => {
+    if (!cachedCultureEvents) return undefined;
+    return {
+      events: cachedCultureEvents,
+      summary: "",
+      generatedAt: cachedCultureAt ?? "",
+    };
+  }, [cachedCultureEvents, cachedCultureAt]);
+
+  const cultureInitialDataUpdatedAt = useMemo(
+    () => (cachedCultureAt ? new Date(cachedCultureAt).getTime() : undefined),
+    [cachedCultureAt]
+  );
+
+  // One query per section — React Query manages cache, dedup, and background fetching
+  const cultureQuery = useRelaxSuggestions({
+    section: "culture",
+    enabled: visitedTabs.has("culture"),
+    initialData: cultureInitialData,
+    initialDataUpdatedAt: cultureInitialDataUpdatedAt,
+    ...commonQueryOptions,
+  });
+
+  const restaurantsQuery = useRelaxSuggestions({
+    section: "restaurants",
+    enabled: visitedTabs.has("restaurants"),
+    ...commonQueryOptions,
+  });
+
+  const weekendQuery = useRelaxSuggestions({
+    section: "weekend",
+    enabled: visitedTabs.has("weekend"),
+    ...commonQueryOptions,
+  });
+
+  const queries = { culture: cultureQuery, restaurants: restaurantsQuery, weekend: weekendQuery };
+  const currentQuery = queries[activeTab];
+  const categories = SECTION_CATEGORIES[activeTab];
+  const activeCategory = activeCategoryBySection[activeTab];
+
+  // Refresh handler — invalidates the query and signals forceRefresh for server-side cache bypass
+  const refreshSection = useRefreshRelaxSection();
+  const handleRefresh = useCallback(() => {
+    refreshSection(activeTab, currentQuery.forceRefreshRef);
+  }, [activeTab, currentQuery.forceRefreshRef, refreshSection]);
+
+  // Filtered events
   const filteredEvents = useMemo(() => {
-    if (!currentState.events) return null;
-    if (!currentState.activeCategory) return currentState.events;
-    return currentState.events.filter((e) => e.category === currentState.activeCategory);
-  }, [currentState.events, currentState.activeCategory]);
+    const events = currentQuery.data?.events;
+    if (!events) return null;
+    if (!activeCategory) return events;
+    return events.filter((e) => e.category === activeCategory);
+  }, [currentQuery.data?.events, activeCategory]);
 
   const locationLabel = useMemo(() => {
     if (location && location.city) return location.city;
@@ -267,18 +243,15 @@ export function RelaxClient({
     return null;
   }, [location, householdCity]);
 
-  const mealPeriod = useMemo(() => getCurrentMealPeriod(), []);
+  const mealPeriod = getCurrentMealPeriod();
   const mealConfig = MEAL_PERIOD_CONFIG[mealPeriod];
-  const highlightedCategories = useMemo(
-    () => (activeTab === "restaurants" ? new Set(mealConfig.categories) : null),
-    [activeTab, mealConfig.categories]
-  );
+  const highlightedCategories = activeTab === "restaurants" ? new Set(mealConfig.categories) : null;
 
   const handleCategoryChange = useCallback(
     (category: string | null) => {
-      setSectionStates((prev) => ({
+      setActiveCategoryBySection((prev) => ({
         ...prev,
-        [activeTab]: { ...prev[activeTab], activeCategory: category },
+        [activeTab]: category,
       }));
     },
     [activeTab]
@@ -296,7 +269,7 @@ export function RelaxClient({
   }
 
   // No location available
-  const hasGeo = location && location.latitude !== 0 && location.longitude !== 0;
+  const hasGeo = !!(location && location.latitude !== 0 && location.longitude !== 0);
   if (!isGeoLoading && !hasGeo && !hasHouseholdLocation) {
     return (
       <EmptyState
@@ -306,6 +279,9 @@ export function RelaxClient({
       />
     );
   }
+
+  const isLoading = currentQuery.isFetching && !currentQuery.data;
+  const isRefreshing = currentQuery.isFetching && !!currentQuery.data;
 
   return (
     <div className={spacing.contentStack}>
@@ -343,19 +319,19 @@ export function RelaxClient({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {currentState.generatedAt && (
+          {currentQuery.data?.generatedAt && (
             <span className="text-xs text-muted-foreground">
-              {formatTimeAgo(currentState.generatedAt)}
+              {formatTimeAgo(currentQuery.data.generatedAt)}
             </span>
           )}
           <button
             type="button"
-            onClick={() => fetchSuggestions(activeTab, true)}
-            disabled={currentState.isGenerating}
+            onClick={handleRefresh}
+            disabled={currentQuery.isFetching}
             className="flex items-center gap-1.5 rounded-full bg-muted/60 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
           >
-            <RefreshCw className={cn(iconSize.xs, currentState.isGenerating && "animate-spin")} />
-            {currentState.isGenerating ? "Actualizando..." : "Actualizar"}
+            <RefreshCw className={cn(iconSize.xs, currentQuery.isFetching && "animate-spin")} />
+            {isRefreshing ? "Actualizando..." : "Actualizar"}
           </button>
         </div>
       </div>
@@ -372,7 +348,7 @@ export function RelaxClient({
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
         <FilterPill
           label="Todas"
-          isActive={currentState.activeCategory === null}
+          isActive={activeCategory === null}
           onClick={() => handleCategoryChange(null)}
         />
         {Object.entries(categories).map(([key, config]) => {
@@ -383,16 +359,16 @@ export function RelaxClient({
               key={key}
               label={config.label}
               icon={<Icon className={iconSize.xs} />}
-              isActive={currentState.activeCategory === key}
+              isActive={activeCategory === key}
               isHighlighted={isHighlighted}
-              onClick={() => handleCategoryChange(currentState.activeCategory === key ? null : key)}
+              onClick={() => handleCategoryChange(activeCategory === key ? null : key)}
             />
           );
         })}
       </div>
 
       {/* Loading state */}
-      {currentState.isGenerating && !currentState.events && (
+      {isLoading && (
         <div className="flex flex-col items-center justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="mt-3 text-sm text-muted-foreground">
@@ -401,13 +377,19 @@ export function RelaxClient({
         </div>
       )}
 
-      {/* Error state */}
-      {currentState.fetchError && !currentState.events && (
+      {/* Error state — full empty state when no data, inline banner when refresh fails with existing data */}
+      {currentQuery.error && !currentQuery.data && (
         <EmptyState
           icon={Info}
           title="Error"
-          description={currentState.fetchError}
+          description={currentQuery.error.message}
         />
+      )}
+      {currentQuery.error && currentQuery.data && (
+        <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+          <AlertTriangle className={iconSize.sm} />
+          No se pudo actualizar: {currentQuery.error.message}
+        </div>
       )}
 
       {/* Events grid */}
@@ -420,7 +402,7 @@ export function RelaxClient({
       )}
 
       {/* No results for filter */}
-      {filteredEvents && filteredEvents.length === 0 && currentState.activeCategory && (
+      {filteredEvents && filteredEvents.length === 0 && activeCategory && (
         <div className="py-8 text-center">
           <p className="text-sm text-muted-foreground">
             No hay sugerencias en esta categoria. Proba con otra o actualiza.
@@ -429,7 +411,7 @@ export function RelaxClient({
       )}
 
       {/* No results at all */}
-      {currentState.events && currentState.events.length === 0 && !currentState.activeCategory && (
+      {currentQuery.data?.events && currentQuery.data.events.length === 0 && !activeCategory && (
         <EmptyState
           icon={Sparkles}
           title="Sin sugerencias"

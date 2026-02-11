@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { radius, spacing, iconSize } from "@/lib/design-tokens";
+import { useCocinaMutation } from "@/hooks/use-cocina-mutation";
+import { useSessionStorageState } from "@/hooks/use-session-storage-state";
 
 import type { Recipe, MealType } from "@/lib/llm/recipe-finder";
 
@@ -112,15 +114,18 @@ function isSpeechRecognitionAvailable(): boolean {
 // ============================================
 
 export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
-  const [textInput, setTextInput] = useState("");
-  const [images, setImages] = useState<string[]>([]);
-  const [mealType, setMealType] = useState<MealType>(autoDetectMealType);
-  const [recipes, setRecipes] = useState<Recipe[] | null>(null);
-  const [summary, setSummary] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Persisted across navigation via sessionStorage
+  const [textInput, setTextInput] = useSessionStorageState("cocina-text", "");
+  const [images, setImages] = useSessionStorageState<string[]>("cocina-images", []);
+  const [mealType, setMealType] = useSessionStorageState<MealType>("cocina-meal", autoDetectMealType());
+
+  // React Query mutation — survives navigation via MutationCache (gcTime 30min)
+  const mutation = useCocinaMutation();
+
+  // Transient UI state (not worth persisting)
   const [isRecording, setIsRecording] = useState(false);
   const [hasSpeechApi, setHasSpeechApi] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -133,16 +138,19 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
   }, []);
 
   const canSubmit = useMemo(
-    () => (textInput.trim().length > 0 || images.length > 0) && !isGenerating,
-    [textInput, images, isGenerating]
+    () => (textInput.trim().length > 0 || images.length > 0) && !mutation.isPending,
+    [textInput, images, mutation.isPending]
   );
 
-  // Scroll to results when they appear
+  // Scroll to results only when a NEW generation completes (not on remount from cache)
+  const prevDataRef = useRef(mutation.data);
   useEffect(() => {
-    if (recipes && resultsRef.current) {
+    const isNewResult = mutation.data?.recipes && mutation.data !== prevDataRef.current;
+    prevDataRef.current = mutation.data;
+    if (isNewResult && resultsRef.current) {
       resultsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  }, [recipes]);
+  }, [mutation.data]);
 
   // ---- Image handling ----
   const handleImageUpload = useCallback(async (files: FileList | null) => {
@@ -156,14 +164,15 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
         filesToProcess.map((file) => resizeImage(file, MAX_IMAGE_DIMENSION))
       );
       setImages((prev) => [...prev, ...resized].slice(0, MAX_IMAGES));
+      setImageError(null);
     } catch {
-      setError("Error al procesar una imagen. Intenta con otra.");
+      setImageError("Error al procesar una imagen. Intenta con otra.");
     }
-  }, [images.length]);
+  }, [images.length, setImages]);
 
   const removeImage = useCallback((index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
-  }, []);
+  }, [setImages]);
 
   // ---- Audio recording (Web Speech API) ----
   const toggleRecording = useCallback(() => {
@@ -204,44 +213,17 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
     recognitionRef.current = recognition;
     recognition.start();
     setIsRecording(true);
-  }, [isRecording]);
+  }, [isRecording, setTextInput]);
 
   // ---- Submit ----
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(() => {
     if (!canSubmit) return;
-
-    setIsGenerating(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/ai/cocina", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          textInput: textInput.trim(),
-          images,
-          mealType,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = (await response.json()) as { error?: string };
-        throw new Error(data.error ?? "Error al generar recetas");
-      }
-
-      const data = (await response.json()) as {
-        recipes: Recipe[];
-        summary: string;
-      };
-
-      setRecipes(data.recipes);
-      setSummary(data.summary);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [canSubmit, textInput, images, mealType]);
+    mutation.mutate({
+      textInput: textInput.trim(),
+      images,
+      mealType,
+    });
+  }, [canSubmit, textInput, images, mealType, mutation]);
 
   // ---- AI not enabled ----
   if (!aiEnabled) {
@@ -372,7 +354,7 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
           disabled={!canSubmit}
           className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
-          {isGenerating ? (
+          {mutation.isPending ? (
             <>
               <Loader2 className={cn(iconSize.md, "animate-spin")} />
               Generando recetas...
@@ -391,22 +373,30 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
         </p>
       </div>
 
-      {/* Error */}
-      {error && (
+      {/* Image error */}
+      {imageError && (
         <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">
           <AlertTriangle className={iconSize.sm} />
-          {error}
+          {imageError}
+        </div>
+      )}
+
+      {/* Mutation error */}
+      {mutation.error && (
+        <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+          <AlertTriangle className={iconSize.sm} />
+          {mutation.error.message}
         </div>
       )}
 
       {/* Results */}
-      {recipes && recipes.length > 0 && (
+      {mutation.data?.recipes && mutation.data.recipes.length > 0 && (
         <div ref={resultsRef} className={spacing.contentStack}>
-          {summary && (
-            <p className="text-sm text-muted-foreground">{summary}</p>
+          {mutation.data.summary && (
+            <p className="text-sm text-muted-foreground">{mutation.data.summary}</p>
           )}
           <div className="grid grid-cols-1 gap-4">
-            {recipes.map((recipe, index) => (
+            {mutation.data.recipes.map((recipe, index) => (
               <RecipeCard key={`${recipe.title}-${index}`} recipe={recipe} />
             ))}
           </div>

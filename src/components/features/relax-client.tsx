@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, type SyntheticEvent } from "react";
 import {
   Film,
   Drama,
@@ -355,7 +355,7 @@ export function RelaxClient({
             className="flex items-center gap-1.5 rounded-full bg-muted/60 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
           >
             <RefreshCw className={cn(iconSize.xs, currentState.isGenerating && "animate-spin")} />
-            Actualizar
+            {currentState.isGenerating ? "Actualizando..." : "Actualizar"}
           </button>
         </div>
       </div>
@@ -437,15 +437,6 @@ export function RelaxClient({
         />
       )}
 
-      {/* Generating overlay when refreshing with existing results */}
-      {currentState.isGenerating && currentState.events && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-3 rounded-2xl bg-white p-6 shadow-lg">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Actualizando sugerencias...</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -493,13 +484,34 @@ function EventCard({
   event: RelaxEvent;
   categories: Record<string, CategoryConfig>;
 }) {
+  const [imgError, setImgError] = useState(false);
   const config = categories[event.category];
   const Icon = config?.icon ?? Sparkles;
   const colorClass = config?.color ?? "text-primary";
   const bgColorClass = config?.bgColor ?? "bg-primary/10";
 
+  const handleImgError = useCallback((e: SyntheticEvent<HTMLImageElement>) => {
+    e.currentTarget.style.display = "none";
+    setImgError(true);
+  }, []);
+
   return (
-    <div className={cn(radius.card, "border bg-white p-4 transition-shadow hover:shadow-md")}>
+    <div className={cn(radius.card, "overflow-hidden border bg-white transition-shadow hover:shadow-md")}>
+      {/* Banner image */}
+      {event.imageUrl && !imgError && (
+        <div className="relative h-36 w-full bg-muted/30">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={event.imageUrl}
+            alt={event.title}
+            onError={handleImgError}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        </div>
+      )}
+
+      <div className="p-4">
       {/* Header: category badge + family badge */}
       <div className="mb-2 flex items-center justify-between">
         <div className={cn("flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium", bgColorClass, colorClass)}>
@@ -556,19 +568,33 @@ function EventCard({
         </div>
       )}
 
-      {/* Verification link — always visible */}
-      {event.url && (
-        <a
-          href={event.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
-        >
-          <MapPin className="h-3 w-3" />
-          Verificar en Google Maps
-          <ExternalLink className="h-3 w-3" />
-        </a>
-      )}
+      {/* Links: Google Maps + web source */}
+      <div className="mt-2 flex flex-wrap gap-2">
+        {event.url && (
+          <a
+            href={event.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
+          >
+            <MapPin className="h-3 w-3" />
+            Ver en Maps
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+        {event.sourceUrl && (
+          <a
+            href={event.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-100"
+          >
+            <ExternalLink className="h-3 w-3" />
+            Ver fuente web
+          </a>
+        )}
+      </div>
+      </div>
     </div>
   );
 }

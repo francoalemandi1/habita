@@ -13,6 +13,7 @@ interface PlanAssignment {
   memberName: string;
   memberType: MemberType;
   reason: string;
+  dayOfWeek?: number;
 }
 
 const patchAssignmentSchema = z.object({
@@ -20,6 +21,7 @@ const patchAssignmentSchema = z.object({
   taskName: z.string().min(1).max(200),
   memberId: z.string().min(1),
   newMemberId: z.string().min(1).optional(),
+  dayOfWeek: z.number().int().min(1).max(7).optional(),
 });
 
 /**
@@ -44,7 +46,7 @@ export async function PATCH(
       );
     }
 
-    const { action, taskName, memberId: targetMemberId, newMemberId } = validation.data;
+    const { action, taskName, memberId: targetMemberId, newMemberId, dayOfWeek } = validation.data;
 
     // Verify plan belongs to household and is APPLIED
     const plan = await prisma.weeklyPlan.findFirst({
@@ -102,9 +104,25 @@ export async function PATCH(
         return NextResponse.json({ success: true, action: "add" });
       }
 
-      const endOfDay = new Date();
-      endOfDay.setHours(23, 59, 59, 999);
-      const dueDate = plan.expiresAt < endOfDay ? plan.expiresAt : endOfDay;
+      let dueDate: Date;
+      if (dayOfWeek) {
+        // Derive startDate: expiresAt is startDate + durationDays - 1
+        const planStart = new Date(plan.expiresAt);
+        planStart.setDate(planStart.getDate() - (plan.durationDays - 1));
+        planStart.setHours(0, 0, 0, 0);
+        dueDate = new Date(planStart);
+        dueDate.setDate(dueDate.getDate() + dayOfWeek - 1);
+        dueDate.setHours(23, 59, 59, 999);
+        const now = new Date();
+        if (dueDate < now) {
+          dueDate = new Date();
+          dueDate.setHours(23, 59, 59, 999);
+        }
+      } else {
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+        dueDate = plan.expiresAt < endOfDay ? plan.expiresAt : endOfDay;
+      }
 
       const updatedAssignments: PlanAssignment[] = [
         ...planAssignments,
@@ -114,6 +132,7 @@ export async function PATCH(
           memberName: targetMember.name,
           memberType: targetMember.memberType,
           reason: "Agregada manualmente",
+          dayOfWeek,
         },
       ];
 

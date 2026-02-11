@@ -27,6 +27,7 @@ import {
   Trash2,
   ListTodo,
   Timer,
+  Plus,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -46,6 +47,7 @@ import { BackButton } from "@/components/ui/back-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { getTaskIcon, getTaskCategoryMeta } from "@/data/onboarding-catalog";
+import { AddTaskToDayDialog } from "@/components/features/add-task-to-day-dialog";
 
 import type { MemberType, WeeklyPlanStatus, TaskFrequency } from "@prisma/client";
 import type { ExcludedTask } from "@/lib/plan-duration";
@@ -232,6 +234,7 @@ export function PlanPageClient({
     }
     return 1;
   });
+  const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
   const router = useRouter();
   const toast = useToast();
 
@@ -427,7 +430,7 @@ export function PlanPageClient({
   };
 
   const handleAddToPlan = useCallback(
-    async (taskName: string, memberId: string, memberName: string, memberType: MemberType) => {
+    async (taskName: string, memberId: string, memberName: string, memberType: MemberType, dayOfWeek?: number) => {
       if (!plan) return;
 
       const newAssignment: PlanAssignment = {
@@ -436,6 +439,7 @@ export function PlanPageClient({
         memberName,
         memberType,
         reason: "Agregada manualmente",
+        dayOfWeek,
       };
 
       if (plan.status === "PENDING") {
@@ -448,7 +452,7 @@ export function PlanPageClient({
         });
         setSelectedAssignments((prev) => {
           const next = new Set(prev);
-          next.add(assignmentKey({ taskName, memberId }));
+          next.add(assignmentKey({ taskName, memberId, dayOfWeek }));
           return next;
         });
         toast.success("Agregada", `${taskName} asignada a ${memberName}`);
@@ -460,7 +464,7 @@ export function PlanPageClient({
         const response = await fetch(`/api/plans/${plan.id}/assignments`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "add", taskName, memberId }),
+          body: JSON.stringify({ action: "add", taskName, memberId, dayOfWeek }),
         });
 
         if (!response.ok) throw new Error("Failed to add assignment");
@@ -479,6 +483,14 @@ export function PlanPageClient({
       }
     },
     [plan, router, toast]
+  );
+
+  const handleAddTaskToDay = useCallback(
+    async (params: { taskName: string; memberId: string; memberName: string; memberType: MemberType; dayOfWeek: number }) => {
+      await handleAddToPlan(params.taskName, params.memberId, params.memberName, params.memberType, params.dayOfWeek);
+      setActiveDayOfWeek(params.dayOfWeek);
+    },
+    [handleAddToPlan]
   );
 
   const handleRemoveFromPlan = useCallback(
@@ -1003,10 +1015,19 @@ export function PlanPageClient({
 
                   if (dayAssignments.length === 0) {
                     return (
-                      <div className="rounded-2xl bg-white p-6 shadow-sm text-center">
+                      <div className="rounded-2xl bg-white p-6 shadow-sm text-center space-y-3">
                         <p className="text-sm text-muted-foreground">
                           Sin tareas para {DAY_OF_WEEK_LABELS[activeDayOfWeek]}
                         </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => setIsAddTaskDialogOpen(true)}
+                        >
+                          <Plus className="h-4 w-4" />
+                          Agregar tarea
+                        </Button>
                       </div>
                     );
                   }
@@ -1022,9 +1043,18 @@ export function PlanPageClient({
                             {DAY_OF_WEEK_LABELS[activeDayOfWeek]}
                           </span>
                         </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {dayAssignments.length} {dayAssignments.length === 1 ? "tarea" : "tareas"}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {dayAssignments.length} {dayAssignments.length === 1 ? "tarea" : "tareas"}
+                          </Badge>
+                          <button
+                            type="button"
+                            className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                            onClick={() => setIsAddTaskDialogOpen(true)}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                       <ul>
                         {dayAssignments.map((assignment, idx) => {
@@ -1094,6 +1124,15 @@ export function PlanPageClient({
                           );
                         })}
                       </ul>
+                      {/* Clickable empty area to add tasks */}
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-center gap-2 border-t border-dashed border-muted/40 px-3 py-3 text-xs text-muted-foreground transition-colors hover:bg-muted/20 hover:text-primary"
+                        onClick={() => setIsAddTaskDialogOpen(true)}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Agregar tarea
+                      </button>
                     </div>
                   );
                 })()}
@@ -1355,6 +1394,20 @@ export function PlanPageClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add task to day dialog */}
+      {plan && (
+        <AddTaskToDayDialog
+          open={isAddTaskDialogOpen}
+          onOpenChange={setIsAddTaskDialogOpen}
+          defaultDayOfWeek={activeDayOfWeek}
+          planDurationDays={plan.durationDays ?? 7}
+          members={members.map((m) => ({ id: m.id, name: m.name, type: m.type }))}
+          existingTaskNames={tasks.map((t) => t.name)}
+          existingAssignmentKeys={new Set(plan.assignments.map((a) => assignmentKey(a)))}
+          onAddTask={handleAddTaskToDay}
+        />
+      )}
     </div>
   );
 }

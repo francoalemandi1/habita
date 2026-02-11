@@ -16,10 +16,12 @@ import {
   AlertTriangle,
   Info,
 } from "lucide-react";
+import { useMutationState } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { radius, spacing, iconSize } from "@/lib/design-tokens";
 import { useCocinaMutation } from "@/hooks/use-cocina-mutation";
 import { useSessionStorageState } from "@/hooks/use-session-storage-state";
+import { queryKeys } from "@/lib/query-keys";
 
 import type { Recipe, MealType } from "@/lib/llm/recipe-finder";
 
@@ -122,6 +124,14 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
   // React Query mutation — survives navigation via MutationCache (gcTime 30min)
   const mutation = useCocinaMutation();
 
+  // Observe in-flight mutations from the global cache so loading state survives remount.
+  // When the component remounts while a mutation is still running, `mutation.isPending`
+  // on the new hook instance is false, but the cache still tracks the pending mutation.
+  const pendingMutations = useMutationState({
+    filters: { mutationKey: queryKeys.cocina.recipes(), status: "pending" },
+  });
+  const isGenerating = mutation.isPending || pendingMutations.length > 0;
+
   // Transient UI state (not worth persisting)
   const [isRecording, setIsRecording] = useState(false);
   const [hasSpeechApi, setHasSpeechApi] = useState(false);
@@ -138,8 +148,8 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
   }, []);
 
   const canSubmit = useMemo(
-    () => (textInput.trim().length > 0 || images.length > 0) && !mutation.isPending,
-    [textInput, images, mutation.isPending]
+    () => (textInput.trim().length > 0 || images.length > 0) && !isGenerating,
+    [textInput, images, isGenerating]
   );
 
   // Scroll to results only when a NEW generation completes (not on remount from cache)
@@ -355,7 +365,7 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
           disabled={!canSubmit}
           className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
-          {mutation.isPending ? (
+          {isGenerating ? (
             <>
               <Loader2 className={cn(iconSize.md, "animate-spin")} />
               Generando recetas...

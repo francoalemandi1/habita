@@ -35,14 +35,9 @@ export default auth((req) => {
     return;
   }
 
-  // Everything else requires authentication
+  // Everything else requires authentication — redirect to landing
   if (!isLoggedIn) {
-    const loginUrl = new URL("/login", req.nextUrl);
-    const callback = pathname + req.nextUrl.search;
-    if (callback !== "/dashboard") {
-      loginUrl.searchParams.set("callbackUrl", callback);
-    }
-    return Response.redirect(loginUrl);
+    return Response.redirect(new URL("/", req.nextUrl));
   }
 
   return;

@@ -44,13 +44,9 @@ export async function apiFetch<T>(
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  // Session expired — redirect to login
+  // Session expired — redirect to landing
   if (response.status === 401) {
-    const currentPath = window.location.pathname + window.location.search;
-    const loginUrl = currentPath === "/dashboard"
-      ? "/login"
-      : `/login?callbackUrl=${encodeURIComponent(currentPath)}`;
-    window.location.href = loginUrl;
+    window.location.href = "/";
     throw new ApiError("Sesión expirada", 401, "UNAUTHORIZED");
   }
 

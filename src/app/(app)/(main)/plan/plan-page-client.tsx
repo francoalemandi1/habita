@@ -156,9 +156,11 @@ const DAY_OF_WEEK_SHORT: Record<number, string> = {
   7: "Dom",
 };
 
-/** Unique key for an assignment — includes dayOfWeek so daily tasks on different days are distinct */
-function assignmentKey(a: { taskName: string; memberId: string; dayOfWeek?: number }): string {
-  return a.dayOfWeek ? `${a.taskName}|${a.memberId}|${a.dayOfWeek}` : `${a.taskName}|${a.memberId}`;
+/** Unique key for an assignment — includes dayOfWeek and startTime so daily tasks on different days/times are distinct */
+function assignmentKey(a: { taskName: string; memberId: string; dayOfWeek?: number; startTime?: string }): string {
+  const base = `${a.taskName}|${a.memberId}`;
+  if (!a.dayOfWeek) return base;
+  return a.startTime ? `${base}|${a.dayOfWeek}|${a.startTime}` : `${base}|${a.dayOfWeek}`;
 }
 
 function getScoreColor(score: number): string {
@@ -509,21 +511,29 @@ export function PlanPageClient({
     [plan, router, toast]
   );
 
-  // Group assignments by memberId
+  // Group assignments by memberId, deduplicating identical entries
   const assignmentsByMember = new Map<string, PlanAssignment[]>();
   if (plan) {
+    const seenMemberKeys = new Set<string>();
     for (const assignment of plan.assignments) {
+      const key = assignmentKey(assignment);
+      if (seenMemberKeys.has(key)) continue;
+      seenMemberKeys.add(key);
       const existing = assignmentsByMember.get(assignment.memberId) ?? [];
       existing.push(assignment);
       assignmentsByMember.set(assignment.memberId, existing);
     }
   }
 
-  // Group assignments by dayOfWeek for the calendar view
+  // Group assignments by dayOfWeek for the calendar view, deduplicating identical entries
   const hasDayInfo = plan?.assignments.some((a) => a.dayOfWeek);
   const assignmentsByDay = new Map<number, PlanAssignment[]>();
   if (plan && hasDayInfo) {
+    const seenKeys = new Set<string>();
     for (const assignment of plan.assignments) {
+      const key = assignmentKey(assignment);
+      if (seenKeys.has(key)) continue;
+      seenKeys.add(key);
       const day = assignment.dayOfWeek ?? 1;
       const existing = assignmentsByDay.get(day) ?? [];
       existing.push(assignment);

@@ -15,7 +15,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:create": "prisma migrate dev --create-only",
     "db:migrate:deploy": "prisma migrate deploy",
-    "db:migrate:deploy:prod": "pnpm dlx dotenv-cli -e .env.prod -- prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status",
     "db:migrate:reset": "prisma migrate reset",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",

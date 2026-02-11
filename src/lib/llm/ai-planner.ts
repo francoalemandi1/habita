@@ -41,6 +41,8 @@ const assignmentSchema = z.object({
       memberName: z.string().describe("Nombre del miembro (para referencia)"),
       reason: z.string().describe("Breve justificación de la asignación"),
       dayOfWeek: z.number().min(1).max(7).describe("Día de la semana: 1=Lunes, 2=Martes, ..., 7=Domingo").optional(),
+      startTime: z.string().regex(/^\d{2}:\d{2}$/).describe("Hora de inicio sugerida (HH:mm)").optional(),
+      endTime: z.string().regex(/^\d{2}:\d{2}$/).describe("Hora de fin sugerida (HH:mm)").optional(),
     })
   ),
   balanceScore: z.number().min(0).max(100).describe("Puntuación de equidad 0-100"),
@@ -68,6 +70,7 @@ interface PlanContext {
     frequency: string;
     weight: number;
     minAge: number | null;
+    estimatedMinutes: number | null;
   }>;
   recentAssignments: Array<{
     taskName: string;
@@ -296,7 +299,7 @@ async function buildPlanContext(householdId: string): Promise<PlanContext> {
     }),
     prisma.task.findMany({
       where: { householdId, isActive: true },
-      select: { id: true, name: true, frequency: true, weight: true, minAge: true },
+      select: { id: true, name: true, frequency: true, weight: true, minAge: true, estimatedMinutes: true },
     }),
     prisma.assignment.findMany({
       where: { householdId },
@@ -354,6 +357,7 @@ async function buildPlanContext(householdId: string): Promise<PlanContext> {
       frequency: t.frequency,
       weight: t.weight,
       minAge: t.minAge,
+      estimatedMinutes: t.estimatedMinutes,
     })),
     recentAssignments: recentAssignments.map((a) => {
       const daysAgo = Math.floor((now.getTime() - a.updatedAt.getTime()) / (1000 * 60 * 60 * 24));
@@ -388,7 +392,7 @@ Capacidad por tipo de miembro:
     .join("\n");
 
   const tasksInfo = context.tasks
-    .map((t) => `- ${t.name} (${t.frequency}, peso ${t.weight})${t.minAge ? ` [edad mín: ${t.minAge}]` : ""}`)
+    .map((t) => `- ${t.name} (${t.frequency}, peso ${t.weight}, ~${t.estimatedMinutes ?? 30}min)${t.minAge ? ` [edad mín: ${t.minAge}]` : ""}`)
     .join("\n");
 
   const recentInfo = context.recentAssignments
@@ -424,6 +428,11 @@ ${recentInfo || "(sin historial)"}
    - Tareas BIWEEKLY: genera UNA sola asignación.
    - Tareas ONCE: genera UNA sola asignación.
    - Balancea la carga diaria.
+10. Para cada tarea, sugiere un RANGO HORARIO razonable usando "startTime" y "endTime" (formato "HH:mm").
+   - Distribuye las tareas a lo largo del día (mañana, mediodía, tarde, noche).
+   - Considera la duración estimada de cada tarea según su peso y los minutos indicados (~Xmin).
+   - No asignes tareas a niños (CHILD) en horarios de madrugada o noche.
+   - Ejemplo: "startTime": "09:00", "endTime": "10:00"
 
 Genera un plan de asignaciones para los próximos ${durationLabel(durationDays)}. El objetivo es maximizar la equidad (balanceScore alto = más justo).${regionalBlock ? `\n\n${regionalBlock}` : ""}`;
 }

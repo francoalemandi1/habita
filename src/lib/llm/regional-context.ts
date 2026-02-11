@@ -104,9 +104,13 @@ export async function buildRegionalContext(
     sections.push(`- Zona horaria: ${household.timezone}`);
   }
 
-  // Local time
+  // Local time with full date
   const dayName = DAY_NAMES_ES[localDayOfWeek] ?? "hoy";
-  sections.push(`- Hora local: ${String(localHour).padStart(2, "0")}:00, ${dayName}`);
+  const localDay = getLocalDay(now, timezone);
+  const monthName = MONTH_NAMES_ES[localMonth] ?? "";
+  const localYear = getLocalYear(now, timezone);
+  sections.push(`- Fecha actual: ${dayName} ${localDay} de ${monthName} de ${localYear}`);
+  sections.push(`- Hora local: ${String(localHour).padStart(2, "0")}:00`);
 
   // Season
   const season = getSeason(localMonth, household.latitude);
@@ -174,6 +178,30 @@ export function getLocalDayOfWeek(now: Date, timezone?: string): number {
     return dayMap[dayStr] ?? now.getDay();
   } catch {
     return now.getDay();
+  }
+}
+
+function getLocalDay(now: Date, timezone?: string): number {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      day: "numeric",
+      timeZone: timezone,
+    });
+    return parseInt(formatter.format(now), 10);
+  } catch {
+    return now.getDate();
+  }
+}
+
+function getLocalYear(now: Date, timezone?: string): number {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      timeZone: timezone,
+    });
+    return parseInt(formatter.format(now), 10);
+  } catch {
+    return now.getFullYear();
   }
 }
 

@@ -245,7 +245,7 @@ export async function generateAIPlanOpenRouter(context: {
 Responde SOLO con JSON válido siguiendo este schema:
 {
   "assignments": [
-    { "taskName": "string", "memberId": "string (ID exacto del miembro)", "memberName": "string (nombre del miembro)", "reason": "string", "dayOfWeek": number (1=Lunes..7=Domingo) }
+    { "taskName": "string", "memberId": "string (ID exacto del miembro)", "memberName": "string (nombre del miembro)", "reason": "string", "dayOfWeek": number (1=Lunes..7=Domingo), "startTime": "HH:mm", "endTime": "HH:mm" }
   ],
   "balanceScore": number (0-100),
   "notes": ["string"]
@@ -279,6 +279,10 @@ Instrucciones:
    - Tareas WEEKLY: genera UNA sola asignación.
    - Tareas BIWEEKLY/ONCE: genera UNA sola asignación.
    - Balancea la carga diaria.
+9. Para cada tarea, sugiere un RANGO HORARIO razonable usando "startTime" y "endTime" (formato "HH:mm").
+   - Distribuye las tareas a lo largo del día (mañana, mediodía, tarde, noche).
+   - No asignes tareas a niños (CHILD) en horarios de madrugada o noche.
+   - Ejemplo: "startTime": "09:00", "endTime": "10:00"
 
 El objetivo es maximizar la equidad (balanceScore alto = más justo).${context.regionalBlock ? `\n\n${context.regionalBlock}` : ""}`,
         },
@@ -292,14 +296,14 @@ El objetivo es maximizar la equidad (balanceScore alto = más justo).${context.r
 
   try {
     return JSON.parse(text) as {
-      assignments: Array<{ taskName: string; memberId: string; memberName: string; reason: string; dayOfWeek?: number }>;
+      assignments: Array<{ taskName: string; memberId: string; memberName: string; reason: string; dayOfWeek?: number; startTime?: string; endTime?: string }>;
       balanceScore: number;
       notes: string[];
     };
   } catch {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]) as { assignments: Array<{ taskName: string; memberId: string; memberName: string; reason: string; dayOfWeek?: number }>; balanceScore: number; notes: string[] };
+      return JSON.parse(jsonMatch[0]) as { assignments: Array<{ taskName: string; memberId: string; memberName: string; reason: string; dayOfWeek?: number; startTime?: string; endTime?: string }>; balanceScore: number; notes: string[] };
     }
     return null;
   }

@@ -94,7 +94,8 @@ model Household {
   rewards      HouseholdReward[]
   rotations    TaskRotation[]
   competitions Competition[]
-  weeklyPlans  WeeklyPlan[]
+  weeklyPlans          WeeklyPlan[]
+  relaxSuggestions     RelaxSuggestion[]
 
   @@map("households")
 }
@@ -182,9 +183,11 @@ model Assignment {
   status      AssignmentStatus @default(PENDING)
   completedAt DateTime?
   pointsEarned Int?
-  notes       String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  notes              String?
+  suggestedStartTime String?  // AI-suggested start time in "HH:mm" format
+  suggestedEndTime   String?  // AI-suggested end time in "HH:mm" format
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   // Relations
   task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
@@ -567,6 +570,25 @@ model WhatsAppLink {
 
   @@index([phoneNumber])
   @@map("whatsapp_links")
+}
+
+// ============================================
+// RELAX SUGGESTIONS MODEL
+// ============================================
+
+model RelaxSuggestion {
+  id          String   @id @default(cuid())
+  householdId String
+  locationKey String   // "lat_rounded:lng_rounded" e.g. "-34.6:-58.4"
+  sectionType String   @default("culture") // "culture" | "restaurants" | "weekend"
+  suggestions Json     // Array of RelaxEvent objects
+  generatedAt DateTime @default(now())
+  expiresAt   DateTime // generatedAt + 24h
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, locationKey, sectionType, expiresAt])
+  @@map("cultural_suggestions")
 }
 
 // ============================================

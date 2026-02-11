@@ -73,6 +73,13 @@ function groupByDayAndMember(
       }
     }
 
+    // Sort assignments within each member group by suggested start time
+    for (const group of memberMap.values()) {
+      group.assignments.sort((a, b) =>
+        (a.suggestedStartTime ?? "99:99").localeCompare(b.suggestedStartTime ?? "99:99")
+      );
+    }
+
     return {
       date: day,
       memberGroups: Array.from(memberMap.values()),

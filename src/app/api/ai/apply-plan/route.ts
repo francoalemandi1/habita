@@ -14,6 +14,8 @@ interface AssignmentToApply {
   memberId: string;
   memberName?: string;
   dayOfWeek?: number;
+  startTime?: string;
+  endTime?: string;
 }
 
 interface ApplyPlanBody {
@@ -96,6 +98,8 @@ export async function POST(request: NextRequest) {
       memberId: string;
       householdId: string;
       dueDate: Date;
+      suggestedStartTime: string | null;
+      suggestedEndTime: string | null;
       status: "PENDING";
     }> = [];
 
@@ -139,6 +143,8 @@ export async function POST(request: NextRequest) {
         memberId,
         householdId: member.householdId,
         dueDate,
+        suggestedStartTime: assignment.startTime ?? null,
+        suggestedEndTime: assignment.endTime ?? null,
         status: "PENDING",
       });
     }

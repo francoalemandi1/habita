@@ -31,6 +31,8 @@ export default async function CalendarPage() {
         dueDate: true,
         status: true,
         completedAt: true,
+        suggestedStartTime: true,
+        suggestedEndTime: true,
         task: {
           select: {
             id: true,

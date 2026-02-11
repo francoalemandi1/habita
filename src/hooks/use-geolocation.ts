@@ -43,12 +43,12 @@ export function useGeolocation() {
 
         try {
           const response = await fetch(
-            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=es`
           );
           if (response.ok) {
             const data = (await response.json()) as ReverseGeocodeResult;
             country = data.countryCode ?? "";
-            city = data.city || data.locality || "";
+            city = data.locality || data.city || "";
           }
         } catch {
           // Reverse geocode failed — still save coordinates and timezone

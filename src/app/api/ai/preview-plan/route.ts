@@ -18,6 +18,8 @@ interface PlanAssignment {
   memberType: MemberType;
   reason: string;
   dayOfWeek?: number;
+  startTime?: string;
+  endTime?: string;
 }
 
 interface MemberSummary {
@@ -126,6 +128,8 @@ export async function POST(request: NextRequest) {
           memberType: member.memberType,
           reason: a.reason,
           dayOfWeek: a.dayOfWeek,
+          startTime: a.startTime,
+          endTime: a.endTime,
         };
       });
 

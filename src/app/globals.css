@@ -260,6 +260,16 @@ body {
   animation: glow-breathe 3s ease-in-out infinite;
 }
 
+/* Subtle breathe animation for highlighted pills */
+@keyframes pill-breathe {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--pill-glow, hsl(234 99% 66% / 0.2)); }
+  50% { opacity: 0.85; box-shadow: 0 0 8px 2px var(--pill-glow, hsl(234 99% 66% / 0.3)); }
+}
+
+.animate-pill-breathe {
+  animation: pill-breathe 2.5s ease-in-out infinite;
+}
+
 /* Shimmer sweep for feature cards */
 @keyframes shimmer-sweep {
   0% { background-position: -200% 0; }

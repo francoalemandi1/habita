@@ -272,78 +272,114 @@ Solo usar cuando hay un problema medido:
 
 ## Migraciones (Prisma Migrate)
 
-Este proyecto usa **Prisma Migrate** para cambios de schema en producción. Las migraciones se guardan en `prisma/migrations/` y se aplican en deploy con `prisma migrate deploy`.
+Las migraciones se guardan en `prisma/migrations/` y se aplican automáticamente en cada deploy de Vercel.
 
-### Arquitectura de conexiones (Neon)
-
-La DB de producción es **Neon PostgreSQL**, que usa connection pooling (PgBouncer):
+### Conexiones de base de datos
 
 ```prisma
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")          // Pooled — para queries normales
-  directUrl = env("DATABASE_URL_UNPOOLED") // Direct — para migraciones
+  url       = env("DATABASE_URL")          // Pooled — runtime queries
+  directUrl = env("DATABASE_URL_UNPOOLED") // Direct — migraciones
 }
 ```
 
-- **`DATABASE_URL`**: conexión pooled (hostname con `-pooler`). Usada por Prisma Client en runtime.
-- **`DATABASE_URL_UNPOOLED`**: conexión directa (hostname sin `-pooler`). Usada por `prisma migrate deploy` porque las migraciones necesitan advisory locks (`pg_advisory_lock`) que no funcionan sobre pooled connections.
-- **Ambas variables deben existir** en Vercel Environment Variables y en `.env` local.
+| Variable | Uso | Hostname Neon |
+|----------|-----|---------------|
+| `DATABASE_URL` | Prisma Client (runtime) | `...-pooler.c-4.us-east-1.aws.neon.tech` |
+| `DATABASE_URL_UNPOOLED` | `prisma migrate deploy` | `...c-4.us-east-1.aws.neon.tech` (sin `-pooler`) |
 
-### Workflow para cambios de schema
+Ambas **deben existir** en Vercel Environment Variables y en `.env` local.
+Las migraciones usan `directUrl` porque necesitan advisory locks (`pg_advisory_lock`) que no funcionan sobre conexiones pooled.
 
-1. **Modificar `prisma/schema.prisma`** con el cambio deseado
-2. **Aplicar en dev local con `db:push`** para iterar rápido: `pnpm db:push`
-3. **Generar migración antes de commitear**:
-   ```bash
-   # Crear shadow DB temporal
-   PGPASSWORD=habita psql -h localhost -p 5434 -U habita -d habita -c "CREATE DATABASE habita_shadow;"
+### Scripts disponibles
 
-   # Generar diff SQL
-   npx prisma migrate diff \
-     --from-migrations prisma/migrations \
-     --to-schema-datamodel prisma/schema.prisma \
-     --script \
-     --shadow-database-url "postgresql://habita:habita@localhost:5434/habita_shadow?schema=public"
+| Script | Comando | Uso |
+|--------|---------|-----|
+| `db:up` | `docker compose up -d` | Levantar PostgreSQL local |
+| `db:push` | `prisma db push` | Aplicar schema sin migración (solo dev) |
+| `db:migrate` | `prisma migrate dev` | Crear migración interactiva |
+| `db:migrate:create` | `prisma migrate dev --create-only` | Crear migración sin aplicar |
+| `db:migrate:deploy` | `prisma migrate deploy` | Aplicar migraciones pendientes |
+| `db:migrate:status` | `prisma migrate status` | Ver estado de migraciones |
+| `db:migrate:reset` | `prisma migrate reset` | Resetear DB y re-aplicar todo |
+| `db:studio` | `prisma studio` | UI para ver/editar datos |
+| `db:seed` | `tsx prisma/seed.ts` | Poblar datos iniciales |
 
-   # Crear directorio de migración (formato: YYYYMMDDHHMMSS_descripcion)
-   mkdir -p prisma/migrations/<timestamp>_<nombre_descriptivo>/
-   # Guardar el SQL generado en migration.sql dentro del directorio
+### Procedimiento: agregar un campo o tabla nueva
 
-   # Marcar como aplicada en DB local
-   npx prisma migrate resolve --applied <nombre_migración>
+**Paso 1 — Desarrollo local (iterar rápido)**
+```bash
+# Editar prisma/schema.prisma con el cambio
+# Aplicar directo a la DB local (sin generar migración)
+pnpm db:push
+# Desarrollar y testear el código que usa el nuevo campo
+```
 
-   # Verificar drift cero (debe decir "empty migration")
-   # Repetir el migrate diff de arriba
+**Paso 2 — Generar migración (antes de commitear)**
+```bash
+# 1. Crear shadow DB temporal
+PGPASSWORD=habita psql -h localhost -p 5434 -U habita -d habita \
+  -c "CREATE DATABASE habita_shadow;"
 
-   # Limpiar shadow DB
-   PGPASSWORD=habita psql -h localhost -p 5434 -U habita -d habita -c "DROP DATABASE habita_shadow;"
-   ```
-4. **Commitear y pushear**: el deploy en Vercel aplica migraciones pendientes automáticamente
+# 2. Generar el SQL de la migración
+npx prisma migrate diff \
+  --from-migrations prisma/migrations \
+  --to-schema-datamodel prisma/schema.prisma \
+  --script \
+  --shadow-database-url "postgresql://habita:habita@localhost:5434/habita_shadow?schema=public"
 
-### Naming de migraciones
+# 3. Crear directorio y guardar el SQL
+#    Formato: YYYYMMDDHHMMSS_descripcion_en_snake_case
+mkdir -p prisma/migrations/20260215120000_add_new_field/
+# Copiar el output del paso 2 en prisma/migrations/20260215120000_add_new_field/migration.sql
 
-- Formato: `YYYYMMDDHHMMSS_descripcion_en_snake_case`
-- Ejemplos: `20260210010000_add_plan_start_date`, `20260215000000_add_member_avatar_field`
+# 4. Registrar la migración como aplicada en la DB local
+npx prisma migrate resolve --applied 20260215120000_add_new_field
+
+# 5. Verificar drift cero (DEBE decir "This is an empty migration")
+npx prisma migrate diff \
+  --from-migrations prisma/migrations \
+  --to-schema-datamodel prisma/schema.prisma \
+  --script \
+  --shadow-database-url "postgresql://habita:habita@localhost:5434/habita_shadow?schema=public"
+
+# 6. Limpiar shadow DB
+PGPASSWORD=habita psql -h localhost -p 5434 -U habita -d habita \
+  -c "DROP DATABASE habita_shadow;"
+```
+
+**Paso 3 — Deploy a producción**
+```bash
+git add prisma/schema.prisma prisma/migrations/
+git commit -m "Add migration: add_new_field"
+git push origin main
+# Vercel ejecuta automáticamente: prisma generate && prisma migrate deploy && next build
+```
 
 ### Deploy en Vercel
 
 El build command en `package.json` es:
 ```bash
-prisma generate && prisma migrate deploy && next build
+"build": "prisma generate && prisma migrate deploy && next build"
 ```
 
 **IMPORTANTE — Vercel Build Command Override:**
-- Si en Vercel → Settings → General → Build Command hay un override, este **reemplaza** el script de `package.json`.
-- Verificar que el override (si existe) también incluya `prisma migrate deploy`.
-- Si no hay override, Vercel usa `pnpm run build` automáticamente (que ejecuta el script de `package.json`).
+Si en Vercel → Settings → General → Build Command hay un override, este **reemplaza** el script de `package.json`. Verificar que el override incluya `prisma migrate deploy`, o eliminarlo para que Vercel use `pnpm run build`.
 
-### Baseline de migraciones (setup inicial en una DB existente)
+### Reglas críticas
 
-Si la DB de producción fue creada con `db:push` (sin historial de migraciones), `prisma migrate deploy` falla con `P3005: The database schema is not empty`. Para solucionarlo, hay que hacer un **baseline**:
+- **NUNCA usar `db:push` en producción** — solo `migrate deploy`
+- **NUNCA borrar o editar migraciones ya aplicadas** en producción
+- **Siempre hacer campos nuevos nullable** (`?`) o con `@default()` para evitar breaking changes
+- **Siempre verificar drift cero** antes de commitear la migración
+- **Migraciones destructivas** (DROP COLUMN, DROP TABLE, cambio de tipo) requieren plan de migración de datos previo
+
+### Baseline (para DBs creadas con db:push)
+
+Si `prisma migrate deploy` falla con `P3005: The database schema is not empty`, la DB fue creada con `db:push` y no tiene tabla `_prisma_migrations`. Ejecutar contra la DB afectada:
 
 ```sql
--- Ejecutar contra la DB de producción (conexión directa/unpooled)
 CREATE TABLE IF NOT EXISTS "_prisma_migrations" (
     "id" VARCHAR(36) NOT NULL PRIMARY KEY,
     "checksum" VARCHAR(64) NOT NULL,
@@ -355,32 +391,20 @@ CREATE TABLE IF NOT EXISTS "_prisma_migrations" (
     "applied_steps_count" INTEGER NOT NULL DEFAULT 0
 );
 
--- Marcar como aplicadas TODAS las migraciones cuyo schema ya existe en la DB
 INSERT INTO "_prisma_migrations" ("id", "checksum", "migration_name", "finished_at", "applied_steps_count")
 VALUES
-    (gen_random_uuid(), 'baseline', '<nombre_migracion_1>', now(), 1),
-    (gen_random_uuid(), 'baseline', '<nombre_migracion_2>', now(), 1);
+    (gen_random_uuid(), 'baseline', '<nombre_migracion_ya_aplicada>', now(), 1);
+-- Repetir para cada migración cuyo schema ya existe en la DB
 ```
-
-Después del baseline, `prisma migrate deploy` solo aplica las migraciones pendientes.
-
-### Reglas críticas
-
-- **NUNCA usar `db:push` en producción** — solo `migrate deploy`
-- **NUNCA borrar o editar migraciones ya aplicadas** en producción
-- **Siempre hacer campos nuevos nullable** (`?`) o con `@default()` para evitar breaking changes
-- **Siempre verificar drift cero** antes de commitear la migración
-- **Si hay drift** (schema fue modificado con `db:push` después de la última migración): generar una migración de catch-up con `migrate diff` y marcarla como applied con `migrate resolve`
-- **Migraciones destructivas** (DROP COLUMN, DROP TABLE, cambio de tipo) requieren plan de migración de datos previo
 
 ### Troubleshooting
 
 | Error | Causa | Solución |
 |-------|-------|----------|
-| `P1002` timeout en advisory lock | Usando conexión pooled para migraciones | Configurar `directUrl = env("DATABASE_URL_UNPOOLED")` en schema.prisma |
-| `P3005` database not empty | DB creada con `db:push`, sin tabla `_prisma_migrations` | Hacer baseline (ver sección arriba) |
-| `P2022` column does not exist | Migración no fue aplicada en producción | Verificar que `prisma migrate deploy` corre en el build y que la conexión directa funciona |
-| Deploy usa commit viejo | Vercel cache o webhook delay | Forzar redeploy desde Vercel dashboard o push nuevo commit |
+| `P1002` timeout en advisory lock | Conexión pooled para migraciones | Verificar `directUrl = env("DATABASE_URL_UNPOOLED")` en schema.prisma |
+| `P3005` database not empty | DB sin tabla `_prisma_migrations` | Hacer baseline (ver arriba) |
+| `P2022` column does not exist | Migración no aplicada en prod | Verificar que `prisma migrate deploy` corre en el build |
+| Deploy ignora `package.json` | Vercel Build Command override | Verificar/eliminar override en Vercel Settings |
 
 ---
 

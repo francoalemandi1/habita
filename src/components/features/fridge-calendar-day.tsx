@@ -11,6 +11,8 @@ export interface CalendarAssignment {
   dueDate: string;
   status: AssignmentStatus;
   completedAt: string | null;
+  suggestedStartTime: string | null;
+  suggestedEndTime: string | null;
   task: {
     id: string;
     name: string;
@@ -246,6 +248,11 @@ function DesktopTaskRow({
           !completed && !overdue && "text-foreground/65",
         )}
       >
+        {assignment.suggestedStartTime && (
+          <span className="text-[10px] text-foreground/40 mr-0.5">
+            {assignment.suggestedStartTime}
+          </span>
+        )}
         <span
           className={cn(
             "task-strikethrough",
@@ -462,6 +469,11 @@ function MobileTaskRow({
           !completed && !overdue && "text-foreground/70",
         )}
       >
+        {assignment.suggestedStartTime && (
+          <span className="text-xs text-foreground/40 mr-1">
+            {assignment.suggestedStartTime}
+          </span>
+        )}
         <span
           className={cn(
             "task-strikethrough",

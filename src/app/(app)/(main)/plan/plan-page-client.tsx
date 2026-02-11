@@ -57,6 +57,8 @@ interface PlanAssignment {
   memberType: MemberType;
   reason: string;
   dayOfWeek?: number;
+  startTime?: string;
+  endTime?: string;
 }
 
 interface MemberSummary {
@@ -346,7 +348,7 @@ export function PlanPageClient({
     try {
       const assignmentsToApply = plan.assignments
         .filter((a) => selectedAssignments.has(assignmentKey(a)))
-        .map((a) => ({ taskName: a.taskName, memberId: a.memberId, memberName: a.memberName, dayOfWeek: a.dayOfWeek }));
+        .map((a) => ({ taskName: a.taskName, memberId: a.memberId, memberName: a.memberName, dayOfWeek: a.dayOfWeek, startTime: a.startTime, endTime: a.endTime }));
 
       const response = await fetch("/api/ai/apply-plan", {
         method: "POST",
@@ -863,7 +865,9 @@ export function PlanPageClient({
               /* Day-based view: shows assignments grouped by day of week */
               <div className="space-y-3">
                 {[1, 2, 3, 4, 5, 6, 7].map((day) => {
-                  const dayAssignments = assignmentsByDay.get(day) ?? [];
+                  const dayAssignments = [...(assignmentsByDay.get(day) ?? [])].sort((a, b) =>
+                    (a.startTime ?? "99:99").localeCompare(b.startTime ?? "99:99")
+                  );
                   if (dayAssignments.length === 0) return null;
                   const isPending = plan.status === "PENDING";
 
@@ -911,7 +915,14 @@ export function PlanPageClient({
                                 className="flex-1 min-w-0"
                                 onClick={() => toggleAssignment(assignment.taskName, assignment.memberId, assignment.dayOfWeek)}
                               >
-                                <p className="font-medium truncate">{assignment.taskName}</p>
+                                <p className="font-medium truncate">
+                                  {assignment.startTime && (
+                                    <span className="text-xs text-muted-foreground mr-1.5">
+                                      {assignment.startTime}–{assignment.endTime ?? ""}
+                                    </span>
+                                  )}
+                                  {assignment.taskName}
+                                </p>
                                 <div className="flex items-center gap-1.5 mt-0.5">
                                   <span
                                     className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[8px] font-bold leading-none"

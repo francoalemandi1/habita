@@ -98,12 +98,12 @@ function TaskCard({ task }: { task: Task }) {
             onClick={handleToggleRoulette}
             disabled={isToggling}
             className={cn(
-              "shrink-0 rounded-full p-1.5 transition-colors",
+              "shrink-0 rounded-full p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isRouletteEligible
                 ? "bg-primary/10 text-primary"
-                : "text-muted-foreground/40 hover:text-muted-foreground",
+                : "text-foreground-tertiary hover:text-muted-foreground",
             )}
-            title={
+            aria-label={
               isRouletteEligible
                 ? "Quitar de la ruleta"
                 : "Agregar a la ruleta"

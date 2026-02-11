@@ -314,7 +314,8 @@ export function FridgeCalendarView({
             type="button"
             onClick={() => navigateWeek(-1)}
             disabled={isLoadingWeek}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/60 transition-all hover:bg-foreground/5 active:scale-95 disabled:opacity-40"
+            aria-label="Semana anterior"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-foreground-tertiary transition-all hover:bg-foreground/8 active:scale-95 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ChevronLeft className={iconSize.md} />
           </button>
@@ -323,7 +324,7 @@ export function FridgeCalendarView({
           <div className="flex flex-col items-center gap-0.5">
             <div className="flex items-center gap-2">
               {isLoadingWeek && (
-                <Loader2 className={`${iconSize.sm} animate-spin text-foreground/40`} />
+                <Loader2 className={`${iconSize.sm} animate-spin text-foreground-tertiary`} />
               )}
               <span
                 className="handwritten-title text-lg font-normal tracking-wide sm:text-xl"
@@ -333,7 +334,7 @@ export function FridgeCalendarView({
               </span>
             </div>
             {weekStats.total > 0 && (
-              <span className="handwritten-note text-sm text-foreground/40">
+              <span className="handwritten-note text-sm text-foreground-tertiary">
                 {weekStats.completed}/{weekStats.total} completadas
               </span>
             )}
@@ -344,7 +345,8 @@ export function FridgeCalendarView({
             type="button"
             onClick={() => navigateWeek(1)}
             disabled={isLoadingWeek}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/60 transition-all hover:bg-foreground/5 active:scale-95 disabled:opacity-40"
+            aria-label="Semana siguiente"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-foreground-tertiary transition-all hover:bg-foreground/8 active:scale-95 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ChevronRight className={iconSize.md} />
           </button>
@@ -380,10 +382,10 @@ export function FridgeCalendarView({
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-foreground/5">
               <span className="text-3xl">📋</span>
             </div>
-            <p className="handwritten-title text-lg text-foreground/60">
+            <p className="handwritten-title text-lg text-foreground-secondary">
               No hay tareas esta semana
             </p>
-            <p className="handwritten-note mt-1 text-base text-foreground/35">
+            <p className="handwritten-note mt-1 text-base text-foreground-tertiary">
               Las asignaciones aparecerán aquí
             </p>
           </div>
@@ -404,8 +406,8 @@ export function FridgeCalendarView({
                       key={label}
                       className={`handwritten-title py-2 text-center text-base tracking-wider ${
                         isWeekend
-                          ? "text-foreground/30"
-                          : "text-foreground/55"
+                          ? "text-foreground-tertiary"
+                          : "text-foreground-secondary"
                       }`}
                       style={{
                         transform: `rotate(${rotation}deg)`,
@@ -439,7 +441,7 @@ export function FridgeCalendarView({
                         className={`handwritten-note flex h-8 w-8 items-center justify-center text-xl font-semibold ${
                           isToday
                             ? "notebook-today-highlight rounded-full text-primary"
-                            : "text-foreground/60"
+                            : "text-foreground-secondary"
                         }`}
                         style={{
                           transform: `rotate(${rotation * 1.5}deg)`,
@@ -490,14 +492,14 @@ export function FridgeCalendarView({
                       type="button"
                       onClick={() => setCurrentDayIndex(index)}
                       className={cn(
-                        "flex flex-col items-center gap-0.5 rounded-lg px-1.5 py-1 transition-colors",
+                        "flex flex-col items-center gap-0.5 rounded-lg px-1.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         isActive && "bg-primary/10",
                       )}
                     >
                       <span
                         className={cn(
                           "handwritten-title text-[10px]",
-                          isActive ? "text-primary" : "text-foreground/40",
+                          isActive ? "text-primary" : "text-foreground-tertiary",
                         )}
                       >
                         {DAY_HEADER_LABELS[index] ?? ""}
@@ -508,7 +510,7 @@ export function FridgeCalendarView({
                           isActive && isDayToday && "bg-primary text-white",
                           isActive && !isDayToday && "bg-primary/15 text-primary",
                           !isActive && isDayToday && "text-primary font-bold",
-                          !isActive && !isDayToday && "text-foreground/50",
+                          !isActive && !isDayToday && "text-foreground-tertiary",
                         )}
                       >
                         {day.getDate()}
@@ -568,7 +570,7 @@ export function FridgeCalendarView({
             return (
               <div key={member.id} className="flex items-center gap-1.5">
                 <div
-                  className="flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold"
+                  className="flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold"
                   style={{
                     backgroundColor: bgColor,
                     color: contrastText(bgColor),
@@ -577,7 +579,7 @@ export function FridgeCalendarView({
                 >
                   {(member.name[0] ?? "?").toUpperCase()}
                 </div>
-                <span className="handwritten-note text-sm text-foreground/60">{firstName}</span>
+                <span className="handwritten-note text-sm text-foreground-secondary">{firstName}</span>
               </div>
             );
           })}

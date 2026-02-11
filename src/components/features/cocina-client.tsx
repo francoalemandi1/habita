@@ -229,7 +229,7 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
   if (!aiEnabled) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/20 px-6 py-12 text-center">
-        <Info className="h-10 w-10 text-muted-foreground/40" />
+        <Info className="h-10 w-10 text-foreground-tertiary" />
         <h3 className="mt-3 text-sm font-semibold">IA no disponible</h3>
         <p className="mt-1 max-w-xs text-xs text-muted-foreground">
           Las funciones de inteligencia artificial no estan configuradas. Contacta al administrador.
@@ -248,7 +248,7 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
             placeholder="Tengo pollo, arroz, pimientos, cebolla..."
-            className="w-full resize-none rounded-xl border bg-muted/30 p-3 text-sm placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full resize-none rounded-xl border bg-muted/30 p-3 text-sm placeholder:text-foreground-secondary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             rows={3}
             maxLength={2000}
           />
@@ -264,7 +264,7 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={images.length >= MAX_IMAGES}
-              className="flex items-center gap-1.5 rounded-full bg-muted/60 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-full bg-muted/60 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Camera className={iconSize.sm} />
               Adjuntar fotos ({images.length}/{MAX_IMAGES})
@@ -284,7 +284,7 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
                 type="button"
                 onClick={toggleRecording}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   isRecording
                     ? "bg-red-100 text-red-700 animate-pulse"
                     : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -315,7 +315,8 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
                   <button
                     type="button"
                     onClick={() => removeImage(index)}
-                    className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
+                    className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label="Eliminar imagen"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -352,7 +353,7 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
           type="button"
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           {mutation.isPending ? (
             <>

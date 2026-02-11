@@ -303,7 +303,7 @@ export function CompetitionView({
       ) : (
         <Card>
           <CardContent className="py-12 text-center">
-            <Trophy className="mx-auto mb-4 h-12 w-12 text-muted-foreground/50" />
+            <Trophy className="mx-auto mb-4 h-12 w-12 text-foreground-tertiary" />
             <p className="text-lg font-medium">No hay competencia activa</p>
             <p className="text-muted-foreground">
               {isAdult

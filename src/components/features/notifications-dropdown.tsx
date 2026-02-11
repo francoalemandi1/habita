@@ -145,7 +145,7 @@ export function NotificationsDropdown() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="relative">
+        <Button variant="ghost" size="sm" className="relative" aria-label="Notificaciones">
           <Bell className={iconSize.md} />
           {unreadCount > 0 && (
             <Badge

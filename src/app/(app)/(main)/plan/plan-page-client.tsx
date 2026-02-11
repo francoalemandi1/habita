@@ -44,6 +44,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { TaskCatalogPicker } from "@/components/features/task-catalog-picker";
 import { BackButton } from "@/components/ui/back-button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { getTaskIcon, getTaskCategoryMeta } from "@/data/onboarding-catalog";
 
 import type { MemberType, WeeklyPlanStatus, TaskFrequency } from "@prisma/client";
@@ -220,6 +221,17 @@ export function PlanPageClient({
     isSymmetric: boolean;
     maxDifference: number;
   } | null>(null);
+  const [activeDayOfWeek, setActiveDayOfWeek] = useState<number>(() => {
+    if (!existingPlan?.startDate) return 1;
+    const todayDate = startOfDay(new Date());
+    const planStart = startOfDay(new Date(existingPlan.startDate));
+    const planEnd = startOfDay(new Date(existingPlan.expiresAt));
+    if (todayDate >= planStart && todayDate <= planEnd) {
+      const diffDays = Math.round((todayDate.getTime() - planStart.getTime()) / (1000 * 60 * 60 * 24));
+      return diffDays + 1;
+    }
+    return 1;
+  });
   const router = useRouter();
   const toast = useToast();
 
@@ -307,6 +319,17 @@ export function PlanPageClient({
       setSelectedAssignments(
         new Set(data.plan.assignments.map((a) => assignmentKey(a)))
       );
+
+      // Reset active day to today if within range, otherwise first day
+      const newStart = startOfDay(new Date(data.plan.startDate));
+      const newEnd = startOfDay(new Date(data.plan.endDate));
+      const todayDate = startOfDay(new Date());
+      if (todayDate >= newStart && todayDate <= newEnd) {
+        const diffDays = Math.round((todayDate.getTime() - newStart.getTime()) / (1000 * 60 * 60 * 24));
+        setActiveDayOfWeek(diffDays + 1);
+      } else {
+        setActiveDayOfWeek(1);
+      }
     } catch (error) {
       console.error("Generate plan error:", error);
       toast.error("Error", "No se pudo generar el plan. Intenta de nuevo.");
@@ -540,6 +563,36 @@ export function PlanPageClient({
       assignmentsByDay.set(day, existing);
     }
   }
+
+  // Derive actual dates for each dayOfWeek in the plan
+  const planDayDates = useMemo(() => {
+    if (!plan?.startDate) return new Map<number, Date>();
+    const start = startOfDay(new Date(plan.startDate));
+    const dates = new Map<number, Date>();
+    for (let dow = 1; dow <= 7; dow++) {
+      dates.set(dow, addDays(start, dow - 1));
+    }
+    return dates;
+  }, [plan?.startDate]);
+
+  // dayOfWeek corresponding to "today" (0 if today is outside the plan range)
+  const todayDayOfWeek = useMemo(() => {
+    if (!plan?.startDate) return 0;
+    const todayDate = startOfDay(new Date());
+    const planStart = startOfDay(new Date(plan.startDate));
+    const diffDays = Math.round((todayDate.getTime() - planStart.getTime()) / (1000 * 60 * 60 * 24));
+    const dow = diffDays + 1;
+    return dow >= 1 && dow <= 7 ? dow : 0;
+  }, [plan?.startDate]);
+
+  // Days that have at least one assignment (for dot indicators)
+  const daysWithTasks = useMemo(() => {
+    const result = new Set<number>();
+    for (const [day] of assignmentsByDay.entries()) {
+      result.add(day);
+    }
+    return result;
+  }, [assignmentsByDay]);
 
   // Calculate adult distribution from current plan
   const adultDistribution = fairnessDetails?.adultDistribution ?? {};
@@ -872,24 +925,101 @@ export function PlanPageClient({
             </h2>
 
             {hasDayInfo ? (
-              /* Day-based view: shows assignments grouped by day of week */
-              <div className="space-y-3">
-                {[1, 2, 3, 4, 5, 6, 7].map((day) => {
-                  const dayAssignments = [...(assignmentsByDay.get(day) ?? [])].sort((a, b) =>
+              /* Day-based view: one day at a time with progress + day selector */
+              <div className="space-y-4">
+                {/* Weekly progress bar */}
+                <div className="rounded-2xl bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-muted-foreground">
+                      Progreso del plan
+                    </span>
+                    <span className="text-sm font-semibold">
+                      {plan.status === "APPLIED" ? totalCount : selectedCount}/{totalCount}
+                    </span>
+                  </div>
+                  <Progress
+                    value={plan.status === "APPLIED" ? 100 : totalCount > 0 ? (selectedCount / totalCount) * 100 : 0}
+                    className="h-2"
+                  />
+                </div>
+
+                {/* Day selector tabs */}
+                <div className="flex items-center justify-center gap-1 py-1">
+                  {[1, 2, 3, 4, 5, 6, 7].map((dow) => {
+                    const isActive = dow === activeDayOfWeek;
+                    const isToday = dow === todayDayOfWeek;
+                    const hasTasks = daysWithTasks.has(dow);
+                    const dayDate = planDayDates.get(dow);
+
+                    return (
+                      <button
+                        key={dow}
+                        type="button"
+                        onClick={() => setActiveDayOfWeek(dow)}
+                        className={cn(
+                          "flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          isActive && "bg-primary/10",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "text-[10px] font-semibold uppercase tracking-wide",
+                            isActive ? "text-primary" : "text-muted-foreground",
+                          )}
+                        >
+                          {DAY_OF_WEEK_SHORT[dow]}
+                        </span>
+                        <span
+                          className={cn(
+                            "flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium transition-colors",
+                            isActive && isToday && "bg-primary text-white",
+                            isActive && !isToday && "bg-primary/15 text-primary",
+                            !isActive && isToday && "text-primary font-bold",
+                            !isActive && !isToday && "text-muted-foreground",
+                          )}
+                        >
+                          {dayDate?.getDate() ?? dow}
+                        </span>
+                        {!isActive && hasTasks && (
+                          <div className="h-1 w-1 rounded-full bg-foreground/25" />
+                        )}
+                        {!isActive && !hasTasks && (
+                          <div className="h-1 w-1" />
+                        )}
+                        {isActive && (
+                          <div className="h-1 w-1" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Active day's tasks */}
+                {(() => {
+                  const dayAssignments = [...(assignmentsByDay.get(activeDayOfWeek) ?? [])].sort((a, b) =>
                     (a.startTime ?? "99:99").localeCompare(b.startTime ?? "99:99")
                   );
-                  if (dayAssignments.length === 0) return null;
                   const isPending = plan.status === "PENDING";
 
+                  if (dayAssignments.length === 0) {
+                    return (
+                      <div className="rounded-2xl bg-white p-6 shadow-sm text-center">
+                        <p className="text-sm text-muted-foreground">
+                          Sin tareas para {DAY_OF_WEEK_LABELS[activeDayOfWeek]}
+                        </p>
+                      </div>
+                    );
+                  }
+
                   return (
-                    <div key={day} className="rounded-2xl bg-white shadow-sm overflow-hidden">
+                    <div className="rounded-2xl bg-white shadow-sm overflow-hidden">
                       <div className="flex items-center justify-between bg-primary/5 px-3 py-2.5 sm:px-5 sm:py-3">
                         <div className="flex items-center gap-2">
                           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
-                            {DAY_OF_WEEK_SHORT[day]}
+                            {DAY_OF_WEEK_SHORT[activeDayOfWeek]}
                           </span>
                           <span className="text-sm font-semibold sm:text-base">
-                            {DAY_OF_WEEK_LABELS[day]}
+                            {DAY_OF_WEEK_LABELS[activeDayOfWeek]}
                           </span>
                         </div>
                         <Badge variant="secondary" className="text-xs">
@@ -935,7 +1065,7 @@ export function PlanPageClient({
                                 </p>
                                 <div className="flex items-center gap-1.5 mt-0.5">
                                   <span
-                                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[8px] font-bold leading-none"
+                                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold leading-none"
                                     style={{
                                       backgroundColor: getMemberColor(assignment.memberId, members),
                                       color: contrastText(getMemberColor(assignment.memberId, members)),
@@ -966,7 +1096,7 @@ export function PlanPageClient({
                       </ul>
                     </div>
                   );
-                })}
+                })()}
               </div>
             ) : (
               /* Member-based fallback view (for plans generated before dayOfWeek) */

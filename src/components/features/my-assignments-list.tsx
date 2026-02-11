@@ -314,7 +314,7 @@ function AssignmentCard({
         )}
 
         {/* Metadata row 1: schedule */}
-        <div className={`mt-3 flex items-center gap-1.5 text-sm ${isCompleted ? "text-green-600/70 dark:text-green-400/70" : colors.meta}`}>
+        <div className={`mt-3 flex items-center gap-1.5 text-sm ${isCompleted ? "text-green-700 dark:text-green-400/70" : colors.meta}`}>
           <Clock className={iconSize.sm} />
           <span>
             {dueDateLabel && !isCompleted && `${dueDateLabel} · `}
@@ -436,7 +436,7 @@ function CompletedAssignmentCard({
         <p className="truncate text-sm font-medium text-green-800 line-through decoration-green-400/50 dark:text-green-200">
           {assignment.task.name}
         </p>
-        <p className="text-xs text-green-600/70 dark:text-green-400/70">
+        <p className="text-xs text-green-700 dark:text-green-400/70">
           +{points} pts · {FREQUENCY_LABELS[assignment.task.frequency]}
         </p>
       </div>
@@ -444,7 +444,7 @@ function CompletedAssignmentCard({
         type="button"
         onClick={handleUncomplete}
         disabled={isUncompleting}
-        className="shrink-0 rounded-full p-1.5 text-green-600/50 transition-colors hover:bg-green-100 hover:text-green-700 active:scale-95 disabled:opacity-50 dark:hover:bg-green-900"
+        className="shrink-0 rounded-full p-1.5 text-green-700 transition-colors hover:bg-green-100 hover:text-green-700 active:scale-95 disabled:opacity-50 dark:hover:bg-green-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         title="Desmarcar tarea"
       >
         {isUncompleting ? (

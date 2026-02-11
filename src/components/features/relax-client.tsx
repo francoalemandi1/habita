@@ -295,7 +295,7 @@ export function RelaxClient({
               type="button"
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 activeTab === tab.key
                   ? "bg-primary text-white shadow-sm"
                   : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -445,7 +445,7 @@ function FilterPill({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+        "flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isActive
           ? "bg-primary text-white"
           : isHighlighted
@@ -536,7 +536,7 @@ function EventCard({
       </p>
 
       {/* Relevance note */}
-      <p className="mt-1.5 text-[11px] italic text-muted-foreground/70">
+      <p className="mt-1.5 text-[11px] italic text-foreground-secondary">
         {event.relevanceNote}
       </p>
 
@@ -592,7 +592,7 @@ function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/20 px-6 py-12 text-center">
-      <Icon className="h-10 w-10 text-muted-foreground/40" />
+      <Icon className="h-10 w-10 text-foreground-tertiary" />
       <h3 className="mt-3 text-sm font-semibold">{title}</h3>
       <p className="mt-1 max-w-xs text-xs text-muted-foreground">{description}</p>
     </div>

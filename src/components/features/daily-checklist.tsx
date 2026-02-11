@@ -127,7 +127,7 @@ export function DailyChecklist({ assignments: initialAssignments, completedToday
                   key={assignment.id}
                   onClick={() => handleComplete(assignment.id)}
                   disabled={isCompleting || isCompleted}
-                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all ${
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                     isCompleted
                       ? "bg-green-50 dark:bg-green-950"
                       : "hover:bg-muted/50 active:bg-muted"
@@ -140,7 +140,7 @@ export function DailyChecklist({ assignments: initialAssignments, completedToday
                     ) : isCompleted ? (
                       <Check className="h-5 w-5 text-green-600" />
                     ) : (
-                      <Circle className={`h-5 w-5 ${isOverdue ? "text-red-400" : "text-muted-foreground/40"}`} />
+                      <Circle className={`h-5 w-5 ${isOverdue ? "text-red-400" : "text-foreground-tertiary"}`} />
                     )}
                   </div>
 

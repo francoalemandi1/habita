@@ -125,7 +125,7 @@ export function FridgeCalendarDay({
     >
       {isEmpty ? (
         <div className="flex h-full min-h-[56px] items-center justify-center">
-          <span className="handwritten-note text-base text-foreground/15">-</span>
+          <span className="handwritten-note text-base text-foreground-tertiary">-</span>
         </div>
       ) : (
         <div className="space-y-1">
@@ -176,7 +176,7 @@ function DesktopMemberGroup({
       {/* Member initial chip */}
       <div className="mb-0.5 flex items-center gap-1">
         <div
-          className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[8px] font-bold leading-none"
+          className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold leading-none"
           style={{
             backgroundColor: bgColor,
             color: contrastText(bgColor),
@@ -184,7 +184,7 @@ function DesktopMemberGroup({
         >
           {getInitial(group.member.name)}
         </div>
-        <span className="handwritten-note truncate text-sm font-semibold text-foreground/60">
+        <span className="handwritten-note truncate text-sm font-semibold text-foreground-secondary">
           {group.member.name.split(" ")[0] ?? group.member.name}
         </span>
       </div>
@@ -235,7 +235,7 @@ function DesktopTaskRow({
         else if (pending || overdue) onComplete(assignment.id);
       }}
       className={cn(
-        "flex w-full items-center rounded py-px pl-0.5 text-left",
+        "flex w-full items-center rounded py-px pl-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isInteractive && "hover:bg-foreground/5 active:bg-foreground/8",
       )}
       style={{ transform: `rotate(${rotation}deg)` }}
@@ -245,18 +245,18 @@ function DesktopTaskRow({
           "handwritten-note truncate text-sm leading-tight",
           overdue && "text-destructive",
           isCompleting && "task-loading-pulse",
-          !completed && !overdue && "text-foreground/65",
+          !completed && !overdue && "text-foreground-secondary",
         )}
       >
         {assignment.suggestedStartTime && (
-          <span className="text-[10px] text-foreground/40 mr-0.5">
+          <span className="text-[10px] text-foreground-tertiary mr-0.5">
             {assignment.suggestedStartTime}
           </span>
         )}
         <span
           className={cn(
             "task-strikethrough",
-            completed && "task-strikethrough--active text-foreground/35",
+            completed && "task-strikethrough--active text-foreground-tertiary",
           )}
         >
           {assignment.task.name}
@@ -307,7 +307,7 @@ function MobileDayCard({
             "handwritten-note flex h-8 w-8 shrink-0 items-center justify-center text-xl font-bold",
             isToday
               ? "text-primary"
-              : "text-foreground/50",
+              : "text-foreground-tertiary",
           )}
           style={{ transform: "rotate(-0.5deg)" }}
         >
@@ -317,7 +317,7 @@ function MobileDayCard({
           <span
             className={cn(
               "handwritten-title text-base",
-              isToday ? "text-primary" : "text-foreground/65",
+              isToday ? "text-primary" : "text-foreground-secondary",
             )}
           >
             {dayName}
@@ -332,7 +332,7 @@ function MobileDayCard({
 
       {/* Member groups */}
       {isEmpty ? (
-        <p className="handwritten-note pb-1 pl-12 text-base text-foreground/25">
+        <p className="handwritten-note pb-1 pl-12 text-base text-foreground-tertiary">
           Sin tareas
         </p>
       ) : (
@@ -399,12 +399,12 @@ function MobileMemberGroup({
           >
             {getInitial(group.member.name)}
           </div>
-          <span className="handwritten-title text-base text-foreground/70">
+          <span className="handwritten-title text-base text-foreground-secondary">
             {firstName}
           </span>
         </div>
         {totalTasks > 1 && (
-          <span className="handwritten-note text-sm tabular-nums text-foreground/35">
+          <span className="handwritten-note text-sm tabular-nums text-foreground-tertiary">
             {doneTasks}/{totalTasks}
           </span>
         )}
@@ -456,7 +456,7 @@ function MobileTaskRow({
         else if (pending || overdue) onComplete(assignment.id);
       }}
       className={cn(
-        "flex w-full items-center gap-2 rounded-lg py-1 text-left transition-colors",
+        "flex w-full items-center gap-2 rounded-lg py-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isInteractive && "active:bg-foreground/5",
       )}
       style={{ transform: `rotate(${rotation}deg)` }}
@@ -466,18 +466,18 @@ function MobileTaskRow({
           "handwritten-note flex-1 truncate text-base leading-snug",
           overdue && "text-destructive",
           isCompleting && "task-loading-pulse",
-          !completed && !overdue && "text-foreground/70",
+          !completed && !overdue && "text-foreground-secondary",
         )}
       >
         {assignment.suggestedStartTime && (
-          <span className="text-xs text-foreground/40 mr-1">
+          <span className="text-xs text-foreground-tertiary mr-1">
             {assignment.suggestedStartTime}
           </span>
         )}
         <span
           className={cn(
             "task-strikethrough",
-            completed && "task-strikethrough--active text-foreground/35",
+            completed && "task-strikethrough--active text-foreground-tertiary",
           )}
         >
           {assignment.task.name}

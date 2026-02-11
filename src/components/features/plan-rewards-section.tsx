@@ -101,7 +101,7 @@ export function PlanRewardsSection({
   if (!planId && rewards.length === 0) {
     return (
       <div className="rounded-2xl bg-brand-cream px-6 py-8 text-center">
-        <Sparkles className={`mx-auto mb-3 ${iconSize["2xl"]} text-foreground/50`} />
+        <Sparkles className={`mx-auto mb-3 ${iconSize["2xl"]} text-foreground-tertiary`} />
         <p className="font-medium text-foreground">Sin recompensas aún</p>
         <p className="text-sm text-muted-foreground mt-1">
           Las recompensas se generan automáticamente al finalizar un plan

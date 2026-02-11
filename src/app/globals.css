@@ -22,6 +22,9 @@
   --border: 216 16% 80%;        /* #c3ccd7 */
   --input: 0 0% 35%;            /* #595959 - input borders */
   --ring: 234 99% 66%;
+  /* Accessible foreground scale — replaces raw opacity modifiers */
+  --foreground-secondary: 0 0% 30%;  /* #4d4d4d — 5.9:1 on cream */
+  --foreground-tertiary: 0 0% 42%;   /* #6b6b6b — 3.9:1 on cream */
   /* Gamification tokens */
   --success: 142 71% 45%;
   --xp: 38 92% 50%;
@@ -68,6 +71,8 @@
   --border: 220 13% 22%;
   --input: 220 13% 22%;
   --ring: 234 99% 72%;
+  --foreground-secondary: 0 0% 75%;
+  --foreground-tertiary: 0 0% 60%;
   --success: 142 71% 40%;
   --xp: 38 92% 55%;
   --level: 262 83% 65%;
@@ -94,6 +99,8 @@
   --color-secondary-foreground: hsl(var(--secondary-foreground));
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-foreground-secondary: hsl(var(--foreground-secondary));
+  --color-foreground-tertiary: hsl(var(--foreground-tertiary));
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
   --color-destructive: hsl(var(--destructive));

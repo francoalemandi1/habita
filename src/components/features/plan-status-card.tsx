@@ -18,8 +18,8 @@ import { useToast } from "@/components/ui/toast";
 import {
   CalendarDays,
   CheckCheck,
+  ChevronRight,
   Clock,
-  ArrowRight,
   Users,
   Timer,
   Flag,
@@ -142,12 +142,15 @@ export function PlanStatusCard({
     return null;
   }
 
-  // No plan exists - show prompt to generate (card estática, CTA clara sin efectos que distraigan)
+  // No plan exists - show prompt to generate
   if (!plan) {
     return (
-      <div className={`rounded-2xl border border-primary/15 bg-primary/5 ${spacing.cardPaddingCompact} shadow-sm transition-colors hover:border-primary/25 hover:bg-primary/[0.07]`}>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-start gap-3 sm:items-center">
+      <div>
+        <Link
+          href="/plan"
+          className={`group block rounded-2xl border border-primary/15 bg-primary/5 ${spacing.cardPaddingCompact} shadow-sm transition-all duration-200 hover:border-primary/25 hover:bg-primary/[0.07] hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+        >
+          <div className="flex items-center gap-3">
             <div className="shrink-0 rounded-full bg-primary/10 p-2">
               <CalendarDays className={`${iconSize.lg} text-primary`} />
             </div>
@@ -157,14 +160,9 @@ export function PlanStatusCard({
                 Distribuye las tareas equitativamente entre los miembros
               </p>
             </div>
+            <ChevronRight className={`${iconSize.md} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
           </div>
-          <Button asChild size="sm" className="w-full gap-2 sm:w-auto sm:shrink-0 animate-button-breathe">
-            <Link href="/plan" className="inline-flex items-center justify-center gap-2">
-              Generar
-              <ArrowRight className={iconSize.md} />
-            </Link>
-          </Button>
-        </div>
+        </Link>
         <HistoryLink />
       </div>
     );
@@ -176,124 +174,111 @@ export function PlanStatusCard({
     const taskCount = plan.assignments.length;
 
     return (
-      <div className={`rounded-2xl bg-amber-50 ${spacing.cardPaddingCompact} shadow-sm dark:bg-amber-950`}>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-start gap-3 sm:items-center">
-            <div className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-900 p-2">
-              <Clock className={`${iconSize.lg} text-amber-600`} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-medium text-amber-800 dark:text-amber-200">
-                  Plan pendiente de aprobación
-                </p>
-                <Badge variant="outline" className={cn("font-bold", getScoreColor(plan.balanceScore))}>
-                  {plan.balanceScore}% equidad
-                </Badge>
-              </div>
-              <p className="mt-0.5 text-sm text-amber-600 dark:text-amber-400 flex flex-wrap items-center gap-1">
-                <Users className={`${iconSize.xs} shrink-0`} />
-                {taskCount} tareas para {memberCount} miembros
-              </p>
-            </div>
+      <Link
+        href="/plan"
+        className={`group block rounded-2xl bg-amber-50 ${spacing.cardPaddingCompact} shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.99] dark:bg-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+      >
+        <div className="flex items-center gap-3">
+          <div className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-900 p-2">
+            <Clock className={`${iconSize.lg} text-amber-600`} />
           </div>
-          <Button asChild size="sm" variant="outline" className="w-full gap-2 sm:w-auto sm:shrink-0">
-            <Link href="/plan" className="inline-flex items-center justify-center gap-2">
-              Revisar
-              <ArrowRight className={iconSize.md} />
-            </Link>
-          </Button>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-medium text-amber-800 dark:text-amber-200">
+                Plan pendiente de aprobación
+              </p>
+              <Badge variant="outline" className={cn("font-bold", getScoreColor(plan.balanceScore))}>
+                {plan.balanceScore}% equidad
+              </Badge>
+            </div>
+            <p className="mt-0.5 text-sm text-amber-600 dark:text-amber-400 flex flex-wrap items-center gap-1">
+              <Users className={`${iconSize.xs} shrink-0`} />
+              {taskCount} tareas para {memberCount} miembros
+            </p>
+          </div>
+          <ChevronRight className={`${iconSize.md} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
         </div>
-      </div>
+      </Link>
     );
   }
 
   // All assignments completed — prompt to generate a new plan
   if (plan.status === "APPLIED" && allAssignmentsDone) {
     return (
-      <div className={`rounded-2xl bg-brand-lime ${spacing.cardPaddingCompact} shadow-sm`}>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-start gap-3 sm:items-center">
-            <div className="shrink-0 rounded-full bg-brand-success-dark/20 p-2">
-              <CheckCheck className={`${iconSize.lg} text-brand-success-dark`} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-medium text-foreground">
-                ¡Todas las tareas completadas!
-              </p>
-              <p className="text-sm text-foreground/60">
-                Genera un nuevo plan para seguir organizando las tareas
-              </p>
-            </div>
+      <Link
+        href="/plan"
+        className={`group block rounded-2xl bg-brand-lime ${spacing.cardPaddingCompact} shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+      >
+        <div className="flex items-center gap-3">
+          <div className="shrink-0 rounded-full bg-brand-success-dark/20 p-2">
+            <CheckCheck className={`${iconSize.lg} text-brand-success-dark`} />
           </div>
-          <Button asChild size="sm" className="w-full gap-2 sm:w-auto sm:shrink-0">
-            <Link href="/plan" className="inline-flex items-center justify-center gap-2">
-              Nuevo plan
-              <ArrowRight className={iconSize.md} />
-            </Link>
-          </Button>
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-foreground">
+              ¡Todas las tareas completadas!
+            </p>
+            <p className="text-sm text-foreground-secondary">
+              Genera un nuevo plan para seguir organizando las tareas
+            </p>
+          </div>
+          <ChevronRight className={`${iconSize.md} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
         </div>
-      </div>
+      </Link>
     );
   }
 
-  // Applied plan - show summary with link to details + finalize button
+  // Applied plan - show summary (whole card navigates to /plan)
   if (plan.status === "APPLIED") {
     const memberCount = new Set(plan.assignments.map((a) => a.memberName)).size;
     const taskCount = plan.assignments.length;
 
     return (
       <>
-        <div className={`rounded-2xl bg-green-50 ${spacing.cardPaddingCompact} shadow-sm dark:bg-green-950`}>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-start gap-3 sm:items-center">
-              <div className="shrink-0 rounded-full bg-green-100 dark:bg-green-900 p-2">
-                <CheckCheck className={`${iconSize.lg} text-green-600`} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium text-green-800 dark:text-green-200">
-                    Plan aplicado
-                  </p>
-                  <Badge variant="outline" className={cn("font-bold", getScoreColor(plan.balanceScore))}>
-                    {plan.balanceScore}% equidad
-                  </Badge>
-                </div>
-                <p className="mt-0.5 text-sm text-green-600 dark:text-green-400 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                  <span>
-                    Plan de {durationLabel(plan.durationDays ?? 7)} · {taskCount} tareas para {memberCount} miembros
-                  </span>
-                  <span className="inline-flex items-center gap-0.5 text-xs opacity-75">
-                    <Timer className={`${iconSize.xs} shrink-0`} />
-                    {formatTimeRemaining(plan.expiresAt)}
-                  </span>
-                </p>
-              </div>
+        <Link
+          href="/plan"
+          className={`group block rounded-2xl bg-green-50 ${spacing.cardPaddingCompact} shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.99] dark:bg-green-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="shrink-0 rounded-full bg-green-100 dark:bg-green-900 p-2">
+              <CheckCheck className={`${iconSize.lg} text-green-600`} />
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-medium text-green-800 dark:text-green-200">
+                  Plan aplicado
+                </p>
+                <Badge variant="outline" className={cn("font-bold", getScoreColor(plan.balanceScore))}>
+                  {plan.balanceScore}% equidad
+                </Badge>
+              </div>
+              <p className="mt-0.5 text-sm text-green-600 dark:text-green-400 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <span>
+                  Plan de {durationLabel(plan.durationDays ?? 7)} · {taskCount} tareas para {memberCount} miembros
+                </span>
+                <span className="inline-flex items-center gap-0.5 text-xs opacity-75">
+                  <Timer className={`${iconSize.xs} shrink-0`} />
+                  {formatTimeRemaining(plan.expiresAt)}
+                </span>
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
               <Button
                 size="sm"
                 variant="outline"
-                className="min-w-0 flex-1 gap-1.5 border-green-200 text-green-700 hover:bg-green-100 hover:text-green-800 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-900 sm:flex-initial"
-                onClick={openFinalizeModal}
+                className="gap-1.5 border-green-200 text-green-700 hover:bg-green-100 hover:text-green-800 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-900"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  openFinalizeModal();
+                }}
               >
                 <Flag className={`${iconSize.sm} shrink-0`} />
                 Finalizar
               </Button>
-              <Button
-                asChild
-                size="sm"
-                variant="ghost"
-                className="min-w-0 flex-1 gap-2 text-green-700 hover:text-green-800 hover:bg-green-100 dark:text-green-300 dark:hover:bg-green-900 sm:flex-initial"
-              >
-                <Link href="/plan" className="inline-flex items-center justify-center gap-2">
-                  Ver detalles
-                  <ArrowRight className={`${iconSize.md} shrink-0`} />
-                </Link>
-              </Button>
+              <ChevronRight className={`${iconSize.md} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
             </div>
           </div>
-        </div>
+        </Link>
 
         <Dialog open={showFinalizeModal} onOpenChange={setShowFinalizeModal}>
           <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md md:max-w-xl">
@@ -357,9 +342,12 @@ export function PlanStatusCard({
 
   // Expired or rejected - show generate new prompt
   return (
-    <div className={`rounded-2xl bg-muted/30 ${spacing.cardPaddingCompact} shadow-sm`}>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3 sm:items-center">
+    <div>
+      <Link
+        href="/plan"
+        className={`group block rounded-2xl bg-muted/30 ${spacing.cardPaddingCompact} shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+      >
+        <div className="flex items-center gap-3">
           <div className="shrink-0 rounded-full bg-muted p-2">
             <CalendarDays className={`${iconSize.lg} text-muted-foreground`} />
           </div>
@@ -369,14 +357,9 @@ export function PlanStatusCard({
               Genera un nuevo plan de distribución
             </p>
           </div>
+          <ChevronRight className={`${iconSize.md} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
         </div>
-        <Button asChild size="sm" variant="outline" className="w-full gap-2 sm:w-auto sm:shrink-0">
-          <Link href="/plan" className="inline-flex items-center justify-center gap-2">
-            Nuevo plan
-            <ArrowRight className={iconSize.md} />
-          </Link>
-        </Button>
-      </div>
+      </Link>
       <HistoryLink />
     </div>
   );

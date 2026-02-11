@@ -123,19 +123,19 @@ export const assignmentCardColors = [
   {
     bg: "bg-[#5260fe]",
     text: "text-white",
-    meta: "text-white/70",
+    meta: "text-white/85",
     btnBg: "bg-white/20 hover:bg-white/30 text-white",
   },
   {
     bg: "bg-[#d2ffa0]",
     text: "text-[#272727]",
-    meta: "text-[#272727]/60",
+    meta: "text-[#272727]/80",
     btnBg: "bg-[#272727]/10 hover:bg-[#272727]/20 text-[#272727]",
   },
   {
     bg: "bg-[#d0b6ff]",
     text: "text-[#272727]",
-    meta: "text-[#272727]/60",
+    meta: "text-[#272727]/80",
     btnBg: "bg-[#272727]/10 hover:bg-[#272727]/20 text-[#272727]",
   },
 ] as const;

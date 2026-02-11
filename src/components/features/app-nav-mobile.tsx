@@ -29,8 +29,9 @@ export function AppNavMobile() {
             <Link
               key={item.href}
               href={item.href}
+              aria-label={item.label}
               className={cn(
-                "flex items-center justify-center rounded-full p-3 transition-all duration-200 touch-manipulation",
+                "flex items-center justify-center rounded-full p-3 transition-all duration-200 touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 isActive
                   ? "bg-brand-tan text-foreground scale-110"
                   : "text-muted-foreground hover:text-foreground"

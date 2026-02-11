@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, ListTodo, CalendarDays, Gift, Sparkles, User } from "lucide-react";
+import { Home, ListTodo, CalendarDays, Sparkles, ChefHat, User } from "lucide-react";
 import { NotificationsDropdown } from "@/components/features/notifications-dropdown";
 import { cn } from "@/lib/utils";
 
@@ -10,8 +10,9 @@ const NAV_ITEMS = [
   { href: "/dashboard", icon: Home, label: "Hogar" },
   { href: "/my-tasks", icon: ListTodo, label: "Tareas" },
   { href: "/plans", icon: CalendarDays, label: "Planes" },
-  { href: "/rewards", icon: Gift, label: "Recompensas" },
+  // { href: "/rewards", icon: Gift, label: "Recompensas" }, // Hidden for MVP
   { href: "/relax", icon: Sparkles, label: "Relaja" },
+  { href: "/cocina", icon: ChefHat, label: "Cocina" },
   { href: "/profile", icon: User, label: "Perfil" },
 ];
 

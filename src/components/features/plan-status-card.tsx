@@ -126,8 +126,7 @@ export function PlanStatusCard({
       const data = await response.json() as { completed: number; rewardsGenerated: boolean };
       setShowFinalizeModal(false);
       const completedLabel = `${data.completed} tarea${data.completed !== 1 ? "s" : ""} completada${data.completed !== 1 ? "s" : ""}`;
-      const rewardsLabel = data.rewardsGenerated ? " · Recompensas generadas" : "";
-      toast.success("Plan finalizado", `${completedLabel}${rewardsLabel}`);
+      toast.success("Plan finalizado", completedLabel);
       router.refresh();
     } catch (err) {
       toast.error(
@@ -223,7 +222,7 @@ export function PlanStatusCard({
                 ¡Todas las tareas completadas!
               </p>
               <p className="text-sm text-foreground/60">
-                Al generar un nuevo plan se crearán recompensas por tu rendimiento
+                Genera un nuevo plan para seguir organizando las tareas
               </p>
             </div>
           </div>
@@ -301,7 +300,7 @@ export function PlanStatusCard({
             <DialogHeader>
               <DialogTitle>Finalizar plan</DialogTitle>
               <DialogDescription>
-                Seleccioná las tareas completadas. Las no seleccionadas serán canceladas. Se generarán recompensas basadas en tu rendimiento.
+                Seleccioná las tareas completadas. Las no seleccionadas serán canceladas.
               </DialogDescription>
             </DialogHeader>
 

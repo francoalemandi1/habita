@@ -4,10 +4,10 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { isAIEnabled, getAIProviderType } from "./provider";
 import { buildRegionalContext } from "./regional-context";
-import { searchLocalEvents } from "@/lib/tavily";
+import { searchLocalEvents } from "@/lib/web-search";
 
 import type { LanguageModel } from "ai";
-import type { WebSearchResult } from "@/lib/tavily";
+import type { WebSearchResult } from "@/lib/web-search";
 
 // ============================================
 // Types
@@ -456,13 +456,56 @@ sourceIndex debe ser un número entero entre 0 y ${webResultCount - 1} que refer
   const message = result.choices?.[0]?.message;
   const text = typeof message?.content === "string" ? message.content : "{}";
 
+  return parseRelaxJSON(text);
+}
+
+/** Attempt to parse LLM JSON output, repairing truncated arrays if needed. */
+function parseRelaxJSON(text: string): RawLLMResult | null {
+  // First try: direct parse
   try {
     return JSON.parse(text) as RawLLMResult;
   } catch {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]) as RawLLMResult;
-    }
-    return null;
+    // noop
   }
+
+  // Second try: extract JSON object from markdown fences or surrounding text
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]) as RawLLMResult;
+    } catch {
+      // noop
+    }
+
+    // Third try: repair truncated JSON — close open arrays/objects
+    try {
+      const repaired = repairTruncatedJSON(jsonMatch[0]);
+      return JSON.parse(repaired) as RawLLMResult;
+    } catch {
+      // noop
+    }
+  }
+
+  console.error("[relax-finder] Failed to parse OpenRouter JSON response");
+  return null;
+}
+
+/**
+ * Attempt to repair JSON truncated mid-array or mid-object.
+ * Removes the last incomplete element and closes brackets.
+ */
+function repairTruncatedJSON(json: string): string {
+  // Remove trailing incomplete object (after last complete }, before truncation)
+  let repaired = json.replace(/,\s*\{[^}]*$/, "");
+
+  // Count open brackets and close them
+  const openBraces = (repaired.match(/\{/g) ?? []).length;
+  const closeBraces = (repaired.match(/\}/g) ?? []).length;
+  const openBrackets = (repaired.match(/\[/g) ?? []).length;
+  const closeBrackets = (repaired.match(/\]/g) ?? []).length;
+
+  repaired += "]".repeat(Math.max(0, openBrackets - closeBrackets));
+  repaired += "}".repeat(Math.max(0, openBraces - closeBraces));
+
+  return repaired;
 }

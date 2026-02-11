@@ -245,7 +245,7 @@ function AssignmentCard({
         toast.success("¡Tarea completada!", message);
 
         if (data.planFinalized) {
-          toast.success("Plan finalizado", "Todas las tareas del plan fueron completadas. Se generaron recompensas.");
+          toast.success("Plan finalizado", "Todas las tareas del plan fueron completadas.");
         }
 
         onCompleted(assignment.id, data.pointsEarned);

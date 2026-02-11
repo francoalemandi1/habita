@@ -15,6 +15,8 @@ import {
   Scale,
   Brain,
   MessageCircle,
+  ChefHat,
+  MapPin,
 } from "lucide-react";
 
 export function LandingContent() {
@@ -30,8 +32,8 @@ export function LandingContent() {
             Dejá de pelear por quién lava los platos
           </h1>
           <p className="mb-6 max-w-2xl text-base text-muted-foreground sm:mb-8 sm:text-lg lg:text-xl">
-            Habita asigna las tareas del hogar con un algoritmo justo, convierte
-            la limpieza en un juego con XP y niveles, y planifica la semana con IA.
+            Habita distribuye las tareas del hogar con IA, te sugiere qué cocinar
+            con lo que tenés, y te recomienda actividades para disfrutar en familia.
           </p>
           <div className="flex w-full max-w-xs flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
             <Button asChild size="lg" className="w-full sm:w-auto">
@@ -51,7 +53,7 @@ export function LandingContent() {
             <h2 className="mb-8 text-center text-2xl font-bold sm:mb-12 sm:text-3xl">
               Todo lo que tu hogar necesita
             </h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <FeatureCard
                 index={0}
                 icon={<Scale className="h-7 w-7" />}
@@ -70,19 +72,35 @@ export function LandingContent() {
               />
               <FeatureCard
                 index={2}
-                icon={<Trophy className="h-7 w-7" />}
-                title="XP, niveles y recompensas"
-                description="Cada tarea suma XP. Subí de nivel, desbloqueá logros y canjeá recompensas reales."
+                icon={<ChefHat className="h-7 w-7" />}
+                title="¿Qué como hoy?"
+                description="Sacale una foto a tu heladera o contanos qué tenés. La IA te sugiere recetas concretas para cocinar."
                 bg="bg-brand-cream/60"
                 iconBg="bg-brand-tan"
               />
               <FeatureCard
                 index={3}
+                icon={<MapPin className="h-7 w-7" />}
+                title="Planes para disfrutar"
+                description="¿Terminaron las tareas? Habita te sugiere eventos, restaurantes y actividades cerca tuyo."
+                bg="bg-brand-lavender-light/40"
+                iconBg="bg-brand-lavender-light"
+              />
+              <FeatureCard
+                index={4}
+                icon={<Trophy className="h-7 w-7" />}
+                title="XP, niveles y logros"
+                description="Cada tarea suma XP. Subí de nivel, desbloqueá logros y competí con tu familia."
+                bg="bg-brand-lime/40"
+                iconBg="bg-brand-lime"
+              />
+              <FeatureCard
+                index={5}
                 icon={<MessageCircle className="h-7 w-7" />}
                 title="WhatsApp integrado"
                 description="Recibí recordatorios y completá tareas directo desde WhatsApp, sin abrir la app."
-                bg="bg-brand-lavender-light/40"
-                iconBg="bg-brand-lavender-light"
+                bg="bg-brand-cream/40"
+                iconBg="bg-brand-cream"
               />
             </div>
           </div>
@@ -129,7 +147,7 @@ export function LandingContent() {
         </section>
       </ScrollReveal>
 
-      {/* For Kids */}
+      {/* AI-Powered Section */}
       <ScrollReveal>
         <section className="py-12 sm:py-20">
           <div className="container px-4">
@@ -137,29 +155,28 @@ export function LandingContent() {
               <div>
                 <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-brand-lavender-light px-4 py-2 text-sm font-semibold text-brand-purple-dark">
                   <Sparkles className="h-4 w-4" />
-                  Modo niños
+                  Potenciado por IA
                 </div>
                 <h2 className="mb-4 text-2xl font-bold sm:text-3xl">
-                  Diseñado para toda la familia
+                  Más que un organizador de tareas
                 </h2>
                 <p className="mb-6 text-muted-foreground sm:text-lg">
-                  Los más pequeños tienen su propia interfaz simplificada con
-                  colores llamativos, emojis y animaciones. Los padres pueden
-                  verificar las tareas completadas y configurar controles
-                  parentales.
+                  Habita usa inteligencia artificial para hacerte la vida más
+                  fácil: desde planificar la semana hasta decidir qué cocinar
+                  o a dónde salir.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-success-dark" />
-                    <span>Interfaz divertida para niños</span>
+                    <span>Foto de la heladera y te sugiere recetas</span>
                   </li>
                   <li className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-success-dark" />
-                    <span>Verificación parental de tareas</span>
+                    <span>Eventos, restaurantes y actividades cerca tuyo</span>
                   </li>
                   <li className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-success-dark" />
-                    <span>Recompensas personalizables</span>
+                    <span>Planes semanales generados en segundos</span>
                   </li>
                 </ul>
               </div>
@@ -167,26 +184,39 @@ export function LandingContent() {
                 <div className="space-y-3">
                   <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-lime">
-                        <span className="text-xl">🧹</span>
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-cream">
+                        <span className="text-xl">📸</span>
                       </div>
                       <div>
-                        <p className="font-medium">Ordenar mi cuarto</p>
+                        <p className="font-medium">&ldquo;Tengo pollo, arroz y pimientos&rdquo;</p>
                         <p className="text-sm text-muted-foreground">
-                          +20 puntos
+                          3 recetas listas en segundos
                         </p>
                       </div>
                     </div>
                   </div>
                   <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-cream">
-                        <span className="text-xl">🍽️</span>
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-lime">
+                        <span className="text-xl">🎯</span>
                       </div>
                       <div>
-                        <p className="font-medium">Poner la mesa</p>
+                        <p className="font-medium">&ldquo;¿A dónde vamos hoy?&rdquo;</p>
                         <p className="text-sm text-muted-foreground">
-                          +10 puntos
+                          Eventos y planes para toda la familia
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-lavender">
+                        <span className="text-xl">🤖</span>
+                      </div>
+                      <div>
+                        <p className="font-medium">Plan semanal generado</p>
+                        <p className="text-sm text-muted-foreground">
+                          12 tareas distribuidas entre 4 miembros
                         </p>
                       </div>
                     </div>
@@ -216,7 +246,7 @@ export function LandingContent() {
               />
               <TestimonialCard
                 index={1}
-                quote="Mis hijos se pelean por hacer tareas para ganar XP. Nunca pensé que iba a decir eso."
+                quote="Le saqué una foto a la heladera y me sugirió 3 recetas con lo que tenía. Ya no sé qué haría sin Habita."
                 name="Laura"
                 role="Mamá de 3"
                 emoji="👩"
@@ -224,7 +254,7 @@ export function LandingContent() {
               />
               <TestimonialCard
                 index={2}
-                quote="Completamos tareas desde WhatsApp sin abrir ninguna app. Con mis roommates funciona perfecto."
+                quote="Completamos tareas desde WhatsApp y los fines de semana Habita nos sugiere a dónde salir. Con mis roommates funciona perfecto."
                 name="Nico"
                 role="26 años"
                 emoji="😎"
@@ -414,9 +444,9 @@ const FAQ_ITEMS = [
       "Funciona para cualquier grupo que comparta un hogar: familias, parejas, roommates, etc.",
   },
   {
-    question: "¿Los niños pueden usarlo?",
+    question: "¿Qué hace la IA de Habita?",
     answer:
-      "Sí. Los niños tienen una interfaz simplificada con emojis y colores, y los padres pueden verificar las tareas completadas.",
+      "La IA genera planes semanales distribuyendo tareas equitativamente, te sugiere recetas con lo que tenés en la heladera (podés mandarle una foto), y te recomienda eventos y actividades cerca tuyo para disfrutar en familia.",
   },
   {
     question: "¿Puedo usarlo desde WhatsApp?",

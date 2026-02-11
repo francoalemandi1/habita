@@ -272,7 +272,11 @@ Solo usar cuando hay un problema medido:
 
 ## Migraciones (Prisma Migrate)
 
-Las migraciones se guardan en `prisma/migrations/` y se aplican automáticamente en cada deploy de Vercel.
+Las migraciones se guardan en `prisma/migrations/` y se aplican **manualmente antes de cada deploy**, no durante el build de Vercel.
+
+### Por qué no corren en el build
+
+La DB de producción es Neon Serverless (plan hobby). Neon suspende el compute cuando está inactivo. `prisma migrate deploy` necesita advisory locks (`pg_advisory_lock`) que timeoutean durante el cold start de Neon. Por eso las migraciones se aplican manualmente antes del deploy.
 
 ### Conexiones de base de datos
 
@@ -290,21 +294,26 @@ datasource db {
 | `DATABASE_URL_UNPOOLED` | `prisma migrate deploy` | `...c-4.us-east-1.aws.neon.tech` (sin `-pooler`) |
 
 Ambas **deben existir** en Vercel Environment Variables y en `.env` local.
-Las migraciones usan `directUrl` porque necesitan advisory locks (`pg_advisory_lock`) que no funcionan sobre conexiones pooled.
 
 ### Scripts disponibles
 
 | Script | Comando | Uso |
 |--------|---------|-----|
 | `db:up` | `docker compose up -d` | Levantar PostgreSQL local |
-| `db:push` | `prisma db push` | Aplicar schema sin migración (solo dev) |
-| `db:migrate` | `prisma migrate dev` | Crear migración interactiva |
-| `db:migrate:create` | `prisma migrate dev --create-only` | Crear migración sin aplicar |
-| `db:migrate:deploy` | `prisma migrate deploy` | Aplicar migraciones pendientes |
-| `db:migrate:status` | `prisma migrate status` | Ver estado de migraciones |
-| `db:migrate:reset` | `prisma migrate reset` | Resetear DB y re-aplicar todo |
+| `db:push` | `prisma db push` | Aplicar schema sin migración (solo dev local) |
+| `db:migrate` | `prisma migrate dev` | Crear migración interactiva (dev local) |
+| `db:deploy` | `prisma migrate deploy` | Aplicar migraciones pendientes (producción) |
 | `db:studio` | `prisma studio` | UI para ver/editar datos |
 | `db:seed` | `tsx prisma/seed.ts` | Poblar datos iniciales |
+
+### Build de Vercel
+
+El build command en `package.json` es:
+```bash
+"build": "prisma generate && next build"
+```
+
+**NO incluye `prisma migrate deploy`**. Las migraciones se aplican manualmente antes del deploy (ver procedimiento abajo).
 
 ### Procedimiento: agregar un campo o tabla nueva
 
@@ -349,31 +358,44 @@ PGPASSWORD=habita psql -h localhost -p 5434 -U habita -d habita \
   -c "DROP DATABASE habita_shadow;"
 ```
 
-**Paso 3 — Deploy a producción**
+**Paso 3 — Aplicar migración en producción (ANTES del deploy)**
+```bash
+# Renombrar .env.local para que no sobreescriba las URLs de Neon en .env
+mv .env.local .env.local.bak
+
+# Aplicar migraciones pendientes contra Neon
+# (asegurarse que DATABASE_URL y DATABASE_URL_UNPOOLED en .env apunten a Neon)
+pnpm db:deploy
+
+# Restaurar .env.local
+mv .env.local.bak .env.local
+```
+
+**Paso 4 — Deploy**
 ```bash
 git add prisma/schema.prisma prisma/migrations/
 git commit -m "Add migration: add_new_field"
 git push origin main
-# Vercel ejecuta automáticamente: prisma generate && prisma migrate deploy && next build
+# Vercel ejecuta: prisma generate && next build (sin migraciones)
 ```
-
-### Deploy en Vercel
-
-El build command en `package.json` es:
-```bash
-"build": "prisma generate && prisma migrate deploy && next build"
-```
-
-**IMPORTANTE — Vercel Build Command Override:**
-Si en Vercel → Settings → General → Build Command hay un override, este **reemplaza** el script de `package.json`. Verificar que el override incluya `prisma migrate deploy`, o eliminarlo para que Vercel use `pnpm run build`.
 
 ### Reglas críticas
 
-- **NUNCA usar `db:push` en producción** — solo `migrate deploy`
+- **NUNCA usar `db:push` en producción** — solo `migrate deploy` (`pnpm db:deploy`)
 - **NUNCA borrar o editar migraciones ya aplicadas** en producción
 - **Siempre hacer campos nuevos nullable** (`?`) o con `@default()` para evitar breaking changes
 - **Siempre verificar drift cero** antes de commitear la migración
+- **Siempre aplicar migraciones en prod ANTES de pushear el código** que depende de ellas
 - **Migraciones destructivas** (DROP COLUMN, DROP TABLE, cambio de tipo) requieren plan de migración de datos previo
+
+### Troubleshooting
+
+| Error | Causa | Solución |
+|-------|-------|----------|
+| `P1002` timeout en advisory lock | Neon compute está cold | Reintentar — el primer intento despierta el compute, el segundo suele funcionar |
+| `P3005` database not empty | DB sin tabla `_prisma_migrations` | Hacer baseline (ver abajo) |
+| `P2022` column does not exist | Migración no aplicada en prod | Correr `pnpm db:deploy` contra producción |
+| `.env.local` sobreescribe URLs | Prisma carga `.env.local` sobre `.env` | Renombrar `.env.local` temporalmente al correr contra prod |
 
 ### Baseline (para DBs creadas con db:push)
 
@@ -396,15 +418,6 @@ VALUES
     (gen_random_uuid(), 'baseline', '<nombre_migracion_ya_aplicada>', now(), 1);
 -- Repetir para cada migración cuyo schema ya existe en la DB
 ```
-
-### Troubleshooting
-
-| Error | Causa | Solución |
-|-------|-------|----------|
-| `P1002` timeout en advisory lock | Conexión pooled para migraciones | Verificar `directUrl = env("DATABASE_URL_UNPOOLED")` en schema.prisma |
-| `P3005` database not empty | DB sin tabla `_prisma_migrations` | Hacer baseline (ver arriba) |
-| `P2022` column does not exist | Migración no aplicada en prod | Verificar que `prisma migrate deploy` corre en el build |
-| Deploy ignora `package.json` | Vercel Build Command override | Verificar/eliminar override en Vercel Settings |
 
 ---
 
@@ -589,7 +602,7 @@ pnpm db:seed      # Poblar datos iniciales
 
 **Levantar la DB:** Con Docker instalado, `pnpm db:up` inicia Postgres. En `.env` usa `DATABASE_URL="postgresql://habita:habita@localhost:5432/habita?schema=public"`. Luego `pnpm db:push`.
 
-**Migrations vs push:** Usa `db:push` para desarrollo local rápido (sincroniza schema sin historial). Para producción, SIEMPRE crear una migración con el workflow documentado en "REGLAS DATABASE > Migraciones" y deployar con `prisma migrate deploy`.
+**Migrations vs push:** Usa `db:push` para desarrollo local rápido (sincroniza schema sin historial). Para producción, SIEMPRE crear una migración con el workflow documentado en "REGLAS DATABASE > Migraciones" y aplicar manualmente con `pnpm db:deploy` antes de pushear el código.
 
 ---
 

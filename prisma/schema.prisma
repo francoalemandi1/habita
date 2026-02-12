@@ -201,6 +201,7 @@ model Assignment {
   @@index([taskId, status])
   @@index([householdId, status, completedAt])
   @@index([memberId, status, completedAt])
+  @@index([memberId, dueDate, status])
   @@map("assignments")
 }
 
@@ -472,7 +473,7 @@ model WeeklyPlan {
   status        WeeklyPlanStatus @default(PENDING)
   balanceScore  Int              @default(0)
   notes         String[]         @default([])
-  assignments   Json             // Array of { taskName, memberName, memberType, reason }
+  assignments   Json             // Array of { taskName, memberId, memberName, memberType, reason, dayOfWeek?, startTime?, endTime? }
   durationDays  Int              @default(7)
   startDate     DateTime?        // Explicit plan start date (null for legacy plans)
   excludedTasks Json?            // Array of { taskName, frequency } - tasks outside plan period
@@ -597,7 +598,7 @@ model RelaxSuggestion {
 
 model TaskCatalog {
   id               String        @id @default(cuid())
-  name             String
+  name             String        @unique
   description      String?
   category         String
   defaultFrequency TaskFrequency @default(WEEKLY)

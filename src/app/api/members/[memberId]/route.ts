@@ -100,6 +100,63 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const isDeactivating = validation.data.isActive === false;
+
+    if (isDeactivating) {
+      await prisma.$transaction(async (tx) => {
+        // Cancel pending assignments for this member
+        await tx.assignment.updateMany({
+          where: {
+            memberId,
+            householdId: currentMember.householdId,
+            status: { in: ["PENDING", "IN_PROGRESS"] },
+          },
+          data: { status: "CANCELLED" },
+        });
+
+        // Reject pending transfers (incoming and outgoing)
+        await tx.taskTransfer.updateMany({
+          where: {
+            status: "PENDING",
+            OR: [{ fromMemberId: memberId }, { toMemberId: memberId }],
+          },
+          data: { status: "REJECTED", respondedAt: new Date() },
+        });
+
+        // Deactivate the member
+        await tx.member.update({
+          where: { id: memberId },
+          data: validation.data,
+        });
+
+        // Remove member from active plan JSON
+        const activePlans = await tx.weeklyPlan.findMany({
+          where: {
+            householdId: currentMember.householdId,
+            status: { in: ["PENDING", "APPLIED"] },
+          },
+        });
+
+        for (const plan of activePlans) {
+          const assignments = plan.assignments as Array<{ memberId: string; [key: string]: unknown }>;
+          const filtered = assignments.filter((a) => a.memberId !== memberId);
+          if (filtered.length !== assignments.length) {
+            await tx.weeklyPlan.update({
+              where: { id: plan.id },
+              data: { assignments: JSON.parse(JSON.stringify(filtered)) },
+            });
+          }
+        }
+      });
+
+      const deactivatedMember = await prisma.member.findUnique({
+        where: { id: memberId },
+        include: { level: true },
+      });
+
+      return NextResponse.json({ member: deactivatedMember });
+    }
+
     const updatedMember = await prisma.member.update({
       where: { id: memberId },
       data: validation.data,

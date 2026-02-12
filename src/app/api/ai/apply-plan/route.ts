@@ -226,6 +226,29 @@ export async function POST(request: NextRequest) {
         data: { status: "CANCELLED" },
       });
 
+      // Reject pending transfers for cancelled assignments
+      await tx.taskTransfer.updateMany({
+        where: {
+          assignment: {
+            householdId: member.householdId,
+            status: "CANCELLED",
+          },
+          status: "PENDING",
+        },
+        data: { status: "REJECTED", respondedAt: appliedAt },
+      });
+
+      // Delete unsent reminders for cancelled assignments
+      await tx.taskReminder.deleteMany({
+        where: {
+          assignment: {
+            householdId: member.householdId,
+            status: "CANCELLED",
+          },
+          sentAt: null,
+        },
+      });
+
       // Create new assignments with the same timestamp as appliedAt
       if (assignmentsToCreate.length > 0) {
         await tx.assignment.createMany({

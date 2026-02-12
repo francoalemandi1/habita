@@ -179,6 +179,17 @@ export async function PATCH(
             where: { id: existingAssignment.id },
             data: { status: "CANCELLED" },
           });
+
+          // Reject pending transfers for the cancelled assignment
+          await tx.taskTransfer.updateMany({
+            where: { assignmentId: existingAssignment.id, status: "PENDING" },
+            data: { status: "REJECTED", respondedAt: new Date() },
+          });
+
+          // Delete unsent reminders
+          await tx.taskReminder.deleteMany({
+            where: { assignmentId: existingAssignment.id, sentAt: null },
+          });
         }
 
         await tx.weeklyPlan.update({
@@ -240,6 +251,17 @@ export async function PATCH(
           await tx.assignment.update({
             where: { id: oldAssignment.id },
             data: { status: "CANCELLED" },
+          });
+
+          // Reject pending transfers for the cancelled assignment
+          await tx.taskTransfer.updateMany({
+            where: { assignmentId: oldAssignment.id, status: "PENDING" },
+            data: { status: "REJECTED", respondedAt: new Date() },
+          });
+
+          // Delete unsent reminders
+          await tx.taskReminder.deleteMany({
+            where: { assignmentId: oldAssignment.id, sentAt: null },
           });
         }
 

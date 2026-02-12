@@ -164,34 +164,32 @@ export async function POST(request: NextRequest) {
 
     const excludedTasks: ExcludedTask[] = plan.excludedTasks ?? [];
 
-    // Expire previous PENDING previews and COMPLETED plans from past cycles
-    // (APPLIED plans are handled by apply-plan and should remain until a new plan is applied)
-    await prisma.weeklyPlan.updateMany({
-      where: {
-        householdId: member.householdId,
-        status: { in: ["PENDING", "COMPLETED"] },
-      },
-      data: {
-        status: "EXPIRED",
-      },
-    });
-
-    // Save the new plan to the database
+    // Expire previous PENDING previews and COMPLETED plans, then create the new one atomically
     const expiresAt = new Date(endDate);
     expiresAt.setHours(23, 59, 59, 999);
 
-    const savedPlan = await prisma.weeklyPlan.create({
-      data: {
-        householdId: member.householdId,
-        status: "PENDING",
-        balanceScore: plan.balanceScore,
-        notes: plan.notes,
-        assignments: JSON.parse(JSON.stringify(enrichedAssignments)),
-        durationDays,
-        startDate,
-        excludedTasks: excludedTasks.length > 0 ? JSON.parse(JSON.stringify(excludedTasks)) : undefined,
-        expiresAt,
-      },
+    const savedPlan = await prisma.$transaction(async (tx) => {
+      await tx.weeklyPlan.updateMany({
+        where: {
+          householdId: member.householdId,
+          status: { in: ["PENDING", "COMPLETED"] },
+        },
+        data: { status: "EXPIRED" },
+      });
+
+      return tx.weeklyPlan.create({
+        data: {
+          householdId: member.householdId,
+          status: "PENDING",
+          balanceScore: plan.balanceScore,
+          notes: plan.notes,
+          assignments: JSON.parse(JSON.stringify(enrichedAssignments)),
+          durationDays,
+          startDate,
+          excludedTasks: excludedTasks.length > 0 ? JSON.parse(JSON.stringify(excludedTasks)) : undefined,
+          expiresAt,
+        },
+      });
     });
 
     const response: PlanPreviewResponse = {

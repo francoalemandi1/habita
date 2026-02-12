@@ -9,7 +9,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Loader2, Star, Trophy } from "lucide-react";
+import { Loader2, Trophy } from "lucide-react";
 
 import type { MemberType } from "@prisma/client";
 
@@ -20,7 +20,6 @@ interface RouletteResultDialogProps {
   isAssigning: boolean;
   winner: { name: string; memberType: MemberType } | null;
   taskName: string;
-  pointsPreview: number;
   isCurrentMember: boolean;
 }
 
@@ -31,7 +30,6 @@ export function RouletteResultDialog({
   isAssigning,
   winner,
   taskName,
-  pointsPreview,
   isCurrentMember,
 }: RouletteResultDialogProps) {
   if (!winner) return null;
@@ -57,12 +55,6 @@ export function RouletteResultDialog({
           <div className="rounded-2xl bg-muted/50 p-4 text-center">
             <p className="text-xs text-muted-foreground">Tarea</p>
             <p className="text-lg font-semibold">{taskName}</p>
-            <div className="mt-2 flex items-center justify-center gap-1">
-              <Star className="h-4 w-4 text-yellow-500" />
-              <span className="text-sm font-medium">
-                {pointsPreview} XP al completar
-              </span>
-            </div>
           </div>
 
           <p className="text-center text-sm text-muted-foreground">

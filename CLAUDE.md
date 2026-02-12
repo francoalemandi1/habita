@@ -381,12 +381,25 @@ git push origin main
 
 ### Reglas críticas
 
+- **NUNCA modificar `schema.prisma` sin crear la migración correspondiente ANTES de commitear.** Esto es OBLIGATORIO e INNEGOCIABLE. `db:push` se puede usar durante desarrollo local para iterar rápido, pero la migración SQL DEBE existir antes del commit. Sin migración = producción rota.
 - **NUNCA usar `db:push` en producción** — solo `migrate deploy` (`pnpm db:deploy`)
 - **NUNCA borrar o editar migraciones ya aplicadas** en producción
 - **Siempre hacer campos nuevos nullable** (`?`) o con `@default()` para evitar breaking changes
 - **Siempre verificar drift cero** antes de commitear la migración
 - **Siempre aplicar migraciones en prod ANTES de pushear el código** que depende de ellas
 - **Migraciones destructivas** (DROP COLUMN, DROP TABLE, cambio de tipo) requieren plan de migración de datos previo
+
+### Checklist obligatorio para cambios de schema
+
+Cuando se modifica `prisma/schema.prisma` (nuevos modelos, campos, indexes, enums), SIEMPRE completar estos pasos antes de commitear:
+
+1. Editar `schema.prisma`
+2. `pnpm db:push` (dev local, iterar rápido)
+3. Desarrollar y verificar código (`pnpm typecheck && pnpm build`)
+4. **Crear migración SQL** siguiendo el procedimiento de "Paso 2" arriba
+5. `npx prisma migrate resolve --applied <nombre_migracion>` (marcar como aplicada en dev)
+6. `npx prisma migrate status` (verificar "Database schema is up to date!")
+7. Commitear `schema.prisma` + `prisma/migrations/` juntos
 
 ### Troubleshooting
 

@@ -63,6 +63,7 @@ interface PlanContext {
     completedThisWeek: number;
     level: number;
     preferences: Array<{ taskName: string; preference: string }>;
+    availability?: { weekday: string[]; weekend: string[]; notes?: string } | null;
   }>;
   tasks: Array<{
     id: string;
@@ -77,6 +78,12 @@ interface PlanContext {
     memberName: string;
     status: string;
     daysAgo: number;
+  }>;
+  recentFeedback: Array<{
+    memberName: string;
+    rating: number;
+    comment: string | null;
+    planDate: string;
   }>;
 }
 
@@ -143,6 +150,7 @@ export async function generateAIPlan(
           name: m.name,
           type: m.type,
           pendingCount: m.pendingCount,
+          availability: m.availability,
         })),
         tasks: filteredContext.tasks.map((t) => ({
           name: t.name,
@@ -151,6 +159,7 @@ export async function generateAIPlan(
         })),
         durationDays,
         regionalBlock: regionalContext.promptBlock,
+        feedbackBlock: buildFeedbackBlock(filteredContext.recentFeedback),
       });
       if (result) {
         return { ...result, excludedTasks };
@@ -286,7 +295,7 @@ async function buildPlanContext(householdId: string): Promise<PlanContext> {
   startOfWeek.setDate(now.getDate() - now.getDay());
   startOfWeek.setHours(0, 0, 0, 0);
 
-  const [members, tasks, recentAssignments, preferences, completedThisWeek] = await Promise.all([
+  const [members, tasks, recentAssignments, preferences, completedThisWeek, feedbackRows] = await Promise.all([
     prisma.member.findMany({
       where: { householdId, isActive: true },
       include: {
@@ -326,6 +335,15 @@ async function buildPlanContext(householdId: string): Promise<PlanContext> {
       },
       _count: { id: true },
     }),
+    prisma.planFeedback.findMany({
+      where: { householdId },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      include: {
+        member: { select: { name: true } },
+        plan: { select: { createdAt: true } },
+      },
+    }),
   ]);
 
   const completedMap = new Map(completedThisWeek.map((c) => [c.memberId, c._count.id]));
@@ -350,6 +368,7 @@ async function buildPlanContext(householdId: string): Promise<PlanContext> {
       completedThisWeek: completedMap.get(m.id) ?? 0,
       level: m.level?.level ?? 1,
       preferences: prefsByMember.get(m.name) ?? [],
+      availability: m.availabilitySlots as { weekday: string[]; weekend: string[]; notes?: string } | null,
     })),
     tasks: tasks.map((t) => ({
       id: t.id,
@@ -368,6 +387,12 @@ async function buildPlanContext(householdId: string): Promise<PlanContext> {
         daysAgo,
       };
     }),
+    recentFeedback: feedbackRows.map((f) => ({
+      memberName: f.member.name,
+      rating: f.rating,
+      comment: f.comment,
+      planDate: f.plan.createdAt.toLocaleDateString("es-AR", { day: "numeric", month: "short" }),
+    })),
   };
 }
 
@@ -386,6 +411,14 @@ Capacidad por tipo de miembro:
           .map((p) => `${p.taskName}: ${p.preference === "PREFERRED" ? "prefiere" : "no desea"}`)
           .join(", ");
         info += `\n  Preferencias: ${prefs}`;
+      }
+      if (m.availability) {
+        const slotLabels: Record<string, string> = { MORNING: "mañanas (7-12)", AFTERNOON: "tardes (12-18)", NIGHT: "noches (18-22)" };
+        const weekdaySlots = m.availability.weekday.map((s) => slotLabels[s]).filter(Boolean).join(", ");
+        const weekendSlots = m.availability.weekend.map((s) => slotLabels[s]).filter(Boolean).join(", ");
+        if (weekdaySlots) info += `\n  Disponible L-V: ${weekdaySlots}`;
+        if (weekendSlots) info += `\n  Disponible S-D: ${weekendSlots}`;
+        if (m.availability.notes) info += `\n  Nota: "${m.availability.notes}"`;
       }
       return info;
     })
@@ -429,10 +462,30 @@ ${recentInfo || "(sin historial)"}
    - Tareas ONCE: genera UNA sola asignación.
    - Balancea la carga diaria.
 10. Para cada tarea, sugiere un RANGO HORARIO razonable usando "startTime" y "endTime" (formato "HH:mm").
-   - Distribuye las tareas a lo largo del día (mañana, mediodía, tarde, noche).
-   - Considera la duración estimada de cada tarea según su peso y los minutos indicados (~Xmin).
+   - RESPETA la disponibilidad horaria de cada miembro. Solo asigna tareas en los bloques donde el miembro indicó estar disponible.
+   - Si un miembro no tiene disponibilidad configurada, distribuye razonablemente pero NO llenes todo el día.
+   - Agrupa tareas consecutivas en bloques compactos (ej: 2 tareas de 15min juntas de 18:00 a 18:30, no separadas por horas).
+   - No asignes más de 60-90 minutos de tareas por día por persona salvo que sea estrictamente necesario.
+   - Dejá tiempo libre, especialmente los fines de semana. Las tareas deben sentirse manejables, no una jornada laboral.
    - No asignes tareas a niños (CHILD) en horarios de madrugada o noche.
-   - Ejemplo: "startTime": "09:00", "endTime": "10:00"
+   - Si un miembro tiene una nota de disponibilidad, respetala.
+   - Ejemplo: "startTime": "18:00", "endTime": "18:30"
 
-Genera un plan de asignaciones para los próximos ${durationLabel(durationDays)}. El objetivo es maximizar la equidad (balanceScore alto = más justo).${regionalBlock ? `\n\n${regionalBlock}` : ""}`;
+Genera un plan de asignaciones para los próximos ${durationLabel(durationDays)}. El objetivo es maximizar la equidad (balanceScore alto = más justo).${regionalBlock ? `\n\n${regionalBlock}` : ""}${buildFeedbackBlock(context.recentFeedback)}`;
+}
+
+function buildFeedbackBlock(
+  feedback: PlanContext["recentFeedback"],
+): string {
+  if (feedback.length === 0) return "";
+
+  const lines = feedback.map((f) => {
+    const commentPart = f.comment ? `: "${f.comment}"` : "";
+    return `- ${f.memberName} valoró ${f.rating}/5${commentPart} (plan del ${f.planDate})`;
+  });
+
+  return `\n\n## Feedback de planes anteriores
+Los miembros dieron esta retroalimentación sobre distribuciones previas:
+${lines.join("\n")}
+Tené en cuenta este feedback al distribuir las tareas. Si hay quejas, ajustá la distribución. Si hay comentarios positivos, mantené ese enfoque.`;
 }

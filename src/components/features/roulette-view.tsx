@@ -3,15 +3,13 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { Dices, Loader2, Star, CheckCircle, Search, Plus, BookOpen } from "lucide-react";
+import { Dices, Loader2, CheckCircle, Search, Plus, BookOpen } from "lucide-react";
 import { RouletteWheel } from "@/components/features/roulette-wheel";
 import { RouletteResultDialog } from "@/components/features/roulette-result-dialog";
 import { BackButton } from "@/components/ui/back-button";
 import { apiFetch } from "@/lib/api-client";
-import { calculatePoints } from "@/lib/points";
 import { spacing, iconSize, wheelColors } from "@/lib/design-tokens";
 
 import type { TaskFrequency, MemberType } from "@prisma/client";
@@ -283,22 +281,6 @@ export function RouletteView({
   // Computed values
   const winner = winnerIndex >= 0 ? eligibleMembers[winnerIndex] : undefined;
   const taskName = taskSelection ? getSelectionName(taskSelection) : "";
-  const pointsPreview = (() => {
-    if (!taskSelection) return 0;
-    if (taskSelection.type === "existing") {
-      return calculatePoints({
-        weight: taskSelection.task.weight,
-        frequency: taskSelection.task.frequency,
-      });
-    }
-    if (taskSelection.type === "catalog") {
-      return calculatePoints({
-        weight: taskSelection.suggestion.weight,
-        frequency: taskSelection.suggestion.frequency,
-      });
-    }
-    return 10;
-  })();
 
   const canSpin = phase === "ready" && !!taskSelection && eligibleMembers.length >= 2;
 
@@ -347,16 +329,12 @@ export function RouletteView({
               <button
                 key={task.id}
                 type="button"
-                className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-muted/50 transition-colors first:rounded-t-2xl last:rounded-b-2xl"
+                className="flex w-full items-center px-4 py-3 text-left text-sm hover:bg-muted/50 transition-colors first:rounded-t-2xl last:rounded-b-2xl"
                 onClick={() =>
                   handleSelectTask({ type: "existing", task })
                 }
               >
                 <span className="truncate font-medium">{task.name}</span>
-                <Badge variant="secondary" className="ml-2 shrink-0 gap-0.5 text-xs">
-                  <Star className={`${iconSize.xs} text-yellow-500`} />
-                  {calculatePoints({ weight: task.weight, frequency: task.frequency })}
-                </Badge>
               </button>
             ))}
 
@@ -373,16 +351,12 @@ export function RouletteView({
                   <button
                     key={`catalog-${suggestion.name}`}
                     type="button"
-                    className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-muted/50 transition-colors last:rounded-b-2xl"
+                    className="flex w-full items-center px-4 py-3 text-left text-sm hover:bg-muted/50 transition-colors last:rounded-b-2xl"
                     onClick={() =>
                       handleSelectTask({ type: "catalog", suggestion })
                     }
                   >
                     <span className="truncate text-muted-foreground">{suggestion.name}</span>
-                    <Badge variant="secondary" className="ml-2 shrink-0 gap-0.5 text-xs">
-                      <Star className={`${iconSize.xs} text-yellow-500`} />
-                      {calculatePoints({ weight: suggestion.weight, frequency: suggestion.frequency })}
-                    </Badge>
                   </button>
                 ))}
               </>
@@ -410,23 +384,7 @@ export function RouletteView({
         )}
       </div>
 
-      {/* Points preview */}
-      {taskSelection && (
-        <div className="flex justify-center">
-          <Badge variant="secondary" className="gap-1">
-            <Star className={`${iconSize.xs} text-yellow-500`} />
-            {pointsPreview} XP
-            {taskSelection.type === "catalog" && (
-              <span className="text-muted-foreground ml-1">(sugerencia)</span>
-            )}
-            {taskSelection.type === "custom" && (
-              <span className="text-muted-foreground ml-1">(tarea nueva)</span>
-            )}
-          </Badge>
-        </div>
-      )}
-
-      {/* Wheel — now includes the spin button in center */}
+      {/* Wheel — includes the spin button in center */}
       <RouletteWheel
         members={!taskSelection ? initialMembers : eligibleMembers}
         isSpinning={phase === "spinning"}
@@ -484,7 +442,6 @@ export function RouletteView({
         isAssigning={isAssigning}
         winner={winner ? { name: winner.name, memberType: winner.memberType } : null}
         taskName={taskName}
-        pointsPreview={pointsPreview}
         isCurrentMember={winner?.id === currentMemberId}
       />
     </div>

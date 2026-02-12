@@ -3,8 +3,11 @@ import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PreferencesManager } from "@/components/features/preferences-manager";
 import { AbsencesManager } from "@/components/features/absences-manager";
+import { AvailabilityManager } from "@/components/features/availability-manager";
 import { Settings } from "lucide-react";
 import { spacing } from "@/lib/design-tokens";
+
+import type { AvailabilitySlots } from "@/lib/validations/member";
 
 export default async function PreferencesPage() {
   const member = await getCurrentMember();
@@ -48,7 +51,7 @@ export default async function PreferencesPage() {
           Preferencias
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Configura tus preferencias de tareas y ausencias
+          Configura tus preferencias, disponibilidad y ausencias
         </p>
       </div>
 
@@ -61,6 +64,18 @@ export default async function PreferencesPage() {
             Las no deseadas tienen -20 puntos. Esto influye en qué tareas te son asignadas.
           </p>
           <PreferencesManager preferences={preferences} tasks={tasks} />
+        </section>
+
+        {/* Availability section */}
+        <section>
+          <h2 className="mb-4 text-xl font-semibold">Disponibilidad horaria</h2>
+          <p className="mb-6 text-muted-foreground">
+            Indicá cuándo podés hacer tareas del hogar. La IA usará esta información
+            para asignar tareas en tus horarios disponibles.
+          </p>
+          <AvailabilityManager
+            initialAvailability={(member.availabilitySlots as AvailabilitySlots) ?? null}
+          />
         </section>
 
         {/* Absences section */}

@@ -243,9 +243,8 @@ function DesktopTaskRow({
       <span
         className={cn(
           "handwritten-note truncate text-sm leading-tight",
-          overdue && "text-destructive",
           isCompleting && "task-loading-pulse",
-          !completed && !overdue && "text-foreground-secondary",
+          !completed && "text-foreground-secondary",
         )}
       >
         {assignment.suggestedStartTime && (
@@ -464,9 +463,8 @@ function MobileTaskRow({
       <span
         className={cn(
           "handwritten-note flex-1 truncate text-base leading-snug",
-          overdue && "text-destructive",
           isCompleting && "task-loading-pulse",
-          !completed && !overdue && "text-foreground-secondary",
+          !completed && "text-foreground-secondary",
         )}
       >
         {assignment.suggestedStartTime && (
@@ -483,12 +481,6 @@ function MobileTaskRow({
           {assignment.task.name}
         </span>
       </span>
-
-      {overdue && (
-        <span className="handwritten-note shrink-0 rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs font-bold text-destructive">
-          !
-        </span>
-      )}
     </button>
   );
 }

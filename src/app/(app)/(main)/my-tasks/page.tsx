@@ -2,11 +2,8 @@ import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
-import { MyAssignmentsList } from "@/components/features/my-assignments-list";
-import { PendingTransfers } from "@/components/features/pending-transfers";
-import { WeeklyCelebrationWrapper } from "@/components/features/weekly-celebration-wrapper";
-import { ClipboardList } from "lucide-react";
-import { spacing } from "@/lib/design-tokens";
+import { getWeekMonday, getWeekSunday } from "@/lib/calendar-utils";
+import { MyTasksPageClient } from "@/components/features/my-tasks-page-client";
 
 export default async function MyTasksPage() {
   const member = await getCurrentMember();
@@ -18,17 +15,13 @@ export default async function MyTasksPage() {
   const now = new Date();
   const endOfToday = new Date(now);
   endOfToday.setHours(23, 59, 59, 999);
-  // Calculate start of week (Sunday)
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay());
-  startOfWeek.setHours(0, 0, 0, 0);
-  const startOfLastWeek = new Date(startOfWeek);
-  startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
-
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
 
-  const [assignments, completedTodayAssignments, completedToday, completedThisWeek, totalCompleted, transfers, householdMembers, completedLastWeek] = await Promise.all([
+  const monday = getWeekMonday(now);
+  const sunday = getWeekSunday(monday);
+
+  const [assignments, completedTodayAssignments, completedToday, totalCompleted, transfers, householdMembers, calendarAssignments, calendarMembers] = await Promise.all([
     prisma.assignment.findMany({
       where: {
         memberId: member.id,
@@ -94,13 +87,6 @@ export default async function MyTasksPage() {
       where: {
         memberId: member.id,
         status: { in: ["COMPLETED", "VERIFIED"] },
-        completedAt: { gte: startOfWeek },
-      },
-    }),
-    prisma.assignment.count({
-      where: {
-        memberId: member.id,
-        status: { in: ["COMPLETED", "VERIFIED"] },
       },
     }),
     prisma.taskTransfer.findMany({
@@ -128,21 +114,33 @@ export default async function MyTasksPage() {
       },
       select: { id: true, name: true },
     }),
-    prisma.assignment.count({
+    prisma.assignment.findMany({
       where: {
-        memberId: member.id,
-        status: { in: ["COMPLETED", "VERIFIED"] },
-        completedAt: { gte: startOfLastWeek, lt: startOfWeek },
+        householdId: member.householdId,
+        dueDate: { gte: monday, lte: sunday },
+        status: { not: "CANCELLED" },
       },
+      select: {
+        id: true,
+        dueDate: true,
+        status: true,
+        completedAt: true,
+        suggestedStartTime: true,
+        suggestedEndTime: true,
+        task: {
+          select: { id: true, name: true, weight: true, frequency: true, estimatedMinutes: true },
+        },
+        member: {
+          select: { id: true, name: true, memberType: true, avatarUrl: true },
+        },
+      },
+      orderBy: { dueDate: "asc" },
+    }),
+    prisma.member.findMany({
+      where: { householdId: member.householdId, isActive: true },
+      select: { id: true, name: true, memberType: true, avatarUrl: true },
     }),
   ]);
-
-  const weeklyImprovement = completedThisWeek > completedLastWeek && completedLastWeek > 0
-    ? completedThisWeek - completedLastWeek
-    : 0;
-
-  // Show celebration if no pending tasks and completed at least 1 this week
-  const showCelebration = assignments.length === 0 && completedThisWeek > 0;
 
   // Check if user can generate a new plan (AI enabled + no active plan)
   const aiEnabled = isAIEnabled();
@@ -158,39 +156,15 @@ export default async function MyTasksPage() {
     : null;
   const showPlanCta = aiEnabled && !activePlan;
 
+  const serializedCalendarAssignments = calendarAssignments.map((a) => ({
+    ...a,
+    dueDate: a.dueDate.toISOString(),
+    completedAt: a.completedAt?.toISOString() ?? null,
+  }));
+
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <div className={spacing.pageHeader}>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl flex items-center gap-2">
-          <ClipboardList className="h-6 w-6 text-primary shrink-0" />
-          Mis tareas
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {assignments.length} pendientes · {completedToday} completadas hoy
-        </p>
-        {weeklyImprovement > 0 && (
-          <p className="mt-0.5 text-xs font-medium text-[var(--color-success)]">
-            ↑ {weeklyImprovement} más que la semana pasada
-          </p>
-        )}
-      </div>
-
-      {/* Celebration when all tasks complete */}
-      {showCelebration && (
-        <div className={spacing.sectionGapLg}>
-          <WeeklyCelebrationWrapper
-            weeklyCompleted={completedThisWeek}
-            totalCompleted={totalCompleted}
-          />
-        </div>
-      )}
-
-      {/* Pending Transfers */}
-      <div className={spacing.sectionGapLg}>
-        <PendingTransfers transfers={transfers} currentMemberId={member.id} />
-      </div>
-
-      <MyAssignmentsList
+      <MyTasksPageClient
         assignments={assignments}
         completedAssignments={completedTodayAssignments}
         members={householdMembers}
@@ -198,6 +172,11 @@ export default async function MyTasksPage() {
         completedToday={completedToday}
         totalCompleted={totalCompleted}
         showPlanCta={showPlanCta}
+        transfers={transfers}
+        pendingCount={assignments.length}
+        calendarAssignments={serializedCalendarAssignments}
+        calendarMembers={calendarMembers}
+        initialWeekStart={monday.toISOString()}
       />
     </div>
   );

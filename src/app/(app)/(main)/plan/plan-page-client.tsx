@@ -969,7 +969,7 @@ export function PlanPageClient({
                         type="button"
                         onClick={() => setActiveDayOfWeek(dow)}
                         className={cn(
-                          "flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          "flex flex-col items-center gap-0.5 rounded-xl px-2.5 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           isActive && "bg-primary/10",
                         )}
                       >
@@ -983,7 +983,7 @@ export function PlanPageClient({
                         </span>
                         <span
                           className={cn(
-                            "flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium transition-colors",
+                            "flex h-9 w-9 items-center justify-center rounded-full text-sm font-medium transition-colors",
                             isActive && isToday && "bg-primary text-white",
                             isActive && !isToday && "bg-primary/15 text-primary",
                             !isActive && isToday && "text-primary font-bold",

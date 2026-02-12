@@ -2,7 +2,7 @@ import { prisma } from "./prisma";
 import { MEMBER_CAPACITY } from "@/types";
 import { computeDueDateForFrequency } from "./due-date";
 
-import type { Member, MemberAbsence, MemberPreference, TaskFrequency } from "@prisma/client";
+import type { Member, MemberAbsence, MemberPreference, Task, TaskFrequency } from "@prisma/client";
 
 interface MemberScore {
   memberId: string;
@@ -185,6 +185,149 @@ export async function calculateAssignmentScores(
   return scores;
 }
 
+/**
+ * Pre-loaded context for batch scoring (eliminates N+1 queries).
+ */
+interface BatchScoreContext {
+  members: MemberWithDetails[];
+  /** Map of taskId → Map of memberId → lastCompletedAt */
+  lastAssignmentsByTask: Map<string, Map<string, Date | null>>;
+  tasks: Task[];
+}
+
+/**
+ * Pre-load all data needed to score multiple tasks in 3 queries.
+ */
+async function loadBatchScoreContext(
+  householdId: string,
+  taskIds: string[],
+  targetDate: Date,
+): Promise<BatchScoreContext> {
+  const [members, tasks, lastAssignments] = await Promise.all([
+    prisma.member.findMany({
+      where: { householdId, isActive: true },
+      include: {
+        preferences: { where: { taskId: { in: taskIds } } },
+        assignments: {
+          where: { status: { in: ["PENDING", "IN_PROGRESS"] } },
+          select: { status: true },
+        },
+        absences: {
+          where: { startDate: { lte: targetDate }, endDate: { gte: targetDate } },
+        },
+      },
+    }),
+    prisma.task.findMany({
+      where: { id: { in: taskIds } },
+    }),
+    prisma.assignment.groupBy({
+      by: ["memberId", "taskId"],
+      where: {
+        taskId: { in: taskIds },
+        householdId,
+        status: { in: ["COMPLETED", "VERIFIED"] },
+      },
+      _max: { completedAt: true },
+    }),
+  ]);
+
+  // Build nested map: taskId → memberId → lastCompletedAt
+  const lastAssignmentsByTask = new Map<string, Map<string, Date | null>>();
+  for (const entry of lastAssignments) {
+    let taskMap = lastAssignmentsByTask.get(entry.taskId);
+    if (!taskMap) {
+      taskMap = new Map();
+      lastAssignmentsByTask.set(entry.taskId, taskMap);
+    }
+    taskMap.set(entry.memberId, entry._max.completedAt);
+  }
+
+  return { members: members as MemberWithDetails[], lastAssignmentsByTask, tasks };
+}
+
+/**
+ * Score members for a specific task using pre-loaded context (no DB queries).
+ */
+function calculateScoresFromContext(
+  context: BatchScoreContext,
+  taskId: string,
+  targetDate: Date,
+  options?: CalculateOptions,
+): MemberScore[] {
+  const task = context.tasks.find((t) => t.id === taskId);
+  if (!task) return [];
+
+  const lastAssignmentMap = context.lastAssignmentsByTask.get(taskId) ?? new Map();
+  const now = new Date();
+  const scores: MemberScore[] = [];
+
+  const filteredMembers = options?.onlyAdults
+    ? context.members.filter((m) => m.memberType === "ADULT")
+    : context.members;
+
+  for (const member of filteredMembers) {
+    if (isAbsentOnDate(member.absences, targetDate)) continue;
+
+    const reasons: string[] = [];
+    let score = 100;
+
+    // Preference: filter to this task's preference
+    const preference = member.preferences.find((p) => p.taskId === taskId);
+    if (preference) {
+      if (preference.preference === "PREFERRED") {
+        score += 20;
+        reasons.push("+20 tarea preferida");
+      } else if (preference.preference === "DISLIKED") {
+        score -= 20;
+        reasons.push("-20 tarea no deseada");
+      }
+    }
+
+    // Load penalty
+    const pendingCount = member.assignments.length;
+    const loadPenalty = pendingCount * 5;
+    score -= loadPenalty;
+    if (loadPenalty > 0) {
+      reasons.push(`-${loadPenalty} por ${pendingCount} tareas pendientes`);
+    }
+
+    // Recency
+    const lastCompleted = lastAssignmentMap.get(member.id);
+    if (lastCompleted) {
+      const daysSince = Math.floor(
+        (now.getTime() - lastCompleted.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      const recencyBonus = Math.min(daysSince, 14);
+      score += recencyBonus;
+      if (recencyBonus > 0) {
+        reasons.push(`+${recencyBonus} por ${daysSince} días sin esta tarea`);
+      }
+    } else {
+      score += 14;
+      reasons.push("+14 nunca ha hecho esta tarea");
+    }
+
+    // Capacity
+    const capacity = MEMBER_CAPACITY[member.memberType];
+    score = Math.round(score * capacity);
+    if (capacity < 1) {
+      reasons.push(`×${capacity} capacidad ${member.memberType.toLowerCase()}`);
+    }
+
+    // Min age filter
+    if (task.minAge !== null) {
+      const memberAge =
+        member.memberType === "CHILD" ? 10 : member.memberType === "TEEN" ? 15 : 25;
+      if (memberAge < task.minAge) continue;
+    }
+
+    scores.push({ memberId: member.id, memberName: member.name, score, reasons });
+  }
+
+  scores.sort((a, b) => b.score - a.score);
+  return scores;
+}
+
 interface BestAssigneeResult {
   best: MemberScore | null;
   scores: MemberScore[];
@@ -300,8 +443,8 @@ export async function autoAssignAllTasks(
     }
   }
 
-  // Fallback to deterministic algorithm
-  const tasks = await prisma.task.findMany({
+  // Fallback to deterministic algorithm with batch scoring
+  const allTasks = await prisma.task.findMany({
     where: { householdId, isActive: true },
     select: { id: true, name: true, frequency: true },
   });
@@ -309,29 +452,46 @@ export async function autoAssignAllTasks(
   // Batch existence check: 1 query instead of N
   const existingAssignments = await prisma.assignment.findMany({
     where: {
-      taskId: { in: tasks.map((t) => t.id) },
+      taskId: { in: allTasks.map((t) => t.id) },
       status: { in: ["PENDING", "IN_PROGRESS"] },
     },
     select: { taskId: true },
   });
   const assignedTaskIds = new Set(existingAssignments.map((a) => a.taskId));
 
+  const tasksToAssign = allTasks.filter((t) => !assignedTaskIds.has(t.id));
+  if (tasksToAssign.length === 0) {
+    return { success: true, assignmentsCreated: 0, method: "algorithm", details: [] };
+  }
+
   const now = new Date();
+  const taskIds = tasksToAssign.map((t) => t.id);
+
+  // Pre-load all scoring data in 3 parallel queries instead of N×2
+  const batchContext = await loadBatchScoreContext(householdId, taskIds, now);
+
   const details: Array<{ taskName: string; memberName: string }> = [];
 
-  for (const task of tasks) {
-    if (assignedTaskIds.has(task.id)) {
-      continue; // Skip tasks that already have pending assignments
+  for (const task of tasksToAssign) {
+    let scores = calculateScoresFromContext(batchContext, task.id, now);
+    if (scores.length === 0) {
+      // Retry with only adults if age filter excluded everyone
+      const fullTask = batchContext.tasks.find((t) => t.id === task.id);
+      if (fullTask?.minAge != null) {
+        scores = calculateScoresFromContext(batchContext, task.id, now, { onlyAdults: true });
+      }
     }
+
+    const best = scores[0];
+    if (!best) continue;
 
     try {
       const dueDate = computeDueDateForFrequency(task.frequency as TaskFrequency, now);
-      const result = await autoAssignTask(householdId, task.id, dueDate);
-
-      details.push({
-        taskName: task.name,
-        memberName: result.assignment.member.name,
+      await prisma.assignment.create({
+        data: { taskId: task.id, memberId: best.memberId, householdId, dueDate },
       });
+
+      details.push({ taskName: task.name, memberName: best.memberName });
     } catch (error) {
       console.error(`Failed to assign task ${task.name}:`, error);
     }

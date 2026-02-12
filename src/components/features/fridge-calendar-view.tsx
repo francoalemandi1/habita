@@ -18,6 +18,7 @@ import {
   isSameDay,
 } from "@/lib/calendar-utils";
 import { cyclingColors, contrastText, spacing, iconSize } from "@/lib/design-tokens";
+import { PlanFeedbackDialog } from "@/components/features/plan-feedback-dialog";
 
 import type { CalendarAssignment, CalendarMember } from "@/components/features/fridge-calendar-day";
 
@@ -28,12 +29,8 @@ interface FridgeCalendarViewProps {
 }
 
 interface CompleteResponse {
-  pointsEarned: number;
-  newXp: number;
-  newLevel: number;
-  leveledUp: boolean;
-  newAchievements?: Array<{ name: string }>;
   planFinalized?: boolean;
+  finalizedPlanId?: string;
 }
 
 interface AssignmentsResponse {
@@ -99,6 +96,7 @@ export function FridgeCalendarView({
     useState<CalendarAssignment[]>(initialAssignments);
   const [isLoadingWeek, setIsLoadingWeek] = useState(false);
   const [completingId, setCompletingId] = useState<string | null>(null);
+  const [feedbackPlanId, setFeedbackPlanId] = useState<string | null>(null);
   const [currentDayIndex, setCurrentDayIndex] = useState(() => {
     const todayDate = new Date();
     const monday = new Date(initialWeekStart);
@@ -179,22 +177,16 @@ export function FridgeCalendarView({
             ),
           );
 
-          let message = `+${data.pointsEarned} XP`;
-          if (data.leveledUp) {
-            message += ` · Nivel ${data.newLevel}!`;
-          }
-          if (data.newAchievements && data.newAchievements.length > 0) {
-            const names = data.newAchievements.map((a) => a.name).join(", ");
-            message += ` · Logro: ${names}`;
-          }
-
-          toast.success("¡Tarea completada!", message);
+          toast.success("Tarea completada");
 
           if (data.planFinalized) {
             toast.success(
               "Plan finalizado",
               "Todas las tareas del plan fueron completadas.",
             );
+            if (data.finalizedPlanId) {
+              setFeedbackPlanId(data.finalizedPlanId);
+            }
           }
 
           router.refresh();
@@ -584,6 +576,14 @@ export function FridgeCalendarView({
             );
           })}
         </div>
+      )}
+
+      {feedbackPlanId && (
+        <PlanFeedbackDialog
+          planId={feedbackPlanId}
+          open
+          onClose={() => setFeedbackPlanId(null)}
+        />
       )}
     </div>
   );

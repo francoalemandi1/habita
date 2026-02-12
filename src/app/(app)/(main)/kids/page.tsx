@@ -17,7 +17,7 @@ export default async function KidsPage() {
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);
 
-  const [assignments, completedToday, recentAchievements] = await Promise.all([
+  const [assignments, completedToday] = await Promise.all([
     prisma.assignment.findMany({
       where: {
         memberId: member.id,
@@ -44,24 +44,7 @@ export default async function KidsPage() {
         completedAt: { gte: todayStart },
       },
     }),
-    prisma.memberAchievement.findMany({
-      where: { memberId: member.id },
-      include: {
-        achievement: {
-          select: { name: true, iconUrl: true },
-        },
-      },
-      orderBy: { unlockedAt: "desc" },
-      take: 3,
-    }),
   ]);
-
-  // Get level info
-  const level = member.level;
-  const currentXp = level?.xp ?? 0;
-  const currentLevel = level?.level ?? 1;
-  const xpForNextLevel = currentLevel * 100;
-  const xpProgress = currentXp % 100;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950">
@@ -80,16 +63,7 @@ export default async function KidsPage() {
 
         {/* Progress Card */}
         <div className={spacing.sectionGapLg}>
-          <KidsProgressCard
-            level={currentLevel}
-            xpProgress={xpProgress}
-            xpForNextLevel={100}
-            completedToday={completedToday}
-            recentAchievements={recentAchievements.map((a) => ({
-              name: a.achievement.name,
-              iconUrl: a.achievement.iconUrl,
-            }))}
-          />
+          <KidsProgressCard completedToday={completedToday} />
         </div>
 
         {/* Tasks */}

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
 import { generateBriefing, generateFallbackBriefing } from "@/lib/llm/briefing";
 import { buildRegionalContext } from "@/lib/llm/regional-context";
+import { getLocalDateString, getDayBoundariesWithYesterday } from "@/lib/date-boundaries";
 
 import type { BriefingResponse } from "@/lib/llm/briefing";
 
@@ -61,12 +62,14 @@ export async function GET() {
     }
 
     // Compute timezone-aware yesterday boundaries
-    const { startOfYesterday, startOfToday, endOfToday } = getDateBoundaries(
+    const { startOfYesterday, startOfToday, endOfToday } = getDayBoundariesWithYesterday(
       household?.timezone
     );
 
     // Fetch data in parallel
-    const [yesterdayCompleted, todayPending] = await Promise.all([
+    const sevenDaysAgo = new Date(startOfToday.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const [yesterdayCompleted, todayPending, weeklyCompleted] = await Promise.all([
       prisma.assignment.findMany({
         where: {
           householdId: member.householdId,
@@ -94,6 +97,18 @@ export async function GET() {
           member: { select: { id: true, name: true } },
         },
         orderBy: { dueDate: "asc" },
+        take: 100,
+      }),
+      prisma.assignment.findMany({
+        where: {
+          householdId: member.householdId,
+          status: { in: ["COMPLETED", "VERIFIED"] },
+          completedAt: { gte: sevenDaysAgo },
+        },
+        select: {
+          member: { select: { name: true } },
+        },
+        take: 200,
       }),
     ]);
 
@@ -117,6 +132,16 @@ export async function GET() {
       }
     }
 
+    // Weekly top contributors
+    const weeklyByMember = new Map<string, number>();
+    for (const a of weeklyCompleted) {
+      weeklyByMember.set(a.member.name, (weeklyByMember.get(a.member.name) ?? 0) + 1);
+    }
+    const weeklyTopContributors = Array.from(weeklyByMember.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3);
+
     const briefingContext = {
       currentMember: member.name,
       timeOfDay: regionalContext.timeOfDay,
@@ -127,6 +152,8 @@ export async function GET() {
       overdueCount: myOverdue.length,
       overdueNames: myOverdue.slice(0, 3).map((a) => a.task.name),
       pendingByMember: Array.from(pendingByMemberMap.values()),
+      weeklyCompletedCount: weeklyCompleted.length,
+      weeklyTopContributors,
       regionalPromptBlock: regionalContext.promptBlock || undefined,
     };
 
@@ -152,80 +179,3 @@ export async function GET() {
   }
 }
 
-/**
- * Get start-of-yesterday, start-of-today, and end-of-today in UTC,
- * adjusted for the household's timezone.
- */
-function getDateBoundaries(timezone?: string | null) {
-  const now = new Date();
-
-  // Get today's date in the household's timezone
-  const localDateStr = getLocalDateString(now, timezone);
-  const [yearStr, monthStr, dayStr] = localDateStr.split("-");
-  const year = parseInt(yearStr!, 10);
-  const month = parseInt(monthStr!, 10) - 1;
-  const day = parseInt(dayStr!, 10);
-
-  // If we have a timezone, compute the offset to convert local midnight to UTC
-  if (timezone) {
-    try {
-      // Create a date at local midnight and find the UTC equivalent
-      const localMidnight = new Date(Date.UTC(year, month, day));
-      const formatter = new Intl.DateTimeFormat("en-US", {
-        timeZone: timezone,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
-
-      // Find offset by comparing formatted UTC time with the target midnight
-      const parts = formatter.formatToParts(localMidnight);
-      const formattedHour = parseInt(
-        parts.find((p) => p.type === "hour")?.value ?? "0",
-        10
-      );
-
-      // The offset is the difference between UTC midnight and what that looks like in local time
-      const offsetHours = formattedHour > 12 ? formattedHour - 24 : formattedHour;
-
-      const startOfToday = new Date(Date.UTC(year, month, day, -offsetHours, 0, 0, 0));
-      const startOfYesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
-      const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000 - 1);
-
-      return { startOfYesterday, startOfToday, endOfToday };
-    } catch {
-      // Fall through to server-time logic
-    }
-  }
-
-  // Fallback: use server time
-  const startOfToday = new Date(year, month, day, 0, 0, 0, 0);
-  const startOfYesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
-  const endOfToday = new Date(year, month, day, 23, 59, 59, 999);
-
-  return { startOfYesterday, startOfToday, endOfToday };
-}
-
-function getLocalDateString(now: Date, timezone?: string | null): string {
-  try {
-    if (timezone) {
-      const formatter = new Intl.DateTimeFormat("en-CA", {
-        timeZone: timezone,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      });
-      return formatter.format(now); // "YYYY-MM-DD" format
-    }
-  } catch {
-    // Fall through
-  }
-
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}

@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardCheck, Home, CalendarDays, Sparkles, ChefHat, User } from "lucide-react";
+import { ClipboardCheck, Home, Wallet, Sparkles, ChefHat, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { iconSize } from "@/lib/design-tokens";
 
 const NAV_ITEMS = [
   { href: "/dashboard", icon: Home, label: "Hogar" },
   { href: "/my-tasks", icon: ClipboardCheck, label: "Tareas" },
-  { href: "/plans", icon: CalendarDays, label: "Planes" },
+  // { href: "/plans", icon: CalendarDays, label: "Planes" }, // Accesible desde dashboard → "Ver planes"
   // { href: "/rewards", icon: Gift, label: "Recompensas" }, // Hidden for MVP
+  { href: "/expenses", icon: Wallet, label: "Gastos" },
   { href: "/relax", icon: Sparkles, label: "Relaja" },
   { href: "/cocina", icon: ChefHat, label: "Cocina" },
   { href: "/profile", icon: User, label: "Perfil" },
@@ -20,7 +21,7 @@ export function AppNavMobile() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-4 left-4 right-4 z-50 md:hidden">
+    <nav className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))] z-50 md:hidden">
       <div className="mx-auto flex h-16 max-w-md items-center justify-around rounded-full bg-white px-4 shadow-lg">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;

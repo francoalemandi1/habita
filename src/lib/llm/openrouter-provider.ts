@@ -1,6 +1,7 @@
 import { OpenRouter } from "@openrouter/sdk";
 
 import type { LLMProvider } from "./types";
+import { DEFAULT_LLM_TIMEOUT_MS } from "./types";
 
 function getClient() {
   return new OpenRouter({
@@ -20,38 +21,51 @@ const MODEL_VARIANTS = {
  * OpenRouter provider implementation.
  * Provides access to multiple AI models through a single API.
  */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`LLM request timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 export const openrouterProvider: LLMProvider = {
   async completeWithSchema<T>(options: {
     prompt: string;
     outputSchema: object;
     modelVariant?: "fast" | "standard" | "powerful";
+    timeoutMs?: number;
   }): Promise<T> {
     const client = getClient();
     const model = MODEL_VARIANTS[options.modelVariant ?? "standard"];
+    const timeoutMs = options.timeoutMs ?? DEFAULT_LLM_TIMEOUT_MS;
 
-    const result = await client.chat.send({
-      chatGenerationParams: {
-        model,
-        messages: [
-          {
-            role: "system",
-            content: "Responde SOLO con JSON válido, sin markdown ni explicaciones adicionales.",
-          },
-          {
-            role: "user",
-            content: options.prompt,
-          },
-        ],
-        stream: false,
-      },
-    });
+    const result = await withTimeout(
+      client.chat.send({
+        chatGenerationParams: {
+          model,
+          messages: [
+            {
+              role: "system",
+              content: "Responde SOLO con JSON válido, sin markdown ni explicaciones adicionales.",
+            },
+            {
+              role: "user",
+              content: options.prompt,
+            },
+          ],
+          stream: false,
+        },
+      }),
+      timeoutMs,
+    );
 
     const message = result.choices?.[0]?.message;
     const text = typeof message?.content === "string" ? message.content : "{}";
 
     try {
-      const parsed = JSON.parse(text) as T;
-      return parsed;
+      return JSON.parse(text) as T;
     } catch {
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -226,10 +240,11 @@ Genera recomendaciones considerando:
  * Generate AI plan for task assignments using OpenRouter.
  */
 export async function generateAIPlanOpenRouter(context: {
-  members: Array<{ id: string; name: string; type: string; pendingCount: number }>;
+  members: Array<{ id: string; name: string; type: string; pendingCount: number; availability?: { weekday: string[]; weekend: string[]; notes?: string } | null }>;
   tasks: Array<{ name: string; frequency: string; weight: number }>;
   durationDays?: number;
   regionalBlock?: string;
+  feedbackBlock?: string;
 }) {
   const planDays = context.durationDays ?? 7;
   const dailyCount = Math.min(planDays, 7);
@@ -261,7 +276,18 @@ Capacidad por tipo de miembro:
 - CHILD: 30% de capacidad
 
 Miembros del hogar:
-${context.members.map((m) => `- [ID: ${m.id}] ${m.name} (${m.type}): ${m.pendingCount} tareas pendientes`).join("\n")}
+${context.members.map((m) => {
+  let info = `- [ID: ${m.id}] ${m.name} (${m.type}): ${m.pendingCount} tareas pendientes`;
+  if (m.availability) {
+    const slotLabels: Record<string, string> = { MORNING: "mañanas (7-12)", AFTERNOON: "tardes (12-18)", NIGHT: "noches (18-22)" };
+    const wd = m.availability.weekday.map((s) => slotLabels[s]).filter(Boolean).join(", ");
+    const we = m.availability.weekend.map((s) => slotLabels[s]).filter(Boolean).join(", ");
+    if (wd) info += ` | Disponible L-V: ${wd}`;
+    if (we) info += ` | Disponible S-D: ${we}`;
+    if (m.availability.notes) info += ` | Nota: "${m.availability.notes}"`;
+  }
+  return info;
+}).join("\n")}
 
 Tareas disponibles:
 ${context.tasks.map((t) => `- ${t.name} (${t.frequency}, peso ${t.weight})`).join("\n")}
@@ -280,11 +306,16 @@ Instrucciones:
    - Tareas BIWEEKLY/ONCE: genera UNA sola asignación.
    - Balancea la carga diaria.
 9. Para cada tarea, sugiere un RANGO HORARIO razonable usando "startTime" y "endTime" (formato "HH:mm").
-   - Distribuye las tareas a lo largo del día (mañana, mediodía, tarde, noche).
+   - RESPETA la disponibilidad horaria de cada miembro. Solo asigna tareas en los bloques donde el miembro indicó estar disponible.
+   - Si un miembro no tiene disponibilidad configurada, distribuye razonablemente pero NO llenes todo el día.
+   - Agrupa tareas consecutivas en bloques compactos (ej: 2 tareas de 15min juntas de 18:00 a 18:30, no separadas por horas).
+   - No asignes más de 60-90 minutos de tareas por día por persona salvo que sea estrictamente necesario.
+   - Dejá tiempo libre, especialmente los fines de semana. Las tareas deben sentirse manejables, no una jornada laboral.
    - No asignes tareas a niños (CHILD) en horarios de madrugada o noche.
-   - Ejemplo: "startTime": "09:00", "endTime": "10:00"
+   - Si un miembro tiene una nota de disponibilidad, respetala.
+   - Ejemplo: "startTime": "18:00", "endTime": "18:30"
 
-El objetivo es maximizar la equidad (balanceScore alto = más justo).${context.regionalBlock ? `\n\n${context.regionalBlock}` : ""}`,
+El objetivo es maximizar la equidad (balanceScore alto = más justo).${context.regionalBlock ? `\n\n${context.regionalBlock}` : ""}${context.feedbackBlock ?? ""}`,
         },
       ],
       stream: false,

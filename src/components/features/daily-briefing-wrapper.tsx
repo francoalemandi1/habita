@@ -5,9 +5,9 @@ import { DailyBriefing } from "./daily-briefing";
 
 interface BriefingData {
   greeting: string;
-  line1: string;
-  line2: string;
-  line3: string;
+  summary: string;
+  highlights: string[];
+  suggestion: string;
 }
 
 export function DailyBriefingWrapper() {
@@ -33,9 +33,9 @@ export function DailyBriefingWrapper() {
   return (
     <DailyBriefing
       greeting={briefing.greeting}
-      line1={briefing.line1}
-      line2={briefing.line2}
-      line3={briefing.line3}
+      summary={briefing.summary}
+      highlights={briefing.highlights}
+      suggestion={briefing.suggestion}
     />
   );
 }

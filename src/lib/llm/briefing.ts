@@ -10,14 +10,16 @@ export interface BriefingContext {
   overdueCount: number;
   overdueNames: string[];
   pendingByMember: Array<{ name: string; pending: number }>;
+  weeklyCompletedCount: number;
+  weeklyTopContributors: Array<{ name: string; count: number }>;
   regionalPromptBlock?: string;
 }
 
 export interface BriefingResponse {
   greeting: string;
-  line1: string;
-  line2: string;
-  line3: string;
+  summary: string;
+  highlights: string[];
+  suggestion: string;
 }
 
 const TIME_GREETINGS: Record<string, string> = {
@@ -33,26 +35,31 @@ const TIME_GREETINGS: Record<string, string> = {
 export async function generateBriefing(
   context: BriefingContext
 ): Promise<BriefingResponse> {
-  const provider = getLLMProvider();
+  const provider = await getLLMProvider();
   const prompt = buildBriefingPrompt(context);
   const greeting = buildGreeting(context);
 
   try {
     const result = await provider.completeWithSchema<{
-      line1: string;
-      line2: string;
-      line3: string;
+      summary: string;
+      highlights: string[];
+      suggestion: string;
     }>({
       prompt,
       outputSchema: {
-        line1: "string (max 80 chars)",
-        line2: "string (max 80 chars)",
-        line3: "string (max 80 chars)",
+        summary: "string (max 120 chars, resumen general del hogar)",
+        highlights: "array of strings (2-4 items, max 80 chars each)",
+        suggestion: "string (max 100 chars, consejo accionable)",
       },
       modelVariant: "fast",
     });
 
-    return { greeting, ...result };
+    return {
+      greeting,
+      summary: result.summary,
+      highlights: Array.isArray(result.highlights) ? result.highlights.slice(0, 4) : [],
+      suggestion: result.suggestion,
+    };
   } catch (error) {
     console.error("Error generating briefing:", error);
     return generateFallbackBriefing(context);
@@ -66,37 +73,11 @@ export function generateFallbackBriefing(
   context: BriefingContext
 ): BriefingResponse {
   const greeting = buildGreeting(context);
+  const summary = buildSummary(context);
+  const highlights = buildHighlights(context);
+  const suggestion = buildSuggestion(context);
 
-  // Line 1: yesterday recap
-  let line1: string;
-  if (context.yesterdayCompletedCount === 0) {
-    line1 = "Ayer no se completaron tareas.";
-  } else if (context.yesterdayCompletedCount === 1) {
-    line1 = `Ayer se completó: ${context.yesterdayCompletedNames[0] ?? "1 tarea"}.`;
-  } else {
-    const names = context.yesterdayCompletedNames.slice(0, 3).join(", ");
-    const suffix = context.yesterdayCompletedCount > 3
-      ? ` y ${context.yesterdayCompletedCount - 3} más`
-      : "";
-    line1 = `Ayer se completaron ${context.yesterdayCompletedCount}: ${names}${suffix}.`;
-  }
-
-  // Line 2: today outlook
-  let line2: string;
-  if (context.overdueCount > 0) {
-    const names = context.overdueNames.slice(0, 2).join(", ");
-    line2 = `${context.overdueCount} tarea${context.overdueCount > 1 ? "s" : ""} vencida${context.overdueCount > 1 ? "s" : ""}: ${names}.`;
-  } else if (context.todayPendingCount === 0) {
-    line2 = "No tenés tareas pendientes hoy.";
-  } else {
-    const names = context.todayPendingNames.slice(0, 3).join(", ");
-    line2 = `Hoy tenés ${context.todayPendingCount} pendiente${context.todayPendingCount > 1 ? "s" : ""}: ${names}.`;
-  }
-
-  // Line 3: contextual extra
-  const line3 = buildExtraLine(context);
-
-  return { greeting, line1, line2, line3 };
+  return { greeting, summary, highlights, suggestion };
 }
 
 function buildGreeting(context: BriefingContext): string {
@@ -104,23 +85,91 @@ function buildGreeting(context: BriefingContext): string {
   return `${timeGreeting}, ${context.currentMember}`;
 }
 
-function buildExtraLine(context: BriefingContext): string {
-  // Check workload imbalance between members
+function buildSummary(context: BriefingContext): string {
+  const parts: string[] = [];
+
+  if (context.yesterdayCompletedCount > 0) {
+    parts.push(`Ayer se completaron ${context.yesterdayCompletedCount} tarea${context.yesterdayCompletedCount > 1 ? "s" : ""}`);
+  } else {
+    parts.push("Ayer no se completaron tareas");
+  }
+
+  if (context.todayPendingCount > 0) {
+    parts.push(`hoy tenés ${context.todayPendingCount} pendiente${context.todayPendingCount > 1 ? "s" : ""}`);
+  } else {
+    parts.push("hoy no tenés pendientes");
+  }
+
+  return `${parts.join(" y ")}.`;
+}
+
+function buildHighlights(context: BriefingContext): string[] {
+  const highlights: string[] = [];
+
+  // Overdue tasks (highest priority)
+  if (context.overdueCount > 0) {
+    const names = context.overdueNames.slice(0, 2).join(", ");
+    highlights.push(`${context.overdueCount} tarea${context.overdueCount > 1 ? "s" : ""} vencida${context.overdueCount > 1 ? "s" : ""}: ${names}`);
+  }
+
+  // Yesterday recap
+  if (context.yesterdayCompletedCount > 0) {
+    const names = context.yesterdayCompletedNames.slice(0, 3).join(", ");
+    highlights.push(`Ayer se completó: ${names}`);
+  }
+
+  // Today pending
+  if (context.todayPendingCount > 0) {
+    const names = context.todayPendingNames.slice(0, 3).join(", ");
+    highlights.push(`Pendientes hoy: ${names}`);
+  }
+
+  // Weekly progress
+  if (context.weeklyCompletedCount > 0) {
+    highlights.push(`${context.weeklyCompletedCount} tareas completadas esta semana`);
+  }
+
+  // Workload imbalance
   if (context.pendingByMember.length >= 2) {
     const sorted = [...context.pendingByMember].sort((a, b) => b.pending - a.pending);
     const most = sorted[0]!;
     const least = sorted[sorted.length - 1]!;
-    const diff = most.pending - least.pending;
-    if (diff >= 3) {
-      return `${most.name} tiene ${diff} tareas más que ${least.name}.`;
+    if (most.pending - least.pending >= 3) {
+      highlights.push(`${most.name} tiene ${most.pending - least.pending} tareas más que ${least.name}`);
     }
   }
 
-  if (context.todayPendingCount === 0 && context.overdueCount === 0) {
-    return "Buen ritmo, ¡el hogar está al día!";
+  return highlights.slice(0, 4);
+}
+
+function buildSuggestion(context: BriefingContext): string {
+  // Workload imbalance suggestion
+  if (context.pendingByMember.length >= 2) {
+    const sorted = [...context.pendingByMember].sort((a, b) => b.pending - a.pending);
+    const most = sorted[0]!;
+    const least = sorted[sorted.length - 1]!;
+    if (most.pending - least.pending >= 3) {
+      return `Podrían repartir mejor la carga: ${most.name} tiene muchas más que ${least.name}.`;
+    }
   }
 
-  return "Buen ritmo esta semana.";
+  if (context.overdueCount > 0) {
+    return "Priorizá las tareas vencidas para ponerte al día.";
+  }
+
+  if (context.todayPendingCount === 0 && context.overdueCount === 0) {
+    return "¡El hogar está al día! Buen momento para planificar la semana.";
+  }
+
+  // Top contributor shoutout
+  if (context.weeklyTopContributors.length > 0) {
+    const top = context.weeklyTopContributors[0]!;
+    if (top.count >= 3) {
+      return `${top.name} lleva ${top.count} tareas esta semana. ¡Buen ritmo!`;
+    }
+  }
+
+  return "Buen ritmo esta semana, ¡seguí así!";
 }
 
 function buildBriefingPrompt(context: BriefingContext): string {
@@ -140,26 +189,32 @@ function buildBriefingPrompt(context: BriefingContext): string {
     .map((m) => `${m.name}: ${m.pending}`)
     .join(", ");
 
-  return `Generá un briefing diario de EXACTAMENTE 3 líneas cortas para ${context.currentMember}.
+  const topContributors = context.weeklyTopContributors
+    .map((c) => `${c.name}: ${c.count}`)
+    .join(", ");
+
+  return `Generá un briefing diario para ${context.currentMember} sobre el estado del hogar.
 
 ## Datos
 - Completadas ayer: ${yesterdayList} (${context.yesterdayCompletedCount} total)
 - Pendientes hoy: ${todayList} (${context.todayPendingCount} total)
 - Vencidas: ${context.overdueCount > 0 ? overdueList : "ninguna"}
 - Carga por miembro: ${workload || "sin datos"}
+- Completadas esta semana: ${context.weeklyCompletedCount}
+- Top contribuidores: ${topContributors || "sin datos"}
 
 ## Formato (JSON)
 {
-  "line1": "Qué pasó ayer (max 80 chars)",
-  "line2": "Qué hay pendiente hoy (max 80 chars)",
-  "line3": "Un dato extra: clima, desbalance de carga entre miembros, o motivación (max 80 chars)"
+  "summary": "Resumen general del hogar en 1-2 oraciones (max 120 chars). Ejemplo: 'Van bien esta semana, completaron 3 tareas ayer.'",
+  "highlights": ["2-4 bullets concretos (max 80 chars c/u). Mezcla: tareas completadas, pendientes, alertas, tendencias."],
+  "suggestion": "Un consejo accionable y concreto (max 100 chars). Ejemplo: 'Podrían repartir las tareas de cocina entre más miembros.'"
 }
 
 Reglas:
-- Nombrá tareas y miembros CONCRETOS
-- Si no hubo completadas ayer, mencionalo brevemente
-- Si no hay pendientes hoy, celebrá
-- Si hay vencidas, priorizalas en line2
-- Cruzá datos: carga entre miembros, clima si hay, urgencia
+- Nombrá tareas y miembros CONCRETOS, no genéricos
+- Si hay vencidas, mencionalo como highlight prioritario
+- Si no hay pendientes, celebrá en el summary
+- La suggestion debe ser accionable: qué hacer, no solo qué pasa
+- Cruzá datos: carga entre miembros, tendencias semanales
 - Respondé SOLO con JSON válido${context.regionalPromptBlock ? `\n\n${context.regionalPromptBlock}` : ""}`;
 }

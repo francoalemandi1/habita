@@ -274,7 +274,7 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={images.length >= MAX_IMAGES}
-              className="flex items-center gap-1.5 rounded-full bg-muted/60 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex items-center gap-1.5 rounded-full bg-muted/60 px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Camera className={iconSize.sm} />
               Adjuntar fotos ({images.length}/{MAX_IMAGES})

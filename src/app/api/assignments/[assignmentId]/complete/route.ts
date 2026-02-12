@@ -150,33 +150,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       };
     });
 
-    // Notify level-up
-    if (result.leveledUp) {
-      await createNotification({
-        memberId: assignment.memberId,
-        type: "LEVEL_UP",
-        title: "Subiste de nivel",
-        message: `Alcanzaste el nivel ${result.newLevel}`,
-        actionUrl: "/profile",
-      });
-    }
+    // Gamification notifications paused — product pivot
+    // Backend still computes XP/levels/achievements silently
 
-    // Check for new achievements (after transaction)
+    // Check for new achievements (after transaction) — runs silently
     const newAchievements = await checkAndUnlockAchievements(
       assignment.memberId,
       { ...assignment, completedAt: now }
     );
-
-    // Notify each new achievement
-    for (const achievement of newAchievements) {
-      await createNotification({
-        memberId: assignment.memberId,
-        type: "ACHIEVEMENT_UNLOCKED",
-        title: "Logro desbloqueado",
-        message: `${achievement.name} (+${achievement.xpReward} XP)`,
-        actionUrl: "/achievements",
-      });
-    }
 
     // Update competition score if there's an active competition
     let competitionScoreUpdated = true;
@@ -247,6 +228,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Auto-finalize plan if all assignments from the plan period are now completed
     let planFinalized = false;
+    let finalizedPlanId: string | undefined;
     try {
       const activePlan = await prisma.weeklyPlan.findFirst({
         where: {
@@ -272,6 +254,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             data: { status: "COMPLETED" },
           });
           planFinalized = true;
+          finalizedPlanId = activePlan.id;
 
           // Notify all members that the plan was completed
           const householdMemberIds = await prisma.member.findMany({
@@ -334,6 +317,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
       newAchievements,
       planFinalized,
+      finalizedPlanId: planFinalized ? finalizedPlanId : undefined,
       nextAssignment: nextAssignment
         ? {
             id: nextAssignment.id,

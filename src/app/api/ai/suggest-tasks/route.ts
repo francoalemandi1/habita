@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     // If AI is enabled, enhance suggestions
     if (isAIEnabled() && (location || householdDescription)) {
       try {
-        const provider = getLLMProvider();
+        const provider = await getLLMProvider();
         const aiResult = await provider.completeWithSchema<{
           additionalTasks: Array<{
             name: string;

@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = [
   { href: "/dashboard", icon: Home, label: "Hogar" },
   { href: "/my-tasks", icon: ListTodo, label: "Tareas" },
-  { href: "/plans", icon: CalendarDays, label: "Planes" },
+  // { href: "/plans", icon: CalendarDays, label: "Planes" }, // Accesible desde dashboard → "Ver planes"
   // { href: "/rewards", icon: Gift, label: "Recompensas" }, // Hidden for MVP
   { href: "/relax", icon: Sparkles, label: "Relaja" },
   { href: "/cocina", icon: ChefHat, label: "Cocina" },

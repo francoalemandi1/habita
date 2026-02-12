@@ -17,12 +17,15 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InviteShareBlock } from "@/components/features/invite-share-block";
+import { cn } from "@/lib/utils";
 import { ONBOARDING_CATALOG } from "@/data/onboarding-catalog";
-import { Check, ChevronDown, Plus, Search, Sparkles, User, X } from "lucide-react";
+import { ChevronDown, Plus, Search, Sparkles, User, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
-type StepId = "name" | "household" | "catalog" | "frequency" | "summary" | "creating" | "invite" | "join";
+import type { TimeSlot } from "@/lib/validations/member";
+
+type StepId = "name" | "household" | "catalog" | "availability" | "summary" | "creating" | "invite" | "join";
 
 interface CatalogTaskFromApi {
   name: string;
@@ -45,7 +48,7 @@ interface CategoryFromApi {
   tasks: CatalogTaskFromApi[];
 }
 
-const STEPS_CREATE: StepId[] = ["name", "household", "catalog", "frequency", "summary", "invite"];
+const STEPS_CREATE: StepId[] = ["name", "household", "catalog", "availability", "summary", "invite"];
 const STEPS_JOIN: StepId[] = ["join"];
 
 const LOADING_MESSAGES = [
@@ -114,6 +117,10 @@ function OnboardingContent() {
   const [hasChildren, setHasChildren] = useState(false);
   const [hasPets, setHasPets] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+
+  const [availabilityWeekday, setAvailabilityWeekday] = useState<TimeSlot[]>([]);
+  const [availabilityWeekend, setAvailabilityWeekend] = useState<TimeSlot[]>([]);
+  const [availabilityNotes, setAvailabilityNotes] = useState("");
 
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
 
@@ -192,7 +199,7 @@ function OnboardingContent() {
       return;
     }
     setError(null);
-    goToStep("frequency", "forward");
+    goToStep("availability", "forward");
   };
 
   const handleCatalogBack = () => {
@@ -200,32 +207,19 @@ function OnboardingContent() {
     goToStep("household", "back");
   };
 
-  const handleFrequencyNext = () => {
+  const handleAvailabilityNext = () => {
     setError(null);
     goToStep("summary", "forward");
   };
 
-  const handleFrequencyBack = () => {
+  const handleAvailabilityBack = () => {
     setError(null);
     goToStep("catalog", "back");
   };
 
   const handleSummaryBack = () => {
     setError(null);
-    goToStep("frequency", "back");
-  };
-
-  const updateTaskFrequency = (category: string, taskName: string, newFrequency: string) => {
-    setCatalogTasks((prev) => {
-      const cat = prev[category];
-      if (!cat) return prev;
-      return {
-        ...prev,
-        [category]: cat.map((t) =>
-          t.name === taskName ? { ...t, defaultFrequency: newFrequency.toLowerCase() } : t
-        ),
-      };
-    });
+    goToStep("availability", "back");
   };
 
   const toggleTask = (category: string, taskName: string) => {
@@ -307,6 +301,11 @@ function OnboardingContent() {
             }))
         );
 
+      const hasAvailability = availabilityWeekday.length > 0 || availabilityWeekend.length > 0 || availabilityNotes.trim();
+      const availabilityPayload = hasAvailability
+        ? { weekday: availabilityWeekday, weekend: availabilityWeekend, ...(availabilityNotes.trim() && { notes: availabilityNotes.trim() }) }
+        : undefined;
+
       const [res] = await Promise.all([
         fetch("/api/households/onboarding", {
           method: "POST",
@@ -316,6 +315,7 @@ function OnboardingContent() {
             memberName: memberName.trim() || undefined,
             memberType: "adult",
             tasks: tasksPayload,
+            ...(availabilityPayload && { availabilitySlots: availabilityPayload }),
             ...(geoLocation && geoLocation.latitude !== 0 && {
               location: {
                 latitude: geoLocation.latitude,
@@ -691,54 +691,107 @@ function OnboardingContent() {
     );
   }
 
-  /* ─── Step: frequency ─── */
-  if (step === "frequency") {
+  /* ─── Step: availability ─── */
+  if (step === "availability") {
+    const AVAILABILITY_SLOTS: Array<{ value: TimeSlot; label: string; hours: string }> = [
+      { value: "MORNING", label: "Mañana", hours: "7–12" },
+      { value: "AFTERNOON", label: "Tarde", hours: "12–18" },
+      { value: "NIGHT", label: "Noche", hours: "18–22" },
+    ];
+
+    const toggleAvailabilitySlot = (list: TimeSlot[], setList: (v: TimeSlot[]) => void, slot: TimeSlot) => {
+      setList(list.includes(slot) ? list.filter((s) => s !== slot) : [...list, slot]);
+    };
+
     return (
-      <div key="frequency" className={stepAnimationClass}>
+      <div key="availability" className={stepAnimationClass}>
       <OnboardingLayout
-        onBack={handleFrequencyBack}
-        onContinue={handleFrequencyNext}
+        onBack={handleAvailabilityBack}
+        onContinue={handleAvailabilityNext}
         continueLabel="Continuar"
       >
-        <div className="space-y-4">
+        <div className="space-y-6">
           <StepHeader
-            title="Frecuencia de tareas"
-            subtitle="¿Cada cuánto se hace cada tarea?"
+            title="Tu disponibilidad"
+            subtitle="¿Cuándo podés hacer tareas del hogar?"
           />
-          <div className="rounded-2xl border border-primary p-3 space-y-1">
-            {Object.entries(catalogTasks).flatMap(([categoryKey, tasks]) =>
-              tasks
-                .filter((t) => t.selected)
-                .map((t) => (
-                  <div
-                    key={t.name + categoryKey}
-                    className="flex w-full items-center gap-3 px-3 py-3"
-                  >
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white text-xl shadow-sm">
-                      {t.icon}
-                    </span>
-                    <span className="min-w-0 flex-1 text-base text-foreground">
-                      {t.name}
-                    </span>
-                    <Select
-                      value={frequencyToApi(t.defaultFrequency)}
-                      onValueChange={(v) => updateTaskFrequency(categoryKey, t.name, v)}
+          <p className="text-sm text-muted-foreground">
+            La IA usará esto para asignar tareas solo en tus horarios disponibles. Podés cambiarlo después.
+          </p>
+
+          <div className="grid grid-cols-2 gap-6">
+            {/* Weekday column */}
+            <div>
+              <p className="mb-3 text-sm font-medium text-foreground">Entre semana (L-V)</p>
+              <div className="flex flex-col gap-2">
+                {AVAILABILITY_SLOTS.map((slot) => {
+                  const isActive = availabilityWeekday.includes(slot.value);
+                  return (
+                    <button
+                      key={`wd-${slot.value}`}
+                      type="button"
+                      onClick={() => toggleAvailabilitySlot(availabilityWeekday, setAvailabilityWeekday, slot.value)}
+                      className={cn(
+                        "rounded-lg border px-3 py-2.5 text-left text-sm transition-colors touch-manipulation",
+                        isActive
+                          ? "border-primary bg-primary/10 text-primary font-medium"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/50"
+                      )}
                     >
-                      <SelectTrigger className="h-9 w-[120px] shrink-0 border-none bg-transparent px-0 text-sm text-muted-foreground shadow-none">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {FREQUENCY_OPTIONS.map((o) => (
-                          <SelectItem key={o.value} value={o.value}>
-                            {o.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ))
-            )}
+                      <span className="block">{slot.label}</span>
+                      <span className="text-xs opacity-70">{slot.hours}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Weekend column */}
+            <div>
+              <p className="mb-3 text-sm font-medium text-foreground">Fin de semana (S-D)</p>
+              <div className="flex flex-col gap-2">
+                {AVAILABILITY_SLOTS.map((slot) => {
+                  const isActive = availabilityWeekend.includes(slot.value);
+                  return (
+                    <button
+                      key={`we-${slot.value}`}
+                      type="button"
+                      onClick={() => toggleAvailabilitySlot(availabilityWeekend, setAvailabilityWeekend, slot.value)}
+                      className={cn(
+                        "rounded-lg border px-3 py-2.5 text-left text-sm transition-colors touch-manipulation",
+                        isActive
+                          ? "border-primary bg-primary/10 text-primary font-medium"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/50"
+                      )}
+                    >
+                      <span className="block">{slot.label}</span>
+                      <span className="text-xs opacity-70">{slot.hours}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
+
+          {/* Notes */}
+          <div>
+            <label htmlFor="onboarding-availability-notes" className="mb-2 block text-sm font-medium text-foreground">
+              Algo más que debamos saber?
+            </label>
+            <textarea
+              id="onboarding-availability-notes"
+              value={availabilityNotes}
+              onChange={(e) => setAvailabilityNotes(e.target.value)}
+              placeholder="Ej: Los miércoles trabajo desde casa y puedo al mediodía"
+              className="w-full resize-none rounded-xl border bg-muted/30 p-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              rows={2}
+              maxLength={300}
+            />
+            <p className="mt-1 text-right text-[11px] text-muted-foreground">
+              {availabilityNotes.length}/300
+            </p>
+          </div>
+
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
       </OnboardingLayout>

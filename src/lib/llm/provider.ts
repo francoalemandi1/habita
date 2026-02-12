@@ -17,6 +17,7 @@ export const stubLLMProvider: ILLMProvider = {
     prompt: string;
     outputSchema: object;
     modelVariant?: "fast" | "standard" | "powerful";
+    timeoutMs?: number;
   }): Promise<T> {
     const schema = options.outputSchema as object & { answer?: string; tasks?: unknown[] };
     if ("answer" in schema) {
@@ -53,24 +54,21 @@ export function getAIProviderType(): "openrouter" | "gemini" | "anthropic" | "no
  * Get the LLM provider based on environment configuration.
  * Priority: OpenRouter > Gemini > Anthropic > Stub
  */
-export function getLLMProvider(): ILLMProvider {
+export async function getLLMProvider(): Promise<ILLMProvider> {
   const providerType = getAIProviderType();
 
   if (providerType === "openrouter") {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { openrouterProvider } = require("./openrouter-provider") as { openrouterProvider: ILLMProvider };
+    const { openrouterProvider } = await import("./openrouter-provider");
     return openrouterProvider;
   }
 
   if (providerType === "gemini") {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { geminiProvider } = require("./gemini-provider") as { geminiProvider: ILLMProvider };
+    const { geminiProvider } = await import("./gemini-provider");
     return geminiProvider;
   }
 
   if (providerType === "anthropic") {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { anthropicProvider } = require("./anthropic-provider") as { anthropicProvider: ILLMProvider };
+    const { anthropicProvider } = await import("./anthropic-provider");
     return anthropicProvider;
   }
 

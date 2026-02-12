@@ -24,11 +24,11 @@ import {
   Timer,
   Flag,
   Loader2,
-  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { durationLabel } from "@/lib/plan-duration";
 import { spacing, iconSize } from "@/lib/design-tokens";
+import { PlanFeedbackDialog } from "@/components/features/plan-feedback-dialog";
 
 import type { WeeklyPlanStatus, MemberType } from "@prisma/client";
 
@@ -90,6 +90,7 @@ export function PlanStatusCard({
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [feedbackPlanId, setFeedbackPlanId] = useState<string | null>(null);
 
   function openFinalizeModal() {
     setSelectedIds(new Set(pendingAssignments.map((a) => a.id)));
@@ -127,7 +128,7 @@ export function PlanStatusCard({
       setShowFinalizeModal(false);
       const completedLabel = `${data.completed} tarea${data.completed !== 1 ? "s" : ""} completada${data.completed !== 1 ? "s" : ""}`;
       toast.success("Plan finalizado", completedLabel);
-      router.refresh();
+      setFeedbackPlanId(plan.id);
     } catch (err) {
       toast.error(
         "Error",
@@ -163,7 +164,6 @@ export function PlanStatusCard({
             <ChevronRight className={`${iconSize.md} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
           </div>
         </Link>
-        <HistoryLink />
       </div>
     );
   }
@@ -336,6 +336,17 @@ export function PlanStatusCard({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {feedbackPlanId && (
+          <PlanFeedbackDialog
+            planId={feedbackPlanId}
+            open
+            onClose={() => {
+              setFeedbackPlanId(null);
+              router.refresh();
+            }}
+          />
+        )}
       </>
     );
   }
@@ -359,21 +370,6 @@ export function PlanStatusCard({
           </div>
           <ChevronRight className={`${iconSize.md} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
         </div>
-      </Link>
-      <HistoryLink />
-    </div>
-  );
-}
-
-function HistoryLink() {
-  return (
-    <div className="mt-2 border-t border-black/5 pt-2">
-      <Link
-        href="/plan/history"
-        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <History className={iconSize.xs} />
-        Ver historial de planes
       </Link>
     </div>
   );

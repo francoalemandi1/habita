@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { availabilitySlotsSchema } from "./member";
+
 const taskFrequencySchema = z.enum(["DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY"]);
 const memberTypeSchema = z.enum(["adult", "teen", "child"]);
 
@@ -56,6 +58,7 @@ export const createHouseholdWithTasksSchema = z.object({
   memberName: z.string().max(50).optional(),
   memberType: memberTypeSchema.optional(),
   tasks: z.array(onboardingTaskSchema).min(1, "Selecciona al menos una tarea"),
+  availabilitySlots: availabilitySlotsSchema.optional(),
   location: householdLocationSchema.optional(),
 });
 

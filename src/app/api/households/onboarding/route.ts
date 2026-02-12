@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
 
-    const { householdName, memberName: bodyMemberName, memberType, tasks, location } = validation.data;
+    const { householdName, memberName: bodyMemberName, memberType, tasks, availabilitySlots, location } = validation.data;
     const prismaMemberType: MemberType =
       MEMBER_TYPE_MAP[memberType ?? "adult"] ?? "ADULT";
 
@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
           householdId: household.id,
           name: memberName,
           memberType: prismaMemberType,
+          ...(availabilitySlots && { availabilitySlots }),
         },
       });
 

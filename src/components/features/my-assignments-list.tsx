@@ -6,11 +6,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { TransferRequestButton } from "@/components/features/transfer-request-button";
 import { useToast } from "@/components/ui/toast";
-import { CheckCircle, Clock, Star, Check, Loader2, ArrowRight, Undo2 } from "lucide-react";
-import { calculatePoints } from "@/lib/points";
+import { CheckCircle, Clock, Check, Loader2, ArrowRight, Undo2 } from "lucide-react";
 import { assignmentCardColors, spacing, iconSize } from "@/lib/design-tokens";
+import { PlanFeedbackDialog } from "@/components/features/plan-feedback-dialog";
 
-import type { Assignment, Task, TaskFrequency } from "@prisma/client";
+import type { Assignment, Task } from "@prisma/client";
 
 interface AssignmentWithTask extends Assignment {
   task: Pick<Task, "id" | "name" | "description" | "weight" | "frequency" | "estimatedMinutes">;
@@ -59,14 +59,11 @@ export function MyAssignmentsList({
 }: MyAssignmentsListProps) {
   // IDs just completed locally — card stays in place but switches to completed look
   const [justCompletedIds, setJustCompletedIds] = useState<Set<string>>(new Set());
-  // Points earned per assignment (for showing +pts inline)
-  const [earnedPoints, setEarnedPoints] = useState<Record<string, number>>({});
   // IDs uncompleted locally (completed → pending)
   const [uncompletedIds, setUncompletedIds] = useState<Set<string>>(new Set());
 
-  const handleCardCompleted = useCallback((assignmentId: string, pointsEarned: number) => {
+  const handleCardCompleted = useCallback((assignmentId: string) => {
     setJustCompletedIds((prev) => new Set(prev).add(assignmentId));
-    setEarnedPoints((prev) => ({ ...prev, [assignmentId]: pointsEarned }));
   }, []);
 
   const handleCardUncompleted = useCallback((assignmentId: string) => {
@@ -74,11 +71,6 @@ export function MyAssignmentsList({
     setJustCompletedIds((prev) => {
       const next = new Set(prev);
       next.delete(assignmentId);
-      return next;
-    });
-    setEarnedPoints((prev) => {
-      const next = { ...prev };
-      delete next[assignmentId];
       return next;
     });
   }, []);
@@ -145,7 +137,6 @@ export function MyAssignmentsList({
                   colorIndex={stableColorIndex(assignment.id)}
                   isFirst={index === 0}
                   isCompleted={isJustCompleted}
-                  pointsEarned={earnedPoints[assignment.id]}
                   onCompleted={handleCardCompleted}
                   onUncompleted={handleCardUncompleted}
                 />
@@ -176,18 +167,9 @@ export function MyAssignmentsList({
   );
 }
 
-interface PointsBreakdown {
-  base: number;
-}
-
 interface CompleteResponse {
-  pointsEarned: number;
-  pointsBreakdown?: PointsBreakdown;
-  newXp: number;
-  newLevel: number;
-  leveledUp: boolean;
-  newAchievements?: Array<{ name: string }>;
   planFinalized?: boolean;
+  finalizedPlanId?: string;
 }
 
 function AssignmentCard({
@@ -197,7 +179,6 @@ function AssignmentCard({
   colorIndex,
   isFirst,
   isCompleted,
-  pointsEarned,
   onCompleted,
   onUncompleted,
 }: {
@@ -207,12 +188,12 @@ function AssignmentCard({
   colorIndex: number;
   isFirst: boolean;
   isCompleted: boolean;
-  pointsEarned?: number;
-  onCompleted: (assignmentId: string, pointsEarned: number) => void;
+  onCompleted: (assignmentId: string) => void;
   onUncompleted: (assignmentId: string) => void;
 }) {
   const [isCompleting, setIsCompleting] = useState(false);
   const [isUncompleting, setIsUncompleting] = useState(false);
+  const [feedbackPlanId, setFeedbackPlanId] = useState<string | null>(null);
   const router = useRouter();
   const toast = useToast();
 
@@ -220,7 +201,6 @@ function AssignmentCard({
   const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;
   const isToday = dueDate ? dueDate.toDateString() === new Date().toDateString() : false;
   const colors = assignmentCardColors[colorIndex] ?? assignmentCardColors[0]!;
-  const points = calculatePoints({ weight: assignment.task.weight, frequency: assignment.task.frequency as TaskFrequency });
 
   const handleComplete = async () => {
     setIsCompleting(true);
@@ -234,21 +214,16 @@ function AssignmentCard({
       if (response.ok) {
         const data = await response.json() as CompleteResponse;
 
-        let message = `+${data.pointsEarned} pts`;
-        if (data.leveledUp) {
-          message += ` · Nivel ${data.newLevel}!`;
-        }
-        if (data.newAchievements && data.newAchievements.length > 0) {
-          const achievementNames = data.newAchievements.map(a => a.name).join(", ");
-          message += ` · Logro: ${achievementNames}`;
-        }
-        toast.success("¡Tarea completada!", message);
+        toast.success("Tarea completada");
 
         if (data.planFinalized) {
           toast.success("Plan finalizado", "Todas las tareas del plan fueron completadas.");
+          if (data.finalizedPlanId) {
+            setFeedbackPlanId(data.finalizedPlanId);
+          }
         }
 
-        onCompleted(assignment.id, data.pointsEarned);
+        onCompleted(assignment.id);
         router.refresh();
         return;
       }
@@ -323,12 +298,6 @@ function AssignmentCard({
           </span>
         </div>
 
-        {/* Metadata row 2: points */}
-        <div className={`mt-1 flex items-center gap-1.5 text-sm font-medium ${isCompleted ? "text-green-700 dark:text-green-300" : colors.text}`}>
-          <Star className={iconSize.sm} />
-          <span>+{pointsEarned ?? points} pts</span>
-        </div>
-
         {/* Action buttons row */}
         <div className="mt-4 flex items-center gap-2">
           {isCompleted ? (
@@ -386,6 +355,14 @@ function AssignmentCard({
           )}
         </div>
       </div>
+
+      {feedbackPlanId && (
+        <PlanFeedbackDialog
+          planId={feedbackPlanId}
+          open
+          onClose={() => setFeedbackPlanId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -401,8 +378,6 @@ function CompletedAssignmentCard({
   const [isUncompleting, setIsUncompleting] = useState(false);
   const router = useRouter();
   const toast = useToast();
-
-  const points = calculatePoints({ weight: assignment.task.weight, frequency: assignment.task.frequency as TaskFrequency });
 
   const handleUncomplete = async () => {
     setIsUncompleting(true);
@@ -437,7 +412,7 @@ function CompletedAssignmentCard({
           {assignment.task.name}
         </p>
         <p className="text-xs text-green-700 dark:text-green-400/70">
-          +{points} pts · {FREQUENCY_LABELS[assignment.task.frequency]}
+          {FREQUENCY_LABELS[assignment.task.frequency]}
         </p>
       </div>
       <button

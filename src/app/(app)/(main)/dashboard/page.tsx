@@ -4,14 +4,15 @@ import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
 import { Card, CardContent } from "@/components/ui/card";
-import { StatsCards } from "@/components/features/stats-cards";
 import { DailyBriefingWrapper } from "@/components/features/daily-briefing-wrapper";
 import { PushOptInBanner } from "@/components/features/push-opt-in-banner";
 import { WhatsAppOptInBanner } from "@/components/features/whatsapp-opt-in-banner";
 import { PlanStatusCard } from "@/components/features/plan-status-card";
 import { InviteShareBlock } from "@/components/features/invite-share-block";
-import { UserPlus, Trophy, ChevronRight, Dices, CalendarDays } from "lucide-react";
+
+import { UserPlus, ChevronRight, Dices, CalendarDays, Wallet } from "lucide-react";
 import { spacing, iconSize } from "@/lib/design-tokens";
+
 
 import type { MemberType } from "@prisma/client";
 
@@ -24,33 +25,11 @@ export default async function DashboardPage() {
 
   const householdId = member.householdId;
   const now = new Date();
-  const sevenDaysAgo = new Date(now);
-  sevenDaysAgo.setDate(now.getDate() - 6);
-  sevenDaysAgo.setHours(0, 0, 0, 0);
-
-  const [members, totalCompleted, pendingCount, recentAchievements, activePlan] =
+  const [members, activePlan] =
     await Promise.all([
       prisma.member.findMany({
         where: { householdId, isActive: true },
         select: { id: true },
-      }),
-      prisma.assignment.count({
-        where: { householdId, status: { in: ["COMPLETED", "VERIFIED"] } },
-      }),
-      prisma.assignment.count({
-        where: { householdId, status: { in: ["PENDING", "IN_PROGRESS"] } },
-      }),
-      prisma.memberAchievement.findMany({
-        where: {
-          member: { householdId },
-          unlockedAt: { gte: sevenDaysAgo },
-        },
-        include: {
-          achievement: { select: { name: true } },
-          member: { select: { name: true } },
-        },
-        orderBy: { unlockedAt: "desc" },
-        take: 3,
       }),
       prisma.weeklyPlan.findFirst({
         where: {
@@ -63,6 +42,31 @@ export default async function DashboardPage() {
     ]);
 
   const aiEnabled = isAIEnabled();
+
+  // Compute member's expense balance
+  // othersOweMe: unsettled splits on expenses I paid, where the split member is not me
+  // iOweOthers: unsettled splits on expenses others paid, where the split member is me
+  const [othersOweMeAgg, iOweOthersAgg] = await Promise.all([
+    prisma.expenseSplit.aggregate({
+      where: {
+        settled: false,
+        memberId: { not: member.id },
+        expense: { householdId, paidById: member.id },
+      },
+      _sum: { amount: true },
+    }),
+    prisma.expenseSplit.aggregate({
+      where: {
+        settled: false,
+        memberId: member.id,
+        expense: { householdId, paidById: { not: member.id } },
+      },
+      _sum: { amount: true },
+    }),
+  ]);
+  const othersOweMe = othersOweMeAgg._sum.amount?.toNumber() ?? 0;
+  const iOweOthers = iOweOthersAgg._sum.amount?.toNumber() ?? 0;
+  const expenseBalance = Math.round((othersOweMe - iOweOthers) * 100) / 100;
 
   // Fetch pending assignments for plan finalization modal (only when plan is APPLIED)
   const planPendingAssignments = activePlan?.status === "APPLIED"
@@ -160,6 +164,15 @@ export default async function DashboardPage() {
                 dueDate: a.dueDate,
               }))}
             />
+            <div className="mt-2 border-t border-black/5 pt-2">
+              <Link
+                href="/plans"
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <CalendarDays className={iconSize.xs} />
+                Ver planes
+              </Link>
+            </div>
           </div>
         </div>
       )}
@@ -203,42 +216,56 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* Bloque 1: Sugerencias (briefing) */}
+      {/* Balance de gastos */}
+      {expenseBalance !== 0 && (
+        <div className={spacing.sectionGap}>
+          <Link
+            href="/expenses"
+            className={`group block rounded-2xl ${spacing.cardPaddingCompact} shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.99] ${
+              expenseBalance > 0
+                ? "border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
+                : "border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`shrink-0 rounded-full p-2 ${
+                expenseBalance > 0
+                  ? "bg-green-100 dark:bg-green-900"
+                  : "bg-red-100 dark:bg-red-900"
+              }`}>
+                <Wallet className={`${iconSize.lg} ${
+                  expenseBalance > 0 ? "text-green-600" : "text-red-600"
+                }`} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className={`font-medium ${
+                  expenseBalance > 0
+                    ? "text-green-800 dark:text-green-200"
+                    : "text-red-800 dark:text-red-200"
+                }`}>
+                  {expenseBalance > 0
+                    ? `Te deben $${expenseBalance.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`
+                    : `Debés $${Math.abs(expenseBalance).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`}
+                </p>
+                <p className={`text-sm ${
+                  expenseBalance > 0
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-red-600 dark:text-red-400"
+                }`}>
+                  Ver gastos del hogar
+                </p>
+              </div>
+              <ChevronRight className={`${iconSize.md} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
+            </div>
+          </Link>
+        </div>
+      )}
+
+      {/* Briefing con insights de IA */}
       <div className={`${spacing.sectionGap} pt-4`}>
         <DailyBriefingWrapper />
       </div>
 
-      {/* Bloque 2: Stats (4 cards en una fila en desktop) */}
-      <div className={spacing.sectionGap}>
-        <StatsCards
-          completed={totalCompleted}
-          pending={pendingCount}
-          members={members.length}
-        />
-      </div>
-
-      {/* Logros */}
-      <div className="space-y-6 pt-4">
-        {recentAchievements.length > 0 && (
-          <div>
-            <Link href="/achievements">
-              <Card className="border-[var(--color-xp)]/20 bg-[var(--color-xp)]/5 transition-colors hover:bg-[var(--color-xp)]/10">
-                <CardContent className="py-4 pt-4 sm:py-6 sm:pt-6">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Trophy className="h-4 w-4 shrink-0 text-yellow-500" />
-                      <span className="truncate text-sm font-medium">
-                        {recentAchievements[0]!.member.name} desbloqueó: {recentAchievements[0]!.achievement.name}
-                      </span>
-                    </div>
-                    <ChevronRight className={`${iconSize.md} shrink-0 text-muted-foreground`} />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

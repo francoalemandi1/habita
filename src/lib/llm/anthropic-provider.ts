@@ -3,6 +3,7 @@ import { generateText, generateObject, streamText } from "ai";
 import { z } from "zod";
 
 import type { LLMProvider } from "./types";
+import { DEFAULT_LLM_TIMEOUT_MS } from "./types";
 
 const anthropic = createAnthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -23,25 +24,30 @@ export const anthropicProvider: LLMProvider = {
     prompt: string;
     outputSchema: object;
     modelVariant?: "fast" | "standard" | "powerful";
+    timeoutMs?: number;
   }): Promise<T> {
     const model = anthropic(MODEL_VARIANTS[options.modelVariant ?? "standard"]);
-
-    // For simple schemas, use generateText and parse JSON
-    const result = await generateText({
-      model,
-      prompt: options.prompt,
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_LLM_TIMEOUT_MS);
 
     try {
-      const parsed = JSON.parse(result.text) as T;
-      return parsed;
-    } catch {
-      // If JSON parsing fails, try to extract JSON from the response
-      const jsonMatch = result.text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]) as T;
+      const result = await generateText({
+        model,
+        prompt: options.prompt,
+        abortSignal: controller.signal,
+      });
+
+      try {
+        return JSON.parse(result.text) as T;
+      } catch {
+        const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]) as T;
+        }
+        throw new Error("Failed to parse LLM response as JSON");
       }
-      throw new Error("Failed to parse LLM response as JSON");
+    } finally {
+      clearTimeout(timer);
     }
   },
 };

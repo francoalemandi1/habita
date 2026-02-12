@@ -1,16 +1,16 @@
-# Habita - Household Task Manager V2
+# Habita - Copiloto del Hogar
 
 ## Overview
 
-**Habita** es una aplicación de gestión de tareas del hogar diseñada para familias. Permite distribuir tareas de forma equitativa entre los miembros del hogar, con un sistema de gamificación que motiva la participación de todos, incluyendo niños y adolescentes.
+**Habita** es un copiloto inteligente para la gestión del hogar familiar. Combina distribución equitativa de tareas, gastos compartidos, planificación con IA y herramientas de bienestar en una sola app. Diseñada para familias de cualquier composición — adultos, adolescentes y niños — con interfaces adaptadas a cada tipo de miembro.
 
 ## Core Value Proposition
 
-- **Distribución justa de tareas** basada en capacidad, preferencias y disponibilidad
-- **Gamificación completa** con niveles, XP, rachas, logros y recompensas
-- **Colaboración familiar** con transferencias, ausencias y competencias
-- **Inteligencia artificial** para recomendaciones y asistencia
-- **Modo niños** con interfaz simplificada y motivadora
+- **Copiloto con IA**: Planes semanales inteligentes, briefings diarios, recetas por foto, actividades culturales por ubicación
+- **Distribución justa**: Asignación de tareas basada en capacidad, preferencias, disponibilidad y carga actual
+- **Gastos compartidos**: Splitting estilo Splitwise con balances y liquidación de deudas
+- **Familias completas**: Modo niños simplificado, controles parentales, verificación de tareas
+- **Notificaciones**: Push web y WhatsApp para mantener al hogar sincronizado
 
 ---
 
@@ -18,504 +18,442 @@
 
 ## 1. Gestión de Hogares y Miembros
 
-### Creación de Hogar
-- Registro del usuario creador
-- Nombre del hogar personalizable
-- Generación automática de código de invitación único (8 caracteres)
-- Selección de tareas iniciales desde catálogo predefinido
+### Creación de Hogar (Onboarding)
+
+Wizard multi-paso:
+1. Bienvenida → "Continuar con Google"
+2. Nombre y tipo de miembro
+3. Nombre del hogar + composición (tiene hijos? mascotas?)
+4. Selección de tareas desde catálogo (buscable, por categoría, con custom)
+5. Disponibilidad semanal (mañana/tarde/noche, días de semana/fin de semana)
+6. Resumen y confirmación
+7. Creación con loading animado
+8. Código de invitación para compartir
+
+Se captura geolocalización (latitud, longitud, timezone, país, ciudad) para features basados en ubicación.
+
+### Unirse a un Hogar
+- Vía link directo (`/join/[code]`) o ingreso manual del código
+- Selección de nombre y tipo de miembro
+- Código de 8 caracteres alfanuméricos, único por hogar
 
 ### Tipos de Miembros
 | Tipo | Capacidad | Descripción |
 |------|-----------|-------------|
-| adult | 100% | Adultos con capacidad completa |
-| teen | 60% | Adolescentes (13-17 años) |
-| child | 30% | Niños (menores de 13) |
+| ADULT | 100% | Capacidad completa, acceso a controles parentales |
+| TEEN | 60% | Adolescentes (13-17 años) |
+| CHILD | 30% | Niños, vista simplificada, tareas requieren verificación |
 
-### Unirse a un Hogar
-- Ingreso de código de invitación
-- Selección de nombre y tipo de miembro
-- Validación de código existente
+### Multi-hogar
+- Un usuario puede pertenecer a múltiples hogares
+- Switcher de hogar en el header
 
 ---
 
 ## 2. Sistema de Tareas
 
-### Catálogo de Tareas Predefinidas
+### Catálogo Predefinido
 
-**7 categorías con tareas en español:**
+7 categorías (las de Kids y Mascotas se muestran condicionalmente según composición del hogar):
 
-| Categoría | Icono | Tareas |
-|-----------|-------|--------|
-| Limpieza | 🧹 | Barrer, Trapear, Aspirar, Limpiar baños, Limpiar ventanas, Sacar basura, Limpiar cocina |
-| Cocina | 🍳 | Preparar desayuno/almuerzo/cena, Lavar platos, Ordenar despensa |
-| Lavandería | 👕 | Lavar ropa, Tender ropa, Planchar, Doblar y guardar |
-| Habitaciones | 🛏️ | Tender camas, Cambiar sábanas, Ordenar habitación, Ordenar closets |
-| Exterior | 🌿 | Regar plantas, Cortar césped, Limpiar patio |
-| Mascotas | 🐕 | Alimentar mascota, Pasear perro, Limpiar arenero |
-| Otros | 📋 | Tareas personalizadas |
+| Categoría | Tareas ejemplo |
+|-----------|----------------|
+| Limpieza | Barrer, Trapear, Aspirar, Limpiar baños, Sacar basura |
+| Cocina | Preparar comidas, Lavar platos, Ordenar despensa |
+| Lavandería | Lavar ropa, Tender, Planchar, Doblar y guardar |
+| Habitaciones | Tender camas, Cambiar sábanas, Ordenar habitación |
+| Exterior | Regar plantas, Cortar césped, Limpiar patio |
+| Mascotas | Alimentar mascota, Pasear perro, Limpiar arenero |
+| Otros | Tareas personalizadas del hogar |
 
 ### Propiedades de Tarea
-- **Nombre**: Identificador de la tarea
-- **Categoría**: Una de las 7 categorías
-- **Frecuencia**: daily | weekly | biweekly | monthly
-- **Peso (Dificultad)**: 1-5 (determina puntos base)
+- **Nombre** y **descripción**
+- **Categoría**: Una de las 7
+- **Frecuencia**: DAILY | WEEKLY | BIWEEKLY | MONTHLY | ONCE
+- **Peso (dificultad)**: 1-5
 - **Tiempo estimado**: En minutos
-- **Edad mínima**: Restricción opcional por edad
-- **Icono**: Emoji representativo
-
-### Frecuencias y Multiplicadores
-| Frecuencia | Multiplicador | Descripción |
-|------------|---------------|-------------|
-| daily | 1.5x | Tareas diarias |
-| weekly | 1.0x | Tareas semanales |
-| biweekly | 0.9x | Cada 2 semanas |
-| monthly | 0.8x | Mensuales |
+- **Edad mínima**: Restricción opcional
+- **Elegible para ruleta**: Boolean
 
 ---
 
 ## 3. Sistema de Asignaciones
 
-### Algoritmo de Asignación Inteligente
+### Algoritmo de Asignación
 
-**Factores considerados:**
-1. **Preferencias del miembro** (+20 preferidas, -20 no deseadas)
-2. **Carga actual** (-5 por cada tarea pendiente)
+Factores considerados:
+1. **Preferencias** (+20 preferidas, -20 no deseadas)
+2. **Carga actual** (-5 por tarea pendiente)
 3. **Recencia** (+1 por día desde última asignación de esa tarea)
-4. **Capacidad por tipo** (adult: 1.0, teen: 0.6, child: 0.3)
-5. **Edad mínima** (respeta restricciones de tarea)
+4. **Capacidad** (ADULT: 1.0, TEEN: 0.6, CHILD: 0.3)
+5. **Edad mínima** (respeta restricciones)
+6. **Disponibilidad** (respeta slots configurados)
 
 ### Estados de Asignación
-- pending: Pendiente de completar
-- completed: Completada
+| Estado | Descripción |
+|--------|-------------|
+| PENDING | Pendiente de completar |
+| IN_PROGRESS | En progreso |
+| COMPLETED | Completada |
+| VERIFIED | Verificada por adulto (tareas de niños) |
+| OVERDUE | Vencida |
+| CANCELLED | Cancelada |
 
-### Fechas de Vencimiento
-- Calculadas automáticamente según frecuencia
-- Marcador wasOverdue si se completa tarde
-
----
-
-## 4. Sistema de Gamificación
-
-### Niveles y XP
-- **100 XP por nivel**
-- XP ganado = peso × 10 × multiplicador_frecuencia
-- Bonus por racha activa
-- Bonus por completar a tiempo
-
-### Sistema de Puntos
-- Puntos base = peso × frecuencia_multiplicador × 10
-- Bonus +20% si no está atrasada
-- Bonus +10% por racha >= 3 días
-- Se pueden canjear por recompensas
-
-### Rachas (Streaks)
-- **Racha actual**: Días consecutivos completando al menos 1 tarea
-- **Mejor racha**: Récord personal
-- Se reinicia si pasa un día sin completar tareas
-
-### Logros (Achievements)
-
-| Key | Nombre | Descripción | XP |
-|-----|--------|-------------|----|
-| first_task | Primera Tarea | Completa tu primera tarea | 10 |
-| streak_7 | Semana Perfecta | Racha de 7 días | 50 |
-| streak_30 | Mes Imparable | Racha de 30 días | 200 |
-| early_bird | Madrugador | Completa antes de las 9am | 15 |
-| night_owl | Búho Nocturno | Completa después de las 9pm | 15 |
-| speed_demon | Rayo | Completa en menos de 5 min | 20 |
-| helper | Ayudante | Acepta 5 transferencias | 30 |
-| sacrifice | Sacrificio | Cede tarea preferida | 25 |
-| perfectionist | Perfeccionista | 10 tareas sin atraso | 40 |
-| balanced | Equilibrado | Todas las categorías | 35 |
-| ten_tasks | Diez Tareas | 10 tareas completadas | 20 |
-| fifty_tasks | Cincuenta | 50 tareas completadas | 100 |
-
-### Recompensas
-- Configurables por hogar
-- Costo en puntos
-- Estados: pending | fulfilled | cancelled
-- Ejemplos: "Elegir película", "Postre especial", "Día libre"
+### Checklist Diario (Dashboard)
+- Tareas pendientes del día para el miembro actual
+- Completado rápido con tap en checkbox
+- Contador de completadas hoy
+- Timezone-aware según zona horaria del hogar
 
 ---
 
-## 5. Transferencias de Tareas
+## 4. Planes Semanales con IA
 
-### Solicitud de Transferencia
-- Máximo 3 transferencias por semana
-- Tipos: points (por puntos) | exchange (intercambio)
+### Generación de Plan
+- IA analiza tareas, preferencias, capacidad y disponibilidad de cada miembro
+- Duración configurable (7, 14, 21 días)
+- Vista previa con asignaciones y razonamiento por tarea
+- Score de equidad (balance entre miembros)
+
+### Estados del Plan
+| Estado | Descripción |
+|--------|-------------|
+| PENDING | Generado, esperando aprobación |
+| APPLIED | Aprobado, asignaciones creadas automáticamente |
+| COMPLETED | Todas las asignaciones finalizadas |
+| EXPIRED | Venció sin completarse |
+| REJECTED | Descartado por el usuario |
+
+### Ciclo del Plan
+1. Dashboard → "Genera un plan" → IA crea plan
+2. Revisar asignaciones y score → Aplicar
+3. Completar tareas durante el ciclo
+4. Al completar todas → Feedback de fin de ciclo (rating 1-5 + comentario)
+5. El feedback mejora planes futuros
+
+---
+
+## 5. Gastos Compartidos
+
+### Registro de Gastos
+- Cualquier miembro puede registrar un gasto
+- Campos: título, monto, categoría, quién pagó, fecha, notas
+- Moneda por defecto: ARS
+
+### Categorías
+GROCERIES | UTILITIES | RENT | FOOD | TRANSPORT | HEALTH | ENTERTAINMENT | EDUCATION | HOME | OTHER
+
+### Tipos de Split
+| Tipo | Descripción |
+|------|-------------|
+| EQUAL | División equitativa entre todos los miembros activos |
+| CUSTOM | Montos personalizados por miembro |
+| PERCENTAGE | Porcentajes por miembro |
+
+### Balances y Liquidación
+- Balance neto por miembro (positivo = le deben, negativo = debe)
+- Algoritmo greedy de simplificación de deudas (minimiza transacciones)
+- Liquidación con confirmación
+- Card de balance en dashboard (verde "Te deben" / rojo "Debés")
+
+---
+
+## 6. Briefing Diario con IA
+
+- Resumen diario generado automáticamente
+- Saludo personalizado según hora del día
+- Highlights del hogar (tareas, actividad reciente)
+- Sugerencia del día
+- Mostrado en la parte inferior del dashboard
+
+---
+
+## 7. Cocina (IA con visión)
+
+- Subir hasta 3 fotos de ingredientes (heladera, alacena)
+- IA analiza imágenes y sugiere recetas
+- Selección de tipo de comida (Almuerzo, Cena, Merienda, Libre)
+- Cada receta incluye: dificultad, tiempo, porciones, ingredientes, pasos
+- Accesible desde la navegación principal
+
+---
+
+## 8. Relax (IA + ubicación)
+
+Tres tabs basados en la ubicación del hogar:
+
+| Tab | Contenido |
+|-----|-----------|
+| Cultura | Cine, teatro, música, museos, galerías |
+| Restaurantes | Restaurantes, bares, cafeterías |
+| Weekend | Actividades para el fin de semana |
+
+- Generado por IA usando la geolocalización del hogar
+- Sugerencias cacheadas en DB para eficiencia
+- Links externos a eventos/lugares
+
+---
+
+## 9. Ruleta de Tareas
+
+- Selección aleatoria de tarea (solo tareas marcadas como elegibles)
+- Selección aleatoria o manual de miembro
+- Rueda animada interactiva
+- Crea asignación al confirmar resultado
+- Accesible desde card en el dashboard
+
+---
+
+## 10. Calendario Semanal
+
+- Vista tipo heladera (fridge calendar) de la semana del hogar
+- Muestra asignaciones de todos los miembros por día
+- Color-coded por miembro
+- Indicadores de estado (pendiente, en progreso, completada)
+- Accesible desde card en el dashboard
+
+---
+
+## 11. Modo Niños y Controles Parentales
+
+### Vista Niños (`/kids`)
+- Interfaz simplificada con gradiente y colores vibrantes
+- Saludo personalizado
+- Progreso diario (tareas completadas)
+- Lista de misiones pendientes con tiempo estimado
+
+### Controles Parentales (`/parental`, solo adultos)
+- Resumen de actividad de niños/teens
+- Tareas completadas hoy por menores
+- Tareas pendientes de menores
+- Verificación de tareas completadas (aprobar o rechazar)
+
+---
+
+## 12. Transferencias de Tareas
+
+- Solicitud de transferencia entre miembros
 - Mensaje opcional
-
-### Estados
-- pending: Esperando respuesta
-- accepted: Aceptada (tarea reasignada)
-- rejected: Rechazada
-
-### Restricciones
-- No se pueden transferir tareas ya atrasadas
-- El receptor debe tener capacidad
+- Estados: PENDING | ACCEPTED | REJECTED
+- Restricción: no se pueden transferir tareas vencidas
 
 ---
 
-## 6. Sistema de Ausencias
+## 13. Ausencias y Disponibilidad
 
-### Registro de Ausencia
+### Disponibilidad Semanal
+- Configuración por slots: mañana (7-12), tarde (12-18), noche (18-22)
+- Diferencia entre días de semana y fin de semana
+- Notas opcionales
+- Respetada por el algoritmo de asignación y los planes de IA
+
+### Ausencias
 - Fecha inicio y fin
 - Razón: travel | illness | work | other
-- Política de redistribución
-
-### Políticas de Redistribución
-| Política | Descripción |
-|----------|-------------|
-| auto | Distribución automática entre disponibles |
-| specific | Asignar a miembro específico |
-| postpone | Posponer tareas para el retorno |
-
-### Compensación al Retorno
-- Opción de recibir tareas extra al volver
-- Balance de equidad
+- Política: AUTO (redistribuir) | SPECIFIC (asignar a alguien) | POSTPONE (posponer)
 
 ---
 
-## 7. Competencias Familiares
+## 14. Notificaciones
 
-### Crear Competencia
-- Nombre de la competencia
-- Duración: week | month | custom
-- Premio opcional
+### Push Web
+- Opt-in con banner en el dashboard
+- Usa Web Push API con claves VAPID
+- Recordatorios de tareas, alertas de transferencias
 
-### Leaderboard
-- Puntos acumulados durante el período
-- Actualización en tiempo real
-- Medallas: 🥇🥈🥉
-
-### Historial
-- Competencias pasadas
-- Ganadores y puntuaciones
+### WhatsApp
+- Vinculación de número con código de verificación (expira en 10 min)
+- Número enmascarado en la UI
+- Webhook para mensajes entrantes
 
 ---
 
-## 8. Rotación de Tareas
+## 15. Preferencias de Tareas
 
-### Configuración
-- Seleccionar tarea
-- Definir orden de miembros (JSON array)
-- Frecuencia de rotación: weekly | monthly
-
-### Funcionamiento
-- Índice actual en la rotación
-- Rotación automática en fecha configurada
-- Siguiente miembro visible
+- Cada miembro marca tareas como: PREFERRED | NEUTRAL | DISLIKED
+- PREFERRED: +20 al score de asignación
+- DISLIKED: -20 al score de asignación
+- Accesible desde `/preferences`
 
 ---
 
-## 9. Sistema de Penalidades
+## 16. Rotación Automática de Tareas
 
-### Tipos de Penalidad
-| Razón | Puntos Deducidos |
-|-------|-----------------|
-| overdue_24h | -5 puntos |
-| overdue_48h | -10 puntos |
-| overdue_72h | -20 puntos |
-| transfer_failed | -5 puntos |
-
-### Aplicación
-- Automática via background function
-- Historial visible en perfil
+- Definir orden de miembros para una tarea
+- Frecuencia de rotación: WEEKLY | MONTHLY
+- Rotación automática procesada por cron job
 
 ---
 
-## 10. Estadísticas y Reportes
+## 17. Asistente IA (Chat)
 
-### Dashboard de Equidad
-- **Puntuación de equidad** (0-100%)
-- Barras de contribución por miembro
-- Filtros: semana | mes | todo
-- Tareas atrasadas por miembro
-
-### Estadísticas del Hogar
-- Total completadas/pendientes/atrasadas
-- Tasa de puntualidad
-- Ranking de miembros
-- Desglose por categoría
-- Destacados (más puntual, más puntos)
-
-### Reporte Semanal
-- Resumen de la semana
-- MVP (más puntos)
-- Desempeño individual
-- Tendencias
+- Widget de chat integrado en el layout
+- Streaming de respuestas en tiempo real
+- Contexto: miembros, tareas, asignaciones recientes, estadísticas
+- Preguntas sugeridas:
+  - "Quién hizo más tareas esta semana?"
+  - "Cómo está la equidad del hogar?"
+  - "Qué tareas tengo pendientes?"
 
 ---
 
-## 11. Modo Niños
+# Features en Background (UI oculta)
 
-### Interfaz Simplificada
-- Colores vibrantes (gradiente púrpura-azul)
-- Iconos grandes
-- Lenguaje simple ("Misiones" en lugar de "Tareas")
-- Estrellas en lugar de puntos
+> El backend trackea estos datos pero la UI fue ocultada durante el pivote a "copiloto del hogar". Los modelos y APIs existen para activación futura.
 
-### Elementos
-- **Misiones del día**: Tareas pendientes para hoy
-- **Estrellas**: Puntos disponibles
-- **Logros**: Medallas desbloqueadas
-- **Próximo premio**: Barra de progreso
-
-### Acceso
-- Toggle en header para usuarios child o teen
-- Vista completa alternativa
-
----
-
-## 12. Asistente IA
-
-### Funcionalidad
-- Preguntas sobre tareas del hogar
-- Respuestas contextualizadas
-- Preguntas sugeridas
-
-### Ejemplos de Preguntas
-- "¿Quién hizo más tareas esta semana?"
-- "¿Cómo está la equidad del hogar?"
-- "¿Qué tareas tengo pendientes?"
+- **Logros (Achievements)**: Definiciones y desbloqueos por miembro
+- **Competencias**: Leaderboards familiares por período
+- **Recompensas**: Sistema de canjeo con puntos (con generación por IA)
+- **Niveles y XP**: Tracking de experiencia y niveles
+- **Penalidades**: Deducciones automáticas por atrasos
 
 ---
 
 # Technical Architecture
 
-## Database Schema (20+ Tables)
+## Stack
 
-### Core Tables
-- households - Hogares
-- members - Miembros
-- tasks - Tareas
-- assignments - Asignaciones
+| Componente | Tecnología |
+|------------|------------|
+| Framework | Next.js 16 (App Router, Turbopack) |
+| Hosting | Vercel |
+| Base de Datos | PostgreSQL (Neon) |
+| ORM | Prisma |
+| Autenticación | NextAuth.js + Google OAuth |
+| IA | Multi-provider: OpenRouter / Google Gemini / Anthropic Claude |
+| Emails | Resend |
+| Estilos | Tailwind CSS + shadcn/ui |
+| Validación | Zod |
+| Estado Cliente | React Query (TanStack Query) |
+| Push | Web Push API (VAPID) |
+| WhatsApp | WhatsApp Cloud API |
+| Search | Serper / Tavily (para Relax) |
 
-### Preferences & Feedback
-- memberPreferences - Preferencias de tarea
-- assignmentFeedback - Feedback de completado
+## Autenticación
 
-### Gamification
-- memberLevels - Niveles y XP
-- achievementDefinitions - Definiciones de logros
-- memberAchievements - Logros desbloqueados
-- householdRewards - Recompensas del hogar
-- rewardRedemptions - Canjes de recompensas
+1. "Continuar con Google" (OAuth)
+2. Creación de cuenta en DB
+3. Si no tiene hogar → Onboarding
+4. Si tiene hogar → Dashboard
 
-### Collaboration
-- taskTransfers - Transferencias
-- memberAbsences - Ausencias
+## Proveedores de IA (por prioridad)
+1. OpenRouter (`OPENROUTER_API_KEY`)
+2. Google Gemini (`GOOGLE_GENERATIVE_AI_API_KEY`)
+3. Anthropic Claude (`ANTHROPIC_API_KEY`)
+4. Stub (si ninguno configurado — features de IA deshabilitadas)
 
-### Scheduling
-- taskReminders - Recordatorios
-- taskRotations - Rotaciones
+## Database Schema (25+ tablas)
 
-### Competitions
-- competitions - Competencias
-- competitionScores - Puntuaciones
+### Core
+- `users` - Usuarios NextAuth
+- `households` - Hogares (timezone, geolocalización, inviteCode, planningDay)
+- `members` - Miembros (tipo, availability, isActive)
+- `tasks` - Definiciones de tareas
+- `assignments` - Instancias asignadas
 
-### History
-- penalties - Penalidades
-- aiRecommendations - Recomendaciones IA
+### Expenses
+- `expenses` - Gastos (Decimal 10,2, categoría, splitType)
+- `expense_splits` - Splits por miembro (monto, settled, settledAt)
+
+### AI & Planning
+- `weekly_plans` - Planes semanales (status, balanceScore, assignments JSON)
+- `plan_feedbacks` - Feedback de fin de ciclo (rating 1-5, comentario)
+- `relax_suggestions` - Sugerencias cacheadas de Relax
+
+### Preferences & Collaboration
+- `member_preferences` - Preferencias de tarea
+- `member_absences` - Ausencias
+- `task_transfers` - Transferencias
+- `task_rotations` - Rotaciones automáticas
+- `task_reminders` - Recordatorios
+
+### Gamification (background)
+- `member_levels` - XP y niveles
+- `achievements` / `member_achievements` - Logros
+- `household_rewards` / `reward_redemptions` - Recompensas
+- `competitions` / `competition_scores` - Competencias
+- `penalties` - Penalidades
+
+### Notifications
+- `notifications` - Notificaciones in-app
+- `push_subscriptions` - Suscripciones push
+- `whatsapp_links` - Vinculaciones WhatsApp
 
 ### Catalog
-- taskCatalog - Catálogo predefinido
+- `task_catalog` - Catálogo predefinido de tareas
 
----
+## Navegación
 
-## Server Functions (40+)
+### Mobile (bottom bar flotante, 6 tabs)
+Hogar | Tareas | Gastos | Relaja | Cocina | Perfil
 
-### Member Management
-- getCurrentMember - Obtener miembro actual
-- getHouseholdMembers - Listar miembros
+### Desktop (sidebar, 5 items)
+Hogar | Tareas | Relaja | Cocina | Perfil
 
-### Household Management
-- createHousehold - Crear hogar
-- joinHousehold - Unirse con código
-- createHouseholdWithTasks - Crear con tareas iniciales
+> Nota: Gastos está en mobile pero no en desktop nav (accesible desde dashboard card).
 
-### Task Management
-- createTask - Crear tarea
-- getTasks - Listar tareas
-- getTaskCatalog - Catálogo predefinido
-
-### Assignments
-- getMyAssignments - Mis asignaciones
-- completeAssignment - Completar simple
-- completeAssignmentWithFeedback - Completar con feedback
-
-### Gamification
-- getMyProgress - Mi progreso
-- getHouseholdRewards - Recompensas
-- createReward - Crear recompensa
-- redeemReward - Canjear
-
-### Preferences
-- setTaskPreference - Establecer preferencia
-- getMyPreferences - Mis preferencias
-
-### Statistics
-- getHouseholdStats - Estadísticas básicas
-- getFairnessDashboard - Dashboard de equidad
-- getHouseholdStatistics - Estadísticas avanzadas
-- getWeeklyReport - Reporte semanal
-- getKidsView - Vista niños
-
-### AI
-- askHouseholdAssistant - Asistente IA
-
-### Transfers
-- requestTaskTransfer - Solicitar transferencia
-- getPendingTransfers - Transferencias pendientes
-- respondToTransfer - Responder
-- cancelTransfer - Cancelar
-
-### Absences
-- createAbsence - Crear ausencia
-- getMyAbsences - Mis ausencias
-- deleteAbsence - Eliminar ausencia
-
-### Penalties
-- getMyPenalties - Mis penalidades
-
-### Competitions
-- createCompetition - Crear competencia
-- getActiveCompetition - Competencia activa
-- endCompetition - Finalizar
-- getCompetitionHistory - Historial
-
-### Rotations
-- setupTaskRotation - Configurar rotación
-- getTaskRotations - Listar rotaciones
-- removeTaskRotation - Eliminar rotación
-
-### Background
-- main - Trabajo periódico (penalidades, rotaciones)
-
----
-
-## UI Components
-
-### Flows
-- **OnboardingView** - Registro multi-paso
-- **MainAppView** - App principal con navegación
-
-### Views
-- **MyTasksView** - Lista de tareas (Atrasadas | Hoy | Próximas)
-- **ProgressView** - Progreso personal
-- **DashboardWrapper** - Dashboard con tabs
-- **FairnessDashboard** - Equidad
-- **HouseholdStatsView** - Estadísticas
-- **WeeklyReportView** - Reporte semanal
-- **KidsView** - Modo niños
-- **CompetitionView** - Competencias
-- **SettingsView** - Configuración
-
-### Modals
-- **CompletionFeedbackModal** - Feedback al completar
-- **TransferRequestModal** - Solicitar transferencia
-- **AddTaskModal** - Agregar tarea
-
-### Sections
-- **PendingTransfersSection** - Transferencias pendientes
-- **AbsenceManagementSection** - Gestión de ausencias
-- **PenaltiesSection** - Penalidades
-- **TaskRotationsSection** - Rotaciones
-
-### Navigation
-- Bottom tabs: Tareas | Progreso | Compite | Dashboard | Config
-- Header: Nivel, racha, toggle modo niños
+### Páginas accesibles desde links internos
+- `/plans` - Historial de planes (link desde dashboard)
+- `/calendar` - Calendario semanal (card en dashboard)
+- `/roulette` - Ruleta (card en dashboard)
+- `/preferences` - Preferencias (link desde profile)
+- `/kids` - Modo niños
+- `/parental` - Controles parentales (solo adultos)
+- `/rotations` - Rotaciones de tareas
 
 ---
 
 # User Flows
 
-## 1. Onboarding (Nuevo Usuario)
+## 1. Primer Uso
 
-1. Pantalla de bienvenida
-2. Ingresar nombre
-3. Seleccionar tipo de miembro
-4. ¿Crear o unirse?
-   - Crear: Nombre del hogar → Seleccionar tareas del catálogo → Código generado
-   - Unirse: Ingresar código de invitación
-5. Dashboard principal
+1. Landing → "Continuar con Google"
+2. Onboarding: nombre, tipo, hogar, tareas, disponibilidad
+3. Dashboard con banner de invitación (si es único miembro)
+4. Compartir código para que se unan los demás
 
-## 2. Completar Tarea
+## 2. Día Típico
 
-1. Ver lista de tareas (agrupadas por urgencia)
-2. Tap en tarea
-3. Opción: Completar rápido o con feedback
-4. Si feedback: duración, dificultad, nota
-5. Confirmación con puntos/XP ganados
-6. Verificación de logros desbloqueados
+1. Abrir app → Dashboard
+2. Ver briefing diario con insights de IA
+3. Revisar plan activo y progreso
+4. Completar tareas desde el checklist
+5. Ver balance de gastos si hay deudas pendientes
+6. Explorar recetas o actividades culturales
 
-## 3. Transferir Tarea
+## 3. Ciclo del Plan
 
-1. Desde lista de tareas, tap "Transferir"
-2. Seleccionar miembro destino
-3. Agregar mensaje (opcional)
-4. Enviar solicitud
-5. Esperar respuesta (notificación)
+1. "Genera un plan" → IA crea plan con asignaciones
+2. Revisar → Aplicar
+3. Completar tareas durante el ciclo (7-21 días)
+4. Al completar todas → Feedback (rating + comentario)
+5. Generar nuevo plan
 
-## 4. Reportar Ausencia
+## 4. Registrar Gasto
 
-1. Ir a Configuración
-2. Sección "Mis Ausencias"
-3. Agregar nueva ausencia
-4. Seleccionar fechas y razón
-5. Elegir política de redistribución
-6. Confirmar
+1. Nav → Gastos → "Agregar gasto"
+2. Título, monto, categoría, quién pagó
+3. Split (EQUAL por defecto)
+4. Ver balances → "Liquidar" cuando se paga
 
-## 5. Crear Competencia
+## 5. Unirse a un Hogar
 
-1. Ir a tab "Compite"
-2. Tap "Nueva Competencia"
-3. Nombre, duración, premio
-4. Crear
-5. Ver leaderboard en tiempo real
+1. Recibir link `/join/[code]` o código de 8 caracteres
+2. Google OAuth
+3. Nombre y tipo de miembro
+4. Acceso al hogar
 
 ---
 
 # Future Enhancements
 
-## Notificaciones
-- Push notifications para recordatorios
-- Alertas de transferencias
-- Resumen diario/semanal
-
-## Integraciones
-- Calendario (Google Calendar, Apple Calendar)
-- Asistentes de voz (Alexa, Google Home)
+- Lista de compras inteligente (IA)
+- Presupuesto del hogar y gastos recurrentes
+- Calendario externo (Google Calendar, Apple Calendar)
 - Widgets de pantalla de inicio
-
-## Social
-- Compartir logros
-- Comparar con otros hogares (opcional)
-- Retos entre familias
-
-## IA Avanzada
-- Predicción de tareas
-- Optimización de horarios
-- Detección de burnout
-
----
-
-# Metrics & KPIs
-
-## Engagement
-- DAU/MAU ratio
-- Tareas completadas por día
-- Streak promedio
-
-## Fairness
-- Puntuación de equidad promedio
-- Varianza de distribución
-- Tasa de transferencias
-
-## Gamification
-- Logros desbloqueados
-- Recompensas canjeadas
-- Participación en competencias
+- Reactivación de gamificación (logros, competencias, recompensas)
+- Detección de burnout por IA
+- Decisiones familiares (votación en grupo)
 
 ---
 
@@ -523,64 +461,17 @@
 
 | Término | Definición |
 |---------|------------|
-| Hogar | Grupo de personas que comparten tareas |
-| Miembro | Persona dentro de un hogar |
-| Tarea | Actividad recurrente a realizar |
-| Asignación | Instancia de tarea asignada a un miembro |
-| Peso | Dificultad/esfuerzo de una tarea (1-5) |
-| XP | Puntos de experiencia para subir de nivel |
-| Puntos | Moneda canjeable por recompensas |
-| Racha | Días consecutivos completando tareas |
-| Logro | Reconocimiento por cumplir objetivos |
-| Equidad | Distribución justa de carga entre miembros |
-
----
-
-# Technical Stack (Next.js + Vercel)
-
-## Stack Seleccionado
-
-| Componente | Tecnología |
-|------------|------------|
-| Framework | Next.js 14+ (App Router) |
-| Hosting | Vercel |
-| Base de Datos | PostgreSQL (Vercel Postgres / Neon) |
-| ORM | Prisma |
-| Autenticación | NextAuth.js + Google OAuth |
-| Emails | Resend |
-| Estilos | Tailwind CSS + shadcn/ui |
-| Validación | Zod |
-| Estado Cliente | React Query |
-
-## Autenticación
-
-### Flujo de Registro
-1. Usuario hace clic en "Continuar con Google"
-2. OAuth con Google
-3. Creación de cuenta en base de datos
-4. Envío de email de confirmación
-5. Usuario confirma email haciendo clic en enlace
-6. Acceso completo a la aplicación
-
-### Código de Invitación
-- Generación automática de 8 caracteres alfanuméricos
-- Único por hogar
-- Compartible via texto/WhatsApp/email
-- Validación al unirse
-
-## Arquitectura BFF
-
-El Backend for Frontend está implementado en las API Routes de Next.js:
-
-- `/api/auth/*` - Autenticación (NextAuth)
-- `/api/households/*` - Gestión de hogares
-- `/api/tasks/*` - Gestión de tareas
-- `/api/assignments/*` - Asignaciones
-- `/api/members/*` - Miembros y perfil
-- `/api/competitions/*` - Competencias
-- `/api/rewards/*` - Recompensas
-- `/api/rotations/*` - Rotaciones
-
-## Estructura de Archivos
-
-Ver CLAUDE.md para la estructura completa del proyecto.
+| Hogar | Grupo de personas que comparten tareas y gastos |
+| Miembro | Persona dentro de un hogar (ADULT, TEEN o CHILD) |
+| Tarea | Actividad recurrente definida para el hogar |
+| Asignación | Instancia de tarea asignada a un miembro con fecha de vencimiento |
+| Plan | Plan periódico generado por IA con asignaciones balanceadas |
+| Gasto | Expense compartido registrado por cualquier miembro |
+| Split | División de un gasto entre miembros |
+| Balance | Diferencia neta entre lo que le deben y lo que debe un miembro |
+| Liquidar | Marcar una deuda como pagada |
+| Briefing | Resumen diario generado por IA con insights del hogar |
+| Equidad | Score de distribución justa de carga entre miembros |
+| Disponibilidad | Slots semanales en que un miembro puede recibir tareas |
+| Ruleta | Mecanismo de asignación aleatoria de tareas |
+| Copiloto | Concepto central: IA que asiste en la gestión integral del hogar |

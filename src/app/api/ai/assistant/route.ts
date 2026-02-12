@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     );
     const prompt = buildAssistantPrompt({ ...context, question });
 
-    const provider = getLLMProvider();
+    const provider = await getLLMProvider();
     let result: AssistantOutput;
 
     try {

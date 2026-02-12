@@ -99,8 +99,13 @@ export function NotificationsDropdown() {
           notifications: Notification[];
           unreadCount: number;
         };
-        setNotifications(data.notifications);
-        setUnreadCount(data.unreadCount);
+        // Ocultar logros/nivel en la home (sin eliminar código ni datos)
+        const visible = data.notifications.filter(
+          (n) => n.type !== "ACHIEVEMENT_UNLOCKED" && n.type !== "LEVEL_UP"
+        );
+        const visibleUnread = visible.filter((n) => !n.isRead).length;
+        setNotifications(visible);
+        setUnreadCount(visibleUnread);
       }
     } catch {
       // Silently fail

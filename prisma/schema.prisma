@@ -96,6 +96,8 @@ model Household {
   competitions Competition[]
   weeklyPlans          WeeklyPlan[]
   relaxSuggestions     RelaxSuggestion[]
+  planFeedbacks        PlanFeedback[]
+  expenses             Expense[]
 
   @@map("households")
 }
@@ -107,6 +109,7 @@ model Member {
   name        String
   memberType  MemberType @default(ADULT)
   avatarUrl   String?
+  availabilitySlots Json?   /// { weekday: ["MORNING","NIGHT"], weekend: ["MORNING","AFTERNOON"], notes?: "..." }
   isActive    Boolean    @default(true)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -130,9 +133,13 @@ model Member {
   notifications    Notification[]
   pushSubscriptions PushSubscription[]
   whatsappLink     WhatsAppLink?
+  planFeedbacks    PlanFeedback[]
+  expensesPaid     Expense[]      @relation("ExpensesPaid")
+  expenseSplits    ExpenseSplit[] @relation("ExpenseSplits")
 
   @@unique([userId, householdId])
   @@index([householdId])
+  @@index([userId])
   @@map("members")
 }
 
@@ -163,6 +170,7 @@ model Task {
   rotation    TaskRotation?
 
   @@index([householdId])
+  @@index([householdId, isActive])
   @@map("tasks")
 }
 
@@ -483,8 +491,10 @@ model WeeklyPlan {
 
   household Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
   rewards   HouseholdReward[]
+  feedbacks PlanFeedback[]
 
   @@index([householdId, status])
+  @@index([householdId, status, expiresAt])
   @@map("weekly_plans")
 }
 
@@ -494,6 +504,24 @@ enum WeeklyPlanStatus {
   COMPLETED // Plan finalized (all tasks done or manually closed)
   EXPIRED   // Plan expired without being applied
   REJECTED  // User explicitly rejected
+}
+
+model PlanFeedback {
+  id          String   @id @default(cuid())
+  planId      String
+  memberId    String
+  householdId String
+  rating      Int      // 1-5
+  comment     String?
+  createdAt   DateTime @default(now())
+
+  plan      WeeklyPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  member    Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  household Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, memberId])
+  @@index([householdId])
+  @@map("plan_feedbacks")
 }
 
 // ============================================
@@ -607,4 +635,68 @@ model TaskCatalog {
   estimatedMinutes Int?
 
   @@map("task_catalog")
+}
+
+// ============================================
+// EXPENSE MODELS
+// ============================================
+
+model Expense {
+  id          String          @id @default(cuid())
+  householdId String
+  paidById    String
+  title       String
+  amount      Decimal         @db.Decimal(10, 2)
+  currency    String          @default("ARS")
+  category    ExpenseCategory @default(OTHER)
+  date        DateTime        @default(now())
+  notes       String?
+  splitType   SplitType       @default(EQUAL)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  household Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  paidBy    Member       @relation("ExpensesPaid", fields: [paidById], references: [id], onDelete: Cascade)
+  splits    ExpenseSplit[]
+
+  @@index([householdId])
+  @@index([paidById])
+  @@index([householdId, date])
+  @@map("expenses")
+}
+
+model ExpenseSplit {
+  id        String    @id @default(cuid())
+  expenseId String
+  memberId  String
+  amount    Decimal   @db.Decimal(10, 2)
+  settled   Boolean   @default(false)
+  settledAt DateTime?
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  member  Member  @relation("ExpenseSplits", fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, memberId])
+  @@index([memberId])
+  @@index([memberId, settled])
+  @@map("expense_splits")
+}
+
+enum ExpenseCategory {
+  GROCERIES
+  UTILITIES
+  RENT
+  FOOD
+  TRANSPORT
+  HEALTH
+  ENTERTAINMENT
+  EDUCATION
+  HOME
+  OTHER
+}
+
+enum SplitType {
+  EQUAL
+  CUSTOM
+  PERCENTAGE
 }

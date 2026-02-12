@@ -2,8 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { CheckCircle, Clock } from "lucide-react";
 
 import type { Member, MemberLevel, Assignment, Task, MemberType } from "@prisma/client";
 
@@ -30,13 +29,6 @@ export function KidsSummary({ kids }: KidsSummaryProps) {
         const completed = kid.assignments.filter(
           (a) => a.status === "COMPLETED" || a.status === "VERIFIED"
         );
-        const overdue = pending.filter(
-          (a) => a.dueDate && new Date(a.dueDate) < new Date()
-        );
-
-        const level = kid.level?.level ?? 1;
-        const xp = kid.level?.xp ?? 0;
-        const xpProgress = xp % 100;
 
         return (
           <Card key={kid.id}>
@@ -49,17 +41,8 @@ export function KidsSummary({ kids }: KidsSummaryProps) {
               </div>
             </CardHeader>
             <CardContent>
-              {/* Level progress */}
-              <div className="mb-4">
-                <div className="mb-1 flex items-center justify-between text-sm">
-                  <span className="font-medium">Nivel {level}</span>
-                  <span className="text-muted-foreground">{xp} XP total</span>
-                </div>
-                <Progress value={xpProgress} className="h-2" />
-              </div>
-
               {/* Task stats */}
-              <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="grid grid-cols-2 gap-2 text-center">
                 <div className="rounded-2xl bg-yellow-100 p-2 dark:bg-yellow-900">
                   <div className="flex items-center justify-center gap-1">
                     <Clock className="h-4 w-4 text-yellow-600" />
@@ -74,14 +57,6 @@ export function KidsSummary({ kids }: KidsSummaryProps) {
                     <span className="font-bold">{completed.length}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">Completadas</p>
-                </div>
-
-                <div className="rounded-2xl bg-red-100 p-2 dark:bg-red-900">
-                  <div className="flex items-center justify-center gap-1">
-                    <AlertTriangle className="h-4 w-4 text-red-600" />
-                    <span className="font-bold">{overdue.length}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Atrasadas</p>
                 </div>
               </div>
 

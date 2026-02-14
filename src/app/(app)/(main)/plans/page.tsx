@@ -180,15 +180,15 @@ export default async function PlansPage() {
       <div>
         <h2 className="text-sm font-medium text-muted-foreground mb-3">
           {pastPlans.length === 0
-            ? "Sin planes anteriores"
+            ? "Historial"
             : `Planes anteriores (${pastPlans.length})`}
         </h2>
         {pastPlans.length === 0 ? (
           <div className="rounded-2xl bg-muted/30 p-8 text-center">
             <CalendarDays className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-            <p className="font-medium">Sin historial</p>
+            <p className="font-medium">Acá vas a ver tus planes pasados</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Cuando finalices o expire un plan, aparecerá aquí.
+              Cuando completes tu primer plan, aparecerá en el historial para que puedas comparar semana a semana.
             </p>
           </div>
         ) : (

@@ -2,7 +2,8 @@
 
 import { formatDayHeader } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
-import { cyclingColors, contrastText } from "@/lib/design-tokens";
+import { contrastText } from "@/lib/design-tokens";
+import { getMemberColor, getInitial } from "@/lib/member-utils";
 
 import type { AssignmentStatus, MemberType, TaskFrequency } from "@prisma/client";
 
@@ -55,16 +56,6 @@ interface FridgeCalendarDayProps {
 }
 
 
-/** Returns a stable color for a member based on their position in the global members list */
-function getMemberColor(memberId: string, allMembers: CalendarMember[]): string {
-  const index = allMembers.findIndex((m) => m.id === memberId);
-  const safeIndex = index === -1 ? 0 : index;
-  return cyclingColors[safeIndex % cyclingColors.length]!;
-}
-
-function getInitial(name: string): string {
-  return (name[0] ?? "?").toUpperCase();
-}
 
 function isCompletedStatus(status: AssignmentStatus): boolean {
   return status === "COMPLETED" || status === "VERIFIED";

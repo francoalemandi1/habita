@@ -26,6 +26,7 @@ interface FridgeCalendarViewProps {
   initialAssignments: CalendarAssignment[];
   members: CalendarMember[];
   initialWeekStart: string;
+  hideBackButton?: boolean;
 }
 
 interface CompleteResponse {
@@ -88,6 +89,7 @@ export function FridgeCalendarView({
   initialAssignments,
   members,
   initialWeekStart,
+  hideBackButton,
 }: FridgeCalendarViewProps) {
   const [weekStart, setWeekStart] = useState(
     () => new Date(initialWeekStart),
@@ -273,7 +275,7 @@ export function FridgeCalendarView({
     <div className={spacing.contentStackCompact}>
       {/* Header */}
       <div>
-        <BackButton />
+        {!hideBackButton && <BackButton />}
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
           <CalendarDays className={`${iconSize.xl} text-primary shrink-0`} />
           Calendario semanal

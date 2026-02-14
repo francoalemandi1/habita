@@ -36,7 +36,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
             <HouseholdSwitcher
               households={households}
               currentHouseholdId={member.householdId}
-              className="hidden sm:flex"
+              className="flex"
             />
           </div>
           <AppNav />

@@ -96,8 +96,11 @@ model Household {
   competitions Competition[]
   weeklyPlans          WeeklyPlan[]
   relaxSuggestions     RelaxSuggestion[]
+  dealCache            DealCache[]
   planFeedbacks        PlanFeedback[]
   expenses             Expense[]
+  productExclusions    HouseholdProductExclusion[]
+  priceCache           PriceCache[]
 
   @@map("households")
 }
@@ -618,6 +621,77 @@ model RelaxSuggestion {
 
   @@index([householdId, locationKey, sectionType, expiresAt])
   @@map("cultural_suggestions")
+}
+
+// ============================================
+// GROCERY ADVISOR MODELS
+// ============================================
+
+enum GroceryCategory {
+  ALMACEN
+  PANADERIA_DULCES
+  LACTEOS
+  CARNES
+  FRUTAS_VERDURAS
+  BEBIDAS
+  LIMPIEZA
+  PERFUMERIA
+}
+
+model ProductCatalog {
+  id           String          @id @default(cuid())
+  name         String          @unique // "Leche entera"
+  searchTerms  String          @default("") // Terms for web search queries: "leche entera sachet 1 litro"
+  category     GroceryCategory
+  isActive     Boolean         @default(true)
+  isEssential  Boolean         @default(false) // Pre-selected in default shopping list
+  createdAt    DateTime        @default(now())
+
+  @@index([category, isActive])
+  @@map("product_catalog")
+}
+
+model DealCache {
+  id          String          @id @default(cuid())
+  householdId String
+  locationKey String          // "lat.toFixed(1):lng.toFixed(1)"
+  category    GroceryCategory
+  deals       Json            // StoreCluster[] serializado
+  summary     String          // Recomendación: "Comprá en Carrefour..."
+  generatedAt DateTime        @default(now())
+  expiresAt   DateTime
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, locationKey, category, expiresAt])
+  @@map("deal_cache")
+}
+
+model HouseholdProductExclusion {
+  id          String   @id @default(cuid())
+  householdId String
+  productName String
+  createdAt   DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, productName])
+  @@index([householdId])
+  @@map("household_product_exclusions")
+}
+
+model PriceCache {
+  id          String   @id @default(cuid())
+  householdId String
+  locationKey String   // "lat.toFixed(1):lng.toFixed(1)"
+  planData    Json     // ShoppingPlan completo
+  generatedAt DateTime @default(now())
+  expiresAt   DateTime
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, locationKey, expiresAt])
+  @@map("price_cache")
 }
 
 // ============================================

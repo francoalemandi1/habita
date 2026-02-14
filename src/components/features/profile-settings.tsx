@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import { InviteShareBlock } from "@/components/features/invite-share-block";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -14,10 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Check, X, Users, UserPlus, MapPin, CalendarClock, Loader2, Bell, BellOff, MessageCircle, LinkIcon, Unlink } from "lucide-react";
+import { Pencil, Check, X, Users, UserPlus, MapPin, CalendarClock, Loader2, Bell, BellOff, ChevronRight, Settings, ListTodo, RefreshCw } from "lucide-react";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
-import { useWhatsAppLink } from "@/hooks/use-whatsapp-link";
 
 import type { MemberType } from "@prisma/client";
 
@@ -86,42 +86,6 @@ export function ProfileSettings({
   const [isSavingPlanningDay, setIsSavingPlanningDay] = useState(false);
 
   const push = usePushNotifications();
-  const whatsapp = useWhatsAppLink();
-  const [whatsappPhone, setWhatsappPhone] = useState("");
-
-  const handleLinkWhatsApp = async () => {
-    if (!whatsappPhone.trim()) return;
-
-    const phoneNumber = whatsappPhone.startsWith("+")
-      ? whatsappPhone.trim()
-      : `+${whatsappPhone.trim()}`;
-
-    const result = await whatsapp.link(phoneNumber);
-    if (result.success) {
-      toast.success("Código enviado", "Revisá tu WhatsApp e ingresá el código de 6 dígitos");
-      setWhatsappPhone("");
-    } else {
-      toast.error("Error", result.error ?? "No se pudo vincular");
-    }
-  };
-
-  const handleResendCode = async () => {
-    const result = await whatsapp.resend();
-    if (result.success) {
-      toast.success("Código reenviado", "Revisá tu WhatsApp e ingresá el nuevo código");
-    } else {
-      toast.error("Error", result.error ?? "No se pudo reenviar");
-    }
-  };
-
-  const handleUnlinkWhatsApp = async () => {
-    const ok = await whatsapp.unlink();
-    if (ok) {
-      toast.success("WhatsApp desvinculado", "Ya no recibirás mensajes por WhatsApp");
-    } else {
-      toast.error("Error", "No se pudo desvincular");
-    }
-  };
 
   const handleTogglePush = async () => {
     if (push.isSubscribed) {
@@ -526,127 +490,41 @@ export function ProfileSettings({
             </div>
           )}
 
-          {/* WhatsApp */}
-          <div>
-            <p className="text-sm text-muted-foreground mb-1">WhatsApp Bot</p>
-            {whatsapp.isLinked && whatsapp.isVerified ? (
-              /* Verified state */
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium">{whatsapp.phoneNumber}</span>
-                    <Badge variant="outline" className="text-xs text-green-600 border-green-600">
-                      Conectado
-                    </Badge>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleUnlinkWhatsApp}
-                    disabled={whatsapp.isLoading}
-                    className="shrink-0 gap-2"
-                  >
-                    {whatsapp.isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Unlink className="h-4 w-4" />
-                    )}
-                    Desvincular
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Escribí &quot;ayuda&quot; en el chat del bot para ver los comandos
-                </p>
-              </div>
-            ) : whatsapp.isLinked && !whatsapp.isVerified ? (
-              /* Pending verification state */
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-amber-600" />
-                    <span className="text-sm font-medium">{whatsapp.phoneNumber}</span>
-                    <Badge variant="outline" className="text-xs text-amber-600 border-amber-600">
-                      Pendiente
-                    </Badge>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={handleUnlinkWhatsApp}
-                    disabled={whatsapp.isLoading}
-                    className="shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="mt-2 rounded-xl bg-amber-50 px-3 py-2">
-                  {whatsapp.isVerificationExpired ? (
-                    <div>
-                      <p className="text-xs text-amber-700">
-                        El código expiró.
-                      </p>
-                      <Button
-                        size="sm"
-                        variant="link"
-                        onClick={handleResendCode}
-                        disabled={whatsapp.isLoading}
-                        className="h-auto p-0 text-xs text-amber-700 underline"
-                      >
-                        Enviar nuevo código
-                      </Button>
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="text-xs text-amber-700">
-                        Enviamos un código de 6 dígitos a tu WhatsApp. Ingresalo en el chat del bot para verificar.
-                      </p>
-                      <Button
-                        size="sm"
-                        variant="link"
-                        onClick={handleResendCode}
-                        disabled={whatsapp.isLoading}
-                        className="h-auto p-0 text-xs text-amber-700 underline mt-1"
-                      >
-                        Reenviar código
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              /* Not linked state */
-              <div>
+          {/* Config links */}
+          <div className="border-t pt-4">
+            <p className="text-sm text-muted-foreground mb-2">Configuración</p>
+            <div className="space-y-1">
+              <Link
+                href="/preferences"
+                className="flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-muted/50"
+              >
                 <div className="flex items-center gap-2">
-                  <Input
-                    type="tel"
-                    value={whatsappPhone}
-                    onChange={(e) => setWhatsappPhone(e.target.value)}
-                    placeholder="+5491123456789"
-                    maxLength={20}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleLinkWhatsApp();
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleLinkWhatsApp}
-                    disabled={whatsapp.isLoading || !whatsappPhone.trim()}
-                    className="shrink-0 gap-2 bg-green-600 hover:bg-green-700"
-                  >
-                    {whatsapp.isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <LinkIcon className="h-4 w-4" />
-                    )}
-                    Vincular
-                  </Button>
+                  <Settings className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Preferencias y disponibilidad</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Completá tareas y recibí recordatorios directo desde WhatsApp
-                </p>
-              </div>
-            )}
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
+              <Link
+                href="/tasks"
+                className="flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-2">
+                  <ListTodo className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Tareas del hogar</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
+              <Link
+                href="/rotations"
+                className="flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Rotaciones automáticas</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
+            </div>
           </div>
 
           {/* Invite CTA */}

@@ -109,7 +109,7 @@ function buildHighlights(context: BriefingContext): string[] {
   // Overdue tasks (highest priority)
   if (context.overdueCount > 0) {
     const names = context.overdueNames.slice(0, 2).join(", ");
-    highlights.push(`${context.overdueCount} tarea${context.overdueCount > 1 ? "s" : ""} vencida${context.overdueCount > 1 ? "s" : ""}: ${names}`);
+    highlights.push(`${context.overdueCount} tarea${context.overdueCount > 1 ? "s" : ""} de días anteriores: ${names}`);
   }
 
   // Yesterday recap
@@ -154,7 +154,7 @@ function buildSuggestion(context: BriefingContext): string {
   }
 
   if (context.overdueCount > 0) {
-    return "Priorizá las tareas vencidas para ponerte al día.";
+    return "Hay algunas tareas pendientes de días anteriores, buen momento para arrancar por ahí.";
   }
 
   if (context.todayPendingCount === 0 && context.overdueCount === 0) {
@@ -211,10 +211,12 @@ function buildBriefingPrompt(context: BriefingContext): string {
 }
 
 Reglas:
+- Tono POSITIVO y motivador. Nunca culpar, presionar ni hacer sentir mal al usuario
+- No uses palabras como "flojos", "mal", "critico", "ojo", "cuidado", "atrasados"
+- Si hay tareas vencidas, mencionalo de forma neutral como dato informativo, nunca como reproche
 - Nombrá tareas y miembros CONCRETOS, no genéricos
-- Si hay vencidas, mencionalo como highlight prioritario
 - Si no hay pendientes, celebrá en el summary
-- La suggestion debe ser accionable: qué hacer, no solo qué pasa
+- La suggestion debe ser constructiva: qué se puede hacer, no qué se hizo mal
 - Cruzá datos: carga entre miembros, tendencias semanales
 - Respondé SOLO con JSON válido${context.regionalPromptBlock ? `\n\n${context.regionalPromptBlock}` : ""}`;
 }

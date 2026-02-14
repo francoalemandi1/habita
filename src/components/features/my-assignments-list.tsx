@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { TransferRequestButton } from "@/components/features/transfer-request-button";
 import { useToast } from "@/components/ui/toast";
-import { CheckCircle, Clock, Check, Loader2, ArrowRight, Undo2 } from "lucide-react";
+import { CheckCircle, ClipboardList, Clock, Check, Loader2, ArrowRight, Undo2 } from "lucide-react";
 import { assignmentCardColors, spacing, iconSize } from "@/lib/design-tokens";
 import { PlanFeedbackDialog } from "@/components/features/plan-feedback-dialog";
 
@@ -80,38 +80,62 @@ export function MyAssignmentsList({
 
   const allEmpty = assignments.length === 0 && serverCompletedCards.length === 0 && justCompletedIds.size === 0;
 
+  // Differentiate "all done" (user has completed tasks before) vs "no tasks yet" (brand new user)
+  const isFirstTimeUser = allEmpty && totalCompleted === 0 && completedToday === 0;
+
   if (allEmpty) {
     return (
       <div className={`rounded-[24px] bg-brand-cream ${spacing.cardPaddingEmpty} text-center`}>
-        <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-brand-success-dark/20">
-          <CheckCircle className={`${iconSize["2xl"]} text-brand-success-dark`} />
-        </div>
-        <p className="text-lg font-semibold text-foreground">¡Estás al día!</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          No tienes tareas pendientes. ¡Buen trabajo!
-        </p>
-        {(completedToday > 0 || totalCompleted > 0) && (
-          <div className="mt-4 flex justify-center gap-6 text-sm">
-            {completedToday > 0 && (
-              <span className="text-muted-foreground">
-                <span className="font-semibold text-brand-success-dark">{completedToday}</span> hoy
-              </span>
+        {isFirstTimeUser ? (
+          <>
+            <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-primary/10">
+              <ClipboardList className={`${iconSize["2xl"]} text-primary`} />
+            </div>
+            <p className="text-lg font-semibold text-foreground">Empezá a organizar tu hogar</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Generá un plan de tareas y Habita las reparte entre los miembros del hogar.
+            </p>
+            <Link
+              href="/plan"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Crear mi primer plan
+              <ArrowRight className={iconSize.sm} />
+            </Link>
+          </>
+        ) : (
+          <>
+            <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-brand-success-dark/20">
+              <CheckCircle className={`${iconSize["2xl"]} text-brand-success-dark`} />
+            </div>
+            <p className="text-lg font-semibold text-foreground">¡Estás al día!</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              No tenés tareas pendientes. ¡Buen trabajo!
+            </p>
+            {(completedToday > 0 || totalCompleted > 0) && (
+              <div className="mt-4 flex justify-center gap-6 text-sm">
+                {completedToday > 0 && (
+                  <span className="text-muted-foreground">
+                    <span className="font-semibold text-brand-success-dark">{completedToday}</span> hoy
+                  </span>
+                )}
+                {totalCompleted > 0 && (
+                  <span className="text-muted-foreground">
+                    <span className="font-semibold text-[var(--color-xp)]">{totalCompleted}</span> totales
+                  </span>
+                )}
+              </div>
             )}
-            {totalCompleted > 0 && (
-              <span className="text-muted-foreground">
-                <span className="font-semibold text-[var(--color-xp)]">{totalCompleted}</span> totales
-              </span>
+            {showPlanCta && (
+              <Link
+                href="/plan"
+                className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+              >
+                Generar un nuevo plan de tareas
+                <ArrowRight className={iconSize.sm} />
+              </Link>
             )}
-          </div>
-        )}
-        {showPlanCta && (
-          <Link
-            href="/plan"
-            className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-          >
-            Generar un nuevo plan de tareas
-            <ArrowRight className={iconSize.sm} />
-          </Link>
+          </>
         )}
       </div>
     );

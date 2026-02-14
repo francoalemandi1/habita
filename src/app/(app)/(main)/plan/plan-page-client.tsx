@@ -8,7 +8,8 @@ import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
-import { spacing, cyclingColors, contrastText } from "@/lib/design-tokens";
+import { spacing, contrastText } from "@/lib/design-tokens";
+import { getMemberColor, getInitial } from "@/lib/member-utils";
 import {
   CheckCircle2,
   XCircle,
@@ -178,16 +179,6 @@ function getScoreBgColor(score: number): string {
   return "bg-red-500";
 }
 
-/** Returns a stable color for a member based on their position in the members list */
-function getMemberColor(memberId: string, allMembers: { id: string }[]): string {
-  const index = allMembers.findIndex((m) => m.id === memberId);
-  const safeIndex = index === -1 ? 0 : index;
-  return cyclingColors[safeIndex % cyclingColors.length]!;
-}
-
-function getInitial(name: string): string {
-  return (name[0] ?? "?").toUpperCase();
-}
 
 export function PlanPageClient({
   householdId,
@@ -641,7 +632,7 @@ export function PlanPageClient({
                   : `${tasks.length} tareas para ${members.length} ${members.length === 1 ? "miembro" : "miembros"}`}
             </p>
             <Link
-              href="/plan/history"
+              href="/plans"
               className="mt-2 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
             >
               <History className="h-3.5 w-3.5" />

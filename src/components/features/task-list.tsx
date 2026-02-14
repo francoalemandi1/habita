@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
-import { Dices } from "lucide-react";
+import { ClipboardList, Dices } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
@@ -35,9 +35,14 @@ export function TaskList({ tasks }: TaskListProps) {
   if (tasks.length === 0) {
     return (
       <Card>
-        <CardContent className="py-8 text-center">
-          <p className="text-muted-foreground">
-            No hay tareas todavía. Crea tu primera tarea para comenzar.
+        <CardContent className="flex flex-col items-center py-12 text-center">
+          <ClipboardList className="mb-4 h-12 w-12 text-muted-foreground" />
+          <h2 className="mb-2 text-lg font-semibold">Configurá las tareas del hogar</h2>
+          <p className="max-w-md text-sm text-muted-foreground">
+            Elegí tareas del catálogo o creá las tuyas. Después Habita las reparte automáticamente entre los miembros.
+          </p>
+          <p className="mt-4 text-sm text-muted-foreground">
+            Usá el botón <span className="font-medium text-foreground">Agregar tareas</span> de arriba para empezar
           </p>
         </CardContent>
       </Card>

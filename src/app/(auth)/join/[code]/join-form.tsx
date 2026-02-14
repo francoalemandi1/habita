@@ -45,7 +45,7 @@ export function JoinForm({ code, householdName, userName }: JoinFormProps) {
       }
 
       router.refresh();
-      router.push("/dashboard");
+      router.push(`/join/${code}/setup`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al unirse");
     } finally {

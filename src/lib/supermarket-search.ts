@@ -36,6 +36,8 @@ export interface CartProduct {
   isCheapest: boolean;
   unitInfo: ProductUnitInfo | null;
   alternatives: AlternativeProduct[];
+  /** Average price across all stores for this term (null if only 1 store has it). */
+  averagePrice: number | null;
 }
 
 export interface StoreCart {
@@ -43,6 +45,10 @@ export interface StoreCart {
   products: CartProduct[];
   totalPrice: number;
   cheapestCount: number;
+  /** Search terms this store did NOT find (excludes globally not-found terms). */
+  missingTerms: string[];
+  /** Total searchable terms (excludes terms not found in any store). */
+  totalSearched: number;
 }
 
 export interface ShoppingPlanResult {
@@ -162,14 +168,18 @@ function pickRankedMatches(searchTerm: string, products: VtexProduct[]): TermRes
 
   if (scored.length === 0) return null;
 
-  // Sort by value: pricePerUnit if available, otherwise absolute price
-  const anyHasUnit = scored.some((r) => r.unitInfo !== null);
+  // If the search term itself includes a unit ("queso cremoso 200g"),
+  // sort by price-per-unit (best value). Otherwise sort by absolute price.
+  const searchTermHasUnit = parseProductUnit(searchTerm) !== null;
 
   scored.sort((a, b) => {
-    if (anyHasUnit) {
-      const aValue = a.unitInfo?.pricePerUnit ?? Infinity;
-      const bValue = b.unitInfo?.pricePerUnit ?? Infinity;
-      if (aValue !== bValue) return aValue - bValue;
+    if (searchTermHasUnit) {
+      const anyHasUnit = scored.some((r) => r.unitInfo !== null);
+      if (anyHasUnit) {
+        const aValue = a.unitInfo?.pricePerUnit ?? Infinity;
+        const bValue = b.unitInfo?.pricePerUnit ?? Infinity;
+        if (aValue !== bValue) return aValue - bValue;
+      }
     }
     return a.product.price - b.product.price;
   });
@@ -202,24 +212,37 @@ function buildStoreCarts(
   searchTerms: string[],
   storeResults: Map<string, Map<string, TermResult>>,
 ): { storeCarts: StoreCart[]; notFound: string[] } {
-  // Find cheapest price per search term across all stores
+  // Find cheapest and average price per search term across all stores
   const cheapestPriceByTerm = new Map<string, number>();
+  const averagePriceByTerm = new Map<string, number>();
 
   for (const term of searchTerms) {
     let minPrice = Infinity;
+    let priceSum = 0;
+    let storeCount = 0;
+
     for (const [, termMap] of storeResults) {
       const result = termMap.get(term);
-      if (result && result.product.price < minPrice) {
-        minPrice = result.product.price;
+      if (result) {
+        if (result.product.price < minPrice) minPrice = result.product.price;
+        priceSum += result.product.price;
+        storeCount++;
       }
     }
+
     if (minPrice < Infinity) {
       cheapestPriceByTerm.set(term, minPrice);
+    }
+    if (storeCount > 1) {
+      averagePriceByTerm.set(term, priceSum / storeCount);
     }
   }
 
   // Terms not found in any store
   const notFound = searchTerms.filter((term) => !cheapestPriceByTerm.has(term));
+
+  // Terms that exist in at least one store (excludes globally not-found)
+  const searchableTerms = searchTerms.filter((t) => cheapestPriceByTerm.has(t));
 
   // Build cart per store
   const storeCarts: StoreCart[] = [];
@@ -243,19 +266,37 @@ function buildStoreCarts(
         isCheapest: Math.abs(termResult.product.price - cheapest) < 0.01,
         unitInfo: termResult.unitInfo,
         alternatives: termResult.alternatives,
+        averagePrice: averagePriceByTerm.get(term) ?? null,
       });
     }
 
     if (products.length === 0) continue;
 
+    const foundTerms = new Set(products.map((p) => p.searchTerm));
+    const missingTerms = searchableTerms.filter((t) => !foundTerms.has(t));
+
     const totalPrice = products.reduce((sum, p) => sum + p.price, 0);
     const cheapestCount = products.filter((p) => p.isCheapest).length;
 
-    storeCarts.push({ storeName, products, totalPrice, cheapestCount });
+    storeCarts.push({
+      storeName,
+      products,
+      totalPrice,
+      cheapestCount,
+      missingTerms,
+      totalSearched: searchableTerms.length,
+    });
   }
 
-  // Sort by total price ascending (cheapest cart first)
-  storeCarts.sort((a, b) => a.totalPrice - b.totalPrice);
+  // Sort by completeness (more products first), then by total price
+  storeCarts.sort((a, b) => {
+    const completenessA = a.totalSearched > 0 ? a.products.length / a.totalSearched : 0;
+    const completenessB = b.totalSearched > 0 ? b.products.length / b.totalSearched : 0;
+
+    if (completenessA !== completenessB) return completenessB - completenessA;
+
+    return a.totalPrice - b.totalPrice;
+  });
 
   return { storeCarts, notFound };
 }

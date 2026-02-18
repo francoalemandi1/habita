@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Store, ChevronDown, ChevronUp, Trophy, ExternalLink, Tag, X, Undo2 } from "lucide-react";
+import { storeColors, storeColorFallback } from "@/lib/design-tokens";
+import { ChevronDown, ChevronUp, Trophy, ExternalLink, Tag, X, Undo2, AlertCircle } from "lucide-react";
 
 import type { AlternativeProduct, ProductUnitInfo } from "@/lib/supermarket-search";
 import type { AdjustedStoreCart, AdjustedCartProduct } from "@/components/features/grocery-advisor";
@@ -29,6 +30,10 @@ function formatPrice(price: number): string {
   return `$${price.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+function getStoreColor(storeName: string) {
+  return storeColors[storeName] ?? storeColorFallback;
+}
+
 // ============================================
 // Store Cart Card
 // ============================================
@@ -36,51 +41,70 @@ function formatPrice(price: number): string {
 interface StoreCartCardProps {
   cart: AdjustedStoreCart;
   rank: number;
+  isComplete: boolean;
   onSwapProduct?: (searchTerm: string, alternative: AlternativeProduct) => void;
   onRemoveProduct?: (searchTerm: string) => void;
   onRestoreProduct?: (searchTerm: string) => void;
 }
 
-export function StoreCartCard({ cart, rank, onSwapProduct, onRemoveProduct, onRestoreProduct }: StoreCartCardProps) {
+export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onRemoveProduct, onRestoreProduct }: StoreCartCardProps) {
   const isBest = rank === 0;
+  const storeColor = getStoreColor(cart.storeName);
+  const activeProducts = cart.products.filter((p) => !p.isRemoved);
+  const activeCount = activeProducts.length;
+
+  // Cart-level comparison vs market average
+  const productsWithAverage = activeProducts.filter((p) => p.averagePrice != null);
+  const cartAvgTotal = productsWithAverage.reduce((s, p) => s + (p.averagePrice ?? 0), 0);
+  const cartActualTotal = productsWithAverage.reduce((s, p) => s + p.price, 0);
+  const savingsPercent = cartAvgTotal > 0 ? Math.round((1 - cartActualTotal / cartAvgTotal) * 100) : null;
 
   return (
     <div
       className={cn(
-        "rounded-xl border transition-colors",
-        isBest && "border-primary/30 bg-primary/[0.02]",
+        "rounded-2xl border shadow-sm transition-all duration-200 hover:shadow-md",
+        isBest ? "border-primary/40 bg-primary/3" : "border-border/60 bg-card",
+        "animate-stagger-fade-in",
       )}
+      style={{ '--stagger-index': rank } as React.CSSProperties}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center justify-between p-4">
+        <div className="flex items-center gap-3">
+          {/* Store avatar — letter with brand color */}
           <div
-            className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-lg",
-              isBest
-                ? "bg-primary/10 text-primary"
-                : "bg-muted text-muted-foreground",
-            )}
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
+            style={{ backgroundColor: storeColor.bg, color: storeColor.text }}
           >
-            <Store className="h-4 w-4" />
+            {cart.storeName.charAt(0).toUpperCase()}
+            {isBest && (
+              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow-sm">
+                <Trophy className="h-2.5 w-2.5 text-white" />
+              </span>
+            )}
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-semibold">{cart.storeName}</h3>
-              {isBest && (
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+              {isBest && isComplete && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                   Mejor opcion
+                </span>
+              )}
+              {isBest && !isComplete && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                  Mejor precio
                 </span>
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              {cart.products.length} producto{cart.products.length !== 1 ? "s" : ""}
+              {activeCount} de {cart.totalSearched} producto{cart.totalSearched !== 1 ? "s" : ""}
               {cart.cheapestCount > 0 && (
                 <>
                   {" · "}
-                  <span className="inline-flex items-center gap-0.5">
-                    <Trophy className="inline h-2.5 w-2.5" />
-                    {cart.cheapestCount}/{cart.products.length} al menor precio
+                  <span className="inline-flex items-center gap-0.5 text-green-600 dark:text-green-400">
+                    <Tag className="inline h-2.5 w-2.5" />
+                    {cart.cheapestCount}/{activeCount} al menor precio
                   </span>
                 </>
               )}
@@ -88,7 +112,20 @@ export function StoreCartCard({ cart, rank, onSwapProduct, onRemoveProduct, onRe
           </div>
         </div>
 
-        <span className="text-sm font-semibold">{formatPrice(cart.totalPrice)}</span>
+        {/* Price block */}
+        <div className="text-right">
+          <div className={cn("text-lg font-bold tabular-nums", isBest ? "text-primary" : "text-foreground")}>
+            {formatPrice(cart.totalPrice)}
+          </div>
+          {savingsPercent != null && savingsPercent !== 0 && (
+            <span className={cn(
+              "text-[11px] font-medium",
+              savingsPercent > 0 ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400",
+            )}>
+              {savingsPercent > 0 ? `${savingsPercent}% menos` : `+${Math.abs(savingsPercent)}%`}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Product list */}
@@ -98,6 +135,19 @@ export function StoreCartCard({ cart, rank, onSwapProduct, onRemoveProduct, onRe
         onRemoveProduct={onRemoveProduct}
         onRestoreProduct={onRestoreProduct}
       />
+
+      {/* Missing products disclaimer */}
+      {cart.missingTerms.length > 0 && (
+        <div className="mx-3 mb-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 dark:bg-amber-950/30">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <div>
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-400">No encontrado</p>
+            <p className="text-[11px] text-amber-600 dark:text-amber-500">
+              {cart.missingTerms.join(", ")}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -134,7 +184,11 @@ function ProductList({ products, onSwapProduct, onRemoveProduct, onRestoreProduc
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex w-full items-center justify-center gap-1 px-4 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className={cn(
+            "mx-4 mb-2 mt-1 flex w-[calc(100%-2rem)] items-center justify-center gap-1.5",
+            "rounded-full bg-muted/60 py-1.5 text-xs font-medium text-muted-foreground",
+            "transition-colors hover:bg-muted hover:text-foreground",
+          )}
         >
           {isExpanded ? (
             <>
@@ -144,7 +198,7 @@ function ProductList({ products, onSwapProduct, onRemoveProduct, onRestoreProduc
           ) : (
             <>
               <ChevronDown className="h-3 w-3" />
-              Ver {products.length - 3} mas
+              Ver {products.length - 3} productos mas
             </>
           )}
         </button>
@@ -206,12 +260,12 @@ function ProductRow({ product, onSwap, onRemove, onRestore }: ProductRowProps) {
           className="min-w-0 flex-1"
         >
           <div className="flex items-center gap-1.5">
-            <p className="truncate text-sm">{product.productName}</p>
+            <p className="truncate text-sm font-medium">{product.productName}</p>
             {product.isCheapest && (
-              <Tag className="h-3 w-3 shrink-0 text-green-600" />
+              <Tag className="h-3 w-3 shrink-0 text-green-600 dark:text-green-400" />
             )}
           </div>
-          <p className="truncate text-xs text-muted-foreground">
+          <p className="truncate text-xs text-muted-foreground/70">
             {product.searchTerm}
           </p>
           {product.unitInfo && (
@@ -219,13 +273,31 @@ function ProductRow({ product, onSwap, onRemove, onRestore }: ProductRowProps) {
               {formatUnitInfo(product.unitInfo)}
             </p>
           )}
+          {product.averagePrice != null && (
+            <p className="text-[11px] text-muted-foreground/70">
+              {"Prom: "}
+              {formatPrice(Math.round(product.averagePrice))}
+              {product.price < product.averagePrice && (
+                <span className="ml-1 text-green-600">
+                  ({Math.round((1 - product.price / product.averagePrice) * 100)}% menos)
+                </span>
+              )}
+              {product.price > product.averagePrice && (
+                <span className="ml-1 text-amber-600">
+                  ({Math.round((product.price / product.averagePrice - 1) * 100)}% mas)
+                </span>
+              )}
+            </p>
+          )}
         </a>
         <div className="ml-2 flex shrink-0 items-center gap-1.5">
           <div className="text-right">
             <span
               className={cn(
-                "text-sm font-semibold",
-                product.isCheapest ? "text-green-600" : "text-foreground",
+                "tabular-nums",
+                product.isCheapest
+                  ? "text-base font-bold text-green-600 dark:text-green-400"
+                  : "text-sm font-semibold text-foreground",
               )}
             >
               {formatPrice(product.price)}
@@ -273,23 +345,28 @@ function AlternativesSection({ alternatives, onSwap }: AlternativesSectionProps)
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="px-4 pb-1">
+    <div className="px-4 pb-1.5">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1 py-1 pl-1 text-[11px] text-muted-foreground/70 transition-colors hover:text-foreground"
+        className={cn(
+          "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium",
+          "bg-muted/50 text-muted-foreground transition-colors",
+          "hover:bg-muted hover:text-foreground",
+          isOpen && "bg-primary/10 text-primary",
+        )}
       >
-        <ChevronDown className={cn("h-2.5 w-2.5 transition-transform", isOpen && "rotate-180")} />
+        <ChevronDown className={cn("h-3 w-3 transition-transform duration-200", isOpen && "rotate-180")} />
         {alternatives.length} alternativa{alternatives.length !== 1 ? "s" : ""}
       </button>
 
       {isOpen && (
-        <div className="ml-1 space-y-0.5 rounded-md bg-muted/30 p-1.5">
+        <div className="mt-1.5 space-y-0.5 rounded-xl bg-muted/40 p-2">
           {alternatives.map((alt) => (
             <div
               key={alt.link}
               className={cn(
-                "flex items-center justify-between rounded px-1.5 py-1.5 text-xs transition-colors",
+                "flex items-center justify-between rounded-lg px-2 py-1.5 text-xs transition-colors",
                 onSwap ? "cursor-pointer hover:bg-primary/10" : "hover:bg-muted/40",
               )}
               onClick={onSwap ? () => onSwap(alt) : undefined}

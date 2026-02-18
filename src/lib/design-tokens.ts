@@ -148,6 +148,25 @@ export const memberRewardColors = [
   { bg: "bg-[#e4d5ff]/40", text: "text-[#272727]", rewardBg: "bg-white/70" },
 ] as const;
 
+// ── 4b. STORE BRAND COLORS (supermarket comparison) ──
+
+/** Store brand colors — letter avatars for the supermarket comparison feature. */
+export const storeColors: Record<string, { bg: string; text: string }> = {
+  "Carrefour":     { bg: "#003da5", text: "#ffffff" },
+  "Coto":          { bg: "#e31837", text: "#ffffff" },
+  "Dia":           { bg: "#d52b1e", text: "#ffffff" },
+  "Disco":         { bg: "#0066b2", text: "#ffffff" },
+  "Jumbo":         { bg: "#009b3a", text: "#ffffff" },
+  "Mas Online":    { bg: "#522a97", text: "#ffffff" },
+  "Vea":           { bg: "#fd7c52", text: "#ffffff" },
+  "HiperLibertad": { bg: "#e31837", text: "#ffffff" },
+  "Cordiez":       { bg: "#7aa649", text: "#ffffff" },
+  "Toledo":        { bg: "#4080d0", text: "#ffffff" },
+  "Coop. Obrera":  { bg: "#5260fe", text: "#ffffff" },
+};
+
+export const storeColorFallback = { bg: "#595959", text: "#ffffff" } as const;
+
 /** Notification type → style mapping. */
 export const notificationStyles: Record<
   string,

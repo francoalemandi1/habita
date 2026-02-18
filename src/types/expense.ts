@@ -5,6 +5,7 @@ export interface ExpenseSplitSerialized {
   memberId: string;
   amount: number;
   settled: boolean;
+  settledAt: string | null;
   member: { id: string; name: string };
 }
 

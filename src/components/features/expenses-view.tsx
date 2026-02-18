@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/api-client";
 import { ExpenseList } from "@/components/features/expense-list";
@@ -55,8 +55,31 @@ export function ExpensesView({
   const [expenses, setExpenses] = useState(initialExpenses);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [newlyCreatedIds, setNewlyCreatedIds] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<ExpensesTab>("activity");
+  const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
+
+  // Sync with server data after router.refresh()
+  useEffect(() => {
+    setExpenses(initialExpenses);
+    setBalanceRefreshKey((k) => k + 1);
+  }, [initialExpenses]);
+  const deletingInProgressRef = useRef<Set<string>>(new Set());
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = (searchParams.get("tab") === "deals" ? "deals" : "activity") as ExpensesTab;
+
+  const setActiveTab = useCallback(
+    (tab: ExpensesTab) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (tab === "activity") {
+        params.delete("tab");
+      } else {
+        params.set("tab", tab);
+      }
+      const query = params.toString();
+      router.replace(query ? `?${query}` : window.location.pathname, { scroll: false });
+    },
+    [router, searchParams],
+  );
   const toast = useToast();
 
   const currentPayer = allMembers.find((m) => m.id === currentMemberId);
@@ -75,6 +98,7 @@ export function ExpensesView({
               memberId: s.memberId,
               amount: s.amount ?? payload.amount / (payload.splits?.length ?? 1),
               settled: false,
+              settledAt: null,
               member: { id: s.memberId, name: member?.name ?? "?" },
             };
           })
@@ -83,6 +107,7 @@ export function ExpensesView({
             memberId: m.id,
             amount: Math.round((payload.amount / allMembers.length) * 100) / 100,
             settled: false,
+            settledAt: null,
             member: { id: m.id, name: m.name },
           }));
 
@@ -171,6 +196,9 @@ export function ExpensesView({
 
   const handleExpenseDeleted = useCallback(
     (expenseId: string) => {
+      if (deletingInProgressRef.current.has(expenseId)) return;
+      deletingInProgressRef.current.add(expenseId);
+
       const previous = expenses;
 
       // Start fade-out animation
@@ -187,11 +215,16 @@ export function ExpensesView({
 
         apiFetch(`/api/expenses/${expenseId}`, { method: "DELETE" })
           .then(() => {
+            deletingInProgressRef.current.delete(expenseId);
             router.refresh();
           })
-          .catch(() => {
+          .catch((error) => {
+            deletingInProgressRef.current.delete(expenseId);
             setExpenses(previous);
-            toast.error("Error", "No se pudo eliminar el gasto");
+            toast.error(
+              "Error",
+              error instanceof Error ? error.message : "No se pudo eliminar el gasto",
+            );
           });
       }, 200);
     },
@@ -212,10 +245,6 @@ export function ExpensesView({
             />
           )}
         </div>
-      </div>
-
-      <div className={spacing.sectionGap}>
-        <ExpenseSummary currentMemberId={currentMemberId} allMembers={allMembers} />
       </div>
 
       {/* Tab switcher */}
@@ -248,7 +277,8 @@ export function ExpensesView({
 
       {/* Tab content */}
       {activeTab === "activity" ? (
-        <div className={spacing.sectionGap}>
+        <div className="space-y-6">
+          <ExpenseSummary currentMemberId={currentMemberId} refreshKey={balanceRefreshKey} />
           <ExpenseList
             expenses={expenses}
             currentMemberId={currentMemberId}

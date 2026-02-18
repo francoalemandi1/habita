@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, type SyntheticEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Film,
   Drama,
@@ -33,6 +34,7 @@ import {
   Users,
   Lightbulb,
   Compass,
+  Search,
 } from "lucide-react";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useRelaxSuggestions, useRefreshRelaxSection } from "@/hooks/use-relax-suggestions";
@@ -150,11 +152,30 @@ export function RelaxClient({
   cachedCultureAt,
 }: RelaxClientProps) {
   const { location, isLoading: isGeoLoading } = useGeolocation();
-  const [activeTab, setActiveTab] = useState<RelaxSection>("culture");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const VALID_SECTIONS = new Set<RelaxSection>(["culture", "restaurants", "weekend"]);
+  const sectionParam = searchParams.get("section") as RelaxSection | null;
+  const activeTab: RelaxSection = sectionParam && VALID_SECTIONS.has(sectionParam) ? sectionParam : "culture";
+
+  const setActiveTab = useCallback(
+    (tab: RelaxSection) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (tab === "culture") {
+        params.delete("section");
+      } else {
+        params.set("section", tab);
+      }
+      const query = params.toString();
+      router.replace(query ? `?${query}` : window.location.pathname, { scroll: false });
+    },
+    [router, searchParams],
+  );
 
   // Track which tabs have been visited for lazy-loading
   const [visitedTabs, setVisitedTabs] = useState<Set<RelaxSection>>(
-    new Set<RelaxSection>(["culture"])
+    new Set<RelaxSection>([activeTab])
   );
 
   // Category filter state per section
@@ -550,7 +571,7 @@ function EventCard({
         </div>
       )}
 
-      {/* Links: Google Maps + web source */}
+      {/* Links: Google Maps directions + Google Search */}
       <div className="mt-2 flex flex-wrap gap-2">
         {event.url && (
           <a
@@ -560,21 +581,19 @@ function EventCard({
             className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
           >
             <MapPin className="h-3 w-3" />
-            Ver en Maps
+            Cómo llegar
             <ExternalLink className="h-3 w-3" />
           </a>
         )}
-        {event.sourceUrl && (
-          <a
-            href={event.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-100"
-          >
-            <ExternalLink className="h-3 w-3" />
-            Ver fuente web
-          </a>
-        )}
+        <a
+          href={`https://www.google.com/search?q=${encodeURIComponent(`${event.title} ${event.venue}`)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-100"
+        >
+          <Search className="h-3 w-3" />
+          Buscar en Google
+        </a>
       </div>
       </div>
     </div>

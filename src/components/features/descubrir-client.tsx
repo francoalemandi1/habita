@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { RelaxClient } from "@/components/features/relax-client";
 import { CocinaClient } from "@/components/features/cocina-client";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,23 @@ export function DescubrirClient({
   cachedCultureAt,
   householdSize,
 }: DescubrirClientProps) {
-  const [activeTab, setActiveTab] = useState<DescubrirTab>("planes");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = (searchParams.get("tab") === "cocina" ? "cocina" : "planes") as DescubrirTab;
+
+  const setActiveTab = useCallback(
+    (tab: DescubrirTab) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (tab === "planes") {
+        params.delete("tab");
+      } else {
+        params.set("tab", tab);
+      }
+      const query = params.toString();
+      router.replace(query ? `?${query}` : window.location.pathname, { scroll: false });
+    },
+    [router, searchParams],
+  );
 
   return (
     <>

@@ -35,7 +35,11 @@ export default async function BalancePage() {
     ...e,
     amount: e.amount.toNumber(),
     date: e.date.toISOString(),
-    splits: e.splits.map((s) => ({ ...s, amount: s.amount.toNumber() })),
+    splits: e.splits.map((s) => ({
+      ...s,
+      amount: s.amount.toNumber(),
+      settledAt: s.settledAt?.toISOString() ?? null,
+    })),
   }));
 
   const hasLocation = !!(member.household.latitude && member.household.longitude);

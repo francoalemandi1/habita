@@ -280,8 +280,8 @@ function postProcess(
 // ============================================
 
 function buildGoogleMapsUrl(venue: string, city: string): string {
-  const query = encodeURIComponent(`${venue}, ${city}`);
-  return `https://www.google.com/maps/search/?api=1&query=${query}`;
+  const destination = encodeURIComponent(`${venue}, ${city}`);
+  return `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
 }
 
 // ============================================

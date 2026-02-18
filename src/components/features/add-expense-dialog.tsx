@@ -27,6 +27,68 @@ import type { ExpenseCategory, SplitType } from "@prisma/client";
 import type { MemberOption } from "@/types/expense";
 import type { CreateExpensePayload } from "@/components/features/expenses-view";
 
+interface CustomSplitValidationProps {
+  totalAmount: number;
+  customSplits: Record<string, string>;
+  members: MemberOption[];
+  onDistributeRemaining: (distributed: Record<string, string>) => void;
+}
+
+function CustomSplitValidation({ totalAmount, customSplits, members, onDistributeRemaining }: CustomSplitValidationProps) {
+  const assignedTotal = members.reduce(
+    (sum, m) => sum + (parseFloat(customSplits[m.id] ?? "0") || 0),
+    0,
+  );
+  const difference = totalAmount - assignedTotal;
+  const isBalanced = Math.abs(difference) < 0.01;
+  const isUnder = difference > 0.01;
+
+  function handleDistributeRemaining() {
+    const membersWithoutAmount = members.filter(
+      (m) => !customSplits[m.id] || parseFloat(customSplits[m.id] ?? "0") === 0,
+    );
+    if (membersWithoutAmount.length === 0 || difference <= 0) return;
+
+    const perMember = Math.round((difference / membersWithoutAmount.length) * 100) / 100;
+    const updated = { ...customSplits };
+    membersWithoutAmount.forEach((m) => {
+      updated[m.id] = perMember.toFixed(2);
+    });
+    onDistributeRemaining(updated);
+  }
+
+  if (totalAmount <= 0) return null;
+
+  return (
+    <div
+      className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
+        isBalanced
+          ? "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
+          : isUnder
+            ? "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+            : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
+      }`}
+    >
+      <span>
+        {isBalanced
+          ? "Montos correctos"
+          : isUnder
+            ? `$${difference.toFixed(2)} por asignar`
+            : `$${Math.abs(difference).toFixed(2)} de más`}
+      </span>
+      {isUnder && (
+        <button
+          type="button"
+          onClick={handleDistributeRemaining}
+          className="rounded-md bg-white/80 px-2 py-0.5 text-xs font-medium hover:bg-white dark:bg-white/10 dark:hover:bg-white/20"
+        >
+          Dividir resto
+        </button>
+      )}
+    </div>
+  );
+}
+
 interface AddExpenseDialogProps {
   members: MemberOption[];
   currentMemberId: string;
@@ -47,6 +109,7 @@ export function AddExpenseDialog({ members, currentMemberId, onExpenseCreated }:
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showPayerSelect, setShowPayerSelect] = useState(false);
   const [showCategorySelect, setShowCategorySelect] = useState(false);
+  const [showExcludeMembers, setShowExcludeMembers] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
@@ -72,6 +135,7 @@ export function AddExpenseDialog({ members, currentMemberId, onExpenseCreated }:
     setShowAdvanced(false);
     setShowPayerSelect(false);
     setShowCategorySelect(false);
+    setShowExcludeMembers(false);
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -130,6 +194,17 @@ export function AddExpenseDialog({ members, currentMemberId, onExpenseCreated }:
     if (!title.trim() || isNaN(parsedAmount) || parsedAmount <= 0) {
       toast.error("Error", "Completa descripcion y monto");
       return;
+    }
+
+    if (splitType === "CUSTOM") {
+      const assignedTotal = members.reduce(
+        (sum, m) => sum + (parseFloat(customSplits[m.id] ?? "0") || 0),
+        0,
+      );
+      if (Math.abs(parsedAmount - assignedTotal) > 0.01) {
+        toast.error("Error", "Los montos custom no suman el total del gasto");
+        return;
+      }
     }
 
     const splits =
@@ -242,18 +317,59 @@ export function AddExpenseDialog({ members, currentMemberId, onExpenseCreated }:
                 </span>
               </button>
 
-              {/* Split type chip */}
+            </div>
+
+            {/* Split type presets */}
+            <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
-                onClick={() => setSplitType(splitType === "EQUAL" ? "CUSTOM" : "EQUAL")}
+                onClick={() => {
+                  setSplitType("EQUAL");
+                  setExcludedMembers(new Set());
+                  setShowExcludeMembers(false);
+                }}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                  splitType === "EQUAL"
-                    ? "border-input hover:bg-muted"
-                    : "border-primary bg-primary/10 text-primary"
+                  splitType === "EQUAL" && !showExcludeMembers
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-input hover:bg-muted"
                 }`}
               >
                 <span className="text-xs">÷</span>
-                {splitType === "EQUAL" ? "En partes iguales" : "Montos custom"}
+                Partes iguales
+              </button>
+
+              {members.length > 2 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSplitType("EQUAL");
+                    setShowExcludeMembers(true);
+                  }}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                    splitType === "EQUAL" && showExcludeMembers
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-input hover:bg-muted"
+                  }`}
+                >
+                  <span className="text-xs">-1</span>
+                  Uno no participa
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSplitType("CUSTOM");
+                  setShowExcludeMembers(false);
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                  splitType === "CUSTOM"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-input hover:bg-muted"
+                }`}
+              >
+                <span className="text-xs">#</span>
+                Montos custom
               </button>
             </div>
 
@@ -312,7 +428,7 @@ export function AddExpenseDialog({ members, currentMemberId, onExpenseCreated }:
             )}
 
             {/* Member selection for EQUAL split (exclude members) */}
-            {splitType === "EQUAL" && members.length > 2 && (
+            {splitType === "EQUAL" && showExcludeMembers && (
               <div className="space-y-1.5 rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">Dividir entre</p>
                 <div className="flex flex-wrap gap-2">
@@ -342,26 +458,35 @@ export function AddExpenseDialog({ members, currentMemberId, onExpenseCreated }:
 
             {/* Custom splits (shown when CUSTOM selected) */}
             {splitType === "CUSTOM" && (
-              <div className="space-y-2 rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">Monto por miembro</p>
-                {members.map((m) => (
-                  <div key={m.id} className="flex items-center gap-2">
-                    <span className="min-w-0 flex-1 truncate text-sm">{m.name}</span>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0.00"
-                      value={customSplits[m.id] ?? ""}
-                      onChange={(e) =>
-                        setCustomSplits((prev) => ({ ...prev, [m.id]: e.target.value }))
-                      }
-                      className="w-28"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="space-y-2 rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">Monto por miembro</p>
+                  {members.map((m) => (
+                    <div key={m.id} className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm">{m.name}</span>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        value={customSplits[m.id] ?? ""}
+                        onChange={(e) =>
+                          setCustomSplits((prev) => ({ ...prev, [m.id]: e.target.value }))
+                        }
+                        className="w-28"
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <CustomSplitValidation
+                  totalAmount={parseFloat(amount) || 0}
+                  customSplits={customSplits}
+                  members={members}
+                  onDistributeRemaining={(distributed) => setCustomSplits(distributed)}
+                />
+              </>
             )}
 
             {/* Advanced options toggle */}

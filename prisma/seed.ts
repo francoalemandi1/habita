@@ -66,7 +66,7 @@ const productCatalog: Array<{
   // ── ALMACEN ──
   { name: "Aceite girasol", searchTerms: "aceite girasol 1.5 litros", category: "ALMACEN", isEssential: true },
   { name: "Aceite de oliva", searchTerms: "aceite oliva 500ml", category: "ALMACEN" },
-  { name: "Fideos secos", searchTerms: "fideos secos 500g spaghetti", category: "ALMACEN", isEssential: true },
+  { name: "Fideos secos", searchTerms: "fideos secos", category: "ALMACEN", isEssential: true },
   { name: "Puré de tomate", searchTerms: "pure de tomate 520g", category: "ALMACEN", isEssential: true },
   { name: "Atún en lata", searchTerms: "atun lata 170g", category: "ALMACEN" },
   { name: "Arvejas en lata", searchTerms: "arvejas lata 350g", category: "ALMACEN" },
@@ -158,7 +158,7 @@ const productCatalog: Array<{
   { name: "Lavandina", searchTerms: "lavandina 1 litro", category: "LIMPIEZA", isEssential: true },
   { name: "Bolsas de residuo", searchTerms: "bolsas residuo consorcio x30", category: "LIMPIEZA" },
   { name: "Esponja multiuso", searchTerms: "esponja multiuso x3", category: "LIMPIEZA" },
-  { name: "Detergente", searchTerms: "detergente lavavajillas 750ml", category: "LIMPIEZA", isEssential: true },
+  { name: "Detergente", searchTerms: "detergente lavavajillas", category: "LIMPIEZA", isEssential: true },
   { name: "Insecticida aerosol", searchTerms: "insecticida aerosol 360ml", category: "LIMPIEZA" },
 
   // ── PERFUMERIA ──

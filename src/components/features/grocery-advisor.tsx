@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useShoppingPlan } from "@/hooks/use-shopping-plan";
 import { ProductSearchInput } from "@/components/features/product-search-input";
 import { CatalogSheet } from "@/components/features/catalog-sheet";
@@ -15,6 +15,20 @@ import {
   PackageX,
   ListPlus,
 } from "lucide-react";
+
+import type { AlternativeProduct, CartProduct, StoreCart } from "@/lib/supermarket-search";
+
+// ============================================
+// Adjusted types (with user overrides applied)
+// ============================================
+
+export interface AdjustedCartProduct extends CartProduct {
+  isRemoved: boolean;
+}
+
+export interface AdjustedStoreCart extends Omit<StoreCart, "products"> {
+  products: AdjustedCartProduct[];
+}
 
 // ============================================
 // Constants
@@ -45,6 +59,70 @@ function saveTerms(terms: string[]) {
 }
 
 // ============================================
+// Cart overrides
+// ============================================
+
+interface CartOverride {
+  type: "swap" | "remove";
+  alternative?: AlternativeProduct;
+}
+
+/** Key for the overrides map: "storeName::searchTerm" */
+function overrideKey(storeName: string, searchTerm: string): string {
+  return `${storeName}::${searchTerm}`;
+}
+
+/** Apply user overrides (swap/remove) to the original API carts. */
+function applyOverrides(carts: StoreCart[], overrides: Map<string, CartOverride>): AdjustedStoreCart[] {
+  if (overrides.size === 0) {
+    return carts.map((cart) => ({
+      ...cart,
+      products: cart.products.map((p) => ({ ...p, isRemoved: false })),
+    }));
+  }
+
+  return carts
+    .map((cart) => {
+      const products = cart.products.map((p) => {
+        const key = overrideKey(cart.storeName, p.searchTerm);
+        const override = overrides.get(key);
+
+        if (override?.type === "remove") {
+          return { ...p, isRemoved: true };
+        }
+
+        if (override?.type === "swap" && override.alternative) {
+          const alt = override.alternative;
+          return {
+            ...p,
+            isRemoved: false,
+            productName: alt.productName,
+            price: alt.price,
+            listPrice: alt.listPrice,
+            link: alt.link,
+            unitInfo: alt.unitInfo,
+            alternatives: [
+              { productName: p.productName, price: p.price, listPrice: p.listPrice, link: p.link, unitInfo: p.unitInfo },
+              ...p.alternatives.filter((a) => a.link !== alt.link),
+            ],
+          };
+        }
+
+        return { ...p, isRemoved: false };
+      });
+
+      const activeProducts = products.filter((p) => !p.isRemoved);
+      if (activeProducts.length === 0) return null;
+
+      const totalPrice = activeProducts.reduce((sum, p) => sum + p.price, 0);
+      const cheapestCount = activeProducts.filter((p) => p.isCheapest).length;
+      return { ...cart, products, totalPrice, cheapestCount };
+    })
+    .filter((c): c is AdjustedStoreCart => c !== null)
+    .sort((a, b) => a.totalPrice - b.totalPrice);
+}
+
+// ============================================
 // Component
 // ============================================
 
@@ -56,6 +134,7 @@ interface ShoppingPlanProps {
 export function ShoppingPlanView(_props: ShoppingPlanProps) {
   const [searchTerms, setSearchTerms] = useState<string[]>([]);
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [overrides, setOverrides] = useState<Map<string, CartOverride>>(new Map());
 
   // Load saved terms after hydration to avoid SSR mismatch
   useEffect(() => {
@@ -63,6 +142,11 @@ export function ShoppingPlanView(_props: ShoppingPlanProps) {
     if (saved.length > 0) setSearchTerms(saved);
   }, []);
   const { data, isLoading, error, search, reset } = useShoppingPlan();
+
+  const adjustedCarts = useMemo(() => {
+    if (!data) return [];
+    return applyOverrides(data.storeCarts, overrides);
+  }, [data, overrides]);
 
   const addTerm = useCallback((term: string) => {
     setSearchTerms((prev) => {
@@ -90,7 +174,32 @@ export function ShoppingPlanView(_props: ShoppingPlanProps) {
 
   const handleNewSearch = useCallback(() => {
     reset();
+    setOverrides(new Map());
   }, [reset]);
+
+  const swapProduct = useCallback((storeName: string, searchTerm: string, alternative: AlternativeProduct) => {
+    setOverrides((prev) => {
+      const next = new Map(prev);
+      next.set(overrideKey(storeName, searchTerm), { type: "swap", alternative });
+      return next;
+    });
+  }, []);
+
+  const removeProduct = useCallback((storeName: string, searchTerm: string) => {
+    setOverrides((prev) => {
+      const next = new Map(prev);
+      next.set(overrideKey(storeName, searchTerm), { type: "remove" });
+      return next;
+    });
+  }, []);
+
+  const restoreProduct = useCallback((storeName: string, searchTerm: string) => {
+    setOverrides((prev) => {
+      const next = new Map(prev);
+      next.delete(overrideKey(storeName, searchTerm));
+      return next;
+    });
+  }, []);
 
   // ── Results state ──
   if (data) {
@@ -118,10 +227,17 @@ export function ShoppingPlanView(_props: ShoppingPlanProps) {
         </div>
 
         {/* Store carts */}
-        {data.storeCarts.length > 0 ? (
+        {adjustedCarts.length > 0 ? (
           <div className="space-y-3">
-            {data.storeCarts.map((cart, idx) => (
-              <StoreCartCard key={cart.storeName} cart={cart} rank={idx} />
+            {adjustedCarts.map((cart, idx) => (
+              <StoreCartCard
+                key={cart.storeName}
+                cart={cart}
+                rank={idx}
+                onSwapProduct={(searchTerm, alt) => swapProduct(cart.storeName, searchTerm, alt)}
+                onRemoveProduct={(searchTerm) => removeProduct(cart.storeName, searchTerm)}
+                onRestoreProduct={(searchTerm) => restoreProduct(cart.storeName, searchTerm)}
+              />
             ))}
           </div>
         ) : (

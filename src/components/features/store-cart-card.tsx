@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Store, ChevronDown, ChevronUp, Trophy, ExternalLink, Tag } from "lucide-react";
+import { Store, ChevronDown, ChevronUp, Trophy, ExternalLink, Tag, X, Undo2 } from "lucide-react";
 
-import type { StoreCart, CartProduct, AlternativeProduct, ProductUnitInfo } from "@/lib/supermarket-search";
+import type { AlternativeProduct, ProductUnitInfo } from "@/lib/supermarket-search";
+import type { AdjustedStoreCart, AdjustedCartProduct } from "@/components/features/grocery-advisor";
 
 // ============================================
 // Helpers
@@ -33,11 +34,14 @@ function formatPrice(price: number): string {
 // ============================================
 
 interface StoreCartCardProps {
-  cart: StoreCart;
+  cart: AdjustedStoreCart;
   rank: number;
+  onSwapProduct?: (searchTerm: string, alternative: AlternativeProduct) => void;
+  onRemoveProduct?: (searchTerm: string) => void;
+  onRestoreProduct?: (searchTerm: string) => void;
 }
 
-export function StoreCartCard({ cart, rank }: StoreCartCardProps) {
+export function StoreCartCard({ cart, rank, onSwapProduct, onRemoveProduct, onRestoreProduct }: StoreCartCardProps) {
   const isBest = rank === 0;
 
   return (
@@ -88,7 +92,12 @@ export function StoreCartCard({ cart, rank }: StoreCartCardProps) {
       </div>
 
       {/* Product list */}
-      <ProductList products={cart.products} />
+      <ProductList
+        products={cart.products}
+        onSwapProduct={onSwapProduct}
+        onRemoveProduct={onRemoveProduct}
+        onRestoreProduct={onRestoreProduct}
+      />
     </div>
   );
 }
@@ -97,7 +106,14 @@ export function StoreCartCard({ cart, rank }: StoreCartCardProps) {
 // Product List (collapsible)
 // ============================================
 
-function ProductList({ products }: { products: CartProduct[] }) {
+interface ProductListProps {
+  products: AdjustedCartProduct[];
+  onSwapProduct?: (searchTerm: string, alternative: AlternativeProduct) => void;
+  onRemoveProduct?: (searchTerm: string) => void;
+  onRestoreProduct?: (searchTerm: string) => void;
+}
+
+function ProductList({ products, onSwapProduct, onRemoveProduct, onRestoreProduct }: ProductListProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const visibleProducts = isExpanded ? products : products.slice(0, 3);
   const hasMore = products.length > 3;
@@ -105,7 +121,13 @@ function ProductList({ products }: { products: CartProduct[] }) {
   return (
     <div className="border-t">
       {visibleProducts.map((product) => (
-        <ProductRow key={product.searchTerm} product={product} />
+        <ProductRow
+          key={product.searchTerm}
+          product={product}
+          onSwap={onSwapProduct ? (alt) => onSwapProduct(product.searchTerm, alt) : undefined}
+          onRemove={onRemoveProduct ? () => onRemoveProduct(product.searchTerm) : undefined}
+          onRestore={onRestoreProduct ? () => onRestoreProduct(product.searchTerm) : undefined}
+        />
       ))}
 
       {hasMore && (
@@ -135,18 +157,54 @@ function ProductList({ products }: { products: CartProduct[] }) {
 // Product Row
 // ============================================
 
-function ProductRow({ product }: { product: CartProduct }) {
+interface ProductRowProps {
+  product: AdjustedCartProduct;
+  onSwap?: (alternative: AlternativeProduct) => void;
+  onRemove?: () => void;
+  onRestore?: () => void;
+}
+
+function ProductRow({ product, onSwap, onRemove, onRestore }: ProductRowProps) {
   const hasDiscount = product.listPrice && product.listPrice > product.price;
+
+  // Removed product: strikethrough with restore button
+  if (product.isRemoved) {
+    return (
+      <div className="flex items-center justify-between px-4 py-2.5 opacity-50">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm line-through">{product.productName}</p>
+          <p className="truncate text-xs text-muted-foreground line-through">
+            {product.searchTerm}
+          </p>
+        </div>
+        <div className="ml-2 flex shrink-0 items-center gap-1.5">
+          <span className="text-sm text-muted-foreground line-through">
+            {formatPrice(product.price)}
+          </span>
+          {onRestore && (
+            <button
+              type="button"
+              onClick={onRestore}
+              className="text-muted-foreground transition-colors hover:text-primary"
+              title="Restaurar producto"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
-      <a
-        href={product.link}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center justify-between px-4 py-2.5 transition-colors hover:bg-muted/20"
-      >
-        <div className="min-w-0 flex-1">
+      <div className="flex items-center justify-between px-4 py-2.5 transition-colors hover:bg-muted/20">
+        <a
+          href={product.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="min-w-0 flex-1"
+        >
           <div className="flex items-center gap-1.5">
             <p className="truncate text-sm">{product.productName}</p>
             {product.isCheapest && (
@@ -161,7 +219,7 @@ function ProductRow({ product }: { product: CartProduct }) {
               {formatUnitInfo(product.unitInfo)}
             </p>
           )}
-        </div>
+        </a>
         <div className="ml-2 flex shrink-0 items-center gap-1.5">
           <div className="text-right">
             <span
@@ -178,13 +236,25 @@ function ProductRow({ product }: { product: CartProduct }) {
               </span>
             )}
           </div>
-          <ExternalLink className="h-3 w-3 text-muted-foreground" />
+          <a href={product.link} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+          </a>
+          {onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="text-muted-foreground/40 transition-colors hover:text-destructive"
+              title="Quitar producto"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
         </div>
-      </a>
+      </div>
 
       {/* Alternatives */}
       {product.alternatives.length > 0 && (
-        <AlternativesSection alternatives={product.alternatives} />
+        <AlternativesSection alternatives={product.alternatives} onSwap={onSwap} />
       )}
     </div>
   );
@@ -194,7 +264,12 @@ function ProductRow({ product }: { product: CartProduct }) {
 // Alternatives Section (collapsible)
 // ============================================
 
-function AlternativesSection({ alternatives }: { alternatives: AlternativeProduct[] }) {
+interface AlternativesSectionProps {
+  alternatives: AlternativeProduct[];
+  onSwap?: (alternative: AlternativeProduct) => void;
+}
+
+function AlternativesSection({ alternatives, onSwap }: AlternativesSectionProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -211,26 +286,41 @@ function AlternativesSection({ alternatives }: { alternatives: AlternativeProduc
       {isOpen && (
         <div className="ml-1 space-y-0.5 rounded-md bg-muted/30 p-1.5">
           {alternatives.map((alt) => (
-            <a
+            <div
               key={alt.link}
-              href={alt.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between rounded px-1.5 py-1 text-xs transition-colors hover:bg-muted/40"
+              className={cn(
+                "flex items-center justify-between rounded px-1.5 py-1.5 text-xs transition-colors",
+                onSwap ? "cursor-pointer hover:bg-primary/10" : "hover:bg-muted/40",
+              )}
+              onClick={onSwap ? () => onSwap(alt) : undefined}
             >
-              <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                {alt.productName}
-              </span>
-              <div className="ml-2 flex shrink-0 items-center gap-1.5">
+              <div className="min-w-0 flex-1">
+                <span className="truncate text-muted-foreground">
+                  {alt.productName}
+                </span>
+              </div>
+              <div className="ml-2 flex shrink-0 items-center gap-2">
                 <span className="font-medium">{formatPrice(alt.price)}</span>
                 {alt.unitInfo && (
-                  <span className="text-muted-foreground/60">
+                  <span className="text-[11px] text-muted-foreground/60">
                     {formatUnitInfo(alt.unitInfo)}
                   </span>
                 )}
-                <ExternalLink className="h-2.5 w-2.5 text-muted-foreground/50" />
+                {onSwap && (
+                  <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                    Elegir
+                  </span>
+                )}
+                <a
+                  href={alt.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ExternalLink className="h-2.5 w-2.5 text-muted-foreground/50" />
+                </a>
               </div>
-            </a>
+            </div>
           ))}
         </div>
       )}

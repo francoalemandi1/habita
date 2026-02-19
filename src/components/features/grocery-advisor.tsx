@@ -14,7 +14,6 @@ import {
   AlertCircle,
   PackageX,
   ListPlus,
-  Info,
 } from "lucide-react";
 
 import type { AlternativeProduct, CartProduct, StoreCart } from "@/lib/supermarket-search";
@@ -57,10 +56,6 @@ function saveTerms(terms: string[]) {
   } catch {
     // localStorage full or unavailable — ignore
   }
-}
-
-function formatPrice(price: number): string {
-  return `$${price.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 // ============================================
@@ -230,24 +225,6 @@ export function ShoppingPlanView(_props: ShoppingPlanProps) {
             Nueva busqueda
           </Button>
         </div>
-
-        {/* Ranking shift hint — show when user overrides changed which cart is cheapest */}
-        {overrides.size > 0 && adjustedCarts.length > 1 && (() => {
-          const cheapestIdx = adjustedCarts.reduce(
-            (minIdx, cart, idx, arr) => cart.totalPrice < arr[minIdx]!.totalPrice ? idx : minIdx,
-            0,
-          );
-          if (cheapestIdx === 0) return null;
-          const cheapestStore = adjustedCarts[cheapestIdx]!;
-          return (
-            <div className="flex items-start gap-1.5 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-              <Info className="mt-0.5 h-3 w-3 shrink-0" />
-              <span>
-                Con tus cambios, <span className="font-medium">{cheapestStore.storeName}</span> ({formatPrice(cheapestStore.totalPrice)}) ahora tiene el carrito mas barato.
-              </span>
-            </div>
-          );
-        })()}
 
         {/* Store carts */}
         {adjustedCarts.length > 0 ? (

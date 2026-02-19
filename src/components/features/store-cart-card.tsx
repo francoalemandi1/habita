@@ -62,8 +62,10 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onRemoveP
   return (
     <div
       className={cn(
-        "rounded-2xl border shadow-sm transition-all duration-200 hover:shadow-md",
-        isBest ? "border-primary/40 bg-primary/3" : "border-border/60 bg-card",
+        "rounded-2xl shadow-sm transition-all duration-200 hover:shadow-md",
+        isBest
+          ? "border-2 border-primary/50 bg-primary/5 shadow-primary/10"
+          : "border border-border/60 bg-card",
         "animate-stagger-fade-in",
       )}
       style={{ '--stagger-index': rank } as React.CSSProperties}

@@ -54,18 +54,15 @@ export async function GET(request: NextRequest) {
     const completed = assignments.filter(
       (a) => a.status === "COMPLETED" || a.status === "VERIFIED"
     );
-    const overdue = assignments.filter((a) => a.status === "OVERDUE");
 
     return NextResponse.json({
       assignments,
       pending,
       completed,
-      overdue,
       stats: {
         total: assignments.length,
         pendingCount: pending.length,
         completedCount: completed.length,
-        overdueCount: overdue.length,
       },
     });
   } catch (error) {

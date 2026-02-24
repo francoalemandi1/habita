@@ -26,11 +26,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       },
       include: {
         task: true,
-        member: {
-          include: {
-            level: true,
-          },
-        },
+        member: true,
       },
     });
 

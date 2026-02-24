@@ -12,7 +12,7 @@ import type { RelaxResult } from "@/lib/llm/relax-finder";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const bodySchema = z.object({
-  section: z.enum(["culture", "restaurants", "weekend"]),
+  section: z.enum(["activities", "restaurants"]),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   city: z.string().optional(),

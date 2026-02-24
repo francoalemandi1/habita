@@ -11,7 +11,7 @@ interface RouteParams {
 
 /**
  * POST /api/assignments/[assignmentId]/uncomplete
- * Revert a completed assignment back to PENDING, undoing points and XP.
+ * Revert a completed assignment back to PENDING, undoing points.
  * Only the assigned member can uncomplete their own task.
  */
 export async function POST(_request: NextRequest, { params }: RouteParams) {
@@ -28,7 +28,6 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
         id: true,
         memberId: true,
         status: true,
-        pointsEarned: true,
       },
     });
 
@@ -46,41 +45,13 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    await prisma.$transaction(async (tx) => {
-      // Revert assignment to PENDING
-      await tx.assignment.update({
-        where: { id: assignmentId },
-        data: {
-          status: "PENDING",
-          completedAt: null,
-          pointsEarned: null,
-        },
-      });
-
-      // Decrement XP if points were awarded
-      if (assignment.pointsEarned) {
-        await tx.memberLevel.update({
-          where: { memberId: assignment.memberId },
-          data: {
-            xp: { decrement: assignment.pointsEarned },
-          },
-        });
-
-        // Recalculate level based on new XP
-        const level = await tx.memberLevel.findUnique({
-          where: { memberId: assignment.memberId },
-          select: { xp: true },
-        });
-
-        if (level) {
-          const correctedXp = Math.max(0, level.xp);
-          const newLevel = Math.floor(correctedXp / 100) + 1;
-          await tx.memberLevel.update({
-            where: { memberId: assignment.memberId },
-            data: { xp: correctedXp, level: newLevel },
-          });
-        }
-      }
+    // Revert assignment to PENDING
+    await prisma.assignment.update({
+      where: { id: assignmentId },
+      data: {
+        status: "PENDING",
+        completedAt: null,
+      },
     });
 
     return NextResponse.json({ success: true, status: "PENDING" });

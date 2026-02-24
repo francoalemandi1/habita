@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { availabilitySlotsSchema } from "./member";
-
 const taskFrequencySchema = z.enum(["DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY"]);
 const memberTypeSchema = z.enum(["adult", "teen", "child"]);
 
@@ -53,12 +51,11 @@ export const onboardingTaskSchema = z.object({
   estimatedMinutes: z.number().min(1).optional(),
 });
 
-export const createHouseholdWithTasksSchema = z.object({
+export const createHouseholdOnboardingSchema = z.object({
   householdName: z.string().min(1, "El nombre del hogar es requerido").max(50),
   memberName: z.string().max(50).optional(),
   memberType: memberTypeSchema.optional(),
-  tasks: z.array(onboardingTaskSchema).min(1, "Selecciona al menos una tarea"),
-  availabilitySlots: availabilitySlotsSchema.optional(),
+  tasks: z.array(onboardingTaskSchema).optional().default([]),
   location: householdLocationSchema.optional(),
 });
 
@@ -71,8 +68,8 @@ export const joinHouseholdOnboardingSchema = z.object({
 export type CreateHouseholdInput = z.infer<typeof createHouseholdSchema>;
 export type JoinHouseholdInput = z.infer<typeof joinHouseholdSchema>;
 export type UpdateHouseholdInput = z.infer<typeof updateHouseholdSchema>;
-export type CreateHouseholdWithTasksInput = z.infer<
-  typeof createHouseholdWithTasksSchema
+export type CreateHouseholdOnboardingInput = z.infer<
+  typeof createHouseholdOnboardingSchema
 >;
 export type JoinHouseholdOnboardingInput = z.infer<
   typeof joinHouseholdOnboardingSchema

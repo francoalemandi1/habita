@@ -7,11 +7,14 @@ import { apiFetch } from "@/lib/api-client";
 import { ExpenseList } from "@/components/features/expense-list";
 import { ExpenseSummary } from "@/components/features/expense-summary";
 import { AddExpenseDialog } from "@/components/features/add-expense-dialog";
+import { RecurringExpensesCard } from "@/components/features/recurring-expenses-card";
 import { ShoppingPlanView } from "@/components/features/grocery-advisor";
+import { HouseholdNotes } from "@/components/features/household-notes";
+import { HouseholdInventory } from "@/components/features/household-inventory";
 import { Button } from "@/components/ui/button";
 import { spacing } from "@/lib/design-tokens";
 import { cn } from "@/lib/utils";
-import { Receipt, ShoppingCart } from "lucide-react";
+import { Receipt, ShoppingCart, StickyNote, Package } from "lucide-react";
 
 import type { SerializedExpense, MemberOption } from "@/types/expense";
 import type { ExpenseCategory, SplitType } from "@prisma/client";
@@ -35,7 +38,7 @@ export interface UpdateExpensePayload {
   notes?: string | null;
 }
 
-type ExpensesTab = "activity" | "deals";
+type ExpensesTab = "activity" | "deals" | "notes" | "inventory";
 
 interface ExpensesViewProps {
   initialExpenses: SerializedExpense[];
@@ -43,6 +46,7 @@ interface ExpensesViewProps {
   allMembers: MemberOption[];
   hasLocation: boolean;
   householdCity: string | null;
+  isSolo?: boolean;
 }
 
 export function ExpensesView({
@@ -51,6 +55,7 @@ export function ExpensesView({
   allMembers,
   hasLocation,
   householdCity,
+  isSolo = false,
 }: ExpensesViewProps) {
   const [expenses, setExpenses] = useState(initialExpenses);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
@@ -65,7 +70,11 @@ export function ExpensesView({
   const deletingInProgressRef = useRef<Set<string>>(new Set());
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeTab = (searchParams.get("tab") === "deals" ? "deals" : "activity") as ExpensesTab;
+  const tabParam = searchParams.get("tab");
+  const activeTab: ExpensesTab =
+    tabParam === "deals" || tabParam === "notes" || tabParam === "inventory"
+      ? tabParam
+      : "activity";
 
   const setActiveTab = useCallback(
     (tab: ExpensesTab) => {
@@ -242,6 +251,7 @@ export function ExpensesView({
               members={allMembers}
               currentMemberId={currentMemberId}
               onExpenseCreated={handleExpenseCreated}
+              isSolo={isSolo}
             />
           )}
         </div>
@@ -254,31 +264,63 @@ export function ExpensesView({
           size="sm"
           onClick={() => setActiveTab("activity")}
           className={cn(
-            "flex-1 gap-2 rounded-md",
+            "flex-1 gap-1.5 rounded-md px-2",
             activeTab === "activity" && "bg-background shadow-sm",
           )}
         >
-          <Receipt className="h-4 w-4" />
-          Actividad
+          <Receipt className="h-4 w-4 shrink-0" />
+          <span className="truncate text-xs sm:text-sm">Actividad</span>
         </Button>
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setActiveTab("deals")}
           className={cn(
-            "flex-1 gap-2 rounded-md",
+            "flex-1 gap-1.5 rounded-md px-2",
             activeTab === "deals" && "bg-background shadow-sm",
           )}
         >
-          <ShoppingCart className="h-4 w-4" />
-          Plan de Compras
+          <ShoppingCart className="h-4 w-4 shrink-0" />
+          <span className="truncate text-xs sm:text-sm">Compras</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setActiveTab("notes")}
+          className={cn(
+            "flex-1 gap-1.5 rounded-md px-2",
+            activeTab === "notes" && "bg-background shadow-sm",
+          )}
+        >
+          <StickyNote className="h-4 w-4 shrink-0" />
+          <span className="truncate text-xs sm:text-sm">Notas</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setActiveTab("inventory")}
+          className={cn(
+            "flex-1 gap-1.5 rounded-md px-2",
+            activeTab === "inventory" && "bg-background shadow-sm",
+          )}
+        >
+          <Package className="h-4 w-4 shrink-0" />
+          <span className="truncate text-xs sm:text-sm">Inventario</span>
         </Button>
       </div>
 
       {/* Tab content */}
-      {activeTab === "activity" ? (
-        <div className="space-y-6">
-          <ExpenseSummary currentMemberId={currentMemberId} refreshKey={balanceRefreshKey} />
+      {activeTab === "activity" && (
+        <div className="space-y-4">
+          <RecurringExpensesCard
+            currentMemberId={currentMemberId}
+            allMembers={allMembers}
+            onExpenseGenerated={() => {
+              setBalanceRefreshKey((k) => k + 1);
+              router.refresh();
+            }}
+          />
+          {!isSolo && <ExpenseSummary currentMemberId={currentMemberId} refreshKey={balanceRefreshKey} />}
           <ExpenseList
             expenses={expenses}
             currentMemberId={currentMemberId}
@@ -289,7 +331,8 @@ export function ExpensesView({
             onExpenseDeleted={handleExpenseDeleted}
           />
         </div>
-      ) : (
+      )}
+      {activeTab === "deals" && (
         <div className={spacing.sectionGap}>
           <ShoppingPlanView
             hasLocation={hasLocation}
@@ -297,6 +340,8 @@ export function ExpensesView({
           />
         </div>
       )}
+      {activeTab === "notes" && <HouseholdNotes />}
+      {activeTab === "inventory" && <HouseholdInventory />}
     </>
   );
 }

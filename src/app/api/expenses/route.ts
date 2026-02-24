@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { createExpenseSchema } from "@/lib/validations/expense";
 import { handleApiError } from "@/lib/api-response";
+import { buildSplitsData } from "@/lib/expense-splits";
 
 import { Prisma } from "@prisma/client";
 
@@ -91,60 +92,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Build splits
-    let splitsData: Array<{ memberId: string; amount: Prisma.Decimal }>;
+    const splitsResult = await buildSplitsData({
+      householdId: member.householdId,
+      amount: data.amount,
+      splitType: data.splitType,
+      splits: data.splits,
+    });
 
-    if (data.splitType === "EQUAL") {
-      const activeMembers = await prisma.member.findMany({
-        where: { householdId: member.householdId, isActive: true },
-        select: { id: true },
-      });
-
-      const shareAmount = data.amount / activeMembers.length;
-      splitsData = activeMembers.map((m) => ({
-        memberId: m.id,
-        amount: new Prisma.Decimal(shareAmount.toFixed(2)),
-      }));
-    } else if (data.splitType === "CUSTOM" && data.splits) {
-      // Validate all split members belong to household
-      const memberIds = data.splits.map((s) => s.memberId);
-      const validMembers = await prisma.member.count({
-        where: { id: { in: memberIds }, householdId: member.householdId, isActive: true },
-      });
-
-      if (validMembers !== memberIds.length) {
-        return NextResponse.json(
-          { error: "Algunos miembros no pertenecen al hogar" },
-          { status: 400 },
-        );
-      }
-
-      splitsData = data.splits.map((s) => ({
-        memberId: s.memberId,
-        amount: new Prisma.Decimal((s.amount ?? 0).toFixed(2)),
-      }));
-    } else if (data.splitType === "PERCENTAGE" && data.splits) {
-      const memberIds = data.splits.map((s) => s.memberId);
-      const validMembers = await prisma.member.count({
-        where: { id: { in: memberIds }, householdId: member.householdId, isActive: true },
-      });
-
-      if (validMembers !== memberIds.length) {
-        return NextResponse.json(
-          { error: "Algunos miembros no pertenecen al hogar" },
-          { status: 400 },
-        );
-      }
-
-      splitsData = data.splits.map((s) => ({
-        memberId: s.memberId,
-        amount: new Prisma.Decimal(((data.amount * (s.percentage ?? 0)) / 100).toFixed(2)),
-      }));
-    } else {
-      return NextResponse.json(
-        { error: "Tipo de división inválido o faltan datos de splits" },
-        { status: 400 },
-      );
+    if (!splitsResult.ok) {
+      return NextResponse.json({ error: splitsResult.error }, { status: 400 });
     }
+
+    const splitsData = splitsResult.data;
 
     const expense = await prisma.expense.create({
       data: {

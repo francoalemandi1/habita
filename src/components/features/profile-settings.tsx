@@ -529,12 +529,12 @@ export function ProfileSettings({
 
           {/* Invite CTA */}
           {members.length === 1 && (
-            <div className="flex items-center gap-3 rounded-2xl bg-primary/5 px-4 py-3">
-              <UserPlus className="h-5 w-5 text-primary shrink-0" />
+            <div className="flex items-center gap-3 rounded-2xl bg-muted/30 px-4 py-3">
+              <UserPlus className="h-5 w-5 text-muted-foreground shrink-0" />
               <div>
-                <p className="text-sm font-medium">¡Invitá a tu familia!</p>
+                <p className="text-sm font-medium">¿Compartís tu hogar?</p>
                 <p className="text-xs text-muted-foreground">
-                  Compartí el código de invitación para que otros miembros se unan
+                  Invitá a alguien a unirse y organicen las tareas juntos
                 </p>
               </div>
             </div>

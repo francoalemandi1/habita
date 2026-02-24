@@ -3,10 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { rouletteAssignSchema } from "@/lib/validations/roulette";
-import { calculatePoints } from "@/lib/points";
 
 import type { NextRequest } from "next/server";
-import type { TaskFrequency } from "@prisma/client";
 
 /**
  * POST /api/roulette/assign
@@ -51,14 +49,12 @@ export async function POST(request: NextRequest) {
 
     let resolvedTaskId: string;
     let taskName: string;
-    let taskWeight: number;
-    let taskFrequency: TaskFrequency;
 
     if (taskId) {
       // Existing task — verify it belongs to the household
       const task = await prisma.task.findFirst({
         where: { id: taskId, householdId, isActive: true },
-        select: { id: true, name: true, weight: true, frequency: true },
+        select: { id: true, name: true },
       });
 
       if (!task) {
@@ -70,8 +66,6 @@ export async function POST(request: NextRequest) {
 
       resolvedTaskId = task.id;
       taskName = task.name;
-      taskWeight = task.weight;
-      taskFrequency = task.frequency;
     } else {
       // Custom task — create with catalog defaults if provided, else sensible defaults
       const newTask = await prisma.task.create({
@@ -82,13 +76,11 @@ export async function POST(request: NextRequest) {
           weight: customTaskWeight ?? 1,
           estimatedMinutes: customTaskEstimatedMinutes ?? null,
         },
-        select: { id: true, name: true, weight: true, frequency: true },
+        select: { id: true, name: true },
       });
 
       resolvedTaskId = newTask.id;
       taskName = newTask.name;
-      taskWeight = newTask.weight;
-      taskFrequency = newTask.frequency;
     }
 
     // Check for existing pending assignment for the same task + member
@@ -106,13 +98,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingAssignment) {
-      const pointsPreview = calculatePoints({
-        weight: taskWeight,
-        frequency: taskFrequency,
-      });
-
       return NextResponse.json(
-        { assignment: existingAssignment, taskName, pointsPreview },
+        { assignment: existingAssignment, taskName },
         { status: 200 },
       );
     }
@@ -135,16 +122,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const pointsPreview = calculatePoints({
-      weight: taskWeight,
-      frequency: taskFrequency,
-    });
-
     return NextResponse.json(
       {
         assignment,
         taskName,
-        pointsPreview,
       },
       { status: 201 },
     );

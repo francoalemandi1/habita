@@ -89,26 +89,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         status: "VERIFIED",
       });
     } else {
-      // Reject - reset assignment and remove XP in a single transaction
-      await prisma.$transaction(async (tx) => {
-        await tx.assignment.update({
-          where: { id: assignmentId },
-          data: {
-            status: "PENDING",
-            completedAt: null,
-            pointsEarned: null,
-            notes: feedback ? `Rechazado: ${feedback}` : "Rechazado - debe rehacerse",
-          },
-        });
-
-        if (assignment.pointsEarned) {
-          await tx.memberLevel.update({
-            where: { memberId: assignment.memberId },
-            data: {
-              xp: { decrement: assignment.pointsEarned },
-            },
-          });
-        }
+      // Reject - reset assignment
+      await prisma.assignment.update({
+        where: { id: assignmentId },
+        data: {
+          status: "PENDING",
+          completedAt: null,
+          notes: feedback ? `Rechazado: ${feedback}` : "Rechazado - debe rehacerse",
+        },
       });
 
       return NextResponse.json({

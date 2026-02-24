@@ -2,12 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { completeAssignmentSchema } from "@/lib/validations/assignment";
-import { calculatePointsWithBreakdown } from "@/lib/points";
-import { checkAndUnlockAchievements } from "@/lib/achievements";
 import { getBestAssignee } from "@/lib/assignment-algorithm";
 import { computeDueDateForFrequency } from "@/lib/due-date";
-import { calculatePlanPerformance, generateAIRewards } from "@/lib/llm/ai-reward-generator";
-import { createNotification, createNotificationForMembers } from "@/lib/notification-service";
+import { createNotificationForMembers } from "@/lib/notification-service";
 import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
@@ -50,8 +47,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           },
         },
         member: {
-          include: {
-            level: true,
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
@@ -69,15 +67,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "La tarea fue cancelada" }, { status: 400 });
     }
 
-    // Calculate points
     const now = new Date();
-    const pointsBreakdown = calculatePointsWithBreakdown({
-      weight: assignment.task.weight,
-      frequency: assignment.task.frequency,
-    });
-    const points = pointsBreakdown.total;
 
-    // Update assignment and member level in transaction
+    // Update assignment in transaction
     const result = await prisma.$transaction(async (tx) => {
       // Atomic status guard: only complete if still PENDING/IN_PROGRESS
       const updated = await tx.assignment.updateMany({
@@ -89,7 +81,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         data: {
           status: "COMPLETED",
           completedAt: now,
-          pointsEarned: points,
           notes: validation.data.notes ?? assignment.notes,
         },
       });
@@ -118,82 +109,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         },
       });
 
-      // Update or create member level
-      const currentLevel = assignment.member.level;
-      const newXp = (currentLevel?.xp ?? 0) + points;
-      const newLevel = Math.floor(newXp / 100) + 1;
-
-      if (currentLevel) {
-        await tx.memberLevel.update({
-          where: { id: currentLevel.id },
-          data: {
-            xp: newXp,
-            level: newLevel,
-          },
-        });
-      } else {
-        await tx.memberLevel.create({
-          data: {
-            memberId: assignment.memberId,
-            xp: newXp,
-            level: newLevel,
-          },
-        });
-      }
-
       return {
         assignment: updatedAssignment,
-        pointsEarned: points,
-        newXp,
-        newLevel,
-        leveledUp: currentLevel ? newLevel > currentLevel.level : newLevel > 1,
       };
     });
-
-    // Gamification notifications paused — product pivot
-    // Backend still computes XP/levels/achievements silently
-
-    // Check for new achievements (after transaction) — runs silently
-    const newAchievements = await checkAndUnlockAchievements(
-      assignment.memberId,
-      { ...assignment, completedAt: now }
-    );
-
-    // Update competition score if there's an active competition
-    let competitionScoreUpdated = true;
-    try {
-      const activeCompetition = await prisma.competition.findFirst({
-        where: {
-          householdId: member.householdId,
-          status: "ACTIVE",
-        },
-        select: { id: true },
-      });
-
-      if (activeCompetition) {
-        await prisma.competitionScore.upsert({
-          where: {
-            competitionId_memberId: {
-              competitionId: activeCompetition.id,
-              memberId: assignment.memberId,
-            },
-          },
-          update: {
-            points: { increment: points },
-            tasksCompleted: { increment: 1 },
-          },
-          create: {
-            competitionId: activeCompetition.id,
-            memberId: assignment.memberId,
-            points,
-            tasksCompleted: 1,
-          },
-        });
-      }
-    } catch (err) {
-      competitionScoreUpdated = false;
-      console.error("Error updating competition score:", err);
-    }
 
     // Spec §2.1: al completar, crear siguiente instancia y asignar
     let nextAssignment = null;
@@ -270,40 +189,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               actionUrl: "/plan",
             }
           );
-
-          // Best-effort: generate rewards for the finalized plan
-          try {
-            const performances = await calculatePlanPerformance(
-              member.householdId,
-              activePlan.createdAt,
-              activePlan.expiresAt,
-            );
-            const rewardResult = await generateAIRewards(member.householdId, activePlan.id, performances);
-            if (rewardResult && rewardResult.rewards.length > 0) {
-              const perfMap = new Map(performances.map((p) => [p.memberName.toLowerCase(), p]));
-              const rewardsToCreate = rewardResult.rewards
-                .map((r) => {
-                  const perf = perfMap.get(r.memberName.toLowerCase());
-                  if (!perf) return null;
-                  return {
-                    householdId: member.householdId,
-                    name: r.rewardName,
-                    description: r.rewardDescription,
-                    pointsCost: r.pointsCost,
-                    isAiGenerated: true,
-                    planId: activePlan.id,
-                    memberId: perf.memberId,
-                    completionRate: perf.completionRate,
-                  };
-                })
-                .filter((r): r is NonNullable<typeof r> => r !== null);
-              if (rewardsToCreate.length > 0) {
-                await prisma.householdReward.createMany({ data: rewardsToCreate });
-              }
-            }
-          } catch (err) {
-            console.error("Error generating rewards on auto-finalize (non-blocking):", err);
-          }
         }
       }
     } catch (err) {
@@ -312,10 +197,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({
       ...result,
-      pointsBreakdown: {
-        base: pointsBreakdown.base,
-      },
-      newAchievements,
       planFinalized,
       finalizedPlanId: planFinalized ? finalizedPlanId : undefined,
       nextAssignment: nextAssignment
@@ -326,7 +207,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           }
         : undefined,
       warnings: {
-        competitionScoreUpdated,
         nextAssignmentCreated: !nextAssignmentError,
       },
     });

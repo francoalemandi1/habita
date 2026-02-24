@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getCurrentMember } from "@/lib/session";
-import { getRecommendedDashboard } from "@/lib/permissions";
 import { LandingContent } from "@/components/features/landing-content";
 
 export default async function HomePage() {
@@ -12,8 +11,7 @@ export default async function HomePage() {
     const member = await getCurrentMember();
 
     if (member) {
-      const dashboard = getRecommendedDashboard(member.memberType);
-      redirect(dashboard);
+      redirect("/dashboard");
     } else {
       redirect("/onboarding");
     }

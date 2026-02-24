@@ -18,7 +18,7 @@ import { searchWithSerper } from "./serper";
 // ============================================
 
 /** Duplicated from relax-finder to avoid circular imports */
-export type RelaxSection = "culture" | "restaurants" | "weekend";
+export type RelaxSection = "activities" | "restaurants";
 
 export interface WebSearchResult {
   title: string;
@@ -60,22 +60,43 @@ export const ISO_TO_COUNTRY_NAME: Record<string, string> = {
 };
 
 /**
- * Multiple specific queries per section to get actionable data.
- * `location` includes city + country for disambiguation (e.g. "Córdoba, Argentina").
+ * Context-aware query builder for web search.
+ *
+ * Design principles:
+ * - Colloquial: queries a real person would type into Google
+ * - 2-3 keywords max per query (no keyword-stuffing)
+ * - monthYear anchor ("febrero 2026") to get fresh content over evergreen lists
+ * - 2-3 queries per section to stay within Tavily credit budget
+ * - Activities: ephemeral events (movies, shows, exhibits, fairs, outdoor events)
+ * - Restaurants: discovery (new, trending, curated — not static directories)
  */
-export const SECTION_QUERIES: Record<RelaxSection, (location: string) => string[]> = {
-  culture: (location) => [
-    `cartelera cine ${location} hoy películas horarios`,
-    `obras teatro shows recitales ${location} esta semana`,
-    `exposiciones museos muestras ${location} agenda cultural`,
+
+interface QueryContext {
+  location: string;
+  monthYear: string;
+  isWeekendNearby: boolean;
+}
+
+function buildQueryContext(city: string, country: string): QueryContext {
+  const location = buildLocationString(city, country);
+  const now = new Date();
+  const monthYear = now.toLocaleDateString("es", { month: "long", year: "numeric" });
+  const dayOfWeek = now.getDay();
+  const isWeekendNearby = dayOfWeek === 0 || dayOfWeek >= 4; // thu-sun
+
+  return { location, monthYear, isWeekendNearby };
+}
+
+const SECTION_QUERIES: Record<RelaxSection, (ctx: QueryContext) => string[]> = {
+  activities: ({ location, monthYear, isWeekendNearby }) => [
+    `agenda cultural ${location} ${monthYear}`,
+    `cartelera cine y teatro ${location}`,
+    `qué hacer ${location} ${isWeekendNearby ? "este fin de semana" : monthYear}`,
+    `eventos y ferias ${location} ${monthYear}`,
   ],
-  restaurants: (location) => [
-    `mejores restaurantes nuevos ${location} reseñas`,
-    `bares cervecerías apertura ${location} recomendados`,
-  ],
-  weekend: (location) => [
-    `actividades fin de semana ${location} agenda`,
-    `ferias mercados eventos aire libre ${location} esta semana`,
+  restaurants: ({ location, monthYear }) => [
+    `dónde comer ${location} recomendados`,
+    `nuevos restaurantes y bares ${location} ${monthYear}`,
   ],
 };
 
@@ -129,8 +150,8 @@ export async function searchLocalEvents(
   const provider = getWebSearchProvider();
   if (provider === "none") return [];
 
-  const location = buildLocationString(city, country);
-  const queries = SECTION_QUERIES[section](location);
+  const ctx = buildQueryContext(city, country);
+  const queries = SECTION_QUERIES[section](ctx);
   const cacheKey = buildCacheKey(city, section);
 
   if (provider === "tavily") {

@@ -43,6 +43,7 @@ interface MyTasksPageClientProps {
   calendarAssignments: CalendarAssignment[];
   calendarMembers: CalendarMember[];
   initialWeekStart: string;
+  isSolo?: boolean;
 }
 
 export function MyTasksPageClient({
@@ -58,6 +59,7 @@ export function MyTasksPageClient({
   calendarAssignments,
   calendarMembers,
   initialWeekStart,
+  isSolo = false,
 }: MyTasksPageClientProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
 
@@ -117,6 +119,7 @@ export function MyTasksPageClient({
             completedToday={completedToday}
             totalCompleted={totalCompleted}
             showPlanCta={showPlanCta}
+            isSolo={isSolo}
           />
         </>
       ) : (

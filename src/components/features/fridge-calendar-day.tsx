@@ -12,8 +12,6 @@ export interface CalendarAssignment {
   dueDate: string;
   status: AssignmentStatus;
   completedAt: string | null;
-  suggestedStartTime: string | null;
-  suggestedEndTime: string | null;
   task: {
     id: string;
     name: string;
@@ -213,8 +211,7 @@ function DesktopTaskRow({
 }) {
   const completed = isCompletedStatus(assignment.status);
   const pending = isPendingStatus(assignment.status);
-  const overdue = assignment.status === "OVERDUE";
-  const isInteractive = pending || overdue || (completed && canUncomplete);
+  const isInteractive = pending || (completed && canUncomplete);
   const rotation = microRotation(assignment.id);
 
   return (
@@ -223,7 +220,7 @@ function DesktopTaskRow({
       disabled={isCompleting || !isInteractive}
       onClick={() => {
         if (completed && canUncomplete) onUncomplete(assignment.id);
-        else if (pending || overdue) onComplete(assignment.id);
+        else if (pending) onComplete(assignment.id);
       }}
       className={cn(
         "flex w-full items-center rounded py-px pl-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -238,11 +235,6 @@ function DesktopTaskRow({
           !completed && "text-foreground-secondary",
         )}
       >
-        {assignment.suggestedStartTime && (
-          <span className="text-[10px] text-foreground-tertiary mr-0.5">
-            {assignment.suggestedStartTime}
-          </span>
-        )}
         <span
           className={cn(
             "task-strikethrough",
@@ -433,8 +425,7 @@ function MobileTaskRow({
 }) {
   const completed = isCompletedStatus(assignment.status);
   const pending = isPendingStatus(assignment.status);
-  const overdue = assignment.status === "OVERDUE";
-  const isInteractive = pending || overdue || (completed && canUncomplete);
+  const isInteractive = pending || (completed && canUncomplete);
   const rotation = microRotation(assignment.id);
 
   return (
@@ -443,7 +434,7 @@ function MobileTaskRow({
       disabled={isCompleting || !isInteractive}
       onClick={() => {
         if (completed && canUncomplete) onUncomplete(assignment.id);
-        else if (pending || overdue) onComplete(assignment.id);
+        else if (pending) onComplete(assignment.id);
       }}
       className={cn(
         "flex w-full items-center gap-2 rounded-lg py-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -458,11 +449,6 @@ function MobileTaskRow({
           !completed && "text-foreground-secondary",
         )}
       >
-        {assignment.suggestedStartTime && (
-          <span className="text-xs text-foreground-tertiary mr-1">
-            {assignment.suggestedStartTime}
-          </span>
-        )}
         <span
           className={cn(
             "task-strikethrough",

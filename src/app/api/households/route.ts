@@ -81,17 +81,6 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Create initial MemberLevel
-      const member = await tx.member.findFirst({
-        where: { userId, householdId: newHousehold.id },
-      });
-
-      if (member) {
-        await tx.memberLevel.create({
-          data: { memberId: member.id },
-        });
-      }
-
       return newHousehold;
     });
 

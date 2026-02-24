@@ -3,6 +3,7 @@ import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
 import { getWeekMonday, getWeekSunday } from "@/lib/calendar-utils";
+import { isSoloHousehold } from "@/lib/household-mode";
 import { MyTasksPageClient } from "@/components/features/my-tasks-page-client";
 
 export default async function MyTasksPage() {
@@ -125,8 +126,6 @@ export default async function MyTasksPage() {
         dueDate: true,
         status: true,
         completedAt: true,
-        suggestedStartTime: true,
-        suggestedEndTime: true,
         task: {
           select: { id: true, name: true, weight: true, frequency: true, estimatedMinutes: true },
         },
@@ -177,6 +176,7 @@ export default async function MyTasksPage() {
         calendarAssignments={serializedCalendarAssignments}
         calendarMembers={calendarMembers}
         initialWeekStart={monday.toISOString()}
+        isSolo={isSoloHousehold(householdMembers.length)}
       />
     </div>
   );

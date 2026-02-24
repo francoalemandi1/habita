@@ -25,14 +25,17 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         id: memberId,
         householdId: currentMember.householdId, // Data isolation
       },
-      include: {
-        level: true,
-        achievements: {
-          include: {
-            achievement: { select: { id: true, name: true, description: true, xpReward: true } },
-          },
-          orderBy: { unlockedAt: "desc" },
-        },
+      select: {
+        id: true,
+        userId: true,
+        householdId: true,
+        name: true,
+        memberType: true,
+        isActive: true,
+        avatarUrl: true,
+        occupationLevel: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -151,7 +154,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
       const deactivatedMember = await prisma.member.findUnique({
         where: { id: memberId },
-        include: { level: true },
       });
 
       return NextResponse.json({ member: deactivatedMember });
@@ -160,9 +162,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const updatedMember = await prisma.member.update({
       where: { id: memberId },
       data: validation.data,
-      include: {
-        level: true,
-      },
     });
 
     return NextResponse.json({ member: updatedMember });

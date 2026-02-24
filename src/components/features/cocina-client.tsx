@@ -421,14 +421,23 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
 // RecipeCard
 // ============================================
 
+const INGREDIENTS_COLLAPSED_LIMIT = 6;
+
 function RecipeCard({ recipe }: { recipe: Recipe }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showAllIngredients, setShowAllIngredients] = useState(false);
   const difficultyConfig = DIFFICULTY_CONFIG[recipe.difficulty] ?? { label: "Facil", color: "bg-emerald-100 text-emerald-700" };
+  const speedBadge = getSpeedBadge(recipe.prepTimeMinutes);
+
+  const visibleIngredients = showAllIngredients
+    ? recipe.ingredients
+    : recipe.ingredients.slice(0, INGREDIENTS_COLLAPSED_LIMIT);
+  const hiddenCount = recipe.ingredients.length - INGREDIENTS_COLLAPSED_LIMIT;
 
   return (
     <div className={cn(radius.card, "overflow-hidden border bg-white transition-shadow hover:shadow-md")}>
       <div className="p-4">
-        {/* Header: title + badges */}
+        {/* Header: title + badge row */}
         <div className="mb-2 flex items-start justify-between gap-2">
           <h3 className="text-sm font-semibold leading-tight">{recipe.title}</h3>
           <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", difficultyConfig.color)}>
@@ -436,8 +445,14 @@ function RecipeCard({ recipe }: { recipe: Recipe }) {
           </span>
         </div>
 
-        {/* Meta badges */}
-        <div className="mb-2 flex flex-wrap items-center gap-2">
+        {/* Meta badges: speed + time + servings */}
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          {speedBadge && (
+            <span className={cn("flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-medium", speedBadge.style)}>
+              <Zap className={iconSize.xs} />
+              {speedBadge.label}
+            </span>
+          )}
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className={iconSize.xs} />
             {recipe.prepTimeMinutes} min
@@ -451,15 +466,24 @@ function RecipeCard({ recipe }: { recipe: Recipe }) {
         {/* Description */}
         <p className="text-xs leading-relaxed text-muted-foreground">{recipe.description}</p>
 
-        {/* Ingredients */}
+        {/* Ingredients — compact: pills up to limit, then "+N more" */}
         <div className="mt-3">
           <p className="mb-1 text-xs font-medium text-foreground">Ingredientes:</p>
           <div className="flex flex-wrap gap-1">
-            {recipe.ingredients.map((ing, i) => (
+            {visibleIngredients.map((ing, i) => (
               <span key={i} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
                 {ing}
               </span>
             ))}
+            {!showAllIngredients && hiddenCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAllIngredients(true)}
+                className="rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted"
+              >
+                +{hiddenCount} más
+              </button>
+            )}
           </div>
         </div>
 
@@ -509,16 +533,24 @@ function RecipeCard({ recipe }: { recipe: Recipe }) {
           </div>
         )}
 
-        {/* Tip */}
-        {recipe.tips && (
+        {/* Tip — only if the LLM provided a concrete one */}
+        {recipe.tip && (
           <div className="mt-3 flex gap-1.5 rounded-lg bg-amber-50 p-2">
             <Zap className="h-3.5 w-3.5 shrink-0 text-amber-600 mt-0.5" />
             <p className="text-[11px] leading-relaxed text-amber-900">
-              {recipe.tips}
+              {recipe.tip}
             </p>
           </div>
         )}
       </div>
     </div>
   );
+}
+
+/** Speed badge based on prep time */
+function getSpeedBadge(minutes: number): { label: string; style: string } | null {
+  if (minutes <= 15) return { label: "Rápida", style: "bg-emerald-100 text-emerald-700" };
+  if (minutes <= 30) return { label: "Media", style: "bg-blue-100 text-blue-700" };
+  if (minutes >= 60) return { label: "Elaborada", style: "bg-purple-100 text-purple-700" };
+  return null;
 }

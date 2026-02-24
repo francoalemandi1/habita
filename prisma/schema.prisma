@@ -91,9 +91,7 @@ model Household {
   members      Member[]
   tasks        Task[]
   assignments  Assignment[]
-  rewards      HouseholdReward[]
   rotations    TaskRotation[]
-  competitions Competition[]
   weeklyPlans          WeeklyPlan[]
   relaxSuggestions     RelaxSuggestion[]
   dealCache            DealCache[]
@@ -101,6 +99,9 @@ model Household {
   expenses             Expense[]
   productExclusions    HouseholdProductExclusion[]
   priceCache           PriceCache[]
+  recurringExpenses    RecurringExpense[]
+  householdNotes       HouseholdNote[]
+  inventoryItems       InventoryItem[]
 
   @@map("households")
 }
@@ -112,7 +113,7 @@ model Member {
   name        String
   memberType  MemberType @default(ADULT)
   avatarUrl   String?
-  availabilitySlots Json?   /// { weekday: ["MORNING","NIGHT"], weekend: ["MORNING","AFTERNOON"], notes?: "..." }
+  occupationLevel OccupationLevel @default(MODERATE)
   isActive    Boolean    @default(true)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -121,24 +122,20 @@ model Member {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   assignments Assignment[]
-  level       MemberLevel?
-  achievements MemberAchievement[]
   preferences  MemberPreference[]
   absences     MemberAbsence[]
   absencesAssignTo MemberAbsence[] @relation("AbsenceAssignTo")
-  redemptions  RewardRedemption[]
   transfersFrom TaskTransfer[] @relation("TransferFrom")
   transfersTo   TaskTransfer[] @relation("TransferTo")
-  reminders    TaskReminder[]
-  competitionScores CompetitionScore[]
-
-  createdRewards   HouseholdReward[] @relation("MemberRewards")
   notifications    Notification[]
   pushSubscriptions PushSubscription[]
   whatsappLink     WhatsAppLink?
   planFeedbacks    PlanFeedback[]
   expensesPaid     Expense[]      @relation("ExpensesPaid")
   expenseSplits    ExpenseSplit[] @relation("ExpenseSplits")
+  recurringExpensesPaid RecurringExpense[] @relation("RecurringExpensesPaid")
+  householdNotes       HouseholdNote[]    @relation("MemberNotes")
+  inventoryItems       InventoryItem[]    @relation("MemberInventoryItems")
 
   @@unique([userId, householdId])
   @@index([householdId])
@@ -150,6 +147,12 @@ enum MemberType {
   ADULT
   TEEN
   CHILD
+}
+
+enum OccupationLevel {
+  BUSY        // Muy ocupado/a - trabajo tiempo completo
+  MODERATE    // Ocupado/a - medio tiempo o actividades
+  AVAILABLE   // Disponible - más tiempo en casa
 }
 
 model Task {
@@ -193,10 +196,7 @@ model Assignment {
   dueDate     DateTime
   status      AssignmentStatus @default(PENDING)
   completedAt DateTime?
-  pointsEarned Int?
   notes              String?
-  suggestedStartTime String?  // AI-suggested start time in "HH:mm" format
-  suggestedEndTime   String?  // AI-suggested end time in "HH:mm" format
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
@@ -205,7 +205,6 @@ model Assignment {
   member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   transfers TaskTransfer[]
-  reminders TaskReminder[]
 
   @@index([householdId, dueDate])
   @@index([memberId, status])
@@ -223,86 +222,6 @@ enum AssignmentStatus {
   VERIFIED
   OVERDUE
   CANCELLED
-}
-
-// ============================================
-// GAMIFICATION MODELS
-// ============================================
-
-model MemberLevel {
-  id        String   @id @default(cuid())
-  memberId  String   @unique
-  level     Int      @default(1)
-  xp        Int      @default(0)
-  updatedAt DateTime @updatedAt
-
-  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
-
-  @@map("member_levels")
-}
-
-model Achievement {
-  id          String @id @default(cuid())
-  code        String @unique
-  name        String
-  description String
-  iconUrl     String?
-  xpReward    Int    @default(0)
-
-  members MemberAchievement[]
-
-  @@map("achievements")
-}
-
-model MemberAchievement {
-  id            String   @id @default(cuid())
-  memberId      String
-  achievementId String
-  unlockedAt    DateTime @default(now())
-
-  member      Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
-
-  @@unique([memberId, achievementId])
-  @@map("member_achievements")
-}
-
-model HouseholdReward {
-  id             String   @id @default(cuid())
-  householdId    String
-  name           String
-  description    String?
-  pointsCost     Int
-  isActive       Boolean  @default(true)
-  isAiGenerated  Boolean  @default(false)
-  planId         String?
-  memberId       String?
-  completionRate Float?
-  category       String?
-  actionUrl      String?
-  createdAt      DateTime @default(now())
-
-  household   Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  member      Member?            @relation("MemberRewards", fields: [memberId], references: [id], onDelete: SetNull)
-  plan        WeeklyPlan?        @relation(fields: [planId], references: [id], onDelete: SetNull)
-  redemptions RewardRedemption[]
-
-  @@index([householdId])
-  @@index([planId])
-  @@map("household_rewards")
-}
-
-model RewardRedemption {
-  id         String   @id @default(cuid())
-  memberId   String
-  rewardId   String
-  redeemedAt DateTime @default(now())
-  isFulfilled Boolean @default(false)
-
-  member Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  reward HouseholdReward @relation(fields: [rewardId], references: [id], onDelete: Cascade)
-
-  @@map("reward_redemptions")
 }
 
 // ============================================
@@ -399,81 +318,6 @@ model TaskRotation {
   @@map("task_rotations")
 }
 
-model TaskReminder {
-  id           String       @id @default(cuid())
-  assignmentId String
-  memberId     String
-  reminderType ReminderType
-  scheduledFor DateTime
-  sentAt       DateTime?
-  createdAt    DateTime     @default(now())
-
-  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  member     Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
-
-  @@index([memberId, scheduledFor])
-  @@index([scheduledFor, sentAt])
-  @@map("task_reminders")
-}
-
-enum ReminderType {
-  DUE_SOON      // 24h before due
-  DUE_TODAY     // Day of due
-  OVERDUE       // After due date
-}
-
-// ============================================
-// COMPETITION MODELS
-// ============================================
-
-model Competition {
-  id          String            @id @default(cuid())
-  householdId String
-  name        String
-  description String?
-  duration    CompetitionDuration
-  prize       String?
-  status      CompetitionStatus @default(ACTIVE)
-  startDate   DateTime          @default(now())
-  endDate     DateTime
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-
-  household Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  scores    CompetitionScore[]
-
-  @@index([householdId, status])
-  @@map("competitions")
-}
-
-model CompetitionScore {
-  id            String   @id @default(cuid())
-  competitionId String
-  memberId      String
-  points        Int      @default(0)
-  tasksCompleted Int     @default(0)
-  updatedAt     DateTime @updatedAt
-
-  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  member      Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
-
-  @@unique([competitionId, memberId])
-  @@map("competition_scores")
-}
-
-enum CompetitionDuration {
-  WEEK
-  MONTH
-  CUSTOM
-}
-
-enum CompetitionStatus {
-  ACTIVE
-  COMPLETED
-  CANCELLED
-}
-
-
 // ============================================
 // AI PLAN MODEL
 // ============================================
@@ -484,7 +328,7 @@ model WeeklyPlan {
   status        WeeklyPlanStatus @default(PENDING)
   balanceScore  Int              @default(0)
   notes         String[]         @default([])
-  assignments   Json             // Array of { taskName, memberId, memberName, memberType, reason, dayOfWeek?, startTime?, endTime? }
+  assignments   Json             // Array of { taskName, memberId, memberName, memberType, reason, dayOfWeek? }
   durationDays  Int              @default(7)
   startDate     DateTime?        // Explicit plan start date (null for legacy plans)
   excludedTasks Json?            // Array of { taskName, frequency } - tasks outside plan period
@@ -493,7 +337,6 @@ model WeeklyPlan {
   expiresAt     DateTime
 
   household Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  rewards   HouseholdReward[]
   feedbacks PlanFeedback[]
 
   @@index([householdId, status])
@@ -773,4 +616,255 @@ enum SplitType {
   EQUAL
   CUSTOM
   PERCENTAGE
+}
+
+// ============================================
+// RECURRING EXPENSE MODEL
+// ============================================
+
+model RecurringExpense {
+  id          String             @id @default(cuid())
+  householdId String
+  title       String
+  amount      Decimal            @db.Decimal(10, 2)
+  currency    String             @default("ARS")
+  category    ExpenseCategory    @default(OTHER)
+  splitType   SplitType          @default(EQUAL)
+  paidById    String
+  notes       String?
+  frequency   RecurringFrequency
+  dayOfMonth  Int?               // 1-28 for MONTHLY+ frequencies
+  dayOfWeek   Int?               // 0=Sunday..6=Saturday for WEEKLY
+  autoGenerate Boolean           @default(false)
+  nextDueDate  DateTime
+  lastGeneratedAt DateTime?
+  isActive    Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  paidBy    Member    @relation("RecurringExpensesPaid", fields: [paidById], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@index([householdId, isActive, nextDueDate])
+  @@map("recurring_expenses")
+}
+
+enum RecurringFrequency {
+  WEEKLY
+  MONTHLY
+  BIMONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+// ============================================
+// HOUSEHOLD NOTE MODEL
+// ============================================
+
+model HouseholdNote {
+  id          String   @id @default(cuid())
+  householdId String
+  createdById String
+  title       String
+  content     String?  @db.Text
+  isPinned    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdBy Member    @relation("MemberNotes", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@index([householdId, isPinned])
+  @@map("household_notes")
+}
+
+// ============================================
+// INVENTORY ITEM MODEL
+// ============================================
+
+model InventoryItem {
+  id          String          @id @default(cuid())
+  householdId String
+  createdById String
+  name        String
+  quantity    Int?
+  category    String?
+  status      InventoryStatus @default(HAVE)
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdBy Member    @relation("MemberInventoryItems", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@index([householdId, status])
+  @@map("inventory_items")
+}
+
+enum InventoryStatus {
+  HAVE
+  LOW
+  NEED
+}
+
+// ============================================
+// CULTURAL EVENTS MODELS
+// ============================================
+
+enum EventCategory {
+  CINE
+  TEATRO
+  MUSICA
+  EXPOSICIONES
+  FESTIVALES
+  MERCADOS
+  PASEOS
+  EXCURSIONES
+  TALLERES
+  DANZA
+  LITERATURA
+  GASTRONOMIA
+  DEPORTES
+  INFANTIL
+  OTRO
+}
+
+enum EventStatus {
+  ACTIVE
+  CANCELLED
+  PAST
+}
+
+enum EventSourceType {
+  API
+  SCRAPER
+  WEB_DISCOVERY
+  AGENDA
+  VENUE
+}
+
+enum IngestionStatus {
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+model CulturalCity {
+  id         String   @id @default(cuid())
+  name       String
+  province   String
+  aliases    String[] @default([])
+  latitude   Float?
+  longitude  Float?
+  population Int?
+  createdAt  DateTime @default(now())
+
+  events CulturalEvent[]
+  venues CulturalVenue[]
+
+  @@unique([name, province])
+  @@map("cultural_cities")
+}
+
+model CulturalVenue {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  cityId    String?
+  address   String?
+  latitude  Float?
+  longitude Float?
+  website   String?
+  phone     String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  city   CulturalCity?   @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  events CulturalEvent[]
+
+  @@index([cityId])
+  @@map("cultural_venues")
+}
+
+model EventSource {
+  id               String          @id @default(cuid())
+  type             EventSourceType
+  name             String          @unique
+  url              String?
+  reliabilityScore Int             @default(50)
+  isActive         Boolean         @default(true)
+  lastFetchedAt    DateTime?
+  lastSuccessAt    DateTime?
+  errorCount       Int             @default(0)
+  config           Json?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  events        CulturalEvent[]
+  ingestionLogs EventIngestionLog[]
+
+  @@index([type, isActive])
+  @@map("event_sources")
+}
+
+model CulturalEvent {
+  id            String        @id @default(cuid())
+  title         String
+  description   String?
+  slug          String        @unique
+  startDate     DateTime?
+  endDate       DateTime?
+  venueName     String?
+  venueId       String?
+  address       String?
+  latitude      Float?
+  longitude     Float?
+  cityId        String?
+  province      String?
+  category      EventCategory @default(OTRO)
+  tags          String[]      @default([])
+  artists       String[]      @default([])
+  priceMin      Float?
+  priceMax      Float?
+  currency      String?       @default("ARS")
+  sourceId      String?
+  sourceUrl     String?
+  sourceEventId String?
+  imageUrl      String?
+  status        EventStatus   @default(ACTIVE)
+  searchVector  Unsupported("tsvector")?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  venue  CulturalVenue? @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  city   CulturalCity?  @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  source EventSource?   @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([cityId, category, startDate])
+  @@index([startDate, status])
+  @@index([sourceId, sourceEventId])
+  @@index([status, startDate])
+  @@map("cultural_events")
+}
+
+model EventIngestionLog {
+  id              String          @id @default(cuid())
+  sourceId        String
+  status          IngestionStatus
+  eventsFound     Int             @default(0)
+  eventsCreated   Int             @default(0)
+  eventsUpdated   Int             @default(0)
+  eventsDuplicate Int             @default(0)
+  errorMessage    String?
+  durationMs      Int?
+  createdAt       DateTime        @default(now())
+
+  source EventSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, createdAt])
+  @@map("event_ingestion_logs")
 }

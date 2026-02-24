@@ -1,4 +1,3 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateObject } from "ai";
 import { z } from "zod";
@@ -6,19 +5,15 @@ import { prisma } from "@/lib/prisma";
 import { computeDueDateForFrequency } from "@/lib/due-date";
 import { partitionTasksByDuration, durationLabel } from "@/lib/plan-duration";
 import { isAIEnabled, getAIProviderType } from "./provider";
-import { generateAIPlanOpenRouter } from "./openrouter-provider";
+import { getDeepSeekModel } from "./deepseek-provider";
 import { buildRegionalContext } from "./regional-context";
 
 import type { TaskFrequency } from "@prisma/client";
 import type { LanguageModel } from "ai";
 import type { ExcludedTask } from "@/lib/plan-duration";
 
-function getModel(): LanguageModel | null {
+function getModel(): LanguageModel {
   const providerType = getAIProviderType();
-
-  if (providerType === "openrouter") {
-    return null; // OpenRouter uses its own SDK
-  }
 
   if (providerType === "gemini") {
     const google = createGoogleGenerativeAI({
@@ -27,10 +22,7 @@ function getModel(): LanguageModel | null {
     return google("gemini-1.5-flash");
   }
 
-  const anthropic = createAnthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-  });
-  return anthropic("claude-3-5-haiku-latest");
+  return getDeepSeekModel();
 }
 
 const assignmentSchema = z.object({
@@ -41,8 +33,6 @@ const assignmentSchema = z.object({
       memberName: z.string().describe("Nombre del miembro (para referencia)"),
       reason: z.string().describe("Breve justificación de la asignación"),
       dayOfWeek: z.number().min(1).max(7).describe("Día de la semana: 1=Lunes, 2=Martes, ..., 7=Domingo").optional(),
-      startTime: z.string().regex(/^\d{2}:\d{2}$/).describe("Hora de inicio sugerida (HH:mm)").optional(),
-      endTime: z.string().regex(/^\d{2}:\d{2}$/).describe("Hora de fin sugerida (HH:mm)").optional(),
     })
   ),
   balanceScore: z.number().min(0).max(100).describe("Puntuación de equidad 0-100"),
@@ -61,9 +51,8 @@ interface PlanContext {
     type: string;
     pendingCount: number;
     completedThisWeek: number;
-    level: number;
+    occupationLevel: string;
     preferences: Array<{ taskName: string; preference: string }>;
-    availability?: { weekday: string[]; weekend: string[]; notes?: string } | null;
   }>;
   tasks: Array<{
     id: string;
@@ -139,45 +128,11 @@ export async function generateAIPlan(
     frequency: t.frequency as TaskFrequency,
   }));
 
-  const providerType = getAIProviderType();
-
-  // Use OpenRouter SDK if configured
-  if (providerType === "openrouter") {
-    try {
-      const result = await generateAIPlanOpenRouter({
-        members: filteredContext.members.map((m) => ({
-          id: m.id,
-          name: m.name,
-          type: m.type,
-          pendingCount: m.pendingCount,
-          availability: m.availability,
-        })),
-        tasks: filteredContext.tasks.map((t) => ({
-          name: t.name,
-          frequency: t.frequency,
-          weight: t.weight,
-        })),
-        durationDays,
-        regionalBlock: regionalContext.promptBlock,
-        feedbackBlock: buildFeedbackBlock(filteredContext.recentFeedback),
-      });
-      if (result) {
-        return { ...result, excludedTasks };
-      }
-      return null;
-    } catch (error) {
-      console.error("OpenRouter AI plan generation error:", error);
-      return null;
-    }
-  }
-
-  // Use Vercel AI SDK for Gemini/Anthropic
   const model = getModel();
-  if (!model) {
-    return null;
-  }
-
-  const prompt = buildPlanPrompt(filteredContext, durationDays, regionalContext.promptBlock);
+  const isSolo = filteredContext.members.length === 1;
+  const prompt = isSolo
+    ? buildSoloPlanPrompt(filteredContext, durationDays, regionalContext.promptBlock)
+    : buildPlanPrompt(filteredContext, durationDays, regionalContext.promptBlock);
 
   try {
     const result = await generateObject({
@@ -299,7 +254,6 @@ async function buildPlanContext(householdId: string): Promise<PlanContext> {
     prisma.member.findMany({
       where: { householdId, isActive: true },
       include: {
-        level: true,
         assignments: {
           where: { status: { in: ["PENDING", "IN_PROGRESS"] } },
           select: { id: true },
@@ -366,9 +320,8 @@ async function buildPlanContext(householdId: string): Promise<PlanContext> {
       type: m.memberType,
       pendingCount: m.assignments.length,
       completedThisWeek: completedMap.get(m.id) ?? 0,
-      level: m.level?.level ?? 1,
+      occupationLevel: m.occupationLevel,
       preferences: prefsByMember.get(m.name) ?? [],
-      availability: m.availabilitySlots as { weekday: string[]; weekend: string[]; notes?: string } | null,
     })),
     tasks: tasks.map((t) => ({
       id: t.id,
@@ -403,22 +356,20 @@ Capacidad por tipo de miembro:
 - TEEN: 60% de capacidad
 - CHILD: 30% de capacidad`;
 
+  const occupationLabels: Record<string, string> = {
+    BUSY: "Muy ocupado/a (poco tiempo en casa)",
+    MODERATE: "Ocupado/a (disponibilidad moderada)",
+    AVAILABLE: "Disponible (más tiempo en casa)",
+  };
+
   const membersInfo = context.members
     .map((m) => {
-      let info = `- [ID: ${m.id}] ${m.name} (${m.type}, nivel ${m.level}): ${m.pendingCount} tareas pendientes, ${m.completedThisWeek} completadas esta semana`;
+      let info = `- [ID: ${m.id}] ${m.name} (${m.type}, ${occupationLabels[m.occupationLevel] ?? "Ocupado/a"}): ${m.pendingCount} tareas pendientes, ${m.completedThisWeek} completadas esta semana`;
       if (m.preferences.length > 0) {
         const prefs = m.preferences
           .map((p) => `${p.taskName}: ${p.preference === "PREFERRED" ? "prefiere" : "no desea"}`)
           .join(", ");
         info += `\n  Preferencias: ${prefs}`;
-      }
-      if (m.availability) {
-        const slotLabels: Record<string, string> = { MORNING: "mañanas (7-12)", AFTERNOON: "tardes (12-18)", NIGHT: "noches (18-22)" };
-        const weekdaySlots = m.availability.weekday.map((s) => slotLabels[s]).filter(Boolean).join(", ");
-        const weekendSlots = m.availability.weekend.map((s) => slotLabels[s]).filter(Boolean).join(", ");
-        if (weekdaySlots) info += `\n  Disponible L-V: ${weekdaySlots}`;
-        if (weekendSlots) info += `\n  Disponible S-D: ${weekendSlots}`;
-        if (m.availability.notes) info += `\n  Nota: "${m.availability.notes}"`;
       }
       return info;
     })
@@ -461,17 +412,62 @@ ${recentInfo || "(sin historial)"}
    - Tareas BIWEEKLY: genera UNA sola asignación.
    - Tareas ONCE: genera UNA sola asignación.
    - Balancea la carga diaria.
-10. Para cada tarea, sugiere un RANGO HORARIO razonable usando "startTime" y "endTime" (formato "HH:mm").
-   - RESPETA la disponibilidad horaria de cada miembro. Solo asigna tareas en los bloques donde el miembro indicó estar disponible.
-   - Si un miembro no tiene disponibilidad configurada, distribuye razonablemente pero NO llenes todo el día.
-   - Agrupa tareas consecutivas en bloques compactos (ej: 2 tareas de 15min juntas de 18:00 a 18:30, no separadas por horas).
-   - No asignes más de 60-90 minutos de tareas por día por persona salvo que sea estrictamente necesario.
-   - Dejá tiempo libre, especialmente los fines de semana. Las tareas deben sentirse manejables, no una jornada laboral.
-   - No asignes tareas a niños (CHILD) en horarios de madrugada o noche.
-   - Si un miembro tiene una nota de disponibilidad, respetala.
-   - Ejemplo: "startTime": "18:00", "endTime": "18:30"
+10. Considerá el nivel de ocupación de cada miembro al distribuir la carga:
+   - "Muy ocupado/a": asignar MENOS tareas y las más livianas
+   - "Ocupado/a": carga moderada
+   - "Disponible": puede asumir más tareas o las más pesadas
+   - Las tareas son una GUÍA organizativa, no una obligación con horario
 
 Genera un plan de asignaciones para los próximos ${durationLabel(durationDays)}. El objetivo es maximizar la equidad (balanceScore alto = más justo).${regionalBlock ? `\n\n${regionalBlock}` : ""}${buildFeedbackBlock(context.recentFeedback)}`;
+}
+
+function buildSoloPlanPrompt(context: PlanContext, durationDays = 7, regionalBlock = ""): string {
+  const member = context.members[0]!;
+
+  const occupationLabels: Record<string, string> = {
+    BUSY: "Muy ocupado/a",
+    MODERATE: "Ocupado/a",
+    AVAILABLE: "Disponible",
+  };
+
+  const memberInfo = `- [ID: ${member.id}] ${member.name} (${occupationLabels[member.occupationLevel] ?? "Ocupado/a"}): ${member.pendingCount} tareas pendientes, ${member.completedThisWeek} completadas esta semana`;
+
+  const tasksInfo = context.tasks
+    .map((t) => `- ${t.name} (${t.frequency}, peso ${t.weight}, ~${t.estimatedMinutes ?? 30}min)`)
+    .join("\n");
+
+  const recentInfo = context.recentAssignments
+    .slice(0, 20)
+    .map((a) => `- ${a.taskName} (${a.status}, hace ${a.daysAgo} días)`)
+    .join("\n");
+
+  return `Eres un planificador de tareas del hogar para una persona que vive sola. Tu objetivo es organizar las tareas de forma eficiente en la semana como guía organizativa.
+
+## Persona
+${memberInfo}
+
+## Tareas disponibles
+${tasksInfo}
+
+## Historial reciente
+${recentInfo || "(sin historial)"}
+
+## Instrucciones
+1. Asigna TODAS las tareas activas a esta persona (usa siempre memberId: "${member.id}" y memberName: "${member.name}")
+2. DISTRIBUYE las tareas en los DÍAS DE LA SEMANA usando "dayOfWeek" (1=Lunes ... 7=Domingo). El plan cubre ${durationDays} días.
+   - Tareas DAILY: genera ${Math.min(durationDays, 7)} asignaciones (una por día, dayOfWeek 1 a ${Math.min(durationDays, 7)})
+   - Tareas WEEKLY, BIWEEKLY, ONCE: genera UNA sola asignación cada una
+   - Balancea la carga diaria — no concentres todo en un día
+3. Considerá el nivel de ocupación al distribuir la carga:
+   - Si está "Muy ocupado/a": concentrar tareas en pocos días, priorizar las esenciales
+   - Si está "Disponible": distribuir más uniformemente
+4. Priorizá tareas pesadas temprano en la semana
+5. El "balanceScore" se interpreta como COBERTURA: % de tareas planificadas de forma razonable (100 = plan bien distribuido)
+6. En las notas, incluí consejos de organización (no de distribución entre personas)
+7. Proporciona una breve razón para cada asignación
+8. Las tareas son una GUÍA organizativa, no una obligación — el tono debe ser positivo y flexible
+
+Genera un plan para los próximos ${durationLabel(durationDays)}.${regionalBlock ? `\n\n${regionalBlock}` : ""}${buildFeedbackBlock(context.recentFeedback)}`;
 }
 
 function buildFeedbackBlock(

@@ -40,3 +40,22 @@ export interface MemberOption {
   id: string;
   name: string;
 }
+
+export interface SerializedRecurringExpense {
+  id: string;
+  title: string;
+  amount: number;
+  currency: string;
+  category: ExpenseCategory;
+  splitType: SplitType;
+  paidById: string;
+  paidBy: { id: string; name: string };
+  notes: string | null;
+  frequency: string;
+  dayOfMonth: number | null;
+  dayOfWeek: number | null;
+  autoGenerate: boolean;
+  nextDueDate: string;
+  lastGeneratedAt: string | null;
+  isActive: boolean;
+}

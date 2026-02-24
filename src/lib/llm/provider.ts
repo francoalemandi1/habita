@@ -35,41 +35,33 @@ export const stubLLMProvider: ILLMProvider = {
 
 /**
  * Get the configured AI provider type.
- * Priority: OpenRouter > Gemini > Anthropic > None
+ * Priority: DeepSeek > Gemini > None
  */
-export function getAIProviderType(): "openrouter" | "gemini" | "anthropic" | "none" {
-  if (process.env.OPENROUTER_API_KEY) {
-    return "openrouter";
+export function getAIProviderType(): "deepseek" | "gemini" | "none" {
+  if (process.env.DEEPSEEK_API_KEY) {
+    return "deepseek";
   }
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     return "gemini";
-  }
-  if (process.env.ANTHROPIC_API_KEY) {
-    return "anthropic";
   }
   return "none";
 }
 
 /**
  * Get the LLM provider based on environment configuration.
- * Priority: OpenRouter > Gemini > Anthropic > Stub
+ * Priority: DeepSeek > Gemini > Stub
  */
 export async function getLLMProvider(): Promise<ILLMProvider> {
   const providerType = getAIProviderType();
 
-  if (providerType === "openrouter") {
-    const { openrouterProvider } = await import("./openrouter-provider");
-    return openrouterProvider;
+  if (providerType === "deepseek") {
+    const { deepseekProvider } = await import("./deepseek-provider");
+    return deepseekProvider;
   }
 
   if (providerType === "gemini") {
     const { geminiProvider } = await import("./gemini-provider");
     return geminiProvider;
-  }
-
-  if (providerType === "anthropic") {
-    const { anthropicProvider } = await import("./anthropic-provider");
-    return anthropicProvider;
   }
 
   return stubLLMProvider;

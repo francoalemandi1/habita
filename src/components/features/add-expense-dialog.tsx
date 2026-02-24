@@ -93,9 +93,10 @@ interface AddExpenseDialogProps {
   members: MemberOption[];
   currentMemberId: string;
   onExpenseCreated: (payload: CreateExpensePayload) => void;
+  isSolo?: boolean;
 }
 
-export function AddExpenseDialog({ members, currentMemberId, onExpenseCreated }: AddExpenseDialogProps) {
+export function AddExpenseDialog({ members, currentMemberId, onExpenseCreated, isSolo = false }: AddExpenseDialogProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
@@ -300,78 +301,82 @@ export function AddExpenseDialog({ members, currentMemberId, onExpenseCreated }:
                 <span>{CATEGORY_LABELS[category]}</span>
               </button>
 
-              {/* Payer chip */}
-              <button
-                type="button"
-                onClick={() => { setShowPayerSelect(!showPayerSelect); setShowCategorySelect(false); }}
-                className="inline-flex items-center gap-1.5 rounded-full border border-input px-3 py-1.5 text-sm transition-colors hover:bg-muted"
-              >
-                <span
-                  className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                  style={{ backgroundColor: payerColor }}
+              {/* Payer chip (hidden for solo — only one person) */}
+              {!isSolo && (
+                <button
+                  type="button"
+                  onClick={() => { setShowPayerSelect(!showPayerSelect); setShowCategorySelect(false); }}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-input px-3 py-1.5 text-sm transition-colors hover:bg-muted"
                 >
-                  {payerInitial}
-                </span>
-                <span>
-                  {paidById === currentMemberId ? "Vos pagaste" : `${selectedPayer?.name} pago`}
-                </span>
-              </button>
+                  <span
+                    className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                    style={{ backgroundColor: payerColor }}
+                  >
+                    {payerInitial}
+                  </span>
+                  <span>
+                    {paidById === currentMemberId ? "Vos pagaste" : `${selectedPayer?.name} pago`}
+                  </span>
+                </button>
+              )}
 
             </div>
 
-            {/* Split type presets */}
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setSplitType("EQUAL");
-                  setExcludedMembers(new Set());
-                  setShowExcludeMembers(false);
-                }}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                  splitType === "EQUAL" && !showExcludeMembers
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-input hover:bg-muted"
-                }`}
-              >
-                <span className="text-xs">÷</span>
-                Partes iguales
-              </button>
-
-              {members.length > 2 && (
+            {/* Split type presets (hidden for solo — no one to split with) */}
+            {!isSolo && (
+              <div className="flex flex-wrap gap-1.5">
                 <button
                   type="button"
                   onClick={() => {
                     setSplitType("EQUAL");
-                    setShowExcludeMembers(true);
+                    setExcludedMembers(new Set());
+                    setShowExcludeMembers(false);
                   }}
                   className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                    splitType === "EQUAL" && showExcludeMembers
+                    splitType === "EQUAL" && !showExcludeMembers
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-input hover:bg-muted"
                   }`}
                 >
-                  <span className="text-xs">-1</span>
-                  Uno no participa
+                  <span className="text-xs">÷</span>
+                  Partes iguales
                 </button>
-              )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSplitType("CUSTOM");
-                  setShowExcludeMembers(false);
-                }}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                  splitType === "CUSTOM"
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-input hover:bg-muted"
-                }`}
-              >
-                <span className="text-xs">#</span>
-                Montos custom
-              </button>
-            </div>
+                {members.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSplitType("EQUAL");
+                      setShowExcludeMembers(true);
+                    }}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                      splitType === "EQUAL" && showExcludeMembers
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-input hover:bg-muted"
+                    }`}
+                  >
+                    <span className="text-xs">-1</span>
+                    Uno no participa
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSplitType("CUSTOM");
+                    setShowExcludeMembers(false);
+                  }}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                    splitType === "CUSTOM"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-input hover:bg-muted"
+                  }`}
+                >
+                  <span className="text-xs">#</span>
+                  Montos custom
+                </button>
+              </div>
+            )}
 
             {/* Category grid (shown on chip tap) */}
             {showCategorySelect && (
@@ -399,8 +404,8 @@ export function AddExpenseDialog({ members, currentMemberId, onExpenseCreated }:
               </div>
             )}
 
-            {/* Payer select (inline, shown on chip tap) */}
-            {showPayerSelect && (
+            {/* Payer select (inline, shown on chip tap — hidden for solo) */}
+            {!isSolo && showPayerSelect && (
               <div className="space-y-1 rounded-lg border p-2">
                 {members.map((m) => {
                   const isSelected = m.id === paidById;
@@ -427,8 +432,8 @@ export function AddExpenseDialog({ members, currentMemberId, onExpenseCreated }:
               </div>
             )}
 
-            {/* Member selection for EQUAL split (exclude members) */}
-            {splitType === "EQUAL" && showExcludeMembers && (
+            {/* Member selection for EQUAL split (exclude members — hidden for solo) */}
+            {!isSolo && splitType === "EQUAL" && showExcludeMembers && (
               <div className="space-y-1.5 rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">Dividir entre</p>
                 <div className="flex flex-wrap gap-2">
@@ -456,8 +461,8 @@ export function AddExpenseDialog({ members, currentMemberId, onExpenseCreated }:
               </div>
             )}
 
-            {/* Custom splits (shown when CUSTOM selected) */}
-            {splitType === "CUSTOM" && (
+            {/* Custom splits (shown when CUSTOM selected — hidden for solo) */}
+            {!isSolo && splitType === "CUSTOM" && (
               <>
                 <div className="space-y-2 rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">Monto por miembro</p>

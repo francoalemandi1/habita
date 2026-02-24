@@ -2,130 +2,77 @@ import { NextResponse } from "next/server";
 import { processAbsenceRedistribution } from "@/lib/absence-redistribution";
 import { cleanupOldNotifications } from "@/lib/notification-service";
 import { prisma } from "@/lib/prisma";
-import { sendPushToMember } from "@/lib/web-push";
-import { sendWhatsAppMessage, isWhatsAppConfigured } from "@/lib/whatsapp";
-
+import { buildSplitsData } from "@/lib/expense-splits";
+import { calculateNextDueDate } from "@/lib/recurring-expense-utils";
 import type { NextRequest } from "next/server";
 
-/** Send push reminders to members with pending tasks due today. */
-async function sendDailyPushReminders(): Promise<{ sent: number; errors: number }> {
+/** Auto-generate expenses for recurring templates with autoGenerate=true and nextDueDate <= now. */
+async function processRecurringExpenses(): Promise<{ generated: number; errors: number }> {
   const now = new Date();
-  const endOfToday = new Date(now);
-  endOfToday.setHours(23, 59, 59, 999);
 
-  // Find members with pending assignments due today that have push subscriptions
-  const membersWithPending = await prisma.member.findMany({
+  const dueTemplates = await prisma.recurringExpense.findMany({
     where: {
       isActive: true,
-      pushSubscriptions: { some: {} },
-      assignments: {
-        some: {
-          status: { in: ["PENDING", "IN_PROGRESS"] },
-          dueDate: { lte: endOfToday },
-        },
-      },
-    },
-    select: {
-      id: true,
-      name: true,
-      _count: {
-        select: {
-          assignments: {
-            where: {
-              status: { in: ["PENDING", "IN_PROGRESS"] },
-              dueDate: { lte: endOfToday },
-            },
-          },
-        },
-      },
+      autoGenerate: true,
+      nextDueDate: { lte: now },
     },
   });
 
-  let sent = 0;
+  let generated = 0;
   let errors = 0;
 
-  for (const member of membersWithPending) {
-    const count = member._count.assignments;
-    if (count === 0) continue;
-
+  for (const template of dueTemplates) {
     try {
-      const delivered = await sendPushToMember(member.id, {
-        title: "Tareas pendientes",
-        body: count === 1
-          ? `Tenés 1 tarea pendiente para hoy`
-          : `Tenés ${count} tareas pendientes para hoy`,
-        url: "/dashboard",
+      const splitsResult = await buildSplitsData({
+        householdId: template.householdId,
+        amount: template.amount.toNumber(),
+        splitType: template.splitType,
       });
-      sent += delivered;
-    } catch {
-      errors++;
-    }
-  }
 
-  return { sent, errors };
-}
+      if (!splitsResult.ok) {
+        errors++;
+        continue;
+      }
 
-/** Send WhatsApp reminders to members with linked WhatsApp and pending tasks due today. */
-async function sendWhatsAppReminders(): Promise<{ sent: number; errors: number }> {
-  if (!isWhatsAppConfigured()) return { sent: 0, errors: 0 };
+      const nextDueDate = calculateNextDueDate(
+        template.frequency,
+        template.nextDueDate,
+        template.dayOfMonth,
+        template.dayOfWeek,
+      );
 
-  const now = new Date();
-  const endOfToday = new Date(now);
-  endOfToday.setHours(23, 59, 59, 999);
-
-  const membersWithPending = await prisma.member.findMany({
-    where: {
-      isActive: true,
-      whatsappLink: { is: { isActive: true, verifiedAt: { not: null } } },
-      assignments: {
-        some: {
-          status: { in: ["PENDING", "IN_PROGRESS"] },
-          dueDate: { lte: endOfToday },
-        },
-      },
-    },
-    include: {
-      whatsappLink: { select: { phoneNumber: true } },
-      _count: {
-        select: {
-          assignments: {
-            where: {
-              status: { in: ["PENDING", "IN_PROGRESS"] },
-              dueDate: { lte: endOfToday },
-            },
+      await prisma.$transaction([
+        prisma.expense.create({
+          data: {
+            householdId: template.householdId,
+            paidById: template.paidById,
+            title: template.title,
+            amount: template.amount,
+            currency: template.currency,
+            category: template.category,
+            splitType: template.splitType,
+            notes: template.notes,
+            splits: { create: splitsResult.data },
           },
-        },
-      },
-    },
-  });
+        }),
+        prisma.recurringExpense.update({
+          where: { id: template.id },
+          data: { nextDueDate, lastGeneratedAt: now },
+        }),
+      ]);
 
-  let sent = 0;
-  let errors = 0;
-
-  for (const member of membersWithPending) {
-    const count = member._count.assignments;
-    if (count === 0 || !member.whatsappLink) continue;
-
-    const message =
-      count === 1
-        ? 'Tenés 1 tarea pendiente para hoy. Escribí "tareas" para verla.'
-        : `Tenés ${count} tareas pendientes para hoy. Escribí "tareas" para verlas.`;
-
-    try {
-      const ok = await sendWhatsAppMessage(member.whatsappLink.phoneNumber, message);
-      if (ok) sent++;
-      else errors++;
+      generated++;
     } catch {
       errors++;
     }
   }
 
-  return { sent, errors };
+  return { generated, errors };
 }
 
 /**
  * POST /api/cron/process
- * Job programado: (1) redistribución por ausencias, (2) limpieza de notificaciones, (3) push reminders, (4) WhatsApp reminders.
+ * Job programado: (1) redistribución por ausencias, (2) limpieza de notificaciones, (3) push reminders, (4) gastos recurrentes.
  * Protegido por CRON_SECRET.
  */
 export async function POST(request: NextRequest) {
@@ -139,11 +86,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [absenceResult, cleanupResult, pushResult, whatsappResult] = await Promise.all([
+    const [absenceResult, cleanupResult, recurringResult] = await Promise.all([
       processAbsenceRedistribution(),
       cleanupOldNotifications(),
-      sendDailyPushReminders(),
-      sendWhatsAppReminders(),
+      processRecurringExpenses(),
     ]);
 
     return NextResponse.json({
@@ -158,13 +104,9 @@ export async function POST(request: NextRequest) {
         deletedRead: cleanupResult.deletedRead,
         deletedUnread: cleanupResult.deletedUnread,
       },
-      push: {
-        sent: pushResult.sent,
-        errors: pushResult.errors,
-      },
-      whatsapp: {
-        sent: whatsappResult.sent,
-        errors: whatsappResult.errors,
+      recurringExpenses: {
+        generated: recurringResult.generated,
+        errors: recurringResult.errors,
       },
       timestamp: new Date().toISOString(),
     });
@@ -195,6 +137,6 @@ export async function GET(request: NextRequest) {
     status: "ready",
     endpoint: "POST /api/cron/process",
     description:
-      "Redistribuye asignaciones por ausencias activas, limpia notificaciones antiguas, envía push y WhatsApp reminders",
+      "Redistribuye asignaciones por ausencias activas, limpia notificaciones antiguas y genera gastos recurrentes",
   });
 }

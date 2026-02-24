@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
-import { handleApiError } from "@/lib/api-response";
 
 /**
  * GET /api/stats
@@ -27,7 +26,7 @@ export async function GET() {
     const endOfToday = new Date(now);
     endOfToday.setHours(23, 59, 59, 999);
 
-    // All 9 queries are independent — run in parallel
+    // All queries are independent — run in parallel
     const [
       members,
       weeklyCompletions,
@@ -35,13 +34,12 @@ export async function GET() {
       totalCompletions,
       totalTasksCompleted,
       pendingTasks,
-      overdueTasks,
       recentActivity,
       weekCompletions,
     ] = await Promise.all([
       prisma.member.findMany({
         where: { householdId, isActive: true },
-        include: { level: true },
+        select: { id: true, name: true, memberType: true },
       }),
       prisma.assignment.groupBy({
         by: ["memberId"],
@@ -81,13 +79,6 @@ export async function GET() {
           status: { in: ["PENDING", "IN_PROGRESS"] },
         },
       }),
-      prisma.assignment.count({
-        where: {
-          householdId,
-          status: { in: ["PENDING", "IN_PROGRESS"] },
-          dueDate: { lt: now },
-        },
-      }),
       prisma.assignment.findMany({
         where: {
           householdId,
@@ -121,19 +112,15 @@ export async function GET() {
       totalCompletions.map((c) => [c.memberId, c._count.id])
     );
 
-    // Build leaderboard
-    const leaderboard = members
-      .map((m) => ({
-        id: m.id,
-        name: m.name,
-        memberType: m.memberType,
-        level: m.level?.level ?? 1,
-        xp: m.level?.xp ?? 0,
-        weeklyTasks: weeklyCompletionMap.get(m.id) ?? 0,
-        monthlyTasks: monthlyCompletionMap.get(m.id) ?? 0,
-        totalTasks: totalCompletionMap.get(m.id) ?? 0,
-      }))
-      .sort((a, b) => b.xp - a.xp);
+    // Build member stats
+    const memberStats = members.map((m) => ({
+      id: m.id,
+      name: m.name,
+      memberType: m.memberType,
+      weeklyTasks: weeklyCompletionMap.get(m.id) ?? 0,
+      monthlyTasks: monthlyCompletionMap.get(m.id) ?? 0,
+      totalTasks: totalCompletionMap.get(m.id) ?? 0,
+    }));
 
     const countsByDate = new Map<string, number>();
     for (const c of weekCompletions) {
@@ -153,11 +140,10 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      leaderboard,
+      memberStats,
       totals: {
         completed: totalTasksCompleted,
         pending: pendingTasks,
-        overdue: overdueTasks,
         members: members.length,
       },
       recentActivity: recentActivity.map((a) => ({

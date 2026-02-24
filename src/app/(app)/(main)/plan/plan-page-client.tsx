@@ -49,6 +49,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { getTaskIcon, getTaskCategoryMeta } from "@/data/onboarding-catalog";
 import { AddTaskToDayDialog } from "@/components/features/add-task-to-day-dialog";
+import { isSoloHousehold, getHouseholdCopy } from "@/lib/household-mode";
 
 import type { MemberType, WeeklyPlanStatus, TaskFrequency } from "@prisma/client";
 import type { ExcludedTask } from "@/lib/plan-duration";
@@ -61,8 +62,6 @@ interface PlanAssignment {
   memberType: MemberType;
   reason: string;
   dayOfWeek?: number;
-  startTime?: string;
-  endTime?: string;
 }
 
 interface MemberSummary {
@@ -160,11 +159,11 @@ const DAY_OF_WEEK_SHORT: Record<number, string> = {
   7: "Dom",
 };
 
-/** Unique key for an assignment — includes dayOfWeek and startTime so daily tasks on different days/times are distinct */
-function assignmentKey(a: { taskName: string; memberId: string; dayOfWeek?: number; startTime?: string }): string {
+/** Unique key for an assignment — includes dayOfWeek so daily tasks on different days are distinct */
+function assignmentKey(a: { taskName: string; memberId: string; dayOfWeek?: number }): string {
   const base = `${a.taskName}|${a.memberId}`;
   if (!a.dayOfWeek) return base;
-  return a.startTime ? `${base}|${a.dayOfWeek}|${a.startTime}` : `${base}|${a.dayOfWeek}`;
+  return `${base}|${a.dayOfWeek}`;
 }
 
 function getScoreColor(score: number): string {
@@ -228,6 +227,8 @@ export function PlanPageClient({
   const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
   const router = useRouter();
   const toast = useToast();
+  const isSolo = isSoloHousehold(members.length);
+  const householdCopy = getHouseholdCopy(isSolo);
 
   const categorizedTasks = useMemo(
     () => {
@@ -367,7 +368,7 @@ export function PlanPageClient({
     try {
       const assignmentsToApply = plan.assignments
         .filter((a) => selectedAssignments.has(assignmentKey(a)))
-        .map((a) => ({ taskName: a.taskName, memberId: a.memberId, memberName: a.memberName, dayOfWeek: a.dayOfWeek, startTime: a.startTime, endTime: a.endTime }));
+        .map((a) => ({ taskName: a.taskName, memberId: a.memberId, memberName: a.memberName, dayOfWeek: a.dayOfWeek }));
 
       const response = await fetch("/api/ai/apply-plan", {
         method: "POST",
@@ -620,7 +621,7 @@ export function PlanPageClient({
           <div>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
               <CalendarDays className="h-6 w-6 text-primary shrink-0" />
-              Plan de Distribución
+              {isSolo ? "Plan Semanal" : "Plan de Distribución"}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {isGenerating
@@ -629,7 +630,7 @@ export function PlanPageClient({
                   ? plan.status === "APPLIED"
                     ? "Plan aplicado"
                     : "Revisa y aprueba el plan propuesto"
-                  : `${tasks.length} tareas para ${members.length} ${members.length === 1 ? "miembro" : "miembros"}`}
+                  : householdCopy.planMembersSummary(tasks.length, members.length)}
             </p>
             <Link
               href="/plans"
@@ -665,7 +666,9 @@ export function PlanPageClient({
             <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
             <h2 className="text-lg font-semibold mb-2">Generando plan</h2>
             <p className="text-sm text-muted-foreground max-w-md">
-              Analizando tareas y distribuyendo equitativamente entre los miembros...
+              {isSolo
+                ? "Analizando tareas y organizando tu semana..."
+                : "Analizando tareas y distribuyendo equitativamente entre los miembros..."}
             </p>
           </div>
         </div>
@@ -684,7 +687,9 @@ export function PlanPageClient({
                 <div className="min-w-0">
                   <h3 className="text-lg font-semibold">Tareas a distribuir</h3>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    {tasks.length} tareas serán asignadas equitativamente entre {members.length} {members.length === 1 ? "miembro" : "miembros"}
+                    {isSolo
+                      ? `${tasks.length} tareas serán organizadas en tu semana`
+                      : `${tasks.length} tareas serán asignadas equitativamente entre ${members.length} ${members.length === 1 ? "miembro" : "miembros"}`}
                   </p>
                 </div>
               </div>
@@ -751,36 +756,38 @@ export function PlanPageClient({
             </CardContent>
           </Card>
 
-          {/* Members summary */}
-          <Card className="border-primary/15 bg-primary/3 shadow-sm">
-            <CardContent className="pt-5 pb-5 sm:pt-6 sm:pb-6">
-              <div className="mb-4 flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                  <Users className="h-5 w-5 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-lg font-semibold">Miembros del hogar</h3>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    El plan considerará el tipo y capacidad de cada miembro
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                {members.map((m) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center gap-2.5 rounded-xl border border-primary/10 bg-white px-3 py-2.5 shadow-sm"
-                  >
-                    {MEMBER_TYPE_ICONS[m.type]}
-                    <span className="font-medium">{m.name}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {MEMBER_TYPE_LABELS[m.type]}
-                    </Badge>
+          {/* Members summary (hidden for solo households) */}
+          {!isSolo && (
+            <Card className="border-primary/15 bg-primary/3 shadow-sm">
+              <CardContent className="pt-5 pb-5 sm:pt-6 sm:pb-6">
+                <div className="mb-4 flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                    <Users className="h-5 w-5 text-primary" />
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-semibold">Miembros del hogar</h3>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      El plan considerará el tipo y capacidad de cada miembro
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {members.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center gap-2.5 rounded-xl border border-primary/10 bg-white px-3 py-2.5 shadow-sm"
+                    >
+                      {MEMBER_TYPE_ICONS[m.type]}
+                      <span className="font-medium">{m.name}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {MEMBER_TYPE_LABELS[m.type]}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Date range selector */}
           <Card className="border-primary/15 bg-primary/3 shadow-sm">
@@ -864,13 +871,17 @@ export function PlanPageClient({
           {/* Balance Score */}
           <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="min-w-0 text-base font-semibold sm:text-lg">Equidad de distribución</h3>
+              <h3 className="min-w-0 text-base font-semibold sm:text-lg">
+                {isSolo ? "Cobertura del plan" : "Equidad de distribución"}
+              </h3>
               <span className={cn("shrink-0 text-2xl font-bold sm:text-3xl", getScoreColor(plan.balanceScore))}>
                 {plan.balanceScore}%
               </span>
             </div>
             <p className="text-sm text-muted-foreground mb-3">
-              Qué tan justa es la distribución entre los miembros
+              {isSolo
+                ? "Porcentaje de tareas cubiertas dentro de tu disponibilidad"
+                : "Qué tan justa es la distribución entre los miembros"}
             </p>
             <div className="relative h-3 rounded-full bg-muted overflow-hidden">
               <div
@@ -999,9 +1010,7 @@ export function PlanPageClient({
 
                 {/* Active day's tasks */}
                 {(() => {
-                  const dayAssignments = [...(assignmentsByDay.get(activeDayOfWeek) ?? [])].sort((a, b) =>
-                    (a.startTime ?? "99:99").localeCompare(b.startTime ?? "99:99")
-                  );
+                  const dayAssignments = assignmentsByDay.get(activeDayOfWeek) ?? [];
                   const isPending = plan.status === "PENDING";
 
                   if (dayAssignments.length === 0) {
@@ -1077,11 +1086,6 @@ export function PlanPageClient({
                                 onClick={() => toggleAssignment(assignment.taskName, assignment.memberId, assignment.dayOfWeek)}
                               >
                                 <p className="font-medium truncate">
-                                  {assignment.startTime && (
-                                    <span className="text-xs text-muted-foreground mr-1.5">
-                                      {assignment.startTime}–{assignment.endTime ?? ""}
-                                    </span>
-                                  )}
                                   {assignment.taskName}
                                 </p>
                                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -1302,7 +1306,7 @@ export function PlanPageClient({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Regenerar plan de distribución</AlertDialogTitle>
+            <AlertDialogTitle>{isSolo ? "Regenerar plan semanal" : "Regenerar plan de distribución"}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <p>

@@ -315,7 +315,7 @@ function buildWelcomeHtml(params: WelcomeEmailParams): string {
         </td></tr>
       </table>`
     : `<p style="color:${COLORS.textSecondary};font-size:14px;line-height:1.6;margin:8px 0">
-        Desde ahora vas a poder ver tus tareas asignadas, completarlas y ganar puntos junto a tu familia.
+        Desde ahora vas a poder ver tus tareas asignadas y organizarlas junto a tu familia.
       </p>`;
 
   return wrapEmail(`
@@ -401,7 +401,7 @@ function buildPlanAppliedHtml(params: PlanAppliedEmailParams): string {
     ${buildAssignmentTableHtml(assignments)}
 
     <p style="color:${COLORS.textSecondary};font-size:14px;line-height:1.6;margin:16px 0 0">
-      Cada tarea completada suma puntos y acerca al equipo a sus recompensas. ¡A por la semana!
+      Cada tarea completada acerca al equipo a un hogar más organizado. ¡A por la semana!
     </p>
 
     ${ctaButton("Ver mis tareas", `${APP_URL}/my-tasks`)}
@@ -417,16 +417,13 @@ interface WeeklyInsightsEmailParams {
   localDateLabel: string;
   memberStats: Array<{
     memberName: string;
-    level: number;
     weeklyCompleted: number;
   }>;
   totals: {
     completedThisWeek: number;
     pendingCount: number;
-    overdueCount: number;
   };
   dailyCompletions: Array<{ date: string; count: number }>;
-  recentAchievements: Array<{ memberName: string; achievementName: string }>;
 }
 
 /**
@@ -463,10 +460,7 @@ async function sendWeeklyInsightsEmail(
 }
 
 function buildWeeklyInsightsHtml(params: WeeklyInsightsEmailParams): string {
-  const { householdName, localDateLabel, memberStats, totals, dailyCompletions, recentAchievements } = params;
-
-  const overdueColor = totals.overdueCount > 0 ? COLORS.red : COLORS.green;
-  const overdueBg = totals.overdueCount > 0 ? COLORS.redBg : COLORS.greenBg;
+  const { householdName, localDateLabel, memberStats, totals, dailyCompletions } = params;
 
   // Highlight message
   const highlightMsg = totals.completedThisWeek > 0
@@ -479,7 +473,6 @@ function buildWeeklyInsightsHtml(params: WeeklyInsightsEmailParams): string {
       <tr>
         ${statCard(String(totals.completedThisWeek), "Completadas", COLORS.greenBg, COLORS.green)}
         ${statCard(String(totals.pendingCount), "Pendientes", COLORS.blueBg, COLORS.primary)}
-        ${statCard(String(totals.overdueCount), "Atrasadas", overdueBg, overdueColor)}
       </tr>
     </table>
   `;
@@ -492,7 +485,6 @@ function buildWeeklyInsightsHtml(params: WeeklyInsightsEmailParams): string {
         const medal = i === 0 && m.weeklyCompleted > 0 ? "&#9733; " : "";
         return `<tr>
           <td style="padding:10px 12px;border-bottom:1px solid ${COLORS.border};font-weight:500;color:${COLORS.text}">${medal}${m.memberName}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid ${COLORS.border};text-align:center;color:${COLORS.textSecondary}">Nv.${m.level}</td>
           <td style="padding:10px 12px;border-bottom:1px solid ${COLORS.border};text-align:center;font-weight:600;color:${COLORS.primary}">${m.weeklyCompleted}</td>
         </tr>`;
       }
@@ -504,7 +496,6 @@ function buildWeeklyInsightsHtml(params: WeeklyInsightsEmailParams): string {
       <thead>
         <tr>
           <th style="padding:10px 12px;text-align:left;font-size:12px;color:${COLORS.textMuted};text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid ${COLORS.border}">Miembro</th>
-          <th style="padding:10px 12px;text-align:center;font-size:12px;color:${COLORS.textMuted};text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid ${COLORS.border}">Nivel</th>
           <th style="padding:10px 12px;text-align:center;font-size:12px;color:${COLORS.textMuted};text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid ${COLORS.border}">Semana</th>
         </tr>
       </thead>
@@ -537,17 +528,6 @@ function buildWeeklyInsightsHtml(params: WeeklyInsightsEmailParams): string {
     <table style="width:100%;border-collapse:collapse">${dailyBars}</table>
   `;
 
-  // Achievements
-  const achievementsBlock = recentAchievements.length > 0
-    ? `${divider()}
-      ${sectionTitle("Logros desbloqueados")}
-      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%">
-        <tr><td style="background:${COLORS.yellowBg};border-radius:8px;padding:14px 16px">
-          ${recentAchievements.map((a) => `<p style="margin:4px 0;font-size:14px;color:${COLORS.yellow}">&#9733; <strong>${a.memberName}</strong> desbloqueó <em>${a.achievementName}</em></p>`).join("")}
-        </td></tr>
-      </table>`
-    : "";
-
   // Closing message
   const closingMsg = totals.completedThisWeek > 5
     ? "Fue una semana productiva. ¡Sigan así!"
@@ -567,8 +547,6 @@ function buildWeeklyInsightsHtml(params: WeeklyInsightsEmailParams): string {
     ${divider()}
     ${sectionTitle("Actividad diaria")}
     ${dailyBlock}
-
-    ${achievementsBlock}
 
     ${divider()}
     <p style="color:${COLORS.textSecondary};font-size:14px;line-height:1.6;margin:0">${closingMsg}</p>

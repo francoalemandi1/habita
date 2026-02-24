@@ -186,10 +186,6 @@ export async function PATCH(
             data: { status: "REJECTED", respondedAt: new Date() },
           });
 
-          // Delete unsent reminders
-          await tx.taskReminder.deleteMany({
-            where: { assignmentId: existingAssignment.id, sentAt: null },
-          });
         }
 
         await tx.weeklyPlan.update({
@@ -259,10 +255,6 @@ export async function PATCH(
             data: { status: "REJECTED", respondedAt: new Date() },
           });
 
-          // Delete unsent reminders
-          await tx.taskReminder.deleteMany({
-            where: { assignmentId: oldAssignment.id, sentAt: null },
-          });
         }
 
         await tx.assignment.create({

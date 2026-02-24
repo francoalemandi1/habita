@@ -1,8 +1,8 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { isAIEnabled, getAIProviderType } from "./provider";
+import { getDeepSeekModel } from "./deepseek-provider";
 import { buildRegionalContext } from "./regional-context";
 import { searchWithTavily } from "@/lib/tavily";
 import { searchWithSerper } from "@/lib/serper";
@@ -166,12 +166,8 @@ function buildSchema(webResultCount: number) {
 // Model selection
 // ============================================
 
-function getModel(): LanguageModel | null {
+function getModel(): LanguageModel {
   const providerType = getAIProviderType();
-
-  if (providerType === "openrouter") {
-    return null;
-  }
 
   if (providerType === "gemini") {
     const google = createGoogleGenerativeAI({
@@ -180,10 +176,7 @@ function getModel(): LanguageModel | null {
     return google("gemini-1.5-flash");
   }
 
-  const anthropic = createAnthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-  });
-  return anthropic("claude-3-5-haiku-latest");
+  return getDeepSeekModel();
 }
 
 // ============================================
@@ -223,7 +216,6 @@ export async function findDeals(
   }
 
   // Step 2: Build context
-  const providerType = getAIProviderType();
   const regionalContext = await buildRegionalContext({
     latitude: options.latitude,
     longitude: options.longitude,
@@ -238,26 +230,15 @@ export async function findDeals(
   const schema = buildSchema(webResults.length);
 
   // Step 4: Call LLM
+  const model = getModel();
   let raw: RawLLMDealsResult | null = null;
 
-  if (providerType === "openrouter") {
-    try {
-      raw = await callOpenRouter(prompt, webResults.length);
-    } catch (error) {
-      console.error("[deals-finder] OpenRouter error:", error);
-      return null;
-    }
-  } else {
-    const model = getModel();
-    if (!model) return null;
-
-    try {
-      const generated = await generateObject({ model, schema, prompt });
-      raw = generated.object;
-    } catch (error) {
-      console.error("[deals-finder] AI error:", error);
-      return null;
-    }
+  try {
+    const generated = await generateObject({ model, schema, prompt });
+    raw = generated.object;
+  } catch (error) {
+    console.error("[deals-finder] AI error:", error);
+    return null;
   }
 
   if (!raw) return null;
@@ -519,112 +500,3 @@ Responder únicamente en JSON válido según el schema.
 `;
 }
 
-// ============================================
-// OpenRouter
-// ============================================
-
-async function callOpenRouter(
-  prompt: string,
-  webResultCount: number
-): Promise<RawLLMDealsResult | null> {
-  const { OpenRouter } = await import("@openrouter/sdk");
-  const client = new OpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
-
-  const systemRules = `
-Eres un extractor de promociones de consumo cotidiano del hogar.
-Responde SOLO con JSON válido.
-
-DOMINIO — Solo productos que se reponen en un hogar:
-Alimentos, bebidas, limpieza, higiene personal, mascotas, farmacia básica.
-Excluir: tecnología, electrodomésticos, muebles, ropa, herramientas, vehículos, servicios.
-
-REGLAS:
-- Solo productos específicos con marca y presentación. Nunca genéricos.
-- Solo precios explícitos visibles en las fuentes.
-- No inferir datos faltantes.
-- Priorizar productos con descuento explícito (30%, 2x1, etc).
-- Priorizar variedad — no múltiples variantes del mismo producto.
-- discountDescription solo si es concreto, sino null.
-- validUntil solo si tiene año explícito, sino "Vigencia no confirmada".
-- Ignorar ofertas mayoristas o muy antiguas.
-- Máximo 10 productos.
-- sourceIndex debe estar entre 0 y ${webResultCount - 1}.
-- summary: máximo 20 palabras, mencionar al menos un producto y un comercio.
-
-Formato:
-{
-  "deals": [
-    {
-      "productName": "string",
-      "store": "string",
-      "storeAddress": "string | null",
-      "discountedPrice": "string",
-      "regularPrice": "string | null",
-      "discountDescription": "string | null",
-      "validUntil": "string",
-      "sourceIndex": number,
-      "detail": "string"
-    }
-  ],
-  "summary": "string"
-}
-`;
-
-  const result = await client.chat.send({
-    chatGenerationParams: {
-      model: "openrouter/auto",
-      messages: [
-        { role: "system", content: systemRules },
-        { role: "user", content: prompt },
-      ],
-      stream: false,
-    },
-  });
-
-  const message = result.choices?.[0]?.message;
-  const text = typeof message?.content === "string" ? message.content : "{}";
-
-  return parseDealsJSON(text);
-}
-
-/** Attempt to parse LLM JSON output, repairing truncated arrays if needed. */
-function parseDealsJSON(text: string): RawLLMDealsResult | null {
-  try {
-    return JSON.parse(text) as RawLLMDealsResult;
-  } catch {
-    // noop
-  }
-
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
-    try {
-      return JSON.parse(jsonMatch[0]) as RawLLMDealsResult;
-    } catch {
-      // noop
-    }
-
-    try {
-      const repaired = repairTruncatedJSON(jsonMatch[0]);
-      return JSON.parse(repaired) as RawLLMDealsResult;
-    } catch {
-      // noop
-    }
-  }
-
-  console.error("[deals-finder] Failed to parse OpenRouter JSON response");
-  return null;
-}
-
-function repairTruncatedJSON(json: string): string {
-  let repaired = json.replace(/,\s*\{[^}]*$/, "");
-
-  const openBraces = (repaired.match(/\{/g) ?? []).length;
-  const closeBraces = (repaired.match(/\}/g) ?? []).length;
-  const openBrackets = (repaired.match(/\[/g) ?? []).length;
-  const closeBrackets = (repaired.match(/\]/g) ?? []).length;
-
-  repaired += "]".repeat(Math.max(0, openBrackets - closeBrackets));
-  repaired += "}".repeat(Math.max(0, openBraces - closeBraces));
-
-  return repaired;
-}

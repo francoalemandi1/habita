@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { durationLabel } from "@/lib/plan-duration";
 import { spacing, iconSize } from "@/lib/design-tokens";
 import { PlanFeedbackDialog } from "@/components/features/plan-feedback-dialog";
+import { isSoloHousehold, getHouseholdCopy } from "@/lib/household-mode";
 
 import type { WeeklyPlanStatus, MemberType } from "@prisma/client";
 
@@ -59,6 +60,7 @@ interface PlanStatusCardProps {
     expiresAt: Date;
   } | null;
   aiEnabled: boolean;
+  memberCount?: number;
   allAssignmentsDone?: boolean;
   pendingAssignments?: PendingAssignment[];
 }
@@ -82,9 +84,12 @@ function formatTimeRemaining(expiresAt: Date): string {
 export function PlanStatusCard({
   plan,
   aiEnabled,
+  memberCount = 2,
   allAssignmentsDone = false,
   pendingAssignments = [],
 }: PlanStatusCardProps) {
+  const isSolo = isSoloHousehold(memberCount);
+  const householdCopy = getHouseholdCopy(isSolo);
   const router = useRouter();
   const toast = useToast();
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
@@ -156,9 +161,9 @@ export function PlanStatusCard({
               <CalendarDays className={`${iconSize.lg} text-primary`} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="font-medium">Genera un plan de distribución</p>
+              <p className="font-medium">{householdCopy.planPromptTitle}</p>
               <p className="text-sm text-muted-foreground">
-                Distribuye las tareas equitativamente entre los miembros
+                {householdCopy.planPromptSubtitle}
               </p>
             </div>
             <ChevronRight className={`${iconSize.md} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
@@ -170,7 +175,7 @@ export function PlanStatusCard({
 
   // Pending plan - show banner to review
   if (plan.status === "PENDING") {
-    const memberCount = new Set(plan.assignments.map((a) => a.memberName)).size;
+    const uniqueMemberCount = new Set(plan.assignments.map((a) => a.memberName)).size;
     const taskCount = plan.assignments.length;
 
     return (
@@ -187,13 +192,15 @@ export function PlanStatusCard({
               <p className="font-medium text-amber-800 dark:text-amber-200">
                 Plan pendiente de aprobación
               </p>
-              <Badge variant="outline" className={cn("font-bold", getScoreColor(plan.balanceScore))}>
-                {plan.balanceScore}% equidad
-              </Badge>
+              {householdCopy.showEquityBadge && (
+                <Badge variant="outline" className={cn("font-bold", getScoreColor(plan.balanceScore))}>
+                  {plan.balanceScore}% equidad
+                </Badge>
+              )}
             </div>
             <p className="mt-0.5 text-sm text-amber-600 dark:text-amber-400 flex flex-wrap items-center gap-1">
               <Users className={`${iconSize.xs} shrink-0`} />
-              {taskCount} tareas para {memberCount} miembros
+              {householdCopy.planMembersSummary(taskCount, uniqueMemberCount)}
             </p>
           </div>
           <ChevronRight className={`${iconSize.md} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
@@ -229,7 +236,7 @@ export function PlanStatusCard({
 
   // Applied plan - show summary (whole card navigates to /plan)
   if (plan.status === "APPLIED") {
-    const memberCount = new Set(plan.assignments.map((a) => a.memberName)).size;
+    const uniqueMemberCount = new Set(plan.assignments.map((a) => a.memberName)).size;
     const taskCount = plan.assignments.length;
 
     return (
@@ -247,13 +254,15 @@ export function PlanStatusCard({
                 <p className="font-medium text-green-800 dark:text-green-200">
                   Plan aplicado
                 </p>
-                <Badge variant="outline" className={cn("font-bold", getScoreColor(plan.balanceScore))}>
-                  {plan.balanceScore}% equidad
-                </Badge>
+                {householdCopy.showEquityBadge && (
+                  <Badge variant="outline" className={cn("font-bold", getScoreColor(plan.balanceScore))}>
+                    {plan.balanceScore}% equidad
+                  </Badge>
+                )}
               </div>
               <p className="mt-0.5 text-sm text-green-600 dark:text-green-400 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                 <span>
-                  Plan de {durationLabel(plan.durationDays ?? 7)} · {taskCount} tareas para {memberCount} miembros
+                  Plan de {durationLabel(plan.durationDays ?? 7)} · {householdCopy.planMembersSummary(taskCount, uniqueMemberCount)}
                 </span>
                 <span className="inline-flex items-center gap-0.5 text-xs opacity-75">
                   <Timer className={`${iconSize.xs} shrink-0`} />
@@ -365,7 +374,7 @@ export function PlanStatusCard({
           <div className="min-w-0 flex-1">
             <p className="font-medium">Tu plan anterior expiró</p>
             <p className="text-sm text-muted-foreground">
-              Genera un nuevo plan de distribución
+              {householdCopy.planPromptTitle}
             </p>
           </div>
           <ChevronRight className={`${iconSize.md} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />

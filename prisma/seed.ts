@@ -176,16 +176,6 @@ const productCatalog: Array<{
   { name: "Curitas", searchTerms: "curitas apositos x20", category: "PERFUMERIA" },
 ];
 
-const achievements = [
-  { code: "FIRST_TASK", name: "Primera tarea", description: "Completaste tu primera tarea", xpReward: 10 },
-  { code: "TASKS_10", name: "Ayudante", description: "Completaste 10 tareas", xpReward: 20 },
-  { code: "TASKS_50", name: "Colaborador", description: "Completaste 50 tareas", xpReward: 75 },
-  { code: "TASKS_100", name: "Experto doméstico", description: "Completaste 100 tareas", xpReward: 150 },
-  { code: "EARLY_BIRD", name: "Madrugador", description: "Completaste una tarea antes de las 8am", xpReward: 15 },
-  { code: "TEAM_PLAYER", name: "Jugador de equipo", description: "Ayudaste a otro miembro", xpReward: 30 },
-  { code: "LEVEL_5", name: "Nivel 5", description: "Alcanzaste el nivel 5", xpReward: 50 },
-  { code: "LEVEL_10", name: "Nivel 10", description: "Alcanzaste el nivel 10", xpReward: 100 },
-];
 
 // ============================================
 // SEED FUNCTIONS
@@ -205,18 +195,6 @@ async function seedCatalog() {
     });
   }
   console.log(`  ✓ Seeded ${taskCatalog.length} task catalog entries`);
-}
-
-async function seedAchievements() {
-  console.log("Seeding achievements...");
-  for (const achievement of achievements) {
-    await prisma.achievement.upsert({
-      where: { code: achievement.code },
-      update: achievement,
-      create: achievement,
-    });
-  }
-  console.log(`  ✓ Seeded ${achievements.length} achievements`);
 }
 
 async function seedProductCatalog() {
@@ -254,7 +232,6 @@ async function main() {
   console.log("🌱 Starting database seed...\n");
 
   await seedCatalog();
-  await seedAchievements();
   await seedProductCatalog();
 
   console.log("\n🎉 Seeding complete!");

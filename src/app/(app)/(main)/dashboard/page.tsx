@@ -13,6 +13,7 @@ import { InviteHomeCard } from "@/components/features/invite-home-card";
 import { getWeekMonday, getWeekSunday } from "@/lib/calendar-utils";
 import { ChevronRight, Dices, CalendarDays, Wallet, Sparkles, ChefHat } from "lucide-react";
 import { spacing, iconSize } from "@/lib/design-tokens";
+import { isSoloHousehold, getHouseholdCopy } from "@/lib/household-mode";
 
 import type { MemberType } from "@prisma/client";
 
@@ -93,8 +94,6 @@ export default async function DashboardPage() {
           dueDate: true,
           status: true,
           completedAt: true,
-          suggestedStartTime: true,
-          suggestedEndTime: true,
           task: {
             select: { id: true, name: true, weight: true, frequency: true, estimatedMinutes: true },
           },
@@ -172,6 +171,8 @@ export default async function DashboardPage() {
   }));
 
   const mealLabel = getMealLabel();
+  const isSolo = isSoloHousehold(members.length);
+  const householdCopy = getHouseholdCopy(isSolo);
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
@@ -189,9 +190,9 @@ export default async function DashboardPage() {
       </div>
 
       {/* Invite block (dismissable, solo si único miembro) */}
-      {members.length === 1 && (
+      {isSolo && (
         <div className={spacing.sectionGap}>
-          <InviteHomeCard inviteCode={member.household.inviteCode} householdName={member.household.name} />
+          <InviteHomeCard inviteCode={member.household.inviteCode} householdName={member.household.name} variant="subtle" />
         </div>
       )}
 
@@ -220,6 +221,7 @@ export default async function DashboardPage() {
               expiresAt: activePlan.expiresAt,
             } : null}
             aiEnabled={aiEnabled}
+            memberCount={members.length}
             allAssignmentsDone={activePlan?.status === "APPLIED" && planPendingAssignments.length === 0}
             pendingAssignments={planPendingAssignments.map((a) => ({
               id: a.id,
@@ -341,7 +343,7 @@ export default async function DashboardPage() {
                 ? `Te deben $${expenseBalance.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`
                 : expenseBalance < 0
                   ? `Debés $${Math.abs(expenseBalance).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`
-                  : "Registrá tu primer gasto compartido"}
+                  : householdCopy.balanceEmpty}
             </p>
             <p className={`text-xs ${
               expenseBalance > 0
@@ -350,32 +352,34 @@ export default async function DashboardPage() {
                   ? "text-red-600"
                   : "text-muted-foreground"
             }`}>
-              {expenseBalance !== 0 ? "Ver gastos del hogar" : "Llevá las cuentas claras con tu hogar"}
+              {expenseBalance !== 0 ? "Ver gastos del hogar" : householdCopy.balanceSubtitle}
             </p>
           </div>
           <ChevronRight className={`${iconSize.sm} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
         </Link>
       </div>
 
-      {/* Roulette CTA (card visible) */}
-      <div className={spacing.sectionGap}>
-        <Link href="/roulette" className="group block">
-          <Card className="border-violet-400/25 bg-gradient-to-br from-violet-500/10 via-primary/5 to-fuchsia-500/8 transition-all hover:scale-[1.01] hover:border-violet-400/50 hover:shadow-lg active:scale-[0.99]">
-            <CardContent className="py-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/15 shadow-sm">
-                  <Dices className={`${iconSize.lg} text-violet-600 transition-transform group-hover:rotate-12`} />
+      {/* Roulette CTA (card visible, only for shared households) */}
+      {!isSolo && (
+        <div className={spacing.sectionGap}>
+          <Link href="/roulette" className="group block">
+            <Card className="border-violet-400/25 bg-gradient-to-br from-violet-500/10 via-primary/5 to-fuchsia-500/8 transition-all hover:scale-[1.01] hover:border-violet-400/50 hover:shadow-lg active:scale-[0.99]">
+              <CardContent className="py-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/15 shadow-sm">
+                    <Dices className={`${iconSize.lg} text-violet-600 transition-transform group-hover:rotate-12`} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">Ruleta de tareas</p>
+                    <p className="text-xs text-muted-foreground">Asigna una tarea al azar</p>
+                  </div>
+                  <ChevronRight className={`${iconSize.md} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold">Ruleta de tareas</p>
-                  <p className="text-xs text-muted-foreground">Asigna una tarea al azar</p>
-                </div>
-                <ChevronRight className={`${iconSize.md} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

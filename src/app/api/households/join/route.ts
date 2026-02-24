@@ -77,22 +77,14 @@ export async function POST(request: NextRequest) {
     const prismaMemberType: MemberType =
       memberType ? MEMBER_TYPE_MAP[memberType] ?? "ADULT" : "ADULT";
 
-    const newMember = await prisma.$transaction(async (tx) => {
-      const created = await tx.member.create({
-        data: {
-          userId,
-          householdId: household.id,
-          name: nameToUse,
-          memberType: prismaMemberType,
-        },
-        select: { id: true, name: true, memberType: true },
-      });
-
-      await tx.memberLevel.create({
-        data: { memberId: created.id },
-      });
-
-      return created;
+    const newMember = await prisma.member.create({
+      data: {
+        userId,
+        householdId: household.id,
+        name: nameToUse,
+        memberType: prismaMemberType,
+      },
+      select: { id: true, name: true, memberType: true },
     });
 
     if (user?.email) {

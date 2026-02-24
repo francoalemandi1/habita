@@ -35,7 +35,7 @@ export default async function JoinSetupPage({ params }: SetupPageProps) {
 
   return (
     <div className="rounded-2xl border-2 border-border/60 bg-card p-6 shadow-lg sm:p-8">
-      <SetupForm householdName={member.household.name} />
+      <SetupForm householdName={member.household.name} memberId={member.id} />
     </div>
   );
 }

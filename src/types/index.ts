@@ -29,7 +29,6 @@ export interface AssignmentWithDetails {
   dueDate: Date;
   status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "VERIFIED" | "OVERDUE" | "CANCELLED";
   completedAt: Date | null;
-  pointsEarned: number | null;
   task: {
     id: string;
     name: string;
@@ -48,8 +47,3 @@ export const MEMBER_CAPACITY = {
   CHILD: 0.3,
 } as const;
 
-/** Points calculation constants */
-export const POINTS = {
-  BASE_MULTIPLIER: 10,
-  XP_PER_LEVEL: 100,
-} as const;

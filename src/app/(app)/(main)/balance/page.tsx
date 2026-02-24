@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { isSoloHousehold } from "@/lib/household-mode";
 import { ExpensesView } from "@/components/features/expenses-view";
 
 export default async function BalancePage() {
@@ -52,6 +53,7 @@ export default async function BalancePage() {
         allMembers={activeMembers}
         hasLocation={hasLocation}
         householdCity={member.household.city ?? null}
+        isSolo={isSoloHousehold(activeMembers.length)}
       />
     </div>
   );

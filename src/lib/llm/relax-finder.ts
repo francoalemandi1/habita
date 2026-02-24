@@ -1,8 +1,8 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { isAIEnabled, getAIProviderType } from "./provider";
+import { getDeepSeekModel } from "./deepseek-provider";
 import { buildRegionalContext } from "./regional-context";
 import { searchLocalEvents } from "@/lib/web-search";
 
@@ -13,7 +13,7 @@ import type { WebSearchResult } from "@/lib/web-search";
 // Types
 // ============================================
 
-export type RelaxSection = "culture" | "restaurants" | "weekend";
+export type RelaxSection = "activities" | "restaurants";
 
 export interface RelaxEvent {
   title: string;
@@ -22,13 +22,11 @@ export interface RelaxEvent {
   venue: string;
   dateInfo: string;
   priceRange: string;
-  familyFriendly: boolean;
+  audience: string | null;
+  tip: string | null;
   url: string | null;
   sourceUrl: string | null;
   imageUrl: string | null;
-  relevanceNote: string;
-  practicalTips: string;
-  distanceKm: number | null;
 }
 
 export interface RelaxResult {
@@ -54,9 +52,8 @@ interface RawLLMEvent {
   category: string;
   dateInfo: string;
   priceRange: string;
-  familyFriendly: boolean;
-  relevanceNote: string;
-  practicalTips: string;
+  audience?: string;
+  tip?: string;
 }
 
 interface RawLLMResult {
@@ -68,9 +65,10 @@ interface RawLLMResult {
 // Categories per section
 // ============================================
 
-const CULTURE_CATEGORIES = [
+const ACTIVITIES_CATEGORIES = [
   "cine", "teatro", "musica", "exposiciones",
-  "gastronomia", "festivales", "deportes_culturales", "talleres",
+  "festivales", "mercados", "paseos", "excursiones",
+  "talleres",
 ] as const;
 
 const RESTAURANT_CATEGORIES = [
@@ -78,15 +76,9 @@ const RESTAURANT_CATEGORIES = [
   "heladerias", "pizzerias", "comida_rapida", "parrillas",
 ] as const;
 
-const WEEKEND_CATEGORIES = [
-  "paseos", "excursiones", "mercados", "parques",
-  "deportes", "picnic", "turismo", "familiar",
-] as const;
-
 const SECTION_CATEGORIES: Record<RelaxSection, readonly string[]> = {
-  culture: CULTURE_CATEGORIES,
+  activities: ACTIVITIES_CATEGORIES,
   restaurants: RESTAURANT_CATEGORIES,
-  weekend: WEEKEND_CATEGORIES,
 };
 
 // ============================================
@@ -95,31 +87,20 @@ const SECTION_CATEGORIES: Record<RelaxSection, readonly string[]> = {
 
 function buildSchema(categories: readonly string[], webResultCount: number) {
   const eventSchema = z.object({
-    title: z.string().min(1)
-      .describe("Nombre exacto del evento, película, restaurante o actividad (extraído de la fuente web)"),
-    venue: z.string().min(1)
-      .describe("Nombre del lugar o dirección donde ocurre"),
-    sourceIndex: z.number().int().min(0).max(Math.max(webResultCount - 1, 0))
-      .describe("Índice de la fuente web [0..N] de donde se extrajo esta información"),
-    description: z.string()
-      .describe("Descripción en 2-3 oraciones con datos concretos extraídos de la fuente"),
-    category: z.enum(categories as [string, ...string[]])
-      .describe("Categoría"),
-    dateInfo: z.string()
-      .describe("Fecha y horario CONCRETO extraído de la fuente. Si no hay dato exacto: 'Consultar horarios'"),
-    priceRange: z.string()
-      .describe("Precio concreto extraído de la fuente, o: Gratis, Bajo ($), Medio ($$), Alto ($$$)"),
-    familyFriendly: z.boolean()
-      .describe("Apto para familias con niños"),
-    relevanceNote: z.string()
-      .describe("Por qué es relevante ahora"),
-    practicalTips: z.string()
-      .describe("Consejos prácticos: cómo llegar, mejor horario, qué llevar"),
+    title: z.string().min(1),
+    venue: z.string().min(1),
+    sourceIndex: z.number().int().min(0).max(Math.max(webResultCount - 1, 0)),
+    description: z.string(),
+    category: z.enum(categories as [string, ...string[]]),
+    dateInfo: z.string(),
+    priceRange: z.string(),
+    audience: z.string().optional(),
+    tip: z.string().optional(),
   });
 
   return z.object({
     events: z.array(eventSchema),
-    summary: z.string().describe("Resumen de 1 oración sobre las sugerencias"),
+    summary: z.string(),
   });
 }
 
@@ -127,12 +108,8 @@ function buildSchema(categories: readonly string[], webResultCount: number) {
 // Model selection
 // ============================================
 
-function getModel(): LanguageModel | null {
+function getModel(): LanguageModel {
   const providerType = getAIProviderType();
-
-  if (providerType === "openrouter") {
-    return null;
-  }
 
   if (providerType === "gemini") {
     const google = createGoogleGenerativeAI({
@@ -141,10 +118,7 @@ function getModel(): LanguageModel | null {
     return google("gemini-1.5-flash");
   }
 
-  const anthropic = createAnthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-  });
-  return anthropic("claude-3-5-haiku-latest");
+  return getDeepSeekModel();
 }
 
 // ============================================
@@ -174,7 +148,6 @@ export async function generateRelaxSuggestions(
   }
 
   // Step 2: Build context
-  const providerType = getAIProviderType();
   const regionalContext = await buildRegionalContext({
     latitude: options.latitude,
     longitude: options.longitude,
@@ -185,30 +158,20 @@ export async function generateRelaxSuggestions(
 
   // Step 3: Build prompt with full web content
   const webContentBlock = buildWebContentBlock(webResults);
-  const prompt = buildPrompt(options, regionalContext.promptBlock, regionalContext.localHour, webContentBlock);
+  const todayIso = formatLocalDate(regionalContext.localNow, options.timezone);
+  const prompt = buildPrompt(options, regionalContext.promptBlock, regionalContext.localHour, webContentBlock, todayIso);
   const schema = buildSchema(SECTION_CATEGORIES[options.section], webResults.length);
 
   // Step 4: Call LLM
+  const model = getModel();
   let raw: RawLLMResult | null = null;
 
-  if (providerType === "openrouter") {
-    try {
-      raw = await callOpenRouter(prompt, options.section, webResults.length);
-    } catch (error) {
-      console.error(`OpenRouter ${options.section} error:`, error);
-      return null;
-    }
-  } else {
-    const model = getModel();
-    if (!model) return null;
-
-    try {
-      const generated = await generateObject({ model, schema, prompt });
-      raw = generated.object;
-    } catch (error) {
-      console.error(`AI ${options.section} error:`, error);
-      return null;
-    }
+  try {
+    const generated = await generateObject({ model, schema, prompt });
+    raw = generated.object;
+  } catch (error) {
+    console.error(`AI ${options.section} error:`, error);
+    return null;
   }
 
   if (!raw) return null;
@@ -247,32 +210,32 @@ function postProcess(
   webResults: WebSearchResult[],
   options: RelaxFinderOptions
 ): RelaxResult {
-  return {
-    summary: raw.summary,
-    events: raw.events
-      .filter((event) => event.title && event.venue)
-      .map((event) => {
-        const sourceIndex = event.sourceIndex;
-        const webSource = sourceIndex >= 0 && sourceIndex < webResults.length
-          ? webResults[sourceIndex]
-          : null;
-        return {
-          title: event.title,
-          venue: event.venue,
-          url: buildGoogleMapsUrl(event.venue, options.city),
-          sourceUrl: webSource?.url ?? null,
-          imageUrl: webSource?.imageUrl ?? null,
-          distanceKm: null,
-          description: event.description,
-          category: event.category,
-          dateInfo: event.dateInfo,
-          priceRange: event.priceRange,
-          familyFriendly: event.familyFriendly,
-          relevanceNote: event.relevanceNote,
-          practicalTips: event.practicalTips,
-        };
-      }),
-  };
+  const mappedEvents = raw.events
+    .filter((event) => event.title && event.venue)
+    .map((event) => {
+      const sourceIndex = event.sourceIndex;
+      const webSource = sourceIndex >= 0 && sourceIndex < webResults.length
+        ? webResults[sourceIndex]
+        : null;
+      return {
+        title: event.title,
+        venue: event.venue,
+        url: buildGoogleMapsUrl(event.venue, options.city),
+        sourceUrl: webSource?.url ?? null,
+        imageUrl: webSource?.imageUrl ?? null,
+        description: event.description,
+        category: event.category,
+        dateInfo: event.dateInfo,
+        priceRange: event.priceRange,
+        audience: event.audience ?? null,
+        tip: event.tip ?? null,
+      };
+    });
+
+  // Safety net: strip events with dates that have already passed
+  const filteredEvents = filterPastEvents(mappedEvents, options.timezone);
+
+  return { summary: raw.summary, events: filteredEvents };
 }
 
 // ============================================
@@ -284,228 +247,194 @@ function buildGoogleMapsUrl(venue: string, city: string): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
 }
 
+/** Format a Date as "23 de febrero de 2026" for prompt injection */
+function formatLocalDate(date: Date, timezone: string): string {
+  try {
+    return date.toLocaleDateString("es-AR", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: timezone,
+    });
+  } catch {
+    return date.toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" });
+  }
+}
+
+const MONTH_ABBR_TO_NUMBER: Record<string, number> = {
+  ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5,
+  jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11,
+};
+
+/**
+ * Best-effort parser for dateInfo strings like "Sáb 22 feb, 11 a 20h",
+ * "4 de febrero", "Del 7 feb al 1 mar", "Vie a dom durante febrero".
+ * Returns the latest date mentioned (end date for ranges), or null if unparseable.
+ */
+function parseLatestDate(dateInfo: string): Date | null {
+  const lower = dateInfo.toLowerCase();
+
+  // Match all "day month" patterns in the string (to find the latest one for ranges)
+  const allMatches = [...lower.matchAll(/(\d{1,2})\s+(?:de\s+)?(ene(?:ro)?|feb(?:rero)?|mar(?:zo)?|abr(?:il)?|may(?:o)?|jun(?:io)?|jul(?:io)?|ago(?:sto)?|sep(?:tiembre)?|oct(?:ubre)?|nov(?:iembre)?|dic(?:iembre)?)/g)];
+
+  if (allMatches.length === 0) return null;
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  let latestDate: Date | null = null;
+
+  for (const match of allMatches) {
+    const day = parseInt(match[1]!, 10);
+    const monthStr = match[2]!.slice(0, 3);
+    const month = MONTH_ABBR_TO_NUMBER[monthStr];
+    if (month === undefined) continue;
+
+    const date = new Date(currentYear, month, day);
+    if (!latestDate || date > latestDate) {
+      latestDate = date;
+    }
+  }
+
+  return latestDate;
+}
+
+/**
+ * Filter out events whose dateInfo contains only dates in the past.
+ * Events with "durante febrero" (month-long) or unparseable dates are kept.
+ */
+function filterPastEvents(events: RelaxEvent[], timezone: string): RelaxEvent[] {
+  const now = new Date();
+  // Start of today in local timezone
+  const todayStr = now.toLocaleDateString("en-CA", { timeZone: timezone });
+  const todayStart = new Date(`${todayStr}T00:00:00`);
+
+  return events.filter((event) => {
+    const latestDate = parseLatestDate(event.dateInfo);
+    // If we can't parse, keep the event (benefit of the doubt)
+    if (!latestDate) return true;
+    // Keep if the latest date is today or later
+    return latestDate >= todayStart;
+  });
+}
+
 // ============================================
 // Prompt builder
 // ============================================
 
-const ANTI_HALLUCINATION_RULES = `## REGLA ABSOLUTA — EXTRACCIÓN, NO INVENCIÓN
-- Solo podés extraer información que esté PRESENTE en las fuentes web de arriba.
-- NO inventes eventos, películas, restaurantes, horarios ni precios que no aparezcan en las fuentes.
-- Cada evento que devuelvas DEBE referenciar una fuente web con "sourceIndex" (0, 1, 2, ...).
-- Si una fuente web no tiene datos concretos (fecha, hora, precio), indicá "Consultar en el lugar" en vez de inventar.
-- Extraé entre 8 y 15 eventos/lugares de las fuentes disponibles.
-- NUNCA repitas el mismo evento (mismo título + venue) dos veces.
-- Si las fuentes no tienen suficiente información para una categoría, devolvé menos resultados pero verídicos.`;
+/** Section-specific role and mission for the LLM */
+const SECTION_ROLES: Record<RelaxSection, string> = {
+  activities: `Sos un curador de planes que ayuda a una familia a decidir qué hacer esta semana.
+Tu misión: extraer de las fuentes lo que está pasando AHORA — shows, películas, ferias, festivales, eventos, paseos, excursiones. Priorizá lo efímero (cosas con fecha) por encima de lo permanente (museos, parques, plazas que están siempre).`,
+  restaurants: `Sos un amigo local que sabe dónde se come bien.
+Tu misión: extraer de las fuentes descubrimientos gastronómicos — lugares nuevos, con buena reseña, que un local recomendaría. Nada de cadenas ni guías turísticas.`,
+};
+
+/** One concrete example per section so the LLM knows the expected output shape */
+const SECTION_EXAMPLES: Record<RelaxSection, string> = {
+  activities: `{
+  "title": "Feria de diseño en el CCK",
+  "venue": "Centro Cultural Kirchner, Sarmiento 151",
+  "sourceIndex": 1,
+  "description": "80 diseñadores independientes con talleres gratuitos para chicos, food trucks y música en vivo. Solo este fin de semana.",
+  "category": "mercados",
+  "dateInfo": "Sáb 22 y dom 23 de febrero, 11 a 20h",
+  "priceRange": "Gratis",
+  "audience": "familias con niños",
+  "tip": "Ir antes de las 14 — hay estacionamiento en el subsuelo."
+}`,
+  restaurants: `{
+  "title": "Proper",
+  "venue": "Av. Álvarez Thomas 1391, Colegiales",
+  "sourceIndex": 0,
+  "description": "Cocina estacional con menú que rota cada semana. Pastas frescas y fermentados de la casa. Abrió hace 2 meses, buenas reseñas.",
+  "category": "restaurantes",
+  "dateInfo": "Mar a dom, 12–15h y 20–00h",
+  "priceRange": "$$",
+  "audience": "parejas",
+  "tip": "Reservar por Instagram. El menú de mediodía tiene mejor precio."
+}`,
+};
+
+/**
+ * Category list per section — used in field guide to constrain category assignment.
+ */
+const SECTION_CATEGORY_HINTS: Record<RelaxSection, string> = {
+  activities: `cine | teatro | musica | exposiciones | festivales | mercados | paseos | excursiones | talleres`,
+  restaurants: `restaurantes | bares | cafes | cervecerias | heladerias | pizzerias | comida_rapida | parrillas`,
+};
 
 function buildPrompt(
   options: RelaxFinderOptions,
   regionalBlock: string,
   localHour: number,
-  webContentBlock: string
+  webContentBlock: string,
+  todayIso: string
 ): string {
-  const { city, country, section } = options;
+  const { city, section } = options;
 
-  const sectionIntros: Record<RelaxSection, string> = {
-    culture: `Eres un experto en eventos culturales y actividades locales en ${country}.
-De las siguientes fuentes web sobre ${city}, ${country}, EXTRAÉ los mejores eventos y actividades CULTURALES: películas en cartelera con horarios, obras de teatro con fechas, conciertos, exposiciones en museos, festivales, talleres.`,
-    restaurants: `Eres un experto en gastronomía y vida nocturna en ${country}.
-De las siguientes fuentes web sobre ${city}, ${country}, EXTRAÉ los mejores RESTAURANTES, BARES y lugares para COMER O TOMAR ALGO: nombres reales, direcciones, especialidades, horarios, rango de precios.`,
-    weekend: `Eres un experto en actividades de fin de semana y tiempo libre en ${country}.
-De las siguientes fuentes web sobre ${city}, ${country}, EXTRAÉ las mejores actividades para el FIN DE SEMANA: eventos al aire libre, ferias, mercados, excursiones, deportes, planes familiares.`,
-  };
+  const mealHint = section === "restaurants" ? getMealHint(localHour) : "";
 
-  const categoryBlocks: Record<RelaxSection, string> = {
-    culture: `## Categorías (asigná una a cada evento extraído)
-- cine: Películas, funciones, cartelera, festivales de cine
-- teatro: Teatro, stand-up comedy, danza, circo, espectáculos
-- musica: Conciertos, recitales, música en vivo, festivales musicales
-- exposiciones: Museos, galerías de arte, muestras, centros culturales
-- gastronomia: Ferias gastronómicas, mercados, food trucks, catas
-- festivales: Festivales culturales, ferias artesanales, eventos barriales
-- deportes_culturales: Yoga al aire libre, caminatas guiadas, ciclismo urbano
-- talleres: Talleres de arte, cerámica, fotografía, escritura`,
-    restaurants: `## Categorías (asigná una a cada lugar extraído)
-- restaurantes: Restaurantes de todo tipo (cocina local, internacional, de autor)
-- bares: Bares, pubs, wine bars, speakeasies, coctelería
-- cafes: Cafés de especialidad, confiterías, casas de té, brunch
-- cervecerias: Cervecerías artesanales, taprooms, beer gardens
-- heladerias: Heladerías artesanales, gelaterías
-- pizzerias: Pizzerías, pizza al paso, pizza a la piedra
-- comida_rapida: Hamburgueserías, food trucks, empanadas, choripán
-- parrillas: Parrillas, asadores, restaurantes de carnes`,
-    weekend: `## Categorías (asigná una a cada actividad extraída)
-- paseos: Paseos urbanos, recorridos temáticos, caminatas, ferias callejeras
-- excursiones: Excursiones de un día, escapadas, pueblos cercanos, sierras
-- mercados: Mercados de pulgas, ferias artesanales, mercados orgánicos
-- parques: Parques públicos, reservas naturales, jardines botánicos, plazas
-- deportes: Actividades deportivas recreativas: bici, kayak, running, escalada
-- picnic: Spots para picnic, churrasqueras, food trucks en parques
-- turismo: Atracciones turísticas, miradores, museos interactivos
-- familiar: Planes para familias: granjas, acuarios, parques temáticos, talleres infantiles`,
-  };
+  return `## Rol
 
-  const mealContext = section === "restaurants" ? `\n${getMealContext(localHour)}\n` : "";
+${SECTION_ROLES[section]}
 
-  const instructions = `## Instrucciones
-1. EXTRAÉ entre 8 y 15 eventos/lugares/actividades de las fuentes web que sean relevantes para la sección "${section}"
-2. Asigná a cada uno la categoría que mejor le corresponda
-3. IGNORÁ información de las fuentes que no sea relevante para esta sección
-4. Adaptá al clima y estación actual si hay información disponible
-5. Incluí al menos 3 opciones aptas para familias con niños
-6. Incluí al menos 2 opciones gratuitas o de bajo costo
-7. title: El nombre EXACTO del evento, película, restaurante o actividad como aparece en la fuente
-8. venue: El nombre del lugar o dirección EXACTA como aparece en la fuente
-9. dateInfo: Fecha y horario CONCRETO extraído de la fuente. Si no hay dato exacto, poné "Consultar horarios". NUNCA inventes fechas ni horarios
-10. priceRange: Precio extraído de la fuente, o "Gratis", "Bajo ($)", "Medio ($$)", "Alto ($$$)"
-11. description: Incluí datos concretos de la fuente — para cines: películas en cartelera; para teatro: nombre de la obra; para restaurantes: platos destacados; para eventos: qué se hace
-12. sourceIndex: OBLIGATORIO — el número de la fuente web [0], [1], [2]... de donde extrajiste la información
-13. relevanceNote: por qué es relevante ahora (clima, estación, horario, feriado cercano)
-14. practicalTips: consejos concretos (cómo llegar, qué llevar, si conviene reservar, mejor horario)`;
+## Contexto
 
-  return [
-    sectionIntros[section],
-    "",
-    regionalBlock,
-    mealContext,
-    webContentBlock,
-    "",
-    ANTI_HALLUCINATION_RULES,
-    "",
-    categoryBlocks[section],
-    "",
-    instructions,
-  ].join("\n");
+${regionalBlock}
+${mealHint}
+
+## Fuentes
+
+Las fuentes con contenido extenso (rawContent) son más confiables que las que solo tienen snippet. Priorizá fuentes detalladas.
+
+${webContentBlock}
+
+## Reglas estrictas
+
+- EXTRACCIÓN, NO INVENCIÓN: solo usá información presente en las fuentes. Si no está, no existe.
+- Cada resultado lleva sourceIndex (0, 1, 2...) apuntando a la fuente de donde salió.
+- FILTRO DE FECHA OBLIGATORIO: hoy es ${todayIso}. DESCARTÁ todo evento cuya fecha sea ANTERIOR a hoy. Si un evento dice "4 de febrero" y hoy es 23 de febrero, ese evento YA PASÓ y NO debe incluirse. Esto es innegociable.
+- Máximo 2 resultados del mismo venue o fuente — variedad ante todo.
+- Priorizá eventos/lugares en ${city}. Si una fuente menciona algo fuera de la ciudad pero vale la pena (festival importante, excursión destacada), incluilo indicando la distancia en tip.
+- Si no hay datos suficientes, devolvé menos resultados. 6 buenos > 12 con relleno.
+- NUNCA inventes fechas, horarios ni precios. Dato concreto o "Consultar".
+
+## Tono de redacción
+
+- Dato concreto, no narración. "80 diseñadores, talleres gratis, food trucks" — NO "Una propuesta interactiva ideal para disfrutar en familia".
+- Prohibido: "ideal para", "imperdible", "oportunidad para", "propuesta", "experiencia única", "no te lo pierdas", "una jornada de", "desembarcando en".
+- Si no tenés un dato concreto para un campo opcional (audience, tip), omitilo. Mejor vacío que relleno.
+
+## Guía de campos
+
+Extraé 8-12 resultados. Cada uno lleva:
+
+- **title**: nombre EXACTO de la fuente, sin editar.
+- **venue**: lugar EXACTO de la fuente, con dirección si está disponible.
+- **sourceIndex**: índice de la fuente (0, 1, 2...).
+- **description**: 2 oraciones. Qué se hace/come/ve + por qué destaca (dato concreto: novedad, fecha límite, gratuito, artista). Fusiona el "qué" con el "por qué ir".
+- **category**: una de: ${SECTION_CATEGORY_HINTS[section]}
+- **dateInfo**: fecha y horario concretos. Formato compacto: "Sáb 22 feb, 11 a 20h". Si no hay dato, "Consultar".
+- **priceRange**: precio concreto, rango ($/$$/$$$/$$$$), o "Gratis". Si no hay dato, "Consultar".
+- **audience** (opcional): solo si la fuente lo indica explícitamente. "familias con niños", "adultos", "parejas", "todos". Omitir si no hay evidencia.
+- **tip** (opcional): 1 oración con dato práctico y concreto de la fuente. "Estacionamiento gratuito en subsuelo", "Reservar por Instagram". Omitir si no hay dato real — NO inventar tips genéricos como "Llegar temprano".
+- **summary**: 1 oración que le diga al usuario qué va a encontrar en esta lista.
+
+Incluí al menos 2 opciones gratuitas o de bajo costo.
+
+## Ejemplo
+
+${SECTION_EXAMPLES[section]}`;
 }
 
-function getMealContext(localHour: number): string {
-  if (localHour < 10) {
-    return `## Momento del día: DESAYUNO (antes de las 10AM)
-- Priorizá lugares ideales para desayunar o hacer brunch: cafés, confiterías, panaderías.
-- Incluí opciones de medialunas, tostadas, huevos, jugos, café de especialidad.
-- Mencioná si abren temprano y si son buenos para ir en familia.`;
-  }
-  if (localHour < 15) {
-    return `## Momento del día: ALMUERZO (10AM - 15PM)
-- Priorizá lugares ideales para almorzar: restaurantes con menú del mediodía, parrillas, cantinas.
-- Incluí opciones con menú ejecutivo o del día si es entre semana.
-- Mencioná platos principales recomendados y si conviene reservar.`;
-  }
-  if (localHour < 19) {
-    return `## Momento del día: MERIENDA (15PM - 19PM)
-- Priorizá lugares ideales para merendar: cafés, confiterías, heladerías, cervecerías.
-- Incluí opciones de tortas, medialunas, helado, café, cerveza artesanal.
-- Mencioná si tienen terraza o espacio agradable para la tarde.`;
-  }
-  return `## Momento del día: CENA (19PM - medianoche)
-- Priorizá lugares ideales para cenar: restaurantes, parrillas, bares con cocina, pubs.
-- Incluí opciones para cena tranquila en familia y también para salir con amigos.
-- Mencioná si conviene reservar, si tienen happy hour, y especialidades nocturnas.`;
+/** Short meal-time hint for restaurant section (replaces verbose getMealContext) */
+function getMealHint(localHour: number): string {
+  if (localHour < 10) return "\nMomento del día: DESAYUNO — priorizá cafés, brunch, panaderías.";
+  if (localHour < 15) return "\nMomento del día: ALMUERZO — priorizá menú del mediodía, parrillas, cantinas.";
+  if (localHour < 19) return "\nMomento del día: MERIENDA — priorizá cafés, heladerías, cervecerías.";
+  return "\nMomento del día: CENA — priorizá restaurantes, parrillas, bares con cocina.";
 }
 
 // ============================================
 // OpenRouter
 // ============================================
-
-function buildOpenRouterCategoryList(section: RelaxSection): string {
-  return SECTION_CATEGORIES[section].map((c) => `"${c}"`).join(" | ");
-}
-
-async function callOpenRouter(
-  prompt: string,
-  section: RelaxSection,
-  webResultCount: number
-): Promise<RawLLMResult | null> {
-  const { OpenRouter } = await import("@openrouter/sdk");
-  const client = new OpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
-
-  const categoryList = buildOpenRouterCategoryList(section);
-
-  const result = await client.chat.send({
-    chatGenerationParams: {
-      model: "openrouter/auto",
-      messages: [
-        {
-          role: "system",
-          content: `Eres un experto en recomendaciones locales. Responde SOLO con JSON válido siguiendo este schema.
-IMPORTANTE: EXTRAÉ información real de las fuentes web proporcionadas. NO inventes datos.
-sourceIndex debe ser un número entero entre 0 y ${webResultCount - 1} que referencia la fuente web de donde extrajiste la información.
-{
-  "events": [
-    {
-      "title": "string (nombre exacto del evento/lugar)",
-      "venue": "string (dirección o nombre del lugar)",
-      "sourceIndex": number (0 a ${webResultCount - 1}),
-      "description": "string (datos concretos de la fuente)",
-      "category": ${categoryList},
-      "dateInfo": "string (fecha/horario concreto de la fuente)",
-      "priceRange": "string",
-      "familyFriendly": boolean,
-      "relevanceNote": "string",
-      "practicalTips": "string"
-    }
-  ],
-  "summary": "string"
-}`,
-        },
-        { role: "user", content: prompt },
-      ],
-      stream: false,
-    },
-  });
-
-  const message = result.choices?.[0]?.message;
-  const text = typeof message?.content === "string" ? message.content : "{}";
-
-  return parseRelaxJSON(text);
-}
-
-/** Attempt to parse LLM JSON output, repairing truncated arrays if needed. */
-function parseRelaxJSON(text: string): RawLLMResult | null {
-  // First try: direct parse
-  try {
-    return JSON.parse(text) as RawLLMResult;
-  } catch {
-    // noop
-  }
-
-  // Second try: extract JSON object from markdown fences or surrounding text
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
-    try {
-      return JSON.parse(jsonMatch[0]) as RawLLMResult;
-    } catch {
-      // noop
-    }
-
-    // Third try: repair truncated JSON — close open arrays/objects
-    try {
-      const repaired = repairTruncatedJSON(jsonMatch[0]);
-      return JSON.parse(repaired) as RawLLMResult;
-    } catch {
-      // noop
-    }
-  }
-
-  console.error("[relax-finder] Failed to parse OpenRouter JSON response");
-  return null;
-}
-
-/**
- * Attempt to repair JSON truncated mid-array or mid-object.
- * Removes the last incomplete element and closes brackets.
- */
-function repairTruncatedJSON(json: string): string {
-  // Remove trailing incomplete object (after last complete }, before truncation)
-  let repaired = json.replace(/,\s*\{[^}]*$/, "");
-
-  // Count open brackets and close them
-  const openBraces = (repaired.match(/\{/g) ?? []).length;
-  const closeBraces = (repaired.match(/\}/g) ?? []).length;
-  const openBrackets = (repaired.match(/\[/g) ?? []).length;
-  const closeBrackets = (repaired.match(/\]/g) ?? []).length;
-
-  repaired += "]".repeat(Math.max(0, openBrackets - closeBrackets));
-  repaired += "}".repeat(Math.max(0, openBraces - closeBraces));
-
-  return repaired;
-}

@@ -3,11 +3,11 @@ import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PreferencesManager } from "@/components/features/preferences-manager";
 import { AbsencesManager } from "@/components/features/absences-manager";
-import { AvailabilityManager } from "@/components/features/availability-manager";
+import { OccupationLevelSelector } from "@/components/features/availability-manager";
 import { Settings } from "lucide-react";
 import { spacing } from "@/lib/design-tokens";
 
-import type { AvailabilitySlots } from "@/lib/validations/member";
+import type { OccupationLevel } from "@/lib/validations/member";
 
 export default async function PreferencesPage() {
   const member = await getCurrentMember();
@@ -51,7 +51,7 @@ export default async function PreferencesPage() {
           Preferencias
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Configura tus preferencias, disponibilidad y ausencias
+          Configura tus preferencias, nivel de ocupación y ausencias
         </p>
       </div>
 
@@ -66,15 +66,16 @@ export default async function PreferencesPage() {
           <PreferencesManager preferences={preferences} tasks={tasks} />
         </section>
 
-        {/* Availability section */}
+        {/* Occupation level section */}
         <section>
-          <h2 className="mb-4 text-xl font-semibold">Disponibilidad horaria</h2>
+          <h2 className="mb-4 text-xl font-semibold">Nivel de ocupación</h2>
           <p className="mb-6 text-muted-foreground">
-            Indicá cuándo podés hacer tareas del hogar. La IA usará esta información
-            para asignar tareas en tus horarios disponibles.
+            Indicá qué tan ocupado/a estás. La IA usará esta información
+            para distribuir la carga de tareas de forma más justa.
           </p>
-          <AvailabilityManager
-            initialAvailability={(member.availabilitySlots as AvailabilitySlots) ?? null}
+          <OccupationLevelSelector
+            memberId={member.id}
+            initialLevel={member.occupationLevel as OccupationLevel}
           />
         </section>
 

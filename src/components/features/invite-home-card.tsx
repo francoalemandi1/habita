@@ -12,9 +12,10 @@ const STORAGE_KEY = "invite-card-dismissed";
 interface InviteHomeCardProps {
   inviteCode: string;
   householdName: string;
+  variant?: "default" | "subtle";
 }
 
-export function InviteHomeCard({ inviteCode, householdName }: InviteHomeCardProps) {
+export function InviteHomeCard({ inviteCode, householdName, variant = "default" }: InviteHomeCardProps) {
   const toast = useToast();
   const [dismissed, setDismissed] = useState(true);
 
@@ -31,8 +32,10 @@ export function InviteHomeCard({ inviteCode, householdName }: InviteHomeCardProp
     toast.success("Card ocultada", "Podés compartir el código de invitación desde tu perfil");
   };
 
+  const isSubtle = variant === "subtle";
+
   return (
-    <Card className="border-primary/20 bg-primary/5">
+    <Card className={isSubtle ? "border-muted bg-muted/30" : "border-primary/20 bg-primary/5"}>
       <CardContent className="relative pt-4 pb-4 sm:pt-6 sm:pb-6">
         <button
           onClick={handleDismiss}
@@ -41,9 +44,16 @@ export function InviteHomeCard({ inviteCode, householdName }: InviteHomeCardProp
           <X className="h-4 w-4" />
         </button>
         <div className="mb-3 flex items-center gap-2 pr-6">
-          <UserPlus className={`${iconSize.lg} shrink-0 text-primary`} />
-          <p className="font-medium">¡Invitá a los miembros de tu hogar!</p>
+          <UserPlus className={`${iconSize.lg} shrink-0 ${isSubtle ? "text-muted-foreground" : "text-primary"}`} />
+          <p className="font-medium">
+            {isSubtle ? "¿Compartís tu hogar?" : "¡Invitá a los miembros de tu hogar!"}
+          </p>
         </div>
+        {isSubtle && (
+          <p className="mb-3 text-sm text-muted-foreground">
+            Invitá a alguien a unirse y organicen las tareas juntos
+          </p>
+        )}
         <InviteShareBlock inviteCode={inviteCode} householdName={householdName} />
       </CardContent>
     </Card>

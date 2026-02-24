@@ -16,18 +16,20 @@ interface DescubrirClientProps {
   aiEnabled: boolean;
   hasHouseholdLocation: boolean;
   householdCity: string | null;
-  cachedCultureEvents: RelaxEvent[] | null;
-  cachedCultureAt: string | null;
+  cachedActivitiesEvents: RelaxEvent[] | null;
+  cachedActivitiesAt: string | null;
   householdSize: number;
+  platformEventCount: number;
 }
 
 export function DescubrirClient({
   aiEnabled,
   hasHouseholdLocation,
   householdCity,
-  cachedCultureEvents,
-  cachedCultureAt,
+  cachedActivitiesEvents,
+  cachedActivitiesAt,
   householdSize,
+  platformEventCount,
 }: DescubrirClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -83,8 +85,9 @@ export function DescubrirClient({
           aiEnabled={aiEnabled}
           hasHouseholdLocation={hasHouseholdLocation}
           householdCity={householdCity}
-          cachedCultureEvents={cachedCultureEvents}
-          cachedCultureAt={cachedCultureAt}
+          cachedActivitiesEvents={cachedActivitiesEvents}
+          cachedActivitiesAt={cachedActivitiesAt}
+          platformEventCount={platformEventCount}
         />
       ) : (
         <CocinaClient aiEnabled={aiEnabled} householdSize={householdSize} />

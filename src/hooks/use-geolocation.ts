@@ -14,7 +14,15 @@ interface ReverseGeocodeResult {
   countryCode?: string;
   city?: string;
   locality?: string;
+  principalSubdivision?: string;
 }
+
+/**
+ * BigDataCloud returns administrative divisions in `city` for most Argentine cities
+ * (e.g. "Departamento Capital", "Partido de La Plata", "Departamento Rosario").
+ * We detect these patterns and prefer `locality` which has the actual city name.
+ */
+const ADMIN_DIVISION_PATTERN = /^(departamento|partido)\b/i;
 
 /**
  * Hook that silently requests browser geolocation and reverse geocodes via Open-Meteo.
@@ -48,7 +56,10 @@ export function useGeolocation() {
           if (response.ok) {
             const data = (await response.json()) as ReverseGeocodeResult;
             country = data.countryCode ?? "";
-            city = data.locality || data.city || "";
+            const rawCity = data.city ?? "";
+            city = ADMIN_DIVISION_PATTERN.test(rawCity)
+              ? data.locality || data.principalSubdivision || rawCity
+              : rawCity || data.locality || "";
           }
         } catch {
           // Reverse geocode failed — still save coordinates and timezone

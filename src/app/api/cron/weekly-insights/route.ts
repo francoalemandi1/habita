@@ -109,7 +109,7 @@ async function processHouseholdInsights(
   sevenDaysAgo.setDate(now.getDate() - 6);
   sevenDaysAgo.setHours(0, 0, 0, 0);
 
-  const [members, weeklyCompletions, pendingCount, overdueCount, weekCompletions, recentAchievements] =
+  const [members, weeklyCompletions, pendingCount, weekCompletions] =
     await Promise.all([
       prisma.member.findMany({
         where: { householdId, isActive: true },
@@ -117,7 +117,6 @@ async function processHouseholdInsights(
           id: true,
           name: true,
           memberType: true,
-          level: { select: { level: true, xp: true } },
           user: { select: { email: true } },
         },
       }),
@@ -133,9 +132,6 @@ async function processHouseholdInsights(
       prisma.assignment.count({
         where: { householdId, status: { in: ["PENDING", "IN_PROGRESS"] } },
       }),
-      prisma.assignment.count({
-        where: { householdId, status: { in: ["PENDING", "IN_PROGRESS"] }, dueDate: { lt: now } },
-      }),
       prisma.assignment.findMany({
         where: {
           householdId,
@@ -143,16 +139,6 @@ async function processHouseholdInsights(
           completedAt: { gte: sevenDaysAgo },
         },
         select: { completedAt: true },
-      }),
-      prisma.memberAchievement.findMany({
-        where: {
-          member: { householdId },
-          unlockedAt: { gte: startOfWeek },
-        },
-        select: {
-          member: { select: { name: true } },
-          achievement: { select: { name: true } },
-        },
       }),
     ]);
 
@@ -191,19 +177,13 @@ async function processHouseholdInsights(
     localDateLabel: formatLocalDate(now, timezone),
     memberStats: members.map((m) => ({
       memberName: m.name,
-      level: m.level?.level ?? 1,
       weeklyCompleted: weeklyMap.get(m.id) ?? 0,
     })),
     totals: {
       completedThisWeek: totalWeeklyCompleted,
       pendingCount,
-      overdueCount,
     },
     dailyCompletions,
-    recentAchievements: recentAchievements.map((a) => ({
-      memberName: a.member.name,
-      achievementName: a.achievement.name,
-    })),
   });
 
   return adultEmails.length;

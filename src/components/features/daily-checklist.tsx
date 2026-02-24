@@ -123,7 +123,6 @@ export function DailyChecklist({ assignments: initialAssignments, completedToday
             {assignments.map((assignment) => {
               const isCompleting = completingIds.has(assignment.id);
               const isCompleted = completedIds.has(assignment.id);
-              const isOverdue = new Date(assignment.dueDate) < new Date();
 
               return (
                 <button
@@ -143,7 +142,7 @@ export function DailyChecklist({ assignments: initialAssignments, completedToday
                     ) : isCompleted ? (
                       <Check className="h-5 w-5 text-green-600" />
                     ) : (
-                      <Circle className={`h-5 w-5 ${isOverdue ? "text-red-400" : "text-foreground-tertiary"}`} />
+                      <Circle className="h-5 w-5 text-foreground-tertiary" />
                     )}
                   </div>
 
@@ -161,10 +160,6 @@ export function DailyChecklist({ assignments: initialAssignments, completedToday
                     )}
                   </div>
 
-                  {/* Overdue indicator */}
-                  {isOverdue && !isCompleted && (
-                    <span className="shrink-0 text-xs font-medium text-red-500">Vencida</span>
-                  )}
                 </button>
               );
             })}

@@ -140,14 +140,6 @@ export const assignmentCardColors = [
   },
 ] as const;
 
-/** Member reward card colors — used by plan-rewards-section. */
-export const memberRewardColors = [
-  { bg: "bg-[#d2ffa0]/50", text: "text-[#272727]", rewardBg: "bg-white/70" },
-  { bg: "bg-[#d0b6ff]/40", text: "text-[#522a97]", rewardBg: "bg-white/70" },
-  { bg: "bg-[#ffe8c3]/60", text: "text-[#272727]", rewardBg: "bg-white/70" },
-  { bg: "bg-[#e4d5ff]/40", text: "text-[#272727]", rewardBg: "bg-white/70" },
-] as const;
-
 // ── 4b. STORE BRAND COLORS (supermarket comparison) ──
 
 /** Store brand colors — letter avatars for the supermarket comparison feature. */
@@ -176,25 +168,14 @@ export const notificationStyles: Record<
   TRANSFER_ACCEPTED: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-600" },
   TRANSFER_REJECTED: { bg: "bg-red-50", iconColor: "text-red-500" },
   TASK_OVERDUE: { bg: "bg-[#fff0d7]", iconColor: "text-red-500" },
-  ACHIEVEMENT_UNLOCKED: { bg: "bg-[#fff0d7]", iconColor: "text-yellow-500" },
-  LEVEL_UP: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-500" },
   REMINDER_DUE: { bg: "bg-blue-50", iconColor: "text-blue-500" },
   PLAN_READY: { bg: "bg-[#e4d5ff]/50", iconColor: "text-primary" },
   PLAN_APPLIED: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-600" },
-  REWARD_REDEEMED: { bg: "bg-[#fff0d7]", iconColor: "text-yellow-500" },
 };
 
 export const notificationStyleDefault = {
   bg: "bg-muted/50",
   iconColor: "text-muted-foreground",
-} as const;
-
-/** Priority badge colors — used by AI suggestions. */
-export const priorityColors = {
-  high: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-  medium:
-    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-  low: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
 } as const;
 
 /** Stat card colors — bg + text for each branded card variant. */

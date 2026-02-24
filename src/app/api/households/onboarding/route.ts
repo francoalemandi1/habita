@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, getCurrentMember } from "@/lib/session";
 import { CURRENT_HOUSEHOLD_COOKIE } from "@/lib/session";
-import { createHouseholdWithTasksSchema } from "@/lib/validations/household";
+import { createHouseholdOnboardingSchema } from "@/lib/validations/household";
 import { generateInviteCode } from "@/lib/invite-code";
 import { sendWelcomeEmail } from "@/lib/email-service";
 import { handleApiError } from "@/lib/api-response";
@@ -19,7 +19,7 @@ const MEMBER_TYPE_MAP: Record<string, MemberType> = {
 
 /**
  * POST /api/households/onboarding
- * Crear hogar + miembro + tareas + asignaciones iniciales (flujo onboarding).
+ * Crear hogar + miembro (y opcionalmente tareas) desde el flujo de onboarding.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -34,13 +34,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body: unknown = await request.json();
-    const validation = createHouseholdWithTasksSchema.safeParse(body);
+    const validation = createHouseholdOnboardingSchema.safeParse(body);
     if (!validation.success) {
       const message = validation.error.errors[0]?.message ?? "Datos inválidos";
       return NextResponse.json({ error: message }, { status: 400 });
     }
 
-    const { householdName, memberName: bodyMemberName, memberType, tasks, availabilitySlots, location } = validation.data;
+    const { householdName, memberName: bodyMemberName, memberType, tasks, location } = validation.data;
     const prismaMemberType: MemberType =
       MEMBER_TYPE_MAP[memberType ?? "adult"] ?? "ADULT";
 
@@ -84,23 +84,22 @@ export async function POST(request: NextRequest) {
           householdId: household.id,
           name: memberName,
           memberType: prismaMemberType,
-          ...(availabilitySlots && { availabilitySlots }),
         },
       });
 
-      await tx.memberLevel.create({
-        data: { memberId: member.id },
-      });
-
-      const { count: tasksCreated } = await tx.task.createMany({
-        data: tasks.map((t) => ({
-          householdId: household.id,
-          name: t.name,
-          frequency: t.frequency,
-          weight: t.weight ?? 2,
-          estimatedMinutes: t.estimatedMinutes ?? undefined,
-        })),
-      });
+      let tasksCreated = 0;
+      if (tasks.length > 0) {
+        const result = await tx.task.createMany({
+          data: tasks.map((t) => ({
+            householdId: household.id,
+            name: t.name,
+            frequency: t.frequency,
+            weight: t.weight ?? 2,
+            estimatedMinutes: t.estimatedMinutes ?? undefined,
+          })),
+        });
+        tasksCreated = result.count;
+      }
 
       return {
         household: {

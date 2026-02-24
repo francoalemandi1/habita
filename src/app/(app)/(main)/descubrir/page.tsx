@@ -18,7 +18,7 @@ export default async function DescubrirPage() {
   const household = member.household;
   const hasLocation = !!(household.latitude && household.longitude);
 
-  const [householdSize, cachedCulture] = await Promise.all([
+  const [householdSize, cachedActivities, platformEventCount] = await Promise.all([
     prisma.member.count({
       where: { householdId: member.householdId, isActive: true },
     }),
@@ -27,21 +27,25 @@ export default async function DescubrirPage() {
           where: {
             householdId: member.householdId,
             locationKey: `${household.latitude!.toFixed(1)}:${household.longitude!.toFixed(1)}`,
-            sectionType: "culture",
+            sectionType: "activities",
             expiresAt: { gt: new Date() },
           },
           orderBy: { generatedAt: "desc" },
         })
       : null,
+    // Quick count of active platform events to decide client-side strategy
+    prisma.culturalEvent.count({
+      where: { status: "ACTIVE" },
+    }),
   ]);
 
-  let cachedCultureEvents: RelaxResult["events"] | null = null;
-  let cachedCultureAt: string | null = null;
+  let cachedActivitiesEvents: RelaxResult["events"] | null = null;
+  let cachedActivitiesAt: string | null = null;
 
-  if (cachedCulture) {
-    const result = cachedCulture.suggestions as unknown as RelaxResult;
-    cachedCultureEvents = result.events;
-    cachedCultureAt = cachedCulture.generatedAt.toISOString();
+  if (cachedActivities) {
+    const result = cachedActivities.suggestions as unknown as RelaxResult;
+    cachedActivitiesEvents = result.events;
+    cachedActivitiesAt = cachedActivities.generatedAt.toISOString();
   }
 
   return (
@@ -49,16 +53,17 @@ export default async function DescubrirPage() {
       <div className={spacing.pageHeader}>
         <h1 className={typography.pageTitle}>Descubrir</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Cultura, restaurantes, planes y recetas
+          Planes, restaurantes y recetas
         </p>
       </div>
       <DescubrirClient
         aiEnabled={aiEnabled}
         hasHouseholdLocation={hasLocation}
         householdCity={household.city ?? null}
-        cachedCultureEvents={cachedCultureEvents}
-        cachedCultureAt={cachedCultureAt}
+        cachedActivitiesEvents={cachedActivitiesEvents}
+        cachedActivitiesAt={cachedActivitiesAt}
         householdSize={householdSize}
+        platformEventCount={platformEventCount}
       />
     </div>
   );

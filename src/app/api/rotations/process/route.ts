@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { processRotations, processDueReminders } from "@/lib/rotation-generator";
+import { processRotations } from "@/lib/rotation-generator";
 
 import type { NextRequest } from "next/server";
 
@@ -22,11 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Process rotations
     const rotationResult = await processRotations();
-
-    // Process reminders
-    const reminderResult = await processDueReminders();
 
     return NextResponse.json({
       success: true,
@@ -34,10 +30,6 @@ export async function POST(request: NextRequest) {
         processed: rotationResult.processed,
         generated: rotationResult.generated,
         errors: rotationResult.errors,
-      },
-      reminders: {
-        processed: reminderResult.processed,
-        sent: reminderResult.reminders,
       },
       timestamp: new Date().toISOString(),
     });

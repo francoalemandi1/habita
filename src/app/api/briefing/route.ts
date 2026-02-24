@@ -2,12 +2,11 @@ import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
-import { isAIEnabled } from "@/lib/llm/provider";
-import { generateBriefing, generateFallbackBriefing } from "@/lib/llm/briefing";
+import { generateBriefing } from "@/lib/llm/briefing";
 import { buildRegionalContext } from "@/lib/llm/regional-context";
 import { getLocalDateString, getDayBoundariesWithYesterday } from "@/lib/date-boundaries";
 
-import type { BriefingResponse } from "@/lib/llm/briefing";
+import type { BriefingContext, BriefingResponse } from "@/lib/llm/briefing";
 
 // Daily cache: one briefing per member per day
 interface CacheEntry {
@@ -112,14 +111,8 @@ export async function GET() {
       }),
     ]);
 
-    const now = new Date();
-    const overdueAssignments = todayPending.filter(
-      (a) => a.dueDate && new Date(a.dueDate) < now
-    );
-
     // My pending tasks
     const myPending = todayPending.filter((a) => a.memberId === member.id);
-    const myOverdue = overdueAssignments.filter((a) => a.memberId === member.id);
 
     // Pending count by member
     const pendingByMemberMap = new Map<string, { name: string; pending: number }>();
@@ -142,24 +135,19 @@ export async function GET() {
       .sort((a, b) => b.count - a.count)
       .slice(0, 3);
 
-    const briefingContext = {
+    const briefingContext: BriefingContext = {
       currentMember: member.name,
       timeOfDay: regionalContext.timeOfDay,
       yesterdayCompletedCount: yesterdayCompleted.length,
       yesterdayCompletedNames: yesterdayCompleted.map((a) => a.task.name),
       todayPendingCount: myPending.length,
       todayPendingNames: myPending.slice(0, 5).map((a) => a.task.name),
-      overdueCount: myOverdue.length,
-      overdueNames: myOverdue.slice(0, 3).map((a) => a.task.name),
       pendingByMember: Array.from(pendingByMemberMap.values()),
       weeklyCompletedCount: weeklyCompleted.length,
       weeklyTopContributors,
-      regionalPromptBlock: regionalContext.promptBlock || undefined,
     };
 
-    const briefing = isAIEnabled()
-      ? await generateBriefing(briefingContext)
-      : generateFallbackBriefing(briefingContext);
+    const briefing = generateBriefing(briefingContext);
 
     // Cache until end of local day
     setCache(cacheKey, briefing, endOfToday.getTime());

@@ -71,11 +71,9 @@ function groupByDayAndMember(
       }
     }
 
-    // Sort assignments within each member group by suggested start time
+    // Sort assignments within each member group by task name
     for (const group of memberMap.values()) {
-      group.assignments.sort((a, b) =>
-        (a.suggestedStartTime ?? "99:99").localeCompare(b.suggestedStartTime ?? "99:99")
-      );
+      group.assignments.sort((a, b) => a.task.name.localeCompare(b.task.name));
     }
 
     return {

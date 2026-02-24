@@ -12,12 +12,12 @@
  *   6. Score stores deterministically and generate recommendation
  */
 
-import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled, getAIProviderType } from "./provider";
+import { getDeepSeekModel } from "./deepseek-provider";
 import { searchWithTavily } from "@/lib/tavily";
 import { searchWithSerper } from "@/lib/serper";
 import { buildLocationString, extractDomain } from "@/lib/web-search";
@@ -201,24 +201,17 @@ export async function generateGroceryDeals(
   // Stage 4: LLM extracts prices for known products
   const webContentBlock = buildWebContentBlock(webResults);
   const prompt = buildPrompt(productNames, location, options.country, webContentBlock);
+  const model = getModel();
+  const schema = buildSchema(productNames, webResults.length);
 
   let raw: RawLLMResult | null = null;
 
-  const providerType = getAIProviderType();
-  if (providerType === "openrouter") {
-    raw = await callOpenRouter(prompt, productNames, webResults.length);
-  } else {
-    const model = getModel();
-    if (!model) return null;
-
-    const schema = buildSchema(productNames, webResults.length);
-    try {
-      const generated = await generateObject({ model, schema, prompt });
-      raw = generated.object;
-    } catch (error) {
-      console.error("[grocery-advisor] AI error:", error);
-      return null;
-    }
+  try {
+    const generated = await generateObject({ model, schema, prompt });
+    raw = generated.object;
+  } catch (error) {
+    console.error("[grocery-advisor] AI error:", error);
+    return null;
   }
 
   if (!raw || raw.products.length === 0) {
@@ -396,10 +389,8 @@ Responder únicamente en JSON válido según el schema.
 // Model selection
 // ============================================
 
-function getModel(): LanguageModel | null {
+function getModel(): LanguageModel {
   const providerType = getAIProviderType();
-
-  if (providerType === "openrouter") return null;
 
   if (providerType === "gemini") {
     const google = createGoogleGenerativeAI({
@@ -408,110 +399,12 @@ function getModel(): LanguageModel | null {
     return google("gemini-1.5-flash");
   }
 
-  const anthropic = createAnthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-  });
-  return anthropic("claude-3-5-haiku-latest");
+  return getDeepSeekModel();
 }
 
 // ============================================
 // OpenRouter
 // ============================================
-
-async function callOpenRouter(
-  prompt: string,
-  productNames: string[],
-  webResultCount: number
-): Promise<RawLLMResult | null> {
-  const { OpenRouter } = await import("@openrouter/sdk");
-  const client = new OpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
-
-  const systemRules = `
-Eres un extractor de precios de productos de supermercado.
-Responde SOLO con JSON válido.
-
-REGLAS:
-- Solo extraer precios de productos que están en la lista proporcionada.
-- Los nombres en la lista son genéricos (ej: "Aceite girasol"). Matcheá con cualquier variante del producto en las fuentes (ej: "Aceite girasol Natura 1.5L").
-- catalogProduct debe ser una copia TEXTUAL del nombre genérico en la lista, NO el nombre específico de la fuente.
-- Solo precios explícitos visibles en las fuentes. No inferir.
-- currentPrice es el precio final (menor). regularPrice es el precio de lista (mayor).
-- Si regularPrice < currentPrice, están invertidos.
-- Ignorar precios mayoristas o por bulto.
-- Si un producto aparece en múltiples tiendas, incluir todas.
-- sourceIndex entre 0 y ${webResultCount - 1}.
-
-Formato:
-{
-  "products": [
-    {
-      "catalogProduct": "string",
-      "store": "string",
-      "currentPrice": "string",
-      "regularPrice": "string | null",
-      "discountLabel": "string | null",
-      "sourceIndex": number
-    }
-  ]
-}
-`;
-
-  try {
-    const result = await client.chat.send({
-      chatGenerationParams: {
-        model: "openrouter/auto",
-        messages: [
-          { role: "system", content: systemRules },
-          { role: "user", content: prompt },
-        ],
-        stream: false,
-      },
-    });
-
-    const message = result.choices?.[0]?.message;
-    const text = typeof message?.content === "string" ? message.content : "{}";
-    return parseJSON(text, productNames);
-  } catch (error) {
-    console.error("[grocery-advisor] OpenRouter error:", error);
-    return null;
-  }
-}
-
-function parseJSON(text: string, _productNames: string[]): RawLLMResult | null {
-  try {
-    return JSON.parse(text) as RawLLMResult;
-  } catch {
-    // Try extracting JSON block
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        return JSON.parse(jsonMatch[0]) as RawLLMResult;
-      } catch {
-        // Try repairing truncated JSON
-        try {
-          const repaired = repairTruncatedJSON(jsonMatch[0]);
-          return JSON.parse(repaired) as RawLLMResult;
-        } catch {
-          // noop
-        }
-      }
-    }
-  }
-
-  console.error("[grocery-advisor] Failed to parse OpenRouter JSON");
-  return null;
-}
-
-function repairTruncatedJSON(json: string): string {
-  let repaired = json.replace(/,\s*\{[^}]*$/, "");
-  const openBraces = (repaired.match(/\{/g) ?? []).length;
-  const closeBraces = (repaired.match(/\}/g) ?? []).length;
-  const openBrackets = (repaired.match(/\[/g) ?? []).length;
-  const closeBrackets = (repaired.match(/\]/g) ?? []).length;
-  repaired += "]".repeat(Math.max(0, openBrackets - closeBrackets));
-  repaired += "}".repeat(Math.max(0, openBraces - closeBraces));
-  return repaired;
-}
 
 // ============================================
 // Post-processing

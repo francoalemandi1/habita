@@ -3,13 +3,12 @@ import { auth } from "./auth";
 import { prisma } from "./prisma";
 import { hasPermission } from "./permissions";
 
-import type { Member, Household, MemberLevel } from "@prisma/client";
+import type { Member, Household } from "@prisma/client";
 
 export const CURRENT_HOUSEHOLD_COOKIE = "habita_household_id";
 
 export interface CurrentMember extends Member {
   household: Household;
-  level: MemberLevel | null;
 }
 
 /**
@@ -39,7 +38,6 @@ export async function getCurrentMember(): Promise<CurrentMember | null> {
     where,
     include: {
       household: true,
-      level: true,
     },
   });
 
@@ -55,7 +53,7 @@ export async function getCurrentUserMembers(): Promise<CurrentMember[]> {
 
   const members = await prisma.member.findMany({
     where: { userId: session.user.id, isActive: true },
-    include: { household: true, level: true },
+    include: { household: true },
     orderBy: { createdAt: "asc" },
   });
   return members;

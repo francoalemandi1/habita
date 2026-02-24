@@ -14,8 +14,6 @@ interface PlanAssignment {
   memberType: MemberType;
   reason: string;
   dayOfWeek?: number;
-  startTime?: string;
-  endTime?: string;
 }
 
 interface StoredPlan {

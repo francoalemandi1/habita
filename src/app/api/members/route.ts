@@ -16,9 +16,6 @@ export async function GET() {
         householdId: currentMember.householdId,
         isActive: true,
       },
-      include: {
-        level: true,
-      },
       orderBy: {
         createdAt: "asc",
       },

@@ -9,7 +9,6 @@ import {
   Palette,
   UtensilsCrossed,
   PartyPopper,
-  Dumbbell,
   Paintbrush,
   Wine,
   Coffee,
@@ -21,9 +20,6 @@ import {
   Footprints,
   Mountain,
   ShoppingBag,
-  TreePine,
-  Sandwich,
-  Camera,
   RefreshCw,
   ExternalLink,
   MapPin,
@@ -33,11 +29,11 @@ import {
   AlertTriangle,
   Users,
   Lightbulb,
-  Compass,
-  Search,
+  Clock,
 } from "lucide-react";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useRelaxSuggestions, useRefreshRelaxSection } from "@/hooks/use-relax-suggestions";
+import { useEvents } from "@/hooks/use-events";
 import { cn } from "@/lib/utils";
 import { radius, spacing, iconSize } from "@/lib/design-tokens";
 
@@ -52,8 +48,10 @@ interface RelaxClientProps {
   aiEnabled: boolean;
   hasHouseholdLocation: boolean;
   householdCity: string | null;
-  cachedCultureEvents: RelaxEvent[] | null;
-  cachedCultureAt: string | null;
+  cachedActivitiesEvents: RelaxEvent[] | null;
+  cachedActivitiesAt: string | null;
+  /** Number of events in the platform DB (0 = use LLM fallback for activities) */
+  platformEventCount: number;
 }
 
 interface CategoryConfig {
@@ -71,55 +69,42 @@ interface TabConfig {
 
 // Tab definitions
 const TABS: TabConfig[] = [
-  { key: "culture", label: "Cultura", icon: Sparkles },
-  { key: "restaurants", label: "Restaurantes", icon: UtensilsCrossed },
-  { key: "weekend", label: "Weekend", icon: Compass },
+  { key: "activities", label: "Qué hacer", icon: Sparkles },
+  { key: "restaurants", label: "Dónde comer", icon: UtensilsCrossed },
 ];
 
 // Category maps per section
-const CULTURE_CATEGORIES: Record<string, CategoryConfig> = {
+const ACTIVITIES_CATEGORIES: Record<string, CategoryConfig> = {
   cine: { label: "Cine", icon: Film, color: "text-blue-600", bgColor: "bg-blue-100" },
   teatro: { label: "Teatro", icon: Drama, color: "text-purple-600", bgColor: "bg-purple-100" },
-  musica: { label: "Musica", icon: Music, color: "text-pink-600", bgColor: "bg-pink-100" },
+  musica: { label: "Música", icon: Music, color: "text-pink-600", bgColor: "bg-pink-100" },
   exposiciones: { label: "Exposiciones", icon: Palette, color: "text-amber-600", bgColor: "bg-amber-100" },
-  gastronomia: { label: "Gastronomia", icon: UtensilsCrossed, color: "text-orange-600", bgColor: "bg-orange-100" },
   festivales: { label: "Festivales", icon: PartyPopper, color: "text-emerald-600", bgColor: "bg-emerald-100" },
-  deportes_culturales: { label: "Deportes", icon: Dumbbell, color: "text-red-600", bgColor: "bg-red-100" },
-  talleres: { label: "Talleres", icon: Paintbrush, color: "text-teal-600", bgColor: "bg-teal-100" },
+  mercados: { label: "Mercados", icon: ShoppingBag, color: "text-amber-600", bgColor: "bg-amber-100" },
+  paseos: { label: "Paseos", icon: Footprints, color: "text-green-600", bgColor: "bg-green-100" },
+  excursiones: { label: "Excursiones", icon: Mountain, color: "text-teal-600", bgColor: "bg-teal-100" },
+  talleres: { label: "Talleres", icon: Paintbrush, color: "text-orange-600", bgColor: "bg-orange-100" },
 };
 
 const RESTAURANT_CATEGORIES: Record<string, CategoryConfig> = {
   restaurantes: { label: "Restaurantes", icon: UtensilsCrossed, color: "text-orange-600", bgColor: "bg-orange-100" },
   bares: { label: "Bares", icon: Wine, color: "text-purple-600", bgColor: "bg-purple-100" },
-  cafes: { label: "Cafes", icon: Coffee, color: "text-amber-600", bgColor: "bg-amber-100" },
-  cervecerias: { label: "Cervecerias", icon: Beer, color: "text-yellow-600", bgColor: "bg-yellow-100" },
-  heladerias: { label: "Heladerias", icon: IceCream, color: "text-pink-600", bgColor: "bg-pink-100" },
-  pizzerias: { label: "Pizzerias", icon: Pizza, color: "text-red-600", bgColor: "bg-red-100" },
-  comida_rapida: { label: "Rapida", icon: Zap, color: "text-emerald-600", bgColor: "bg-emerald-100" },
+  cafes: { label: "Cafés", icon: Coffee, color: "text-amber-600", bgColor: "bg-amber-100" },
+  cervecerias: { label: "Cervecerías", icon: Beer, color: "text-yellow-600", bgColor: "bg-yellow-100" },
+  heladerias: { label: "Heladerías", icon: IceCream, color: "text-pink-600", bgColor: "bg-pink-100" },
+  pizzerias: { label: "Pizzerías", icon: Pizza, color: "text-red-600", bgColor: "bg-red-100" },
+  comida_rapida: { label: "Rápida", icon: Zap, color: "text-emerald-600", bgColor: "bg-emerald-100" },
   parrillas: { label: "Parrillas", icon: Flame, color: "text-rose-600", bgColor: "bg-rose-100" },
 };
 
-const WEEKEND_CATEGORIES: Record<string, CategoryConfig> = {
-  paseos: { label: "Paseos", icon: Footprints, color: "text-emerald-600", bgColor: "bg-emerald-100" },
-  excursiones: { label: "Excursiones", icon: Mountain, color: "text-green-600", bgColor: "bg-green-100" },
-  mercados: { label: "Mercados", icon: ShoppingBag, color: "text-amber-600", bgColor: "bg-amber-100" },
-  parques: { label: "Parques", icon: TreePine, color: "text-lime-600", bgColor: "bg-lime-100" },
-  deportes: { label: "Deportes", icon: Dumbbell, color: "text-blue-600", bgColor: "bg-blue-100" },
-  picnic: { label: "Picnic", icon: Sandwich, color: "text-orange-600", bgColor: "bg-orange-100" },
-  turismo: { label: "Turismo", icon: Camera, color: "text-purple-600", bgColor: "bg-purple-100" },
-  familiar: { label: "Familiar", icon: Users, color: "text-pink-600", bgColor: "bg-pink-100" },
-};
-
 const SECTION_CATEGORIES: Record<RelaxSection, Record<string, CategoryConfig>> = {
-  culture: CULTURE_CATEGORIES,
+  activities: ACTIVITIES_CATEGORIES,
   restaurants: RESTAURANT_CATEGORIES,
-  weekend: WEEKEND_CATEGORIES,
 };
 
 const SECTION_LOADING_MESSAGE: Record<RelaxSection, string> = {
-  culture: "Buscando actividades culturales...",
+  activities: "Buscando planes y actividades...",
   restaurants: "Buscando restaurantes y bares...",
-  weekend: "Buscando planes para el finde...",
 };
 
 // Meal period config: which restaurant categories to highlight per time of day
@@ -148,21 +133,22 @@ export function RelaxClient({
   aiEnabled,
   hasHouseholdLocation,
   householdCity,
-  cachedCultureEvents,
-  cachedCultureAt,
+  cachedActivitiesEvents,
+  cachedActivitiesAt,
+  platformEventCount,
 }: RelaxClientProps) {
   const { location, isLoading: isGeoLoading } = useGeolocation();
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const VALID_SECTIONS = new Set<RelaxSection>(["culture", "restaurants", "weekend"]);
+  const VALID_SECTIONS = new Set<RelaxSection>(["activities", "restaurants"]);
   const sectionParam = searchParams.get("section") as RelaxSection | null;
-  const activeTab: RelaxSection = sectionParam && VALID_SECTIONS.has(sectionParam) ? sectionParam : "culture";
+  const activeTab: RelaxSection = sectionParam && VALID_SECTIONS.has(sectionParam) ? sectionParam : "activities";
 
   const setActiveTab = useCallback(
     (tab: RelaxSection) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (tab === "culture") {
+      if (tab === "activities") {
         params.delete("section");
       } else {
         params.set("section", tab);
@@ -182,9 +168,8 @@ export function RelaxClient({
   const [activeCategoryBySection, setActiveCategoryBySection] = useState<
     Record<RelaxSection, string | null>
   >({
-    culture: null,
+    activities: null,
     restaurants: null,
-    weekend: null,
   });
 
   // Mark tab as visited when switched
@@ -203,29 +188,60 @@ export function RelaxClient({
     [location, isGeoLoading, hasHouseholdLocation, aiEnabled]
   );
 
-  // Build initialData for culture from server pre-fetch
-  const cultureInitialData = useMemo(() => {
-    if (!cachedCultureEvents) return undefined;
+  // Build initialData for activities from server pre-fetch (LLM fallback path)
+  const activitiesInitialData = useMemo(() => {
+    if (!cachedActivitiesEvents) return undefined;
     return {
-      events: cachedCultureEvents,
+      events: cachedActivitiesEvents,
       summary: "",
-      generatedAt: cachedCultureAt ?? "",
+      generatedAt: cachedActivitiesAt ?? "",
     };
-  }, [cachedCultureEvents, cachedCultureAt]);
+  }, [cachedActivitiesEvents, cachedActivitiesAt]);
 
-  const cultureInitialDataUpdatedAt = useMemo(
-    () => (cachedCultureAt ? new Date(cachedCultureAt).getTime() : undefined),
-    [cachedCultureAt]
+  const activitiesInitialDataUpdatedAt = useMemo(
+    () => (cachedActivitiesAt ? new Date(cachedActivitiesAt).getTime() : undefined),
+    [cachedActivitiesAt]
   );
 
-  // One query per section — React Query manages cache, dedup, and background fetching
-  const cultureQuery = useRelaxSuggestions({
-    section: "culture",
-    enabled: visitedTabs.has("culture"),
-    initialData: cultureInitialData,
-    initialDataUpdatedAt: cultureInitialDataUpdatedAt,
+  const locationLabel = useMemo(() => {
+    if (location && location.city) return location.city;
+    if (householdCity) return householdCity;
+    return null;
+  }, [location, householdCity]);
+
+  // Activities: prefer platform events DB when available, fall back to LLM
+  const usePlatformEvents = platformEventCount > 0;
+
+  const platformEventsQuery = useEvents({
+    city: locationLabel ?? undefined,
+    enabled: usePlatformEvents && visitedTabs.has("activities"),
+  });
+
+  const llmActivitiesQuery = useRelaxSuggestions({
+    section: "activities",
+    enabled: !usePlatformEvents && visitedTabs.has("activities"),
+    initialData: activitiesInitialData,
+    initialDataUpdatedAt: activitiesInitialDataUpdatedAt,
     ...commonQueryOptions,
   });
+
+  // Stable ref for the platform path — no forceRefreshRef needed
+  const platformForceRefreshRef = useMemo(() => ({ current: false }), []);
+
+  // Unified view: platform query adapted to the same shape the rest of the component expects
+  const activitiesQuery = useMemo(() => {
+    if (usePlatformEvents) {
+      return {
+        data: platformEventsQuery.data
+          ? { events: platformEventsQuery.data.events, summary: "", generatedAt: "" }
+          : undefined,
+        isFetching: platformEventsQuery.isFetching,
+        error: platformEventsQuery.error,
+        forceRefreshRef: platformForceRefreshRef,
+      };
+    }
+    return llmActivitiesQuery;
+  }, [usePlatformEvents, platformEventsQuery, llmActivitiesQuery, platformForceRefreshRef]);
 
   const restaurantsQuery = useRelaxSuggestions({
     section: "restaurants",
@@ -233,22 +249,20 @@ export function RelaxClient({
     ...commonQueryOptions,
   });
 
-  const weekendQuery = useRelaxSuggestions({
-    section: "weekend",
-    enabled: visitedTabs.has("weekend"),
-    ...commonQueryOptions,
-  });
-
-  const queries = { culture: cultureQuery, restaurants: restaurantsQuery, weekend: weekendQuery };
+  const queries = { activities: activitiesQuery, restaurants: restaurantsQuery };
   const currentQuery = queries[activeTab];
   const categories = SECTION_CATEGORIES[activeTab];
   const activeCategory = activeCategoryBySection[activeTab];
 
-  // Refresh handler — invalidates the query and signals forceRefresh for server-side cache bypass
+  // Refresh handler — invalidates the appropriate query based on active source
   const refreshSection = useRefreshRelaxSection();
   const handleRefresh = useCallback(() => {
-    refreshSection(activeTab, currentQuery.forceRefreshRef);
-  }, [activeTab, currentQuery.forceRefreshRef, refreshSection]);
+    if (activeTab === "activities" && usePlatformEvents) {
+      platformEventsQuery.refetch();
+    } else {
+      refreshSection(activeTab, currentQuery.forceRefreshRef);
+    }
+  }, [activeTab, usePlatformEvents, platformEventsQuery, currentQuery.forceRefreshRef, refreshSection]);
 
   // Filtered events
   const filteredEvents = useMemo(() => {
@@ -257,12 +271,6 @@ export function RelaxClient({
     if (!activeCategory) return events;
     return events.filter((e) => e.category === activeCategory);
   }, [currentQuery.data?.events, activeCategory]);
-
-  const locationLabel = useMemo(() => {
-    if (location && location.city) return location.city;
-    if (householdCity) return householdCity;
-    return null;
-  }, [location, householdCity]);
 
   const mealPeriod = getCurrentMealPeriod();
   const mealConfig = MEAL_PERIOD_CONFIG[mealPeriod];
@@ -492,6 +500,7 @@ function EventCard({
   const Icon = config?.icon ?? Sparkles;
   const colorClass = config?.color ?? "text-primary";
   const bgColorClass = config?.bgColor ?? "bg-primary/10";
+  const urgency = getTemporalUrgency(event.dateInfo);
 
   const handleImgError = useCallback((e: SyntheticEvent<HTMLImageElement>) => {
     e.currentTarget.style.display = "none";
@@ -515,86 +524,85 @@ function EventCard({
       )}
 
       <div className="p-4">
-      {/* Header: category badge + family badge */}
-      <div className="mb-2 flex items-center justify-between">
-        <div className={cn("flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium", bgColorClass, colorClass)}>
-          <Icon className={iconSize.xs} />
-          {config?.label ?? event.category}
-        </div>
-        <div className="flex items-center gap-1.5">
-          {event.familyFriendly && (
+        {/* Header: category + urgency + audience badges */}
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          <div className={cn("flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", bgColorClass, colorClass)}>
+            <Icon className={iconSize.xs} />
+            {config?.label ?? event.category}
+          </div>
+          {urgency && (
+            <span className={cn(
+              "flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium",
+              urgency.style,
+            )}>
+              <Clock className={iconSize.xs} />
+              {urgency.label}
+            </span>
+          )}
+          {event.audience && event.audience.toLowerCase().includes("familia") && (
             <span className="flex items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
               <Users className={iconSize.xs} />
               Familiar
             </span>
           )}
         </div>
-      </div>
 
-      {/* Title */}
-      <h3 className="text-sm font-semibold leading-tight">{event.title}</h3>
-
-      {/* Venue + distance */}
-      <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-        <MapPin className="h-3 w-3 shrink-0" />
-        <span className="truncate">{event.venue}</span>
-        {event.distanceKm != null && (
-          <span className="ml-auto shrink-0 rounded bg-muted/60 px-1.5 py-0.5 text-[11px] font-medium">
-            {formatDistance(event.distanceKm)}
-          </span>
-        )}
-      </div>
-
-      {/* Date + price */}
-      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
-        <span className="text-muted-foreground">{event.dateInfo}</span>
-        <span className="rounded bg-muted/60 px-1.5 py-0.5 font-medium">{event.priceRange}</span>
-      </div>
-
-      {/* Description */}
-      <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-        {event.description}
-      </p>
-
-      {/* Relevance note */}
-      <p className="mt-1.5 text-[11px] italic text-foreground-secondary">
-        {event.relevanceNote}
-      </p>
-
-      {/* Practical tips */}
-      {event.practicalTips && (
-        <div className="mt-2 flex gap-1.5 rounded-lg bg-amber-50 p-2">
-          <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-600 mt-0.5" />
-          <p className="text-[11px] leading-relaxed text-amber-900">
-            {event.practicalTips}
-          </p>
-        </div>
-      )}
-
-      {/* Links: Google Maps directions + Google Search */}
-      <div className="mt-2 flex flex-wrap gap-2">
-        {event.url && (
+        {/* Title — clickable if sourceUrl exists */}
+        {event.sourceUrl ? (
           <a
-            href={event.url}
+            href={event.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
+            className="text-sm font-semibold leading-tight hover:underline"
           >
-            <MapPin className="h-3 w-3" />
-            Cómo llegar
-            <ExternalLink className="h-3 w-3" />
+            {event.title}
           </a>
+        ) : (
+          <h3 className="text-sm font-semibold leading-tight">{event.title}</h3>
         )}
-        <a
-          href={`https://www.google.com/search?q=${encodeURIComponent(`${event.title} ${event.venue}`)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-100"
-        >
-          <Search className="h-3 w-3" />
-          Buscar en Google
-        </a>
-      </div>
+
+        {/* Venue + date + price in a compact block */}
+        <div className="mt-1 space-y-0.5">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3 shrink-0" />
+            <span className="truncate">{event.venue}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-muted-foreground">{event.dateInfo}</span>
+            <span className="rounded bg-muted/60 px-1.5 py-0.5 font-medium">{event.priceRange}</span>
+          </div>
+        </div>
+
+        {/* Description */}
+        <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
+          {event.description}
+        </p>
+
+        {/* Tip — only if the LLM provided a concrete one */}
+        {event.tip && (
+          <div className="mt-2 flex gap-1.5 rounded-lg bg-amber-50 p-2">
+            <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-600 mt-0.5" />
+            <p className="text-[11px] leading-relaxed text-amber-900">
+              {event.tip}
+            </p>
+          </div>
+        )}
+
+        {/* Single CTA: directions */}
+        {event.url && (
+          <div className="mt-2">
+            <a
+              href={event.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
+            >
+              <MapPin className="h-3 w-3" />
+              Cómo llegar
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -622,11 +630,55 @@ function EmptyState({
 // Helpers
 // ============================================
 
-function formatDistance(distanceKm: number): string {
-  if (distanceKm < 1) {
-    return `${Math.round(distanceKm * 1000)} m`;
+interface TemporalUrgency {
+  label: string;
+  style: string;
+}
+
+/**
+ * Parse dateInfo to determine temporal urgency for visual badges.
+ * Matches common patterns: "Hoy", "Sáb 22 feb", "22 de febrero", etc.
+ */
+function getTemporalUrgency(dateInfo: string): TemporalUrgency | null {
+  const lower = dateInfo.toLowerCase();
+
+  if (lower.includes("hoy") || lower.includes("esta noche")) {
+    return { label: "Hoy", style: "bg-red-100 text-red-700" };
   }
-  return `${distanceKm.toFixed(1)} km`;
+  if (lower.includes("mañana")) {
+    return { label: "Mañana", style: "bg-orange-100 text-orange-700" };
+  }
+
+  // Try to detect "this weekend" — check if any date in the string falls within the next 3 days
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const isWeekendNearby = dayOfWeek === 0 || dayOfWeek >= 4;
+
+  if (isWeekendNearby && (lower.includes("este fin de semana") || lower.includes("este finde"))) {
+    return { label: "Este finde", style: "bg-orange-100 text-orange-700" };
+  }
+
+  // Try to extract a day number and month to calculate days until event
+  const dayMonthMatch = lower.match(/(\d{1,2})\s+(?:de\s+)?(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/);
+  if (dayMonthMatch) {
+    const monthMap: Record<string, number> = {
+      ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5,
+      jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11,
+    };
+    const eventDay = parseInt(dayMonthMatch[1]!, 10);
+    const eventMonth = monthMap[dayMonthMatch[2]!];
+    if (eventMonth !== undefined) {
+      const eventDate = new Date(now.getFullYear(), eventMonth, eventDay);
+      const daysUntil = Math.ceil((eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (daysUntil === 0) return { label: "Hoy", style: "bg-red-100 text-red-700" };
+      if (daysUntil === 1) return { label: "Mañana", style: "bg-orange-100 text-orange-700" };
+      if (daysUntil >= 2 && daysUntil <= 4) return { label: "Esta semana", style: "bg-amber-100 text-amber-700" };
+      if (daysUntil >= 5 && daysUntil <= 10) return { label: "Próximos días", style: "bg-blue-100 text-blue-700" };
+    }
+  }
+
+  return null;
 }
 
 function formatTimeAgo(isoDate: string): string {

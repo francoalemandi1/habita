@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import {
   CheckCircle2,
-  Trophy,
   Sparkles,
   ArrowRight,
   Home,
@@ -14,7 +13,6 @@ import {
   ChevronDown,
   Scale,
   Brain,
-  MessageCircle,
   ChefHat,
   MapPin,
 } from "lucide-react";
@@ -88,19 +86,11 @@ export function LandingContent() {
               />
               <FeatureCard
                 index={4}
-                icon={<Trophy className="h-7 w-7" />}
-                title="XP, niveles y logros"
-                description="Cada tarea suma XP. Subí de nivel, desbloqueá logros y competí con tu familia."
+                icon={<Scale className="h-7 w-7" />}
+                title="Gastos compartidos"
+                description="Registrá gastos del hogar, dividí entre miembros y llevá las cuentas claras."
                 bg="bg-brand-lime/40"
                 iconBg="bg-brand-lime"
-              />
-              <FeatureCard
-                index={5}
-                icon={<MessageCircle className="h-7 w-7" />}
-                title="WhatsApp integrado"
-                description="Recibí recordatorios y completá tareas directo desde WhatsApp, sin abrir la app."
-                bg="bg-brand-cream/40"
-                iconBg="bg-brand-cream"
               />
             </div>
           </div>
@@ -137,9 +127,9 @@ export function LandingContent() {
               <StepCard
                 index={2}
                 number={3}
-                icon={<Trophy className="h-6 w-6" />}
+                icon={<Sparkles className="h-6 w-6" />}
                 title="Habita hace el resto"
-                description="Asigna tareas con IA, reparte XP y motiva a toda la familia."
+                description="Asigna tareas con IA, organiza tu semana y te sugiere qué cocinar."
                 bg="bg-brand-cream"
               />
             </div>
@@ -254,7 +244,7 @@ export function LandingContent() {
               />
               <TestimonialCard
                 index={2}
-                quote="Completamos tareas desde WhatsApp y los fines de semana Habita nos sugiere a dónde salir. Con mis roommates funciona perfecto."
+                quote="Los fines de semana Habita nos sugiere a dónde salir. Con mis roommates funciona perfecto."
                 name="Nico"
                 role="26 años"
                 emoji="😎"
@@ -447,11 +437,6 @@ const FAQ_ITEMS = [
     question: "¿Qué hace la IA de Habita?",
     answer:
       "La IA genera planes semanales distribuyendo tareas equitativamente, te sugiere recetas con lo que tenés en la heladera (podés mandarle una foto), y te recomienda eventos y actividades cerca tuyo para disfrutar en familia.",
-  },
-  {
-    question: "¿Puedo usarlo desde WhatsApp?",
-    answer:
-      "Sí. Podés recibir recordatorios, ver tus tareas pendientes y marcarlas como completadas directo desde WhatsApp.",
   },
   {
     question: "¿Mis datos están seguros?",

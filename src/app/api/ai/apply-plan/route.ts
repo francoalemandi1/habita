@@ -3,7 +3,6 @@ import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
 import { getWeekMonday } from "@/lib/calendar-utils";
-import { calculatePlanPerformance, generateAIRewards } from "@/lib/llm/ai-reward-generator";
 import { createNotificationForMembers } from "@/lib/notification-service";
 import { sendPlanAppliedToAdults } from "@/lib/email-service";
 
@@ -14,8 +13,6 @@ interface AssignmentToApply {
   memberId: string;
   memberName?: string;
   dayOfWeek?: number;
-  startTime?: string;
-  endTime?: string;
 }
 
 interface ApplyPlanBody {
@@ -98,8 +95,6 @@ export async function POST(request: NextRequest) {
       memberId: string;
       householdId: string;
       dueDate: Date;
-      suggestedStartTime: string | null;
-      suggestedEndTime: string | null;
       status: "PENDING";
     }> = [];
 
@@ -143,63 +138,8 @@ export async function POST(request: NextRequest) {
         memberId,
         householdId: member.householdId,
         dueDate,
-        suggestedStartTime: assignment.startTime ?? null,
-        suggestedEndTime: assignment.endTime ?? null,
         status: "PENDING",
       });
-    }
-
-    // Generate rewards for expiring APPLIED plan (best-effort, before transaction)
-    try {
-      const appliedPlan = await prisma.weeklyPlan.findFirst({
-        where: { householdId: member.householdId, status: "APPLIED" },
-        select: { id: true, createdAt: true, expiresAt: true },
-      });
-
-      if (appliedPlan) {
-        const existingRewards = await prisma.householdReward.count({
-          where: { planId: appliedPlan.id, isAiGenerated: true },
-        });
-
-        if (existingRewards === 0) {
-          const performances = await calculatePlanPerformance(
-            member.householdId,
-            appliedPlan.createdAt,
-            appliedPlan.expiresAt,
-          );
-          const rewardResult = await generateAIRewards(member.householdId, appliedPlan.id, performances);
-
-          if (rewardResult && rewardResult.rewards.length > 0) {
-            const perfMap = new Map(
-              performances.map((p) => [p.memberName.toLowerCase(), p]),
-            );
-            const rewardsToCreate = rewardResult.rewards
-              .map((r) => {
-                const perf = perfMap.get(r.memberName.toLowerCase());
-                if (!perf) return null;
-                return {
-                  householdId: member.householdId,
-                  name: r.rewardName,
-                  description: r.rewardDescription,
-                  pointsCost: r.pointsCost,
-                  category: r.category,
-                  actionUrl: r.actionUrl ?? null,
-                  isAiGenerated: true,
-                  planId: appliedPlan.id,
-                  memberId: perf.memberId,
-                  completionRate: perf.completionRate,
-                };
-              })
-              .filter((r): r is NonNullable<typeof r> => r !== null);
-
-            if (rewardsToCreate.length > 0) {
-              await prisma.householdReward.createMany({ data: rewardsToCreate });
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Error generating rewards for expiring plan (non-blocking):", err);
     }
 
     // Use a single timestamp for both assignments and plan to avoid race conditions
@@ -236,17 +176,6 @@ export async function POST(request: NextRequest) {
           status: "PENDING",
         },
         data: { status: "REJECTED", respondedAt: appliedAt },
-      });
-
-      // Delete unsent reminders for cancelled assignments
-      await tx.taskReminder.deleteMany({
-        where: {
-          assignment: {
-            householdId: member.householdId,
-            status: "CANCELLED",
-          },
-          sentAt: null,
-        },
       });
 
       // Create new assignments with the same timestamp as appliedAt

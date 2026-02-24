@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/toast";
 import { CheckCircle, ClipboardList, Clock, Check, Loader2, ArrowRight, Undo2 } from "lucide-react";
 import { assignmentCardColors, spacing, iconSize } from "@/lib/design-tokens";
 import { PlanFeedbackDialog } from "@/components/features/plan-feedback-dialog";
+import { getHouseholdCopy } from "@/lib/household-mode";
 
 import type { Assignment, Task } from "@prisma/client";
 
@@ -29,6 +30,7 @@ interface MyAssignmentsListProps {
   completedToday?: number;
   totalCompleted?: number;
   showPlanCta?: boolean;
+  isSolo?: boolean;
 }
 
 const FREQUENCY_LABELS: Record<string, string> = {
@@ -56,6 +58,7 @@ export function MyAssignmentsList({
   completedToday = 0,
   totalCompleted = 0,
   showPlanCta = false,
+  isSolo = false,
 }: MyAssignmentsListProps) {
   // IDs just completed locally — card stays in place but switches to completed look
   const [justCompletedIds, setJustCompletedIds] = useState<Set<string>>(new Set());
@@ -91,9 +94,9 @@ export function MyAssignmentsList({
             <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-primary/10">
               <ClipboardList className={`${iconSize["2xl"]} text-primary`} />
             </div>
-            <p className="text-lg font-semibold text-foreground">Empezá a organizar tu hogar</p>
+            <p className="text-lg font-semibold text-foreground">{getHouseholdCopy(isSolo).emptyAssignmentsTitle}</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Generá un plan de tareas y Habita las reparte entre los miembros del hogar.
+              {getHouseholdCopy(isSolo).emptyAssignmentsText}
             </p>
             <Link
               href="/plan"
@@ -221,7 +224,6 @@ function AssignmentCard({
   const router = useRouter();
   const toast = useToast();
 
-  const isOverdue = assignment.dueDate ? new Date(assignment.dueDate) < new Date() : false;
   const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;
   const isToday = dueDate ? dueDate.toDateString() === new Date().toDateString() : false;
   const colors = assignmentCardColors[colorIndex] ?? assignmentCardColors[0]!;
@@ -284,17 +286,15 @@ function AssignmentCard({
     }
   };
 
-  const dueDateLabel = isOverdue
-    ? "Vencida"
-    : isToday
-      ? "Hoy"
-      : dueDate
-        ? dueDate.toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" })
-        : null;
+  const dueDateLabel = isToday
+    ? "Hoy"
+    : dueDate
+      ? dueDate.toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" })
+      : null;
 
   return (
     <div
-      className={`relative overflow-hidden rounded-[24px] ${isCompleted ? "bg-green-50 dark:bg-green-950/50" : colors.bg} ${spacing.cardPaddingWide} ${isOverdue && !isCompleted ? "ring-2 ring-destructive" : ""} transition-colors duration-300`}
+      className={`relative overflow-hidden rounded-[24px] ${isCompleted ? "bg-green-50 dark:bg-green-950/50" : colors.bg} ${spacing.cardPaddingWide} transition-colors duration-300`}
       style={{ zIndex: 10 - colorIndex }}
     >
       {/* Subtle decorative gradient */}

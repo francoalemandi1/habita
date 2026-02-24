@@ -100,9 +100,6 @@ model Household {
   productExclusions    HouseholdProductExclusion[]
   priceCache           PriceCache[]
   recurringExpenses    RecurringExpense[]
-  householdNotes       HouseholdNote[]
-  inventoryItems       InventoryItem[]
-
   @@map("households")
 }
 
@@ -134,9 +131,6 @@ model Member {
   expensesPaid     Expense[]      @relation("ExpensesPaid")
   expenseSplits    ExpenseSplit[] @relation("ExpenseSplits")
   recurringExpensesPaid RecurringExpense[] @relation("RecurringExpensesPaid")
-  householdNotes       HouseholdNote[]    @relation("MemberNotes")
-  inventoryItems       InventoryItem[]    @relation("MemberInventoryItems")
-
   @@unique([userId, householdId])
   @@index([householdId])
   @@index([userId])
@@ -656,58 +650,6 @@ enum RecurringFrequency {
   BIMONTHLY
   QUARTERLY
   YEARLY
-}
-
-// ============================================
-// HOUSEHOLD NOTE MODEL
-// ============================================
-
-model HouseholdNote {
-  id          String   @id @default(cuid())
-  householdId String
-  createdById String
-  title       String
-  content     String?  @db.Text
-  isPinned    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  createdBy Member    @relation("MemberNotes", fields: [createdById], references: [id], onDelete: Cascade)
-
-  @@index([householdId])
-  @@index([householdId, isPinned])
-  @@map("household_notes")
-}
-
-// ============================================
-// INVENTORY ITEM MODEL
-// ============================================
-
-model InventoryItem {
-  id          String          @id @default(cuid())
-  householdId String
-  createdById String
-  name        String
-  quantity    Int?
-  category    String?
-  status      InventoryStatus @default(HAVE)
-  notes       String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  createdBy Member    @relation("MemberInventoryItems", fields: [createdById], references: [id], onDelete: Cascade)
-
-  @@index([householdId])
-  @@index([householdId, status])
-  @@map("inventory_items")
-}
-
-enum InventoryStatus {
-  HAVE
-  LOW
-  NEED
 }
 
 // ============================================

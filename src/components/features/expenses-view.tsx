@@ -9,12 +9,10 @@ import { ExpenseSummary } from "@/components/features/expense-summary";
 import { AddExpenseDialog } from "@/components/features/add-expense-dialog";
 import { RecurringExpensesCard } from "@/components/features/recurring-expenses-card";
 import { ShoppingPlanView } from "@/components/features/grocery-advisor";
-import { HouseholdNotes } from "@/components/features/household-notes";
-import { HouseholdInventory } from "@/components/features/household-inventory";
 import { Button } from "@/components/ui/button";
 import { spacing } from "@/lib/design-tokens";
 import { cn } from "@/lib/utils";
-import { Receipt, ShoppingCart, StickyNote, Package } from "lucide-react";
+import { Receipt, ShoppingCart } from "lucide-react";
 
 import type { SerializedExpense, MemberOption } from "@/types/expense";
 import type { ExpenseCategory, SplitType } from "@prisma/client";
@@ -38,7 +36,7 @@ export interface UpdateExpensePayload {
   notes?: string | null;
 }
 
-type ExpensesTab = "activity" | "deals" | "notes" | "inventory";
+type ExpensesTab = "activity" | "deals";
 
 interface ExpensesViewProps {
   initialExpenses: SerializedExpense[];
@@ -72,7 +70,7 @@ export function ExpensesView({
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const activeTab: ExpensesTab =
-    tabParam === "deals" || tabParam === "notes" || tabParam === "inventory"
+    tabParam === "deals"
       ? tabParam
       : "activity";
 
@@ -283,30 +281,6 @@ export function ExpensesView({
           <ShoppingCart className="h-4 w-4 shrink-0" />
           <span className="truncate text-xs sm:text-sm">Compras</span>
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setActiveTab("notes")}
-          className={cn(
-            "flex-1 gap-1.5 rounded-md px-2",
-            activeTab === "notes" && "bg-background shadow-sm",
-          )}
-        >
-          <StickyNote className="h-4 w-4 shrink-0" />
-          <span className="truncate text-xs sm:text-sm">Notas</span>
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setActiveTab("inventory")}
-          className={cn(
-            "flex-1 gap-1.5 rounded-md px-2",
-            activeTab === "inventory" && "bg-background shadow-sm",
-          )}
-        >
-          <Package className="h-4 w-4 shrink-0" />
-          <span className="truncate text-xs sm:text-sm">Inventario</span>
-        </Button>
       </div>
 
       {/* Tab content */}
@@ -340,8 +314,6 @@ export function ExpensesView({
           />
         </div>
       )}
-      {activeTab === "notes" && <HouseholdNotes />}
-      {activeTab === "inventory" && <HouseholdInventory />}
     </>
   );
 }

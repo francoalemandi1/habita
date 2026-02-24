@@ -15,7 +15,7 @@ export const createRecurringExpenseSchema = z.object({
   category: expenseCategoryEnum.default("OTHER"),
   splitType: splitTypeEnum.default("EQUAL"),
   paidById: z.string().min(1),
-  notes: z.string().max(500).optional(),
+  notes: z.string().max(500).nullable().optional(),
   frequency: frequencyEnum,
   dayOfMonth: z.number().int().min(1).max(28).optional(),
   dayOfWeek: z.number().int().min(0).max(6).optional(),

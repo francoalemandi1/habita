@@ -9,9 +9,11 @@ const splitTypeEnum = z.enum(["EQUAL", "CUSTOM", "PERCENTAGE"]);
 
 const frequencyEnum = z.enum(["WEEKLY", "MONTHLY", "BIMONTHLY", "QUARTERLY", "YEARLY"]);
 
-export const createRecurringExpenseSchema = z.object({
+export const createServiceSchema = z.object({
   title: z.string().min(1).max(100),
-  amount: z.number().positive().max(99_999_999),
+  provider: z.string().max(100).nullable().optional(),
+  accountNumber: z.string().max(100).nullable().optional(),
+  lastAmount: z.number().positive().max(99_999_999).nullable().optional(),
   category: expenseCategoryEnum.default("OTHER"),
   splitType: splitTypeEnum.default("EQUAL"),
   paidById: z.string().min(1),
@@ -23,9 +25,11 @@ export const createRecurringExpenseSchema = z.object({
   nextDueDate: z.string().datetime(),
 });
 
-export const updateRecurringExpenseSchema = z.object({
+export const updateServiceSchema = z.object({
   title: z.string().min(1).max(100).optional(),
-  amount: z.number().positive().max(99_999_999).optional(),
+  provider: z.string().max(100).nullable().optional(),
+  accountNumber: z.string().max(100).nullable().optional(),
+  lastAmount: z.number().positive().max(99_999_999).nullable().optional(),
   category: expenseCategoryEnum.optional(),
   splitType: splitTypeEnum.optional(),
   paidById: z.string().min(1).optional(),
@@ -38,5 +42,13 @@ export const updateRecurringExpenseSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-export type CreateRecurringExpenseInput = z.infer<typeof createRecurringExpenseSchema>;
-export type UpdateRecurringExpenseInput = z.infer<typeof updateRecurringExpenseSchema>;
+export const createInvoiceSchema = z.object({
+  amount: z.number().positive().max(99_999_999),
+  dueDate: z.string().datetime(),
+  period: z.string().regex(/^\d{4}-\d{2}$/, "Formato esperado: YYYY-MM"),
+  notes: z.string().max(500).nullable().optional(),
+});
+
+export type CreateServiceInput = z.infer<typeof createServiceSchema>;
+export type UpdateServiceInput = z.infer<typeof updateServiceSchema>;
+export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;

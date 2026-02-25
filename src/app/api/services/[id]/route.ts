@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
-import { updateRecurringExpenseSchema } from "@/lib/validations/recurring-expense";
-import { calculateNextDueDate } from "@/lib/recurring-expense-utils";
+import { updateServiceSchema } from "@/lib/validations/service";
+import { calculateNextDueDate } from "@/lib/service-utils";
 import { handleApiError } from "@/lib/api-response";
 import { Prisma } from "@prisma/client";
 
@@ -13,24 +13,24 @@ interface RouteContext {
 }
 
 /**
- * PATCH /api/expenses/recurring/[id]
- * Update a recurring expense template.
+ * PATCH /api/services/[id]
+ * Update a service.
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const member = await requireMember();
     const { id } = await context.params;
 
-    const existing = await prisma.recurringExpense.findFirst({
+    const existing = await prisma.service.findFirst({
       where: { id, householdId: member.householdId },
     });
 
     if (!existing) {
-      return NextResponse.json({ error: "Gasto recurrente no encontrado" }, { status: 404 });
+      return NextResponse.json({ error: "Servicio no encontrado" }, { status: 404 });
     }
 
     const body = (await request.json()) as unknown;
-    const validation = updateRecurringExpenseSchema.safeParse(body);
+    const validation = updateServiceSchema.safeParse(body);
 
     if (!validation.success) {
       return NextResponse.json(
@@ -65,11 +65,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    const updated = await prisma.recurringExpense.update({
+    const updated = await prisma.service.update({
       where: { id },
       data: {
         ...(data.title !== undefined && { title: data.title }),
-        ...(data.amount !== undefined && { amount: new Prisma.Decimal(data.amount.toFixed(2)) }),
+        ...(data.provider !== undefined && { provider: data.provider }),
+        ...(data.accountNumber !== undefined && { accountNumber: data.accountNumber }),
+        ...(data.lastAmount !== undefined && {
+          lastAmount: data.lastAmount != null
+            ? new Prisma.Decimal(data.lastAmount.toFixed(2))
+            : null,
+        }),
         ...(data.category !== undefined && { category: data.category }),
         ...(data.splitType !== undefined && { splitType: data.splitType }),
         ...(data.paidById !== undefined && { paidById: data.paidById }),
@@ -86,36 +92,36 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({
       ...updated,
-      amount: updated.amount.toNumber(),
+      lastAmount: updated.lastAmount?.toNumber() ?? null,
       nextDueDate: updated.nextDueDate.toISOString(),
       lastGeneratedAt: updated.lastGeneratedAt?.toISOString() ?? null,
     });
   } catch (error) {
-    return handleApiError(error, { route: "/api/expenses/recurring/[id]", method: "PATCH" });
+    return handleApiError(error, { route: "/api/services/[id]", method: "PATCH" });
   }
 }
 
 /**
- * DELETE /api/expenses/recurring/[id]
- * Delete a recurring expense template.
+ * DELETE /api/services/[id]
+ * Delete a service and its invoices (cascaded).
  */
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
     const member = await requireMember();
     const { id } = await context.params;
 
-    const existing = await prisma.recurringExpense.findFirst({
+    const existing = await prisma.service.findFirst({
       where: { id, householdId: member.householdId },
     });
 
     if (!existing) {
-      return NextResponse.json({ error: "Gasto recurrente no encontrado" }, { status: 404 });
+      return NextResponse.json({ error: "Servicio no encontrado" }, { status: 404 });
     }
 
-    await prisma.recurringExpense.delete({ where: { id } });
+    await prisma.service.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    return handleApiError(error, { route: "/api/expenses/recurring/[id]", method: "DELETE" });
+    return handleApiError(error, { route: "/api/services/[id]", method: "DELETE" });
   }
 }

@@ -1,16 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
-import { createRecurringExpenseSchema } from "@/lib/validations/recurring-expense";
+import { createServiceSchema } from "@/lib/validations/service";
 import { handleApiError } from "@/lib/api-response";
 import { Prisma } from "@prisma/client";
 
 import type { NextRequest } from "next/server";
+import type { SerializedService } from "@/types/expense";
 
-function serializeRecurring(e: {
+function serializeService(service: {
   id: string;
   title: string;
-  amount: Prisma.Decimal;
+  provider: string | null;
+  accountNumber: string | null;
+  lastAmount: Prisma.Decimal | null;
   currency: string;
   category: string;
   splitType: string;
@@ -24,44 +27,44 @@ function serializeRecurring(e: {
   nextDueDate: Date;
   lastGeneratedAt: Date | null;
   isActive: boolean;
-}) {
+}): SerializedService {
   return {
-    ...e,
-    amount: e.amount.toNumber(),
-    nextDueDate: e.nextDueDate.toISOString(),
-    lastGeneratedAt: e.lastGeneratedAt?.toISOString() ?? null,
-  };
+    ...service,
+    lastAmount: service.lastAmount?.toNumber() ?? null,
+    nextDueDate: service.nextDueDate.toISOString(),
+    lastGeneratedAt: service.lastGeneratedAt?.toISOString() ?? null,
+  } as SerializedService;
 }
 
 /**
- * GET /api/expenses/recurring
- * List active recurring expense templates for the household.
+ * GET /api/services
+ * List all services for the household.
  */
 export async function GET() {
   try {
     const member = await requireMember();
 
-    const templates = await prisma.recurringExpense.findMany({
+    const services = await prisma.service.findMany({
       where: { householdId: member.householdId },
       include: { paidBy: { select: { id: true, name: true } } },
       orderBy: [{ isActive: "desc" }, { nextDueDate: "asc" }],
     });
 
-    return NextResponse.json(templates.map(serializeRecurring));
+    return NextResponse.json(services.map(serializeService));
   } catch (error) {
-    return handleApiError(error, { route: "/api/expenses/recurring", method: "GET" });
+    return handleApiError(error, { route: "/api/services", method: "GET" });
   }
 }
 
 /**
- * POST /api/expenses/recurring
- * Create a new recurring expense template.
+ * POST /api/services
+ * Create a new service.
  */
 export async function POST(request: NextRequest) {
   try {
     const member = await requireMember();
     const body = (await request.json()) as unknown;
-    const validation = createRecurringExpenseSchema.safeParse(body);
+    const validation = createServiceSchema.safeParse(body);
 
     if (!validation.success) {
       return NextResponse.json(
@@ -72,7 +75,6 @@ export async function POST(request: NextRequest) {
 
     const data = validation.data;
 
-    // Verify paidBy member belongs to household
     const paidByMember = await prisma.member.findFirst({
       where: { id: data.paidById, householdId: member.householdId, isActive: true },
     });
@@ -84,11 +86,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const template = await prisma.recurringExpense.create({
+    const service = await prisma.service.create({
       data: {
         householdId: member.householdId,
         title: data.title,
-        amount: new Prisma.Decimal(data.amount.toFixed(2)),
+        provider: data.provider ?? null,
+        accountNumber: data.accountNumber ?? null,
+        lastAmount: data.lastAmount != null
+          ? new Prisma.Decimal(data.lastAmount.toFixed(2))
+          : null,
         category: data.category,
         splitType: data.splitType,
         paidById: data.paidById,
@@ -102,8 +108,8 @@ export async function POST(request: NextRequest) {
       include: { paidBy: { select: { id: true, name: true } } },
     });
 
-    return NextResponse.json(serializeRecurring(template), { status: 201 });
+    return NextResponse.json(serializeService(service), { status: 201 });
   } catch (error) {
-    return handleApiError(error, { route: "/api/expenses/recurring", method: "POST" });
+    return handleApiError(error, { route: "/api/services", method: "POST" });
   }
 }

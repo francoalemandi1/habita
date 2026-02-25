@@ -2,13 +2,18 @@
 
 import { useState, useRef, useCallback } from "react";
 import { CATEGORY_ICONS, CATEGORY_COLORS } from "@/lib/expense-constants";
-import { Receipt, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { frequencyLabel } from "@/lib/service-utils";
+import { Receipt, ChevronDown, ChevronUp, Trash2, Repeat, Plus, Settings, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/features/error-states";
 import { EditExpenseDialog } from "@/components/features/edit-expense-dialog";
 import { cn } from "@/lib/utils";
 
-import type { SerializedExpense, MemberOption } from "@/types/expense";
+import type { SerializedExpense, SerializedService, MemberOption } from "@/types/expense";
+import type { ExpenseCategory, RecurringFrequency } from "@prisma/client";
 import type { UpdateExpensePayload } from "@/components/features/expenses-view";
+
+const MAX_SERVICES_COLLAPSED = 3;
 
 interface ExpenseListProps {
   expenses: SerializedExpense[];
@@ -18,6 +23,14 @@ interface ExpenseListProps {
   newlyCreatedIds: Set<string>;
   onExpenseUpdated: (expenseId: string, payload: UpdateExpensePayload) => void;
   onExpenseDeleted: (expenseId: string) => void;
+  /** All active services (sorted by nextDueDate asc) */
+  activeServices?: SerializedService[];
+  /** Service IDs currently being generated */
+  generatingIds?: Set<string>;
+  onServiceGenerate?: (serviceId: string) => void;
+  onServiceEdit?: (service: SerializedService) => void;
+  onManageServices?: () => void;
+  onCreateService?: () => void;
 }
 
 /** An expense is settled when every split that isn't the payer's own is marked settled. */
@@ -438,6 +451,101 @@ function ExpenseGroups({
 }
 
 // ============================================
+// ServiceItem — service row in Servicios section
+// ============================================
+
+function ServiceItem({
+  service,
+  isGenerating,
+  onGenerate,
+  onEdit,
+}: {
+  service: SerializedService;
+  isGenerating: boolean;
+  onGenerate: () => void;
+  onEdit: () => void;
+}) {
+  const CategoryIcon = CATEGORY_ICONS[service.category as ExpenseCategory];
+  const categoryColorClasses = CATEGORY_COLORS[service.category as ExpenseCategory];
+
+  const dueDate = new Date(service.nextDueDate);
+  const now = new Date();
+  const isPastDue = dueDate <= now;
+  const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  const dueLabel = isPastDue
+    ? "Vencido"
+    : daysUntilDue === 0
+      ? "Hoy"
+      : daysUntilDue === 1
+        ? "Mañana"
+        : `${daysUntilDue}d`;
+
+  const hasAmount = service.lastAmount != null;
+
+  return (
+    <div
+      className="flex items-start gap-3 rounded-xl border-l-2 border-dashed border-primary/30 bg-primary/5 px-3 py-3"
+    >
+      {/* Category icon with Repeat badge */}
+      <button
+        type="button"
+        onClick={onEdit}
+        className="relative mt-0.5 shrink-0"
+      >
+        <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${categoryColorClasses}`}>
+          <CategoryIcon className="h-4 w-4" />
+        </div>
+        <Repeat className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-background p-px text-primary" />
+      </button>
+
+      {/* Content */}
+      <button
+        type="button"
+        onClick={onEdit}
+        className="min-w-0 flex-1 text-left"
+      >
+        <p className="truncate text-sm font-medium">{service.title}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {hasAmount
+            ? `$${service.lastAmount!.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`
+            : "Sin monto"}
+          {" · "}
+          {frequencyLabel(service.frequency as RecurringFrequency)}
+        </p>
+      </button>
+
+      {/* Due label + Register button */}
+      <div className="flex shrink-0 items-center gap-2">
+        <span
+          className={cn(
+            "text-xs",
+            isPastDue
+              ? "font-medium text-amber-600 dark:text-amber-400"
+              : "text-muted-foreground",
+          )}
+        >
+          {dueLabel}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          onClick={onGenerate}
+          disabled={isGenerating || !hasAmount}
+        >
+          {isGenerating ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            "Registrar"
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
 // ExpenseList — main component
 // ============================================
 
@@ -448,15 +556,30 @@ export function ExpenseList({
   newlyCreatedIds,
   onExpenseUpdated,
   onExpenseDeleted,
+  activeServices,
+  generatingIds,
+  onServiceGenerate,
+  onServiceEdit,
+  onManageServices,
+  onCreateService,
 }: ExpenseListProps) {
   const [editingExpense, setEditingExpense] = useState<SerializedExpense | null>(null);
   const [showSettled, setShowSettled] = useState(false);
+  const [showAllServices, setShowAllServices] = useState(false);
   const [revealedExpenseId, setRevealedExpenseId] = useState<string | null>(null);
 
   const pendingExpenses = expenses.filter((expense) => !isExpenseSettled(expense));
   const settledExpenses = expenses.filter((expense) => isExpenseSettled(expense));
 
-  if (pendingExpenses.length === 0 && settledExpenses.length === 0) {
+  const hasServices = activeServices && activeServices.length > 0;
+  const visibleServices = hasServices
+    ? showAllServices
+      ? activeServices
+      : activeServices.slice(0, MAX_SERVICES_COLLAPSED)
+    : [];
+  const hasMoreServices = hasServices && activeServices.length > MAX_SERVICES_COLLAPSED;
+
+  if (pendingExpenses.length === 0 && settledExpenses.length === 0 && !hasServices) {
     return (
       <EmptyState
         icon={<Receipt className="h-12 w-12 text-muted-foreground" />}
@@ -476,6 +599,79 @@ export function ExpenseList({
 
   return (
     <div className="mt-4">
+      {/* Servicios — always visible */}
+      <div className="mb-4">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Servicios
+          </p>
+          <div className="flex items-center gap-1">
+            {onCreateService && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 gap-1 px-1.5 text-xs text-muted-foreground"
+                onClick={onCreateService}
+              >
+                <Plus className="h-3 w-3" />
+                Nuevo
+              </Button>
+            )}
+            {onManageServices && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 text-muted-foreground"
+                onClick={onManageServices}
+              >
+                <Settings className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {hasServices ? (
+          <div className="space-y-1.5">
+            {visibleServices.map((service) => (
+              <ServiceItem
+                key={service.id}
+                service={service}
+                isGenerating={generatingIds?.has(service.id) ?? false}
+                onGenerate={() => onServiceGenerate?.(service.id)}
+                onEdit={() => onServiceEdit?.(service)}
+              />
+            ))}
+            {hasMoreServices && (
+              <button
+                type="button"
+                onClick={() => setShowAllServices((prev) => !prev)}
+                className="flex w-full items-center justify-center gap-1 py-1.5 text-xs font-medium text-primary"
+              >
+                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showAllServices && "rotate-180")} />
+                {showAllServices ? "Colapsar" : `Ver todos (${activeServices!.length})`}
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-muted-foreground/25 px-4 py-5 text-center">
+            <p className="text-sm text-muted-foreground">
+              Agregá tus servicios fijos: alquiler, expensas, Netflix...
+            </p>
+            {onCreateService && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 gap-1.5"
+                onClick={onCreateService}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Agregar servicio
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Pending expenses */}
       {pendingGroups.length > 0 ? (
         <ExpenseGroups

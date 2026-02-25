@@ -25,9 +25,9 @@ export const queryKeys = {
     shoppingPlan: () => [...queryKeys.grocery.all, "plan"] as const,
     productSelection: () => [...queryKeys.grocery.all, "product-selection"] as const,
   },
-  recurringExpenses: {
-    all: ["recurringExpenses"] as const,
-    list: () => [...queryKeys.recurringExpenses.all, "list"] as const,
+  services: {
+    all: ["services"] as const,
+    list: () => [...queryKeys.services.all, "list"] as const,
   },
   notes: {
     all: ["notes"] as const,

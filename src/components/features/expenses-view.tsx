@@ -7,14 +7,16 @@ import { apiFetch } from "@/lib/api-client";
 import { ExpenseList } from "@/components/features/expense-list";
 import { ExpenseSummary } from "@/components/features/expense-summary";
 import { AddExpenseDialog } from "@/components/features/add-expense-dialog";
-import { RecurringExpensesCard } from "@/components/features/recurring-expenses-card";
+import { useServices } from "@/hooks/use-services";
+import { ServicesManagement } from "@/components/features/services-management";
+import { ServiceDialog } from "@/components/features/service-dialog";
 import { ShoppingPlanView } from "@/components/features/grocery-advisor";
 import { Button } from "@/components/ui/button";
 import { spacing } from "@/lib/design-tokens";
 import { cn } from "@/lib/utils";
 import { Receipt, ShoppingCart } from "lucide-react";
 
-import type { SerializedExpense, MemberOption } from "@/types/expense";
+import type { SerializedExpense, SerializedService, MemberOption } from "@/types/expense";
 import type { ExpenseCategory, SplitType } from "@prisma/client";
 
 /** Data needed to create an optimistic expense before the API responds. */
@@ -59,6 +61,9 @@ export function ExpensesView({
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [newlyCreatedIds, setNewlyCreatedIds] = useState<Set<string>>(new Set());
   const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
+  const [showManageServices, setShowManageServices] = useState(false);
+  const [showCreateService, setShowCreateService] = useState(false);
+  const [editingService, setEditingService] = useState<SerializedService | undefined>();
 
   // Sync with server data after router.refresh()
   useEffect(() => {
@@ -67,6 +72,13 @@ export function ExpensesView({
   }, [initialExpenses]);
   const deletingInProgressRef = useRef<Set<string>>(new Set());
   const router = useRouter();
+
+  const handleServiceGenerated = useCallback(() => {
+    setBalanceRefreshKey((k) => k + 1);
+    router.refresh();
+  }, [router]);
+
+  const svc = useServices(handleServiceGenerated);
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const activeTab: ExpensesTab =
@@ -286,14 +298,6 @@ export function ExpensesView({
       {/* Tab content */}
       {activeTab === "activity" && (
         <div className="space-y-4">
-          <RecurringExpensesCard
-            currentMemberId={currentMemberId}
-            allMembers={allMembers}
-            onExpenseGenerated={() => {
-              setBalanceRefreshKey((k) => k + 1);
-              router.refresh();
-            }}
-          />
           {!isSolo && <ExpenseSummary currentMemberId={currentMemberId} refreshKey={balanceRefreshKey} />}
           <ExpenseList
             expenses={expenses}
@@ -303,6 +307,12 @@ export function ExpensesView({
             newlyCreatedIds={newlyCreatedIds}
             onExpenseUpdated={handleExpenseUpdated}
             onExpenseDeleted={handleExpenseDeleted}
+            activeServices={svc.activeServices}
+            generatingIds={svc.generatingIds}
+            onServiceGenerate={svc.generate}
+            onServiceEdit={(service) => setEditingService(service)}
+            onManageServices={() => setShowManageServices(true)}
+            onCreateService={() => setShowCreateService(true)}
           />
         </div>
       )}
@@ -313,6 +323,43 @@ export function ExpensesView({
             householdCity={householdCity}
           />
         </div>
+      )}
+
+      <ServicesManagement
+        open={showManageServices}
+        onOpenChange={setShowManageServices}
+        activeServices={svc.activeServices}
+        inactiveServices={svc.inactiveServices}
+        currentMemberId={currentMemberId}
+        allMembers={allMembers}
+        onToggleActive={svc.toggleActive}
+        onDelete={svc.deleteService}
+        onRefresh={svc.refresh}
+      />
+
+      <ServiceDialog
+        open={showCreateService}
+        onOpenChange={setShowCreateService}
+        members={allMembers}
+        currentMemberId={currentMemberId}
+        onSaved={() => {
+          svc.refresh();
+          setShowCreateService(false);
+        }}
+      />
+
+      {editingService && (
+        <ServiceDialog
+          open={!!editingService}
+          onOpenChange={(isOpen) => { if (!isOpen) setEditingService(undefined); }}
+          members={allMembers}
+          currentMemberId={currentMemberId}
+          onSaved={() => {
+            svc.refresh();
+            setEditingService(undefined);
+          }}
+          existing={editingService}
+        />
       )}
     </>
   );

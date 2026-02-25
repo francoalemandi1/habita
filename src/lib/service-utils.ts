@@ -1,7 +1,7 @@
 import type { RecurringFrequency } from "@prisma/client";
 
 /**
- * Calculate the next due date for a recurring expense based on frequency.
+ * Calculate the next due date for a service based on frequency.
  * Advances from `fromDate` to the next occurrence.
  */
 export function calculateNextDueDate(
@@ -69,4 +69,11 @@ export function frequencyLabel(frequency: RecurringFrequency): string {
     YEARLY: "Anual",
   };
   return labels[frequency];
+}
+
+/** Format a date's period as YYYY-MM string. */
+export function formatPeriod(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
 }

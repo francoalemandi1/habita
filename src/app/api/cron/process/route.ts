@@ -3,17 +3,18 @@ import { processAbsenceRedistribution } from "@/lib/absence-redistribution";
 import { cleanupOldNotifications } from "@/lib/notification-service";
 import { prisma } from "@/lib/prisma";
 import { buildSplitsData } from "@/lib/expense-splits";
-import { calculateNextDueDate } from "@/lib/recurring-expense-utils";
+import { calculateNextDueDate, formatPeriod } from "@/lib/service-utils";
 import type { NextRequest } from "next/server";
 
-/** Auto-generate expenses for recurring templates with autoGenerate=true and nextDueDate <= now. */
-async function processRecurringExpenses(): Promise<{ generated: number; errors: number }> {
+/** Auto-generate invoices + expenses for services with autoGenerate=true and nextDueDate <= now. */
+async function processServiceBilling(): Promise<{ generated: number; errors: number }> {
   const now = new Date();
 
-  const dueTemplates = await prisma.recurringExpense.findMany({
+  const dueServices = await prisma.service.findMany({
     where: {
       isActive: true,
       autoGenerate: true,
+      lastAmount: { not: null },
       nextDueDate: { lte: now },
     },
   });
@@ -21,12 +22,13 @@ async function processRecurringExpenses(): Promise<{ generated: number; errors: 
   let generated = 0;
   let errors = 0;
 
-  for (const template of dueTemplates) {
+  for (const service of dueServices) {
     try {
+      const amount = service.lastAmount!.toNumber();
       const splitsResult = await buildSplitsData({
-        householdId: template.householdId,
-        amount: template.amount.toNumber(),
-        splitType: template.splitType,
+        householdId: service.householdId,
+        amount,
+        splitType: service.splitType,
       });
 
       if (!splitsResult.ok) {
@@ -35,31 +37,46 @@ async function processRecurringExpenses(): Promise<{ generated: number; errors: 
       }
 
       const nextDueDate = calculateNextDueDate(
-        template.frequency,
-        template.nextDueDate,
-        template.dayOfMonth,
-        template.dayOfWeek,
+        service.frequency,
+        service.nextDueDate,
+        service.dayOfMonth,
+        service.dayOfWeek,
       );
 
-      await prisma.$transaction([
-        prisma.expense.create({
+      const period = formatPeriod(service.nextDueDate);
+
+      await prisma.$transaction(async (tx) => {
+        const expense = await tx.expense.create({
           data: {
-            householdId: template.householdId,
-            paidById: template.paidById,
-            title: template.title,
-            amount: template.amount,
-            currency: template.currency,
-            category: template.category,
-            splitType: template.splitType,
-            notes: template.notes,
+            householdId: service.householdId,
+            paidById: service.paidById,
+            title: service.title,
+            amount: service.lastAmount!,
+            currency: service.currency,
+            category: service.category,
+            splitType: service.splitType,
+            notes: service.notes,
             splits: { create: splitsResult.data },
           },
-        }),
-        prisma.recurringExpense.update({
-          where: { id: template.id },
+        });
+
+        await tx.invoice.create({
+          data: {
+            serviceId: service.id,
+            householdId: service.householdId,
+            period,
+            amount: service.lastAmount!,
+            dueDate: service.nextDueDate,
+            status: "PAID",
+            expenseId: expense.id,
+          },
+        });
+
+        await tx.service.update({
+          where: { id: service.id },
           data: { nextDueDate, lastGeneratedAt: now },
-        }),
-      ]);
+        });
+      });
 
       generated++;
     } catch {
@@ -86,10 +103,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [absenceResult, cleanupResult, recurringResult] = await Promise.all([
+    const [absenceResult, cleanupResult, billingResult] = await Promise.all([
       processAbsenceRedistribution(),
       cleanupOldNotifications(),
-      processRecurringExpenses(),
+      processServiceBilling(),
     ]);
 
     return NextResponse.json({
@@ -104,9 +121,9 @@ export async function POST(request: NextRequest) {
         deletedRead: cleanupResult.deletedRead,
         deletedUnread: cleanupResult.deletedUnread,
       },
-      recurringExpenses: {
-        generated: recurringResult.generated,
-        errors: recurringResult.errors,
+      serviceBilling: {
+        generated: billingResult.generated,
+        errors: billingResult.errors,
       },
       timestamp: new Date().toISOString(),
     });
@@ -137,6 +154,6 @@ export async function GET(request: NextRequest) {
     status: "ready",
     endpoint: "POST /api/cron/process",
     description:
-      "Redistribuye asignaciones por ausencias activas, limpia notificaciones antiguas y genera gastos recurrentes",
+      "Redistribuye asignaciones por ausencias activas, limpia notificaciones antiguas y genera facturas de servicios",
   });
 }

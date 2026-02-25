@@ -41,10 +41,12 @@ export interface MemberOption {
   name: string;
 }
 
-export interface SerializedRecurringExpense {
+export interface SerializedService {
   id: string;
   title: string;
-  amount: number;
+  provider: string | null;
+  accountNumber: string | null;
+  lastAmount: number | null;
   currency: string;
   category: ExpenseCategory;
   splitType: SplitType;
@@ -58,4 +60,16 @@ export interface SerializedRecurringExpense {
   nextDueDate: string;
   lastGeneratedAt: string | null;
   isActive: boolean;
+}
+
+export interface SerializedInvoice {
+  id: string;
+  serviceId: string;
+  period: string;
+  amount: number;
+  dueDate: string;
+  status: "PENDING" | "PAID" | "OVERDUE";
+  pdfUrl: string | null;
+  expenseId: string | null;
+  notes: string | null;
 }

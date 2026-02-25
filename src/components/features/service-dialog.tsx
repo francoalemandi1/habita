@@ -18,13 +18,13 @@ import {
   CATEGORY_COLORS,
   CATEGORY_LABELS,
 } from "@/lib/expense-constants";
-import { frequencyLabel } from "@/lib/recurring-expense-utils";
+import { frequencyLabel } from "@/lib/service-utils";
 import { Loader2 } from "lucide-react";
 import { iconSize } from "@/lib/design-tokens";
 import { apiFetch } from "@/lib/api-client";
 
 import type { ExpenseCategory, SplitType, RecurringFrequency } from "@prisma/client";
-import type { MemberOption, SerializedRecurringExpense } from "@/types/expense";
+import type { MemberOption, SerializedService } from "@/types/expense";
 
 const FREQUENCY_OPTIONS: Array<{ value: RecurringFrequency; label: string }> = [
   { value: "WEEKLY", label: "Semanal" },
@@ -34,30 +34,32 @@ const FREQUENCY_OPTIONS: Array<{ value: RecurringFrequency; label: string }> = [
   { value: "YEARLY", label: "Anual" },
 ];
 
-interface RecurringExpenseDialogProps {
+interface ServiceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   members: MemberOption[];
   currentMemberId: string;
   onSaved: () => void;
-  /** If provided, editing this template. Otherwise creating new. */
-  existing?: SerializedRecurringExpense;
+  /** If provided, editing this service. Otherwise creating new. */
+  existing?: SerializedService;
 }
 
-export function RecurringExpenseDialog({
+export function ServiceDialog({
   open,
   onOpenChange,
   members,
   currentMemberId,
   onSaved,
   existing,
-}: RecurringExpenseDialogProps) {
+}: ServiceDialogProps) {
   const toast = useToast();
   const [isSaving, setIsSaving] = useState(false);
 
   const [title, setTitle] = useState(existing?.title ?? "");
-  const [amount, setAmount] = useState(existing?.amount?.toString() ?? "");
-  const [category, setCategory] = useState<ExpenseCategory>(existing?.category ?? "OTHER");
+  const [provider, setProvider] = useState(existing?.provider ?? "");
+  const [accountNumber, setAccountNumber] = useState(existing?.accountNumber ?? "");
+  const [amount, setAmount] = useState(existing?.lastAmount?.toString() ?? "");
+  const [category, setCategory] = useState<ExpenseCategory>(existing?.category ?? "UTILITIES");
   const [frequency, setFrequency] = useState<RecurringFrequency>(
     (existing?.frequency as RecurringFrequency) ?? "MONTHLY",
   );
@@ -69,8 +71,10 @@ export function RecurringExpenseDialog({
 
   function resetForm() {
     setTitle("");
+    setProvider("");
+    setAccountNumber("");
     setAmount("");
-    setCategory("OTHER");
+    setCategory("UTILITIES");
     setFrequency("MONTHLY");
     setDayOfMonth("1");
     setPaidById(currentMemberId);
@@ -85,9 +89,14 @@ export function RecurringExpenseDialog({
   }
 
   async function handleSubmit() {
-    const parsedAmount = parseFloat(amount);
-    if (!title.trim() || isNaN(parsedAmount) || parsedAmount <= 0) {
-      toast.error("Error", "Completá título y monto");
+    if (!title.trim()) {
+      toast.error("Error", "Completá el nombre del servicio");
+      return;
+    }
+
+    const parsedAmount = amount ? parseFloat(amount) : null;
+    if (parsedAmount !== null && (isNaN(parsedAmount) || parsedAmount <= 0)) {
+      toast.error("Error", "El monto debe ser un número positivo");
       return;
     }
 
@@ -101,7 +110,6 @@ export function RecurringExpenseDialog({
     if (frequency === "WEEKLY") {
       nextDue.setDate(nextDue.getDate() + 7);
     } else {
-      // For monthly+ frequencies, set to the selected day
       nextDue.setMonth(nextDue.getMonth() + 1);
       if (!isNaN(parsedDay) && parsedDay >= 1 && parsedDay <= 28) {
         nextDue.setDate(parsedDay);
@@ -110,11 +118,13 @@ export function RecurringExpenseDialog({
 
     try {
       if (existing) {
-        await apiFetch(`/api/expenses/recurring/${existing.id}`, {
+        await apiFetch(`/api/services/${existing.id}`, {
           method: "PATCH",
           body: {
             title: title.trim(),
-            amount: parsedAmount,
+            provider: provider.trim() || null,
+            accountNumber: accountNumber.trim() || null,
+            lastAmount: parsedAmount,
             category,
             frequency,
             dayOfMonth: frequency !== "WEEKLY" ? (parsedDay || 1) : null,
@@ -123,13 +133,15 @@ export function RecurringExpenseDialog({
             notes: notes.trim() || null,
           },
         });
-        toast.success("Gasto recurrente actualizado");
+        toast.success("Servicio actualizado");
       } else {
-        await apiFetch("/api/expenses/recurring", {
+        await apiFetch("/api/services", {
           method: "POST",
           body: {
             title: title.trim(),
-            amount: parsedAmount,
+            provider: provider.trim() || null,
+            accountNumber: accountNumber.trim() || null,
+            lastAmount: parsedAmount,
             category,
             frequency,
             dayOfMonth: frequency !== "WEEKLY" ? (parsedDay || 1) : null,
@@ -140,13 +152,13 @@ export function RecurringExpenseDialog({
             nextDueDate: nextDue.toISOString(),
           },
         });
-        toast.success("Gasto recurrente creado");
+        toast.success("Servicio creado");
       }
 
       onSaved();
       handleOpenChange(false);
     } catch {
-      toast.error("Error", "No se pudo guardar el gasto recurrente");
+      toast.error("Error", "No se pudo guardar el servicio");
     } finally {
       setIsSaving(false);
     }
@@ -156,31 +168,48 @@ export function RecurringExpenseDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{existing ? "Editar gasto recurrente" : "Nuevo gasto recurrente"}</DialogTitle>
+          <DialogTitle>{existing ? "Editar servicio" : "Nuevo servicio"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <Input
-            placeholder="Título (ej: Alquiler, Netflix)"
+            placeholder="Nombre (ej: Edenor, Netflix, Alquiler)"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={100}
           />
 
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-medium text-muted-foreground">
-              $
-            </span>
-            <Input
-              type="number"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              min="0"
-              step="0.01"
-              className="pl-8 text-lg font-medium"
-            />
+          <Input
+            placeholder="Proveedor (opcional)"
+            value={provider}
+            onChange={(e) => setProvider(e.target.value)}
+            maxLength={100}
+          />
+
+          <Input
+            placeholder="Nro de cliente (opcional)"
+            value={accountNumber}
+            onChange={(e) => setAccountNumber(e.target.value)}
+            maxLength={100}
+          />
+
+          <div className="space-y-1.5">
+            <Label>Último monto (opcional)</Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-medium text-muted-foreground">
+                $
+              </span>
+              <Input
+                type="number"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                min="0"
+                step="0.01"
+                className="pl-8 text-lg font-medium"
+              />
+            </div>
           </div>
 
           {/* Category chip */}
@@ -303,9 +332,9 @@ export function RecurringExpenseDialog({
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <Label htmlFor="recurring-notes">Notas (opcional)</Label>
+            <Label htmlFor="service-notes">Notas (opcional)</Label>
             <textarea
-              id="recurring-notes"
+              id="service-notes"
               placeholder="Detalle adicional..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

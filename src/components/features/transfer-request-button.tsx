@@ -91,9 +91,8 @@ export function TransferRequestButton({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <ArrowRightLeft className="mr-2 h-4 w-4" />
-          Transferir
+        <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" aria-label="Transferir tarea">
+          <ArrowRightLeft className="h-3.5 w-3.5" />
         </Button>
       </DialogTrigger>
       <DialogContent>

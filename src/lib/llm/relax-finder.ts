@@ -1,16 +1,14 @@
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { isAIEnabled, getAIProviderType } from "./provider";
+import { isAIEnabled } from "./provider";
 import { getDeepSeekModel } from "./deepseek-provider";
 import { buildRegionalContext } from "./regional-context";
-import { searchLocalEvents } from "@/lib/web-search";
+import { searchAndExtractLocalEvents, ISO_TO_COUNTRY_NAME } from "@/lib/web-search";
 
-import type { LanguageModel } from "ai";
-import type { WebSearchResult } from "@/lib/web-search";
+import type { WebSearchResult, ExtractedEventWithSource } from "@/lib/web-search";
 
 // ============================================
-// Types
+// Types — public API (unchanged)
 // ============================================
 
 export type RelaxSection = "activities" | "restaurants";
@@ -27,6 +25,13 @@ export interface RelaxEvent {
   url: string | null;
   sourceUrl: string | null;
   imageUrl: string | null;
+  isVerified?: boolean;
+  /** LLM-selected highlight: why this event is a must-see */
+  highlightReason: string | null;
+  /** Direct link to buy tickets (extracted from source) */
+  ticketUrl: string | null;
+  /** Direct link to book/reserve (extracted from source) */
+  bookingUrl: string | null;
 }
 
 export interface RelaxResult {
@@ -43,8 +48,12 @@ export interface RelaxFinderOptions {
   section: RelaxSection;
 }
 
-/** LLM output: synthesized from web search results */
-interface RawLLMEvent {
+// ============================================
+// Types — internal (Curator output)
+// ============================================
+
+/** Curated event output from the curator LLM */
+interface CuratedEvent {
   title: string;
   venue: string;
   sourceIndex: number;
@@ -54,11 +63,27 @@ interface RawLLMEvent {
   priceRange: string;
   audience?: string;
   tip?: string;
+  highlightReason?: string;
+  ticketUrl?: string;
+  bookingUrl?: string;
 }
 
-interface RawLLMResult {
-  events: RawLLMEvent[];
+interface CuratedResult {
+  events: CuratedEvent[];
   summary: string;
+}
+
+/** Item format passed to the curator prompt (mapped from Firecrawl output) */
+interface CuratorInputItem {
+  title: string;
+  venue: string;
+  dateText: string | null;
+  timeText: string | null;
+  priceText: string | null;
+  description: string;
+  sourceIndex: number;
+  ticketUrl?: string;
+  bookingUrl?: string;
 }
 
 // ============================================
@@ -66,9 +91,7 @@ interface RawLLMResult {
 // ============================================
 
 const ACTIVITIES_CATEGORIES = [
-  "cine", "teatro", "musica", "exposiciones",
-  "festivales", "mercados", "paseos", "excursiones",
-  "talleres",
+  "cine", "teatro", "musica", "muestras", "ferias",
 ] as const;
 
 const RESTAURANT_CATEGORIES = [
@@ -85,17 +108,21 @@ const SECTION_CATEGORIES: Record<RelaxSection, readonly string[]> = {
 // Schema factory
 // ============================================
 
-function buildSchema(categories: readonly string[], webResultCount: number) {
+/** Schema for the curator LLM — analysis and curation */
+function buildCuratorSchema(categories: readonly string[], totalSourceCount: number) {
   const eventSchema = z.object({
     title: z.string().min(1),
     venue: z.string().min(1),
-    sourceIndex: z.number().int().min(0).max(Math.max(webResultCount - 1, 0)),
+    sourceIndex: z.number().int().min(0).max(Math.max(totalSourceCount - 1, 0)),
     description: z.string(),
     category: z.enum(categories as [string, ...string[]]),
     dateInfo: z.string(),
     priceRange: z.string(),
     audience: z.string().optional(),
     tip: z.string().optional(),
+    highlightReason: z.string().optional(),
+    ticketUrl: z.string().url().optional(),
+    bookingUrl: z.string().url().optional(),
   });
 
   return z.object({
@@ -105,32 +132,21 @@ function buildSchema(categories: readonly string[], webResultCount: number) {
 }
 
 // ============================================
-// Model selection
-// ============================================
-
-function getModel(): LanguageModel {
-  const providerType = getAIProviderType();
-
-  if (providerType === "gemini") {
-    const google = createGoogleGenerativeAI({
-      apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-    });
-    return google("gemini-1.5-flash");
-  }
-
-  return getDeepSeekModel();
-}
-
-// ============================================
 // Main function
 // ============================================
 
 /**
  * Generate suggestions for a given section and location.
- * Architecture:
- * 1. Fetch web content via Tavily (advanced search + rawContent)
- * 2. LLM extracts concrete events/places from the web content
- * The LLM can ONLY extract — it cannot invent data not present in sources.
+ *
+ * Architecture (Firecrawl extract + curator):
+ * 1. Tavily search → URLs + snippets
+ * 2. Firecrawl LLM extract → structured events per URL (replaces old Agent 1)
+ * 3. Curator LLM (DeepSeek) → curates, categorizes, ranks extracted events
+ * 4. Post-process: resolve URLs, filter dates, assign images
+ *
+ * Why Firecrawl LLM extract: It extracts structured data (title, venue, date,
+ * price) directly from each page using the page's own context. This is more
+ * accurate than a single LLM reading 200K+ chars of raw HTML/markdown.
  */
 export async function generateRelaxSuggestions(
   options: RelaxFinderOptions
@@ -139,15 +155,21 @@ export async function generateRelaxSuggestions(
     return null;
   }
 
-  // Step 1: Fetch web results from Tavily
-  const webResults = await searchLocalEvents(options.city, options.country, options.section);
+  // Step 1: Fetch web results + extracted events
+  const { searchResults, extractedEvents } = await searchAndExtractLocalEvents(
+    options.city,
+    options.country,
+    options.section
+  );
 
-  if (webResults.length === 0) {
-    console.error(`[relax-finder] No web results from Tavily for ${options.city} (section: ${options.section})`);
+  if (searchResults.length === 0 && extractedEvents.length === 0) {
+    console.error(`[relax-finder] No results for ${options.city} (section: ${options.section})`);
     return null;
   }
 
-  // Step 2: Build context
+  console.log(`[relax-finder] ${options.city}/${options.section}: ${searchResults.length} web sources, ${extractedEvents.length} extracted events`);
+
+  // Step 2: Build shared context (weather, timezone, language variant)
   const regionalContext = await buildRegionalContext({
     latitude: options.latitude,
     longitude: options.longitude,
@@ -156,49 +178,175 @@ export async function generateRelaxSuggestions(
     city: options.city,
   });
 
-  // Step 3: Build prompt with full web content
-  const webContentBlock = buildWebContentBlock(webResults);
   const todayIso = formatLocalDate(regionalContext.localNow, options.timezone);
-  const prompt = buildPrompt(options, regionalContext.promptBlock, regionalContext.localHour, webContentBlock, todayIso);
-  const schema = buildSchema(SECTION_CATEGORIES[options.section], webResults.length);
+  const model = getDeepSeekModel();
 
-  // Step 4: Call LLM
-  const model = getModel();
-  let raw: RawLLMResult | null = null;
+  // Step 3: Map extracted events to curator input
+  const curatorItems = mapToCuratorInput(extractedEvents, searchResults);
 
-  try {
-    const generated = await generateObject({ model, schema, prompt });
-    raw = generated.object;
-  } catch (error) {
-    console.error(`AI ${options.section} error:`, error);
-    return null;
+  if (curatorItems.length === 0) {
+    // Fallback: if Firecrawl extraction returned nothing, use snippets from search
+    if (searchResults.length === 0) {
+      console.error(`[relax-finder] No extracted events and no search results`);
+      return null;
+    }
+    console.warn(`[relax-finder] No extracted events, falling back to snippet-based items`);
+    const snippetItems = searchResults.map((r, i) => ({
+      title: r.title,
+      venue: r.source,
+      dateText: null,
+      timeText: null,
+      priceText: null,
+      description: r.snippet,
+      sourceIndex: i,
+    }));
+    return runCurator(snippetItems, searchResults, options, regionalContext, todayIso, model);
   }
 
-  if (!raw) return null;
+  console.log(`[relax-finder] ${options.city}/${options.section}: ${curatorItems.length} items for curator`);
+  for (const item of curatorItems.slice(0, 10)) {
+    console.log(`  [item] ${item.title} | ${item.venue} | date: ${item.dateText}`);
+  }
+  if (curatorItems.length > 10) {
+    console.log(`  ... and ${curatorItems.length - 10} more items`);
+  }
 
-  // Step 5: Post-process — resolve source indices to URLs
-  return postProcess(raw, webResults, options);
+  return runCurator(curatorItems, searchResults, options, regionalContext, todayIso, model);
 }
 
 // ============================================
-// Web content block builder
+// Map Firecrawl output → curator input
 // ============================================
 
-const RAW_CONTENT_MAX_LENGTH = 3000;
+/**
+ * Map ExtractedEventWithSource[] to CuratorInputItem[].
+ * Each item gets a sourceIndex pointing to its position in searchResults
+ * (for image/URL resolution in post-processing).
+ */
+function mapToCuratorInput(
+  extractedEvents: ExtractedEventWithSource[],
+  searchResults: WebSearchResult[],
+): CuratorInputItem[] {
+  const urlToIndex = new Map<string, number>();
+  for (let i = 0; i < searchResults.length; i++) {
+    const result = searchResults[i];
+    if (result) urlToIndex.set(result.url, i);
+  }
 
-function buildWebContentBlock(results: WebSearchResult[]): string {
-  const blocks = results.map((r, i) => {
-    const content = r.rawContent
-      ? truncateContent(r.rawContent, RAW_CONTENT_MAX_LENGTH)
-      : r.snippet;
-    return `### [${i}] ${r.title} (${r.source})\n${content}`;
-  });
-  return `## Fuentes web — Información actual\n\n${blocks.join("\n\n")}`;
+  const seen = new Set<string>();
+
+  return extractedEvents
+    .map((e) => {
+      const sourceIndex = urlToIndex.get(e.sourceUrl) ?? 0;
+      return {
+        title: e.event.title,
+        venue: e.event.venue,
+        dateText: e.event.dateText,
+        timeText: e.event.timeText,
+        priceText: e.event.priceText,
+        description: e.event.description,
+        sourceIndex,
+        ...(e.event.ticketUrl && { ticketUrl: e.event.ticketUrl }),
+        ...(e.event.bookingUrl && { bookingUrl: e.event.bookingUrl }),
+      };
+    })
+    .filter((item) => {
+      if (!item.title || !item.venue) return false;
+      const key = item.title.toLowerCase().trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
-function truncateContent(content: string, maxLength: number): string {
-  if (content.length <= maxLength) return content;
-  return `${content.slice(0, maxLength)}...[contenido truncado]`;
+// ============================================
+// Curator
+// ============================================
+
+async function runCurator(
+  items: CuratorInputItem[],
+  searchResults: WebSearchResult[],
+  options: RelaxFinderOptions,
+  regionalContext: { promptBlock: string; localHour: number },
+  todayIso: string,
+  model: ReturnType<typeof getDeepSeekModel>,
+): Promise<RelaxResult | null> {
+  const curatorPrompt = buildCuratorPrompt(items, options, regionalContext.promptBlock, regionalContext.localHour, todayIso);
+  const curatorSchema = buildCuratorSchema(SECTION_CATEGORIES[options.section], searchResults.length);
+
+  console.log(`[relax-finder] curator: ${items.length} items in, ~${Math.round(curatorPrompt.length / 4000)}K tokens`);
+
+  let curated: CuratedResult;
+  try {
+    const result = await generateObject({ model, schema: curatorSchema, prompt: curatorPrompt });
+    curated = result.object;
+  } catch (error) {
+    const salvaged = salvageCuratorResponse(error);
+    if (salvaged) {
+      console.warn(`[relax-finder] curator: salvaged ${salvaged.events.length} events from truncated response`);
+      curated = salvaged;
+    } else {
+      console.error(`[relax-finder] curator error:`, error);
+      return null;
+    }
+  }
+
+  console.log(`[relax-finder] curator: ${curated.events.length} events out`);
+
+  return postProcess(curated, searchResults, options);
+}
+
+// ============================================
+// Truncated response salvage
+// ============================================
+
+/**
+ * When DeepSeek hits its output token limit (finishReason: 'length'), the AI SDK
+ * throws an error with the partial JSON in `error.text`. We try to extract
+ * complete objects from the truncated JSON.
+ */
+function salvageCuratorResponse(error: unknown): CuratedResult | null {
+  const text = (error as { text?: string }).text;
+  if (!text || typeof text !== "string") return null;
+
+  try {
+    const arrayMatch = text.match(/"events"\s*:\s*\[/);
+    if (!arrayMatch?.index) return null;
+
+    const arrayStart = arrayMatch.index + arrayMatch[0].length;
+    const arrayText = text.slice(arrayStart);
+
+    const events: CuratedEvent[] = [];
+    let depth = 0;
+    let objectStart = -1;
+
+    for (let i = 0; i < arrayText.length; i++) {
+      const char = arrayText[i];
+      if (char === "{") {
+        if (depth === 0) objectStart = i;
+        depth++;
+      } else if (char === "}") {
+        depth--;
+        if (depth === 0 && objectStart >= 0) {
+          const objectStr = arrayText.slice(objectStart, i + 1);
+          try {
+            const parsed = JSON.parse(objectStr) as CuratedEvent;
+            if (parsed.title && parsed.venue) events.push(parsed);
+          } catch { /* skip malformed */ }
+          objectStart = -1;
+        }
+      }
+    }
+
+    if (events.length === 0) return null;
+
+    const summaryMatch = text.match(/"summary"\s*:\s*"([^"]+)"/);
+    const summary = summaryMatch?.[1] ?? "Sugerencias generadas";
+
+    return { events, summary };
+  } catch {
+    return null;
+  }
 }
 
 // ============================================
@@ -206,7 +354,7 @@ function truncateContent(content: string, maxLength: number): string {
 // ============================================
 
 function postProcess(
-  raw: RawLLMResult,
+  raw: CuratedResult,
   webResults: WebSearchResult[],
   options: RelaxFinderOptions
 ): RelaxResult {
@@ -217,23 +365,28 @@ function postProcess(
       const webSource = sourceIndex >= 0 && sourceIndex < webResults.length
         ? webResults[sourceIndex]
         : null;
+
       return {
         title: event.title,
         venue: event.venue,
         url: buildGoogleMapsUrl(event.venue, options.city),
         sourceUrl: webSource?.url ?? null,
-        imageUrl: webSource?.imageUrl ?? null,
+        imageUrl: null,
         description: event.description,
         category: event.category,
         dateInfo: event.dateInfo,
         priceRange: event.priceRange,
         audience: event.audience ?? null,
         tip: event.tip ?? null,
+        highlightReason: event.highlightReason ?? null,
+        ticketUrl: event.ticketUrl ?? null,
+        bookingUrl: event.bookingUrl ?? null,
       };
     });
 
-  // Safety net: strip events with dates that have already passed
   const filteredEvents = filterPastEvents(mappedEvents, options.timezone);
+
+  console.log(`[relax-finder] ${options.city}/${options.section}: curator ${raw.events.length} → mapped ${mappedEvents.length} → after date filter ${filteredEvents.length}`);
 
   return { summary: raw.summary, events: filteredEvents };
 }
@@ -247,7 +400,6 @@ function buildGoogleMapsUrl(venue: string, city: string): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
 }
 
-/** Format a Date as "23 de febrero de 2026" for prompt injection */
 function formatLocalDate(date: Date, timezone: string): string {
   try {
     return date.toLocaleDateString("es-AR", {
@@ -266,15 +418,9 @@ const MONTH_ABBR_TO_NUMBER: Record<string, number> = {
   jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11,
 };
 
-/**
- * Best-effort parser for dateInfo strings like "Sáb 22 feb, 11 a 20h",
- * "4 de febrero", "Del 7 feb al 1 mar", "Vie a dom durante febrero".
- * Returns the latest date mentioned (end date for ranges), or null if unparseable.
- */
 function parseLatestDate(dateInfo: string): Date | null {
   const lower = dateInfo.toLowerCase();
 
-  // Match all "day month" patterns in the string (to find the latest one for ranges)
   const allMatches = [...lower.matchAll(/(\d{1,2})\s+(?:de\s+)?(ene(?:ro)?|feb(?:rero)?|mar(?:zo)?|abr(?:il)?|may(?:o)?|jun(?:io)?|jul(?:io)?|ago(?:sto)?|sep(?:tiembre)?|oct(?:ubre)?|nov(?:iembre)?|dic(?:iembre)?)/g)];
 
   if (allMatches.length === 0) return null;
@@ -298,143 +444,111 @@ function parseLatestDate(dateInfo: string): Date | null {
   return latestDate;
 }
 
-/**
- * Filter out events whose dateInfo contains only dates in the past.
- * Events with "durante febrero" (month-long) or unparseable dates are kept.
- */
 function filterPastEvents(events: RelaxEvent[], timezone: string): RelaxEvent[] {
   const now = new Date();
-  // Start of today in local timezone
   const todayStr = now.toLocaleDateString("en-CA", { timeZone: timezone });
   const todayStart = new Date(`${todayStr}T00:00:00`);
 
+  const maxFutureDate = new Date(todayStart);
+  maxFutureDate.setMonth(maxFutureDate.getMonth() + 2);
+
   return events.filter((event) => {
     const latestDate = parseLatestDate(event.dateInfo);
-    // If we can't parse, keep the event (benefit of the doubt)
     if (!latestDate) return true;
-    // Keep if the latest date is today or later
-    return latestDate >= todayStart;
+    return latestDate >= todayStart && latestDate <= maxFutureDate;
   });
 }
 
 // ============================================
-// Prompt builder
+// Curator prompt
 // ============================================
 
-/** Section-specific role and mission for the LLM */
-const SECTION_ROLES: Record<RelaxSection, string> = {
-  activities: `Sos un curador de planes que ayuda a una familia a decidir qué hacer esta semana.
-Tu misión: extraer de las fuentes lo que está pasando AHORA — shows, películas, ferias, festivales, eventos, paseos, excursiones. Priorizá lo efímero (cosas con fecha) por encima de lo permanente (museos, parques, plazas que están siempre).`,
-  restaurants: `Sos un amigo local que sabe dónde se come bien.
-Tu misión: extraer de las fuentes descubrimientos gastronómicos — lugares nuevos, con buena reseña, que un local recomendaría. Nada de cadenas ni guías turísticas.`,
-};
-
-/** One concrete example per section so the LLM knows the expected output shape */
-const SECTION_EXAMPLES: Record<RelaxSection, string> = {
-  activities: `{
-  "title": "Feria de diseño en el CCK",
-  "venue": "Centro Cultural Kirchner, Sarmiento 151",
-  "sourceIndex": 1,
-  "description": "80 diseñadores independientes con talleres gratuitos para chicos, food trucks y música en vivo. Solo este fin de semana.",
-  "category": "mercados",
-  "dateInfo": "Sáb 22 y dom 23 de febrero, 11 a 20h",
-  "priceRange": "Gratis",
-  "audience": "familias con niños",
-  "tip": "Ir antes de las 14 — hay estacionamiento en el subsuelo."
-}`,
-  restaurants: `{
-  "title": "Proper",
-  "venue": "Av. Álvarez Thomas 1391, Colegiales",
-  "sourceIndex": 0,
-  "description": "Cocina estacional con menú que rota cada semana. Pastas frescas y fermentados de la casa. Abrió hace 2 meses, buenas reseñas.",
-  "category": "restaurantes",
-  "dateInfo": "Mar a dom, 12–15h y 20–00h",
-  "priceRange": "$$",
-  "audience": "parejas",
-  "tip": "Reservar por Instagram. El menú de mediodía tiene mejor precio."
-}`,
-};
-
-/**
- * Category list per section — used in field guide to constrain category assignment.
- */
+/** Category list per section */
 const SECTION_CATEGORY_HINTS: Record<RelaxSection, string> = {
-  activities: `cine | teatro | musica | exposiciones | festivales | mercados | paseos | excursiones | talleres`,
+  activities: `cine | teatro | musica | muestras | ferias`,
   restaurants: `restaurantes | bares | cafes | cervecerias | heladerias | pizzerias | comida_rapida | parrillas`,
 };
 
-function buildPrompt(
+const CURATOR_ROLE: Record<RelaxSection, string> = {
+  activities: "You are a selective cultural curator. Your job is to pick the 8-12 best events happening NOW in the city. Only include: movies in theaters (cine), plays/shows (teatro), live music/concerts (musica), art exhibitions/museums (muestras), fairs/festivals/markets (ferias). Be concrete: real dates, real venues, real prices. Quality over quantity.",
+  restaurants: "You are a local friend who knows where to eat well. Select the best gastronomic finds — places with good reviews that a local would recommend. No chains, no tourist guides.",
+};
+
+function buildCuratorPrompt(
+  extractedItems: CuratorInputItem[],
   options: RelaxFinderOptions,
   regionalBlock: string,
   localHour: number,
-  webContentBlock: string,
-  todayIso: string
+  todayIso: string,
 ): string {
-  const { city, section } = options;
-
+  const { city, country, section } = options;
+  const countryName = ISO_TO_COUNTRY_NAME[country.toUpperCase()] ?? country;
   const mealHint = section === "restaurants" ? getMealHint(localHour) : "";
 
-  return `## Rol
+  const itemsJson = JSON.stringify(extractedItems.map((item) => ({
+    title: item.title,
+    venue: item.venue,
+    dateText: item.dateText,
+    timeText: item.timeText,
+    priceText: item.priceText,
+    description: item.description,
+    sourceIndex: item.sourceIndex,
+    ...(item.ticketUrl && { ticketUrl: item.ticketUrl }),
+    ...(item.bookingUrl && { bookingUrl: item.bookingUrl }),
+  })));
 
-${SECTION_ROLES[section]}
+  return `# LOCAL EVENT CURATOR
 
-## Contexto
+${CURATOR_ROLE[section]}
 
+────────────────────────────────
+## General Rules (Strict)
+────────────────────────────────
+* **Output Language:** All output fields (description, tip, summary) must be written in **Spanish** matching the regional variant below.
+* **No Invention Rule:** Never invent data not present in the extracted items. Dates, prices, and venues come from the sources — your job is to normalize format, not fabricate.
+* **Geography Rule:** The user is in **${city}, ${countryName}**. Prioritize items in ${city} and its immediate metro area (towns reachable in ~30 min by car). Events from distant cities (different departments, >1 h drive) should only appear if they are unmissable — major festival, internationally known artist. Discard items from other countries with the same city name.
+* **Date Rule:** Today is ${todayIso}. Discard items with dates before today or more than 2 months ahead. When dateText has no month (e.g. "Jue 29"), infer the month from context — if the source title mentions a past date range (e.g. "agenda del 26 de enero al 1 de febrero"), those items are old. When in doubt about an ambiguous date, discard the item. If dateText is null, keep it.
+* **Freshness Rule:** Prioritize events happening today, tomorrow, and this weekend. The user opens this screen to decide what to do NOW — show the most immediate options first, then fill with upcoming events.
+
+────────────────────────────────
+## Context
+────────────────────────────────
 ${regionalBlock}
 ${mealHint}
 
-## Fuentes
+────────────────────────────────
+## Input: Extracted Items (${extractedItems.length} total)
+────────────────────────────────
 
-Las fuentes con contenido extenso (rawContent) son más confiables que las que solo tienen snippet. Priorizá fuentes detalladas.
+${itemsJson}
 
-${webContentBlock}
+────────────────────────────────
+## Output Field Rules
+────────────────────────────────
+1. **dateInfo**: Normalize dateText + timeText → compact format: "Sáb 1 mar, 20:30h", "Del 15 al 28 feb", "Funciones: 14:00, 16:30, 19:00". If no date → "Consultar".
+2. **priceRange**: Normalize priceText → concrete price ("$5000"), range ($/$$/$$$/$$$$), "Gratis", or "Consultar".
+3. **description**: 2 factual sentences. First: what it is (from description). Second: one concrete standout detail (artist, price, novelty, duration).
+4. **category**: One of: ${SECTION_CATEGORY_HINTS[section]}
+5. **highlightReason** (REQUIRED on 2–3 events): Pick the 2–3 events a local friend would recommend first. Reason must be a concrete fact: "Gratis", "Última semana — cierra el 2 mar", "$3000 la entrada", "Estreno esta semana".
+6. **tip** (optional): Only if a concrete practical detail exists in the source. "Estacionamiento gratuito", "Reservar por @resto en Instagram". If none → omit.
+7. **audience** (optional): Only if clearly evident from the item. If not → omit.
+8. **ticketUrl / bookingUrl**: Copy from the item if present. Never invent.
 
-## Reglas estrictas
+────────────────────────────────
+## Tone
+────────────────────────────────
+Concrete data, not narration. "Comedia musical con Flaco Pailos, $15.000" — not "Una propuesta ideal para disfrutar en familia".
 
-- EXTRACCIÓN, NO INVENCIÓN: solo usá información presente en las fuentes. Si no está, no existe.
-- Cada resultado lleva sourceIndex (0, 1, 2...) apuntando a la fuente de donde salió.
-- FILTRO DE FECHA OBLIGATORIO: hoy es ${todayIso}. DESCARTÁ todo evento cuya fecha sea ANTERIOR a hoy. Si un evento dice "4 de febrero" y hoy es 23 de febrero, ese evento YA PASÓ y NO debe incluirse. Esto es innegociable.
-- Máximo 2 resultados del mismo venue o fuente — variedad ante todo.
-- Priorizá eventos/lugares en ${city}. Si una fuente menciona algo fuera de la ciudad pero vale la pena (festival importante, excursión destacada), incluilo indicando la distancia en tip.
-- Si no hay datos suficientes, devolvé menos resultados. 6 buenos > 12 con relleno.
-- NUNCA inventes fechas, horarios ni precios. Dato concreto o "Consultar".
-
-## Tono de redacción
-
-- Dato concreto, no narración. "80 diseñadores, talleres gratis, food trucks" — NO "Una propuesta interactiva ideal para disfrutar en familia".
-- Prohibido: "ideal para", "imperdible", "oportunidad para", "propuesta", "experiencia única", "no te lo pierdas", "una jornada de", "desembarcando en".
-- Si no tenés un dato concreto para un campo opcional (audience, tip), omitilo. Mejor vacío que relleno.
-
-## Guía de campos
-
-Extraé 8-12 resultados. Cada uno lleva:
-
-- **title**: nombre EXACTO de la fuente, sin editar.
-- **venue**: lugar EXACTO de la fuente, con dirección si está disponible.
-- **sourceIndex**: índice de la fuente (0, 1, 2...).
-- **description**: 2 oraciones. Qué se hace/come/ve + por qué destaca (dato concreto: novedad, fecha límite, gratuito, artista). Fusiona el "qué" con el "por qué ir".
-- **category**: una de: ${SECTION_CATEGORY_HINTS[section]}
-- **dateInfo**: fecha y horario concretos. Formato compacto: "Sáb 22 feb, 11 a 20h". Si no hay dato, "Consultar".
-- **priceRange**: precio concreto, rango ($/$$/$$$/$$$$), o "Gratis". Si no hay dato, "Consultar".
-- **audience** (opcional): solo si la fuente lo indica explícitamente. "familias con niños", "adultos", "parejas", "todos". Omitir si no hay evidencia.
-- **tip** (opcional): 1 oración con dato práctico y concreto de la fuente. "Estacionamiento gratuito en subsuelo", "Reservar por Instagram". Omitir si no hay dato real — NO inventar tips genéricos como "Llegar temprano".
-- **summary**: 1 oración que le diga al usuario qué va a encontrar en esta lista.
-
-Incluí al menos 2 opciones gratuitas o de bajo costo.
-
-## Ejemplo
-
-${SECTION_EXAMPLES[section]}`;
+────────────────────────────────
+## summary
+────────────────────────────────
+One sentence telling the user what they'll find in this list.`;
 }
 
-/** Short meal-time hint for restaurant section (replaces verbose getMealContext) */
+/** Short meal-time hint for restaurant section */
 function getMealHint(localHour: number): string {
-  if (localHour < 10) return "\nMomento del día: DESAYUNO — priorizá cafés, brunch, panaderías.";
-  if (localHour < 15) return "\nMomento del día: ALMUERZO — priorizá menú del mediodía, parrillas, cantinas.";
-  if (localHour < 19) return "\nMomento del día: MERIENDA — priorizá cafés, heladerías, cervecerías.";
-  return "\nMomento del día: CENA — priorizá restaurantes, parrillas, bares con cocina.";
+  if (localHour < 10) return "\nMeal period: BREAKFAST — prioritize cafés, brunch, bakeries.";
+  if (localHour < 15) return "\nMeal period: LUNCH — prioritize lunch menus, grills, cantinas.";
+  if (localHour < 19) return "\nMeal period: AFTERNOON — prioritize cafés, ice cream, craft beer.";
+  return "\nMeal period: DINNER — prioritize restaurants, grills, bars with kitchen.";
 }
-
-// ============================================
-// OpenRouter
-// ============================================

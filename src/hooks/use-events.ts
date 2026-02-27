@@ -5,7 +5,7 @@ import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 
 import type { EventCategory } from "@prisma/client";
-import type { RelaxEvent } from "@/lib/llm/relax-finder";
+import type { RelaxEvent } from "@/lib/events/types";
 
 // ============================================
 // Types
@@ -70,11 +70,11 @@ const CATEGORY_TO_RELAX: Record<EventCategory, string> = {
   EXCURSIONES: "excursiones",
   TALLERES: "talleres",
   DANZA: "musica",
-  LITERATURA: "exposiciones",
-  GASTRONOMIA: "festivales",
-  DEPORTES: "paseos",
-  INFANTIL: "talleres",
-  OTRO: "exposiciones",
+  LITERATURA: "talleres",
+  GASTRONOMIA: "mercados",
+  DEPORTES: "excursiones",
+  INFANTIL: "paseos",
+  OTRO: "festivales",
 };
 
 // ============================================
@@ -164,6 +164,14 @@ export function eventRowToRelaxEvent(row: EventsApiRow): RelaxEvent {
     url: buildMapsUrl(row),
     sourceUrl: row.sourceUrl,
     imageUrl: row.imageUrl,
+    highlightReason: null,
+    ticketUrl: null,
+    bookingUrl: null,
+    finalScore: null,
+    culturalCategory: null,
+    artists: row.artists ?? [],
+    tags: row.tags ?? [],
+    startDate: row.startDate ?? null,
   };
 }
 

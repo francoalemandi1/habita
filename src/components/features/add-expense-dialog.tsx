@@ -89,15 +89,40 @@ function CustomSplitValidation({ totalAmount, customSplits, members, onDistribut
   );
 }
 
+export interface QuickAddDefaults {
+  title: string;
+  amount: number;
+  category: ExpenseCategory;
+}
+
 interface AddExpenseDialogProps {
   members: MemberOption[];
   currentMemberId: string;
   onExpenseCreated: (payload: CreateExpensePayload) => void;
   isSolo?: boolean;
+  /** External open state — used by quick-add pills to open pre-filled. */
+  externalOpen?: boolean;
+  /** Called when the externally-opened dialog is closed. */
+  onExternalOpenChange?: (open: boolean) => void;
+  /** Pre-filled values when opened externally via quick-add. */
+  defaultValues?: QuickAddDefaults;
 }
 
-export function AddExpenseDialog({ members, currentMemberId, onExpenseCreated, isSolo = false }: AddExpenseDialogProps) {
-  const [open, setOpen] = useState(false);
+export function AddExpenseDialog({
+  members,
+  currentMemberId,
+  onExpenseCreated,
+  isSolo = false,
+  externalOpen,
+  onExternalOpenChange,
+  defaultValues,
+}: AddExpenseDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isExternallyControlled = externalOpen !== undefined;
+  const open = isExternallyControlled ? externalOpen : internalOpen;
+  const setOpen = isExternallyControlled
+    ? (v: boolean) => onExternalOpenChange?.(v)
+    : setInternalOpen;
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<ExpenseCategory>("OTHER");
@@ -182,6 +207,16 @@ export function AddExpenseDialog({ members, currentMemberId, onExpenseCreated, i
     setExcludedMembers(newExcluded);
   }
 
+  // Pre-fill form when opened with defaultValues (quick-add)
+  useEffect(() => {
+    if (open && defaultValues) {
+      setTitle(defaultValues.title);
+      setAmount(defaultValues.amount.toString());
+      setCategory(defaultValues.category);
+      setCategoryAutoSet(false);
+    }
+  }, [open, defaultValues]);
+
   // Auto-focus amount field when dialog opens
   useEffect(() => {
     if (open && amountRef.current) {
@@ -247,10 +282,12 @@ export function AddExpenseDialog({ members, currentMemberId, onExpenseCreated, i
 
   return (
     <>
-      <Button onClick={() => setOpen(true)} className="gap-1.5">
-        <Plus className={iconSize.sm} />
-        Nuevo gasto
-      </Button>
+      {!isExternallyControlled && (
+        <Button onClick={() => setOpen(true)} className="gap-1.5">
+          <Plus className={iconSize.sm} />
+          Nuevo gasto
+        </Button>
+      )}
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">

@@ -23,6 +23,7 @@ export interface AlternativeProduct {
   price: number;
   listPrice: number | null;
   link: string;
+  imageUrl: string | null;
   unitInfo: ProductUnitInfo | null;
 }
 
@@ -193,6 +194,7 @@ function pickRankedMatches(searchTerm: string, products: VtexProduct[]): TermRes
       price: r.product.price,
       listPrice: r.product.listPrice,
       link: r.product.link,
+      imageUrl: r.product.imageUrl,
       unitInfo: r.unitInfo,
     }));
 

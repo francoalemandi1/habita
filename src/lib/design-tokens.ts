@@ -159,6 +159,28 @@ export const storeColors: Record<string, { bg: string; text: string }> = {
 
 export const storeColorFallback = { bg: "#595959", text: "#ffffff" } as const;
 
+/** Store name → website domain for favicon fetching. */
+export const storeDomains: Record<string, string> = {
+  "Carrefour":     "www.carrefour.com.ar",
+  "Coto":          "www.cotodigital.com.ar",
+  "Dia":           "diaonline.supermercadosdia.com.ar",
+  "Disco":         "www.disco.com.ar",
+  "Jumbo":         "www.jumbo.com.ar",
+  "Mas Online":    "www.masonline.com.ar",
+  "Vea":           "www.vea.com.ar",
+  "HiperLibertad": "www.hiperlibertad.com.ar",
+  "Cordiez":       "www.cordiez.com.ar",
+  "Toledo":        "www.toledodigital.com.ar",
+  "Coop. Obrera":  "www.lacoopeencasa.coop",
+};
+
+/** Get Google Favicon URL for a store. Returns null if the store domain is unknown. */
+export function getStoreFaviconUrl(storeName: string, size: number = 64): string | null {
+  const domain = storeDomains[storeName];
+  if (!domain) return null;
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=${size}`;
+}
+
 /** Notification type → style mapping. */
 export const notificationStyles: Record<
   string,

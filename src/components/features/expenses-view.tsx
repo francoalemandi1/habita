@@ -1,23 +1,22 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/api-client";
 import { ExpenseList } from "@/components/features/expense-list";
 import { ExpenseSummary } from "@/components/features/expense-summary";
 import { AddExpenseDialog } from "@/components/features/add-expense-dialog";
+import { ExpenseInsights, QuickAddPills } from "@/components/features/expense-insights";
 import { useServices } from "@/hooks/use-services";
 import { ServicesManagement } from "@/components/features/services-management";
 import { ServiceDialog } from "@/components/features/service-dialog";
-import { ShoppingPlanView } from "@/components/features/grocery-advisor";
-import { Button } from "@/components/ui/button";
 import { spacing } from "@/lib/design-tokens";
-import { cn } from "@/lib/utils";
-import { Receipt, ShoppingCart } from "lucide-react";
 
 import type { SerializedExpense, SerializedService, MemberOption } from "@/types/expense";
 import type { ExpenseCategory, SplitType } from "@prisma/client";
+import type { QuickAddDefaults } from "@/components/features/add-expense-dialog";
+import type { FrequentExpense } from "@/lib/expense-insights";
 
 /** Data needed to create an optimistic expense before the API responds. */
 export interface CreateExpensePayload {
@@ -38,13 +37,10 @@ export interface UpdateExpensePayload {
   notes?: string | null;
 }
 
-type ExpensesTab = "activity" | "deals";
-
 interface ExpensesViewProps {
   initialExpenses: SerializedExpense[];
   currentMemberId: string;
   allMembers: MemberOption[];
-  hasLocation: boolean;
   householdCity: string | null;
   isSolo?: boolean;
 }
@@ -53,7 +49,6 @@ export function ExpensesView({
   initialExpenses,
   currentMemberId,
   allMembers,
-  hasLocation,
   householdCity,
   isSolo = false,
 }: ExpensesViewProps) {
@@ -64,6 +59,9 @@ export function ExpensesView({
   const [showManageServices, setShowManageServices] = useState(false);
   const [showCreateService, setShowCreateService] = useState(false);
   const [editingService, setEditingService] = useState<SerializedService | undefined>();
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddDefaults, setQuickAddDefaults] = useState<QuickAddDefaults | undefined>();
+  const [frequentExpenses, setFrequentExpenses] = useState<FrequentExpense[]>([]);
 
   // Sync with server data after router.refresh()
   useEffect(() => {
@@ -79,26 +77,6 @@ export function ExpensesView({
   }, [router]);
 
   const svc = useServices(handleServiceGenerated);
-  const searchParams = useSearchParams();
-  const tabParam = searchParams.get("tab");
-  const activeTab: ExpensesTab =
-    tabParam === "deals"
-      ? tabParam
-      : "activity";
-
-  const setActiveTab = useCallback(
-    (tab: ExpensesTab) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (tab === "activity") {
-        params.delete("tab");
-      } else {
-        params.set("tab", tab);
-      }
-      const query = params.toString();
-      router.replace(query ? `?${query}` : window.location.pathname, { scroll: false });
-    },
-    [router, searchParams],
-  );
   const toast = useToast();
 
   const currentPayer = allMembers.find((m) => m.id === currentMemberId);
@@ -251,79 +229,73 @@ export function ExpensesView({
     [expenses],
   );
 
+  const handleFrequentExpensesLoaded = useCallback((loaded: FrequentExpense[]) => {
+    setFrequentExpenses(loaded);
+  }, []);
+
+  const handleQuickAdd = useCallback((preset: FrequentExpense) => {
+    setQuickAddDefaults({
+      title: preset.title,
+      amount: preset.amount,
+      category: preset.category,
+    });
+    setQuickAddOpen(true);
+  }, []);
+
   return (
     <>
       <div className={spacing.pageHeader}>
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Gastos</h1>
-          {activeTab === "activity" && (
-            <AddExpenseDialog
-              members={allMembers}
-              currentMemberId={currentMemberId}
-              onExpenseCreated={handleExpenseCreated}
-              isSolo={isSolo}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Tab switcher */}
-      <div className="mb-4 flex items-center rounded-lg border bg-muted p-0.5">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setActiveTab("activity")}
-          className={cn(
-            "flex-1 gap-1.5 rounded-md px-2",
-            activeTab === "activity" && "bg-background shadow-sm",
-          )}
-        >
-          <Receipt className="h-4 w-4 shrink-0" />
-          <span className="truncate text-xs sm:text-sm">Actividad</span>
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setActiveTab("deals")}
-          className={cn(
-            "flex-1 gap-1.5 rounded-md px-2",
-            activeTab === "deals" && "bg-background shadow-sm",
-          )}
-        >
-          <ShoppingCart className="h-4 w-4 shrink-0" />
-          <span className="truncate text-xs sm:text-sm">Compras</span>
-        </Button>
-      </div>
-
-      {/* Tab content */}
-      {activeTab === "activity" && (
-        <div className="space-y-4">
-          {!isSolo && <ExpenseSummary currentMemberId={currentMemberId} refreshKey={balanceRefreshKey} />}
-          <ExpenseList
-            expenses={expenses}
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Registrá</h1>
+          <AddExpenseDialog
+            members={allMembers}
             currentMemberId={currentMemberId}
-            allMembers={allMembers}
-            deletingIds={deletingIds}
-            newlyCreatedIds={newlyCreatedIds}
-            onExpenseUpdated={handleExpenseUpdated}
-            onExpenseDeleted={handleExpenseDeleted}
-            activeServices={svc.activeServices}
-            generatingIds={svc.generatingIds}
-            onServiceGenerate={svc.generate}
-            onServiceEdit={(service) => setEditingService(service)}
-            onManageServices={() => setShowManageServices(true)}
-            onCreateService={() => setShowCreateService(true)}
+            onExpenseCreated={handleExpenseCreated}
+            isSolo={isSolo}
           />
         </div>
-      )}
-      {activeTab === "deals" && (
-        <div className={spacing.sectionGap}>
-          <ShoppingPlanView
-            hasLocation={hasLocation}
-            householdCity={householdCity}
-          />
-        </div>
-      )}
+      </div>
+
+      {/* Quick-add dialog (externally controlled) */}
+      <AddExpenseDialog
+        members={allMembers}
+        currentMemberId={currentMemberId}
+        onExpenseCreated={handleExpenseCreated}
+        isSolo={isSolo}
+        externalOpen={quickAddOpen}
+        onExternalOpenChange={setQuickAddOpen}
+        defaultValues={quickAddDefaults}
+      />
+
+      <div className="space-y-4">
+        {!isSolo && <ExpenseSummary currentMemberId={currentMemberId} refreshKey={balanceRefreshKey} />}
+        {frequentExpenses.length > 0 && (
+          <QuickAddPills expenses={frequentExpenses} onQuickAdd={handleQuickAdd} />
+        )}
+        <ExpenseList
+          expenses={expenses}
+          currentMemberId={currentMemberId}
+          allMembers={allMembers}
+          deletingIds={deletingIds}
+          newlyCreatedIds={newlyCreatedIds}
+          onExpenseUpdated={handleExpenseUpdated}
+          onExpenseDeleted={handleExpenseDeleted}
+          activeServices={svc.activeServices}
+          generatingIds={svc.generatingIds}
+          onServiceGenerate={svc.generate}
+          onServiceEdit={(service) => setEditingService(service)}
+          onManageServices={() => setShowManageServices(true)}
+          onCreateService={() => setShowCreateService(true)}
+          isSolo={isSolo}
+        />
+      </div>
+
+      {/* Financial insights — below expense list, secondary to registration */}
+      <ExpenseInsights
+        refreshKey={balanceRefreshKey}
+        onAddFixed={() => setShowCreateService(true)}
+        onFrequentExpensesLoaded={handleFrequentExpensesLoaded}
+      />
 
       <ServicesManagement
         open={showManageServices}
@@ -342,6 +314,7 @@ export function ExpensesView({
         onOpenChange={setShowCreateService}
         members={allMembers}
         currentMemberId={currentMemberId}
+        householdCity={householdCity}
         onSaved={() => {
           svc.refresh();
           setShowCreateService(false);
@@ -354,6 +327,7 @@ export function ExpensesView({
           onOpenChange={(isOpen) => { if (!isOpen) setEditingService(undefined); }}
           members={allMembers}
           currentMemberId={currentMemberId}
+          householdCity={householdCity}
           onSaved={() => {
             svc.refresh();
             setEditingService(undefined);

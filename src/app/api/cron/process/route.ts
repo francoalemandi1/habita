@@ -4,6 +4,7 @@ import { cleanupOldNotifications } from "@/lib/notification-service";
 import { prisma } from "@/lib/prisma";
 import { buildSplitsData } from "@/lib/expense-splits";
 import { calculateNextDueDate, formatPeriod } from "@/lib/service-utils";
+import { expirePastEvents } from "@/lib/events/expire-events";
 import type { NextRequest } from "next/server";
 
 /** Auto-generate invoices + expenses for services with autoGenerate=true and nextDueDate <= now. */
@@ -103,10 +104,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [absenceResult, cleanupResult, billingResult] = await Promise.all([
+    const [absenceResult, cleanupResult, billingResult, expireResult] = await Promise.all([
       processAbsenceRedistribution(),
       cleanupOldNotifications(),
       processServiceBilling(),
+      expirePastEvents(),
     ]);
 
     return NextResponse.json({
@@ -124,6 +126,10 @@ export async function POST(request: NextRequest) {
       serviceBilling: {
         generated: billingResult.generated,
         errors: billingResult.errors,
+      },
+      events: {
+        expiredEvents: expireResult.expiredEvents,
+        deletedSuggestions: expireResult.deletedSuggestions,
       },
       timestamp: new Date().toISOString(),
     });

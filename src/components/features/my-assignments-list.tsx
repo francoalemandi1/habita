@@ -1,17 +1,21 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors, useDraggable } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { TransferRequestButton } from "@/components/features/transfer-request-button";
+import { TransferDropZone } from "@/components/features/transfer-drop-zone";
+import { useSwipeToAction } from "@/hooks/use-swipe-to-action";
 import { useToast } from "@/components/ui/toast";
-import { CheckCircle, ClipboardList, Clock, Check, Loader2, ArrowRight, Undo2 } from "lucide-react";
+import { CheckCircle, ClipboardList, Clock, Check, Loader2, ArrowRight, Undo2, GripVertical, Timer, Trophy } from "lucide-react";
 import { assignmentCardColors, spacing, iconSize } from "@/lib/design-tokens";
 import { PlanFeedbackDialog } from "@/components/features/plan-feedback-dialog";
 import { getHouseholdCopy } from "@/lib/household-mode";
 
 import type { Assignment, Task } from "@prisma/client";
+import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 
 interface AssignmentWithTask extends Assignment {
   task: Pick<Task, "id" | "name" | "description" | "weight" | "frequency" | "estimatedMinutes">;
@@ -50,6 +54,27 @@ function stableColorIndex(id: string): number {
   return Math.abs(hash) % assignmentCardColors.length;
 }
 
+/** Confetti colors from brand palette */
+const CONFETTI_COLORS = ["#5260fe", "#d2ffa0", "#d0b6ff", "#ff9f43", "#fd7c52", "#ffe8c3"];
+
+function spawnConfetti() {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+
+  for (let i = 0; i < 14; i++) {
+    const piece = document.createElement("div");
+    piece.className = "confetti-piece";
+    piece.style.left = `${10 + Math.random() * 80}%`;
+    piece.style.backgroundColor = CONFETTI_COLORS[i % CONFETTI_COLORS.length]!;
+    piece.style.setProperty("--confetti-duration", `${2 + Math.random() * 2}s`);
+    piece.style.setProperty("--confetti-delay", `${Math.random() * 0.5}s`);
+    piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+    container.appendChild(piece);
+  }
+
+  setTimeout(() => container.remove(), 5000);
+}
+
 export function MyAssignmentsList({
   assignments,
   completedAssignments = [],
@@ -60,10 +85,18 @@ export function MyAssignmentsList({
   showPlanCta = false,
   isSolo = false,
 }: MyAssignmentsListProps) {
-  // IDs just completed locally — card stays in place but switches to completed look
   const [justCompletedIds, setJustCompletedIds] = useState<Set<string>>(new Set());
-  // IDs uncompleted locally (completed → pending)
   const [uncompletedIds, setUncompletedIds] = useState<Set<string>>(new Set());
+  const [dragActiveId, setDragActiveId] = useState<string | null>(null);
+  const router = useRouter();
+  const toast = useToast();
+
+  const hasDnd = !isSolo && members.length > 1;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+  );
 
   const handleCardCompleted = useCallback((assignmentId: string) => {
     setJustCompletedIds((prev) => new Set(prev).add(assignmentId));
@@ -78,75 +111,86 @@ export function MyAssignmentsList({
     });
   }, []);
 
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setDragActiveId(String(event.active.id));
+  }, []);
+
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      setDragActiveId(null);
+
+      const { active, over } = event;
+      if (!over) return;
+
+      const assignmentId = String(active.id);
+      const toMemberId = String(over.id);
+
+      // Verify target is a member (not self)
+      const targetMember = members.find((m) => m.id === toMemberId);
+      if (!targetMember || toMemberId === currentMemberId) return;
+
+      try {
+        const response = await fetch("/api/transfers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assignmentId, toMemberId }),
+        });
+
+        if (response.ok) {
+          toast.success("Transferencia solicitada", `Enviada a ${targetMember.name}`);
+          router.refresh();
+          return;
+        }
+
+        const errorData = (await response.json()) as { error?: string };
+        toast.error("Error", errorData.error ?? "No se pudo transferir la tarea");
+      } catch {
+        toast.error("Error", "No se pudo transferir la tarea");
+      }
+    },
+    [members, currentMemberId, router, toast],
+  );
+
+  const handleDragCancel = useCallback(() => {
+    setDragActiveId(null);
+  }, []);
+
   // Server-loaded completed assignments that haven't been uncompleted locally
   const serverCompletedCards = completedAssignments.filter((a) => !uncompletedIds.has(a.id));
 
   const allEmpty = assignments.length === 0 && serverCompletedCards.length === 0 && justCompletedIds.size === 0;
-
-  // Differentiate "all done" (user has completed tasks before) vs "no tasks yet" (brand new user)
   const isFirstTimeUser = allEmpty && totalCompleted === 0 && completedToday === 0;
 
   if (allEmpty) {
     return (
-      <div className={`rounded-[24px] bg-brand-cream ${spacing.cardPaddingEmpty} text-center`}>
-        {isFirstTimeUser ? (
-          <>
-            <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-primary/10">
-              <ClipboardList className={`${iconSize["2xl"]} text-primary`} />
-            </div>
-            <p className="text-lg font-semibold text-foreground">{getHouseholdCopy(isSolo).emptyAssignmentsTitle}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {getHouseholdCopy(isSolo).emptyAssignmentsText}
-            </p>
-            <Link
-              href="/plan"
-              className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              Crear mi primer plan
-              <ArrowRight className={iconSize.sm} />
-            </Link>
-          </>
-        ) : (
-          <>
-            <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-brand-success-dark/20">
-              <CheckCircle className={`${iconSize["2xl"]} text-brand-success-dark`} />
-            </div>
-            <p className="text-lg font-semibold text-foreground">¡Estás al día!</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              No tenés tareas pendientes. ¡Buen trabajo!
-            </p>
-            {(completedToday > 0 || totalCompleted > 0) && (
-              <div className="mt-4 flex justify-center gap-6 text-sm">
-                {completedToday > 0 && (
-                  <span className="text-muted-foreground">
-                    <span className="font-semibold text-brand-success-dark">{completedToday}</span> hoy
-                  </span>
-                )}
-                {totalCompleted > 0 && (
-                  <span className="text-muted-foreground">
-                    <span className="font-semibold text-[var(--color-xp)]">{totalCompleted}</span> totales
-                  </span>
-                )}
-              </div>
-            )}
-            {showPlanCta && (
-              <Link
-                href="/plan"
-                className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-              >
-                Generar un nuevo plan de tareas
-                <ArrowRight className={iconSize.sm} />
-              </Link>
-            )}
-          </>
-        )}
-      </div>
+      <AllDoneState
+        isFirstTimeUser={isFirstTimeUser}
+        completedToday={completedToday}
+        totalCompleted={totalCompleted}
+        completedAssignments={completedAssignments}
+        showPlanCta={showPlanCta}
+        isSolo={isSolo}
+      />
     );
   }
 
-  return (
+  // Find the dragged assignment for overlay
+  const draggedAssignment = dragActiveId
+    ? assignments.find((a) => a.id === dragActiveId)
+    : null;
+
+  const cardList = (
     <div className="space-y-6">
-      {/* Assignment cards — pending stay as-is, just-completed stay in place with completed look */}
+      {/* Drop zone for transfers (visible only during drag) */}
+      {hasDnd && (
+        <TransferDropZone
+          members={members}
+          currentMemberId={currentMemberId}
+          activeId={dragActiveId}
+        />
+      )}
+
+      {/* Assignment cards */}
       {assignments.length > 0 && (
         <div className="-space-y-3">
           {assignments.map((assignment, index) => {
@@ -155,15 +199,17 @@ export function MyAssignmentsList({
               <div
                 key={assignment.id}
                 className="animate-stagger-fade-in"
-                style={{ '--stagger-index': index } as React.CSSProperties}
+                style={{ "--stagger-index": index } as React.CSSProperties}
               >
-                <AssignmentCard
+                <SwipeableCard
                   assignment={assignment}
                   members={members}
                   currentMemberId={currentMemberId}
                   colorIndex={stableColorIndex(assignment.id)}
                   isFirst={index === 0}
                   isCompleted={isJustCompleted}
+                  isDragging={dragActiveId === assignment.id}
+                  hasDnd={hasDnd}
                   onCompleted={handleCardCompleted}
                   onUncompleted={handleCardUncompleted}
                 />
@@ -173,7 +219,7 @@ export function MyAssignmentsList({
         </div>
       )}
 
-      {/* Server-loaded completed tasks (completed before page load) */}
+      {/* Server-loaded completed tasks */}
       {serverCompletedCards.length > 0 && (
         <div>
           <p className="mb-3 text-sm font-medium text-muted-foreground">
@@ -192,7 +238,235 @@ export function MyAssignmentsList({
       )}
     </div>
   );
+
+  if (!hasDnd) return cardList;
+
+  return (
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      {cardList}
+      <DragOverlay dropAnimation={null}>
+        {draggedAssignment && (
+          <DragOverlayCard assignment={draggedAssignment} colorIndex={stableColorIndex(draggedAssignment.id)} />
+        )}
+      </DragOverlay>
+    </DndContext>
+  );
 }
+
+// ─── All Done Celebration ────────────────────────────────────────────
+
+function AllDoneState({
+  isFirstTimeUser,
+  completedToday,
+  totalCompleted,
+  completedAssignments,
+  showPlanCta,
+  isSolo,
+}: {
+  isFirstTimeUser: boolean;
+  completedToday: number;
+  totalCompleted: number;
+  completedAssignments: AssignmentWithTask[];
+  showPlanCta: boolean;
+  isSolo: boolean;
+}) {
+  const hasConfettied = useRef(false);
+
+  useEffect(() => {
+    if (!isFirstTimeUser && completedToday > 0 && !hasConfettied.current) {
+      hasConfettied.current = true;
+      spawnConfetti();
+    }
+  }, [isFirstTimeUser, completedToday]);
+
+  const totalMinutesToday = completedAssignments.reduce(
+    (sum, a) => sum + (a.task.estimatedMinutes ?? 0),
+    0,
+  );
+
+  return (
+    <div className={`rounded-[24px] bg-brand-cream ${spacing.cardPaddingEmpty} text-center`}>
+      {isFirstTimeUser ? (
+        <>
+          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-primary/10">
+            <ClipboardList className={`${iconSize["2xl"]} text-primary`} />
+          </div>
+          <p className="text-lg font-semibold text-foreground">{getHouseholdCopy(isSolo).emptyAssignmentsTitle}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {getHouseholdCopy(isSolo).emptyAssignmentsText}
+          </p>
+          <Link
+            href="/plan"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Crear mi primer plan
+            <ArrowRight className={iconSize.sm} />
+          </Link>
+        </>
+      ) : (
+        <>
+          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-brand-success-dark/20 animate-celebrate-pulse">
+            <CheckCircle className={`${iconSize["2xl"]} text-brand-success-dark`} />
+          </div>
+          <p className="text-lg font-semibold text-foreground">¡Estás al día!</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {completedToday > 0
+              ? `Completaste ${completedToday} ${completedToday === 1 ? "tarea" : "tareas"} hoy`
+              : "No tenés tareas pendientes. ¡Buen trabajo!"}
+          </p>
+
+          {/* Stat mini-cards */}
+          {(completedToday > 0 || totalCompleted > 0) && (
+            <div className="mt-5 flex justify-center gap-3">
+              {totalMinutesToday > 0 && (
+                <div className="flex flex-col items-center gap-1 rounded-xl bg-brand-lavender-light/50 px-4 py-3">
+                  <Timer className="h-4 w-4 text-brand-purple-dark" />
+                  <span className="text-lg font-bold text-brand-purple-dark">{totalMinutesToday}m</span>
+                  <span className="text-[10px] text-muted-foreground">hoy</span>
+                </div>
+              )}
+              {totalCompleted > 0 && (
+                <div className="flex flex-col items-center gap-1 rounded-xl bg-brand-tan/50 px-4 py-3">
+                  <Trophy className="h-4 w-4 text-brand-orange" />
+                  <span className="text-lg font-bold text-brand-orange">{totalCompleted}</span>
+                  <span className="text-[10px] text-muted-foreground">totales</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {showPlanCta && (
+            <Link
+              href="/plan"
+              className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            >
+              Generar un nuevo plan de tareas
+              <ArrowRight className={iconSize.sm} />
+            </Link>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Swipeable Card Wrapper ──────────────────────────────────────────
+
+function SwipeableCard({
+  assignment,
+  members,
+  currentMemberId,
+  colorIndex,
+  isFirst,
+  isCompleted,
+  isDragging,
+  hasDnd,
+  onCompleted,
+  onUncompleted,
+}: {
+  assignment: AssignmentWithTask;
+  members: Member[];
+  currentMemberId: string;
+  colorIndex: number;
+  isFirst: boolean;
+  isCompleted: boolean;
+  isDragging: boolean;
+  hasDnd: boolean;
+  onCompleted: (assignmentId: string) => void;
+  onUncompleted: (assignmentId: string) => void;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+
+  const handleSwipeComplete = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/assignments/${assignment.id}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+
+      if (response.ok) {
+        toast.success("Tarea completada");
+        onCompleted(assignment.id);
+        router.refresh();
+        return;
+      }
+
+      toast.error("Error", "No se pudo completar la tarea");
+    } catch {
+      toast.error("Error", "No se pudo completar la tarea");
+    }
+  }, [assignment.id, onCompleted, router, toast]);
+
+  const { handlers, offset, isActivated, isSnapping } = useSwipeToAction(handleSwipeComplete, {
+    enabled: !isCompleted,
+  });
+
+  const showSwipeReveal = offset > 0 || isSnapping;
+
+  return (
+    <div className="relative overflow-hidden rounded-[24px]" {...handlers}>
+      {/* Green reveal layer behind the card */}
+      {showSwipeReveal && (
+        <div className="absolute inset-0 flex items-center rounded-[24px] bg-green-500 pl-6">
+          <Check className="h-8 w-8 text-white" strokeWidth={3} />
+          <span className="ml-2 text-lg font-semibold text-white">
+            {isActivated ? "¡Soltar!" : "Completar"}
+          </span>
+        </div>
+      )}
+
+      {/* Card that slides with the swipe */}
+      <div
+        style={{
+          transform: offset > 0 || isSnapping ? `translateX(${offset}px)` : undefined,
+          transition: offset === 0 && !isSnapping
+            ? "transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1)"
+            : isSnapping
+              ? "transform 300ms ease-in"
+              : undefined,
+        }}
+        className={isDragging ? "opacity-40" : undefined}
+      >
+        <AssignmentCard
+          assignment={assignment}
+          members={members}
+          currentMemberId={currentMemberId}
+          colorIndex={colorIndex}
+          isFirst={isFirst}
+          isCompleted={isCompleted}
+          hasDnd={hasDnd}
+          onCompleted={onCompleted}
+          onUncompleted={onUncompleted}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Drag Overlay (simplified card shown while dragging) ─────────────
+
+function DragOverlayCard({ assignment, colorIndex }: { assignment: AssignmentWithTask; colorIndex: number }) {
+  const colors = assignmentCardColors[colorIndex] ?? assignmentCardColors[0]!;
+  return (
+    <div className={`rounded-[24px] ${colors.bg} px-5 py-4 shadow-xl opacity-90`}>
+      <h3 className={`text-lg font-semibold ${colors.text}`}>
+        {assignment.task.name}
+      </h3>
+      <p className={`mt-1 text-sm ${colors.meta}`}>
+        {FREQUENCY_LABELS[assignment.task.frequency]}
+      </p>
+    </div>
+  );
+}
+
+// ─── Assignment Card ─────────────────────────────────────────────────
 
 interface CompleteResponse {
   planFinalized?: boolean;
@@ -206,6 +480,7 @@ function AssignmentCard({
   colorIndex,
   isFirst,
   isCompleted,
+  hasDnd,
   onCompleted,
   onUncompleted,
 }: {
@@ -215,6 +490,7 @@ function AssignmentCard({
   colorIndex: number;
   isFirst: boolean;
   isCompleted: boolean;
+  hasDnd: boolean;
   onCompleted: (assignmentId: string) => void;
   onUncompleted: (assignmentId: string) => void;
 }) {
@@ -223,6 +499,11 @@ function AssignmentCard({
   const [feedbackPlanId, setFeedbackPlanId] = useState<string | null>(null);
   const router = useRouter();
   const toast = useToast();
+
+  const { attributes, listeners, setNodeRef } = useDraggable({
+    id: assignment.id,
+    disabled: isCompleted || !hasDnd,
+  });
 
   const dueDate = assignment.dueDate ? new Date(assignment.dueDate) : null;
   const isToday = dueDate ? dueDate.toDateString() === new Date().toDateString() : false;
@@ -238,7 +519,7 @@ function AssignmentCard({
       });
 
       if (response.ok) {
-        const data = await response.json() as CompleteResponse;
+        const data = (await response.json()) as CompleteResponse;
 
         toast.success("Tarea completada");
 
@@ -254,7 +535,7 @@ function AssignmentCard({
         return;
       }
 
-      const errorData = await response.json() as { error?: string };
+      const errorData = (await response.json()) as { error?: string };
       toast.error("Error", errorData.error ?? "No se pudo completar la tarea");
     } catch {
       toast.error("Error", "No se pudo completar la tarea");
@@ -277,7 +558,7 @@ function AssignmentCard({
         return;
       }
 
-      const errorData = await response.json() as { error?: string };
+      const errorData = (await response.json()) as { error?: string };
       toast.error("Error", errorData.error ?? "No se pudo desmarcar la tarea");
     } catch {
       toast.error("Error", "No se pudo desmarcar la tarea");
@@ -294,6 +575,7 @@ function AssignmentCard({
 
   return (
     <div
+      ref={setNodeRef}
       className={`relative overflow-hidden rounded-[24px] ${isCompleted ? "bg-green-50 dark:bg-green-950/50" : colors.bg} ${spacing.cardPaddingWide} transition-colors duration-300`}
       style={{ zIndex: 10 - colorIndex }}
     >
@@ -301,8 +583,21 @@ function AssignmentCard({
       <div className="pointer-events-none absolute -right-8 -top-8 size-32 rounded-full bg-white/10" />
       <div className="pointer-events-none absolute -bottom-6 -left-6 size-24 rounded-full bg-black/5" />
 
+      {/* Drag handle */}
+      {hasDnd && !isCompleted && (
+        <button
+          type="button"
+          className={`absolute right-3 top-3 rounded-lg p-1 ${colors.meta} opacity-40 hover:opacity-70 transition-opacity touch-manipulation`}
+          aria-label="Arrastrar para transferir"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-5 w-5" />
+        </button>
+      )}
+
       <div className="relative">
-        <h3 className={`text-xl font-semibold ${isCompleted ? "text-green-800 line-through decoration-green-400/50 dark:text-green-200" : colors.text}`}>
+        <h3 className={`text-xl font-semibold ${isCompleted ? "text-green-800 line-through decoration-green-400/50 dark:text-green-200" : colors.text} ${hasDnd && !isCompleted ? "pr-8" : ""}`}>
           {assignment.task.name}
         </h3>
 
@@ -312,7 +607,7 @@ function AssignmentCard({
           </p>
         )}
 
-        {/* Metadata row 1: schedule */}
+        {/* Metadata row */}
         <div className={`mt-3 flex items-center gap-1.5 text-sm ${isCompleted ? "text-green-700 dark:text-green-400/70" : colors.meta}`}>
           <Clock className={iconSize.sm} />
           <span>
@@ -322,7 +617,7 @@ function AssignmentCard({
           </span>
         </div>
 
-        {/* Action buttons row */}
+        {/* Action buttons */}
         <div className="mt-4 flex items-center gap-2">
           {isCompleted ? (
             <Button
@@ -361,12 +656,12 @@ function AssignmentCard({
                 ) : (
                   <>
                     <Check className={iconSize.sm} strokeWidth={3} />
-                    Marcar como completada
+                    Completar
                   </>
                 )}
               </Button>
 
-              {/* Transfer button */}
+              {/* Transfer button (fallback for dialog with reason) */}
               {members.length > 1 && (
                 <TransferRequestButton
                   assignmentId={assignment.id}
@@ -391,7 +686,8 @@ function AssignmentCard({
   );
 }
 
-/** Compact card for completed tasks — shows task name, points earned, and uncomplete button */
+// ─── Completed Assignment Card ───────────────────────────────────────
+
 function CompletedAssignmentCard({
   assignment,
   onUncompleted,
@@ -417,7 +713,7 @@ function CompletedAssignmentCard({
         return;
       }
 
-      const errorData = await response.json() as { error?: string };
+      const errorData = (await response.json()) as { error?: string };
       toast.error("Error", errorData.error ?? "No se pudo desmarcar la tarea");
     } catch {
       toast.error("Error", "No se pudo desmarcar la tarea");

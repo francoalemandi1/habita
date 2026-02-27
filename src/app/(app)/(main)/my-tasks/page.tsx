@@ -172,7 +172,6 @@ export default async function MyTasksPage() {
         totalCompleted={totalCompleted}
         showPlanCta={showPlanCta}
         transfers={transfers}
-        pendingCount={assignments.length}
         calendarAssignments={serializedCalendarAssignments}
         calendarMembers={calendarMembers}
         initialWeekStart={monday.toISOString()}

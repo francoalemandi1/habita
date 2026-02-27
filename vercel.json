@@ -17,16 +17,12 @@
       "schedule": "0 20 * * 0"
     },
     {
-      "path": "/api/cron/events/ingest?provider=exa-web",
-      "schedule": "0 6,18 * * *"
+      "path": "/api/cron/events/ingest?phase=ingest&city=C%C3%B3rdoba",
+      "schedule": "0 15 * * *"
     },
     {
-      "path": "/api/cron/events/ingest?provider=eventbrite",
-      "schedule": "0 8,20 * * *"
-    },
-    {
-      "path": "/api/cron/events/ingest?provider=ba-agenda",
-      "schedule": "0 10,22 * * *"
+      "path": "/api/cron/events/ingest?phase=score",
+      "schedule": "0 16 * * *"
     }
   ]
 }

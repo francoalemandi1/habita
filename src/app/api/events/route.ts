@@ -4,7 +4,7 @@ import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { searchEvents } from "@/lib/events/search";
 import { resolveCityId } from "@/lib/events/city-normalizer";
-import { discoverEventsForCity } from "@/lib/events/on-demand-discovery";
+import { runIngestPhase } from "@/lib/events/pipeline/run-pipeline";
 
 import type { NextRequest } from "next/server";
 import type { EventCategory } from "@prisma/client";
@@ -35,7 +35,7 @@ const querySchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    await requireMember();
+    const member = await requireMember();
 
     const searchParams = Object.fromEntries(request.nextUrl.searchParams);
     const validation = querySchema.safeParse(searchParams);
@@ -69,10 +69,11 @@ export async function GET(request: NextRequest) {
     let result = await searchEvents(searchOptions);
 
     // On-demand discovery: if a city was requested but 0 results found,
-    // run a targeted Exa search to populate events for this city.
+    // run a lightweight ingest to populate events for this city.
     if (city && result.total === 0 && offset === 0 && !q) {
-      const created = await discoverEventsForCity(city);
-      if (created > 0) {
+      const country = member.household.country ?? "AR";
+      const outcome = await runIngestPhase({ city, country, maxCrawlPages: 5 });
+      if (outcome.eventsCreated > 0) {
         result = await searchEvents(searchOptions);
       }
     }

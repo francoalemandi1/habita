@@ -72,24 +72,35 @@ const CATEGORY_KEYWORDS: Array<{ category: ExpenseCategory; keywords: string[] }
   {
     category: "GROCERIES",
     keywords: [
+      // Cadenas y formatos
       "supermercado", "super", "coto", "carrefour", "jumbo", "dia", "disco",
       "changomas", "vea", "walmart", "chino", "almacen", "verduleria",
       "fiambreria", "carniceria", "despensa",
       "kiosco", "maxikiosco", "minimarket", "autoservicio", "dietetica",
       "mercado", "mayorista", "diarco", "makro", "vital",
       "granja", "huevos", "frutas", "verduras", "bebidas",
+      // Productos y conceptos de compra diaria
+      "compras", "mandado", "mandados", "leche", "pan", "yerba", "mate",
+      "limpieza hogar", "articulos limpieza", "lavandina", "detergente",
+      "papel higienico", "panales", "perfumeria",
     ],
   },
   {
     category: "UTILITIES",
     keywords: [
+      // Servicios publicos
       "luz", "gas", "agua", "internet", "wifi", "telefono", "celular",
       "cable", "electricidad", "edenor", "edesur", "metrogas", "telecom",
       "personal", "claro", "movistar", "fibertel", "absa", "aysa",
       "servicio", "servicios", "expensas",
+      // Impuestos y seguros
       "monotributo", "impuesto", "municipal", "arba", "afip",
       "abl", "inmobiliario", "seguro hogar", "iibb",
       "tuenti", "flow", "directv", "starlink",
+      // Suscripciones de servicios digitales que no son entretenimiento
+      "icloud", "google one", "dropbox", "chatgpt", "openai",
+      "apple", "microsoft 365", "office",
+      "seguro", "prepaga",
     ],
   },
   {
@@ -99,6 +110,7 @@ const CATEGORY_KEYWORDS: Array<{ category: ExpenseCategory; keywords: string[] }
   {
     category: "FOOD",
     keywords: [
+      // Restaurantes y bares
       "restaurante", "restaurant", "comida", "delivery", "rappi", "pedidosya",
       "pedidos ya", "mcdonalds", "burger", "pizza", "sushi", "cafe",
       "bar", "cerveceria", "heladeria", "panaderia", "rotiseria",
@@ -107,25 +119,36 @@ const CATEGORY_KEYWORDS: Array<{ category: ExpenseCategory; keywords: string[] }
       "lomiteria", "bodegon", "parrilla", "tenedor libre",
       "brunch", "merienda", "almuerzo", "cena", "desayuno", "morfi",
       "pedir comida", "ifood", "globo", "didi food",
+      // Cadenas conocidas
       "starbucks", "havanna", "mostaza", "wendys", "subway",
       "grido", "freddo", "persicco", "helado",
       "facturas", "medialunas", "tostado", "sandwich",
+      // Salidas y eventos con comida
+      "picada", "juntada", "previa", "after", "salida",
+      "birra", "fernet", "trago", "tragos", "happy hour",
     ],
   },
   {
     category: "TRANSPORT",
     keywords: [
+      // Viajes y movilidad
       "uber", "cabify", "taxi", "remis", "nafta", "combustible", "peaje",
       "estacionamiento", "sube", "colectivo", "tren", "subte", "ypf",
       "shell", "axion", "gnc", "parking", "cochera",
       "didi", "beat", "fletero", "mudanza", "patente",
       "vtv", "seguro auto", "mecanico", "taller", "gomeria",
       "puma energy", "gasoil", "verificacion tecnica",
+      // Viajes
+      "vuelo", "avion", "aerolinea", "aeropuerto", "micro",
+      "flybondi", "jetsmart", "aerolineas", "buquebus",
+      "hotel", "hostel", "airbnb", "booking", "alojamiento",
+      "viaje", "vacaciones", "excursion", "pasaje", "pasajes",
     ],
   },
   {
     category: "HEALTH",
     keywords: [
+      // Salud y bienestar
       "farmacia", "medico", "doctor", "hospital", "clinica", "salud",
       "remedio", "medicamento", "obra social", "prepaga", "osde",
       "swiss medical", "galeno", "dentista", "oculista", "analisis",
@@ -134,19 +157,30 @@ const CATEGORY_KEYWORDS: Array<{ category: ExpenseCategory; keywords: string[] }
       "lentes", "optica", "psicologo", "terapia",
       "kinesiologo", "nutricionista", "veterinaria", "veterinario",
       "odontologia", "traumatologo", "dermatologo",
+      // Bienestar y cuidado personal
+      "peluqueria", "barberia", "spa", "masaje", "estetica",
+      "crema", "shampoo", "perfume", "cosmetico",
     ],
   },
   {
     category: "ENTERTAINMENT",
     keywords: [
+      // Salidas y espectaculos
       "cine", "teatro", "recital", "show", "entrada", "entradas",
-      "netflix", "spotify", "disney", "hbo", "amazon", "youtube",
-      "streaming", "juego", "juegos", "play", "steam",
       "escape room", "bowling", "karaoke", "boliche", "fiesta",
       "cumpleanos", "evento", "festival", "parque", "zoo", "museo",
       "pileta", "club", "cancha", "paddle", "futbol", "gym", "gimnasio",
+      // Suscripciones de entretenimiento
+      "netflix", "spotify", "disney", "hbo", "amazon", "youtube",
+      "streaming", "juego", "juegos", "play", "steam",
       "xbox", "playstation", "nintendo", "twitch", "prime video",
       "max", "paramount", "crunchyroll", "star+",
+      // Compras de ocio
+      "ropa", "zapatillas", "zarpa", "nike", "adidas", "zara",
+      "shopping", "indumentaria", "remera", "pantalon", "campera",
+      "regalo", "regalos", "juguete", "juguetes",
+      "mascota", "perro", "gato", "veterinario", "alimento mascota",
+      "petshop", "puppis",
     ],
   },
   {
@@ -157,11 +191,13 @@ const CATEGORY_KEYWORDS: Array<{ category: ExpenseCategory; keywords: string[] }
       "guarderia", "jardin", "materiales", "utiles", "cuaderno",
       "seminario", "certificacion", "diploma", "maestria",
       "udemy", "coursera", "platzi", "domestika",
+      "ingles", "idioma", "idiomas", "instituto", "capacitacion",
     ],
   },
   {
     category: "HOME",
     keywords: [
+      // Mantenimiento y reparaciones
       "ferreteria", "pintura", "plomero", "electricista", "limpieza",
       "mueble", "muebles", "arreglo", "reparacion", "decoracion",
       "jardin", "easy", "sodimac",
@@ -169,6 +205,10 @@ const CATEGORY_KEYWORDS: Array<{ category: ExpenseCategory; keywords: string[] }
       "cortina", "colchon", "electrodomestico",
       "whirlpool", "samsung", "philips", "ikea",
       "fumigacion", "mudanza casa", "pintureria",
+      // Tecnologia y electronica para el hogar
+      "computadora", "notebook", "celular nuevo", "tablet",
+      "impresora", "router", "smart tv", "heladera", "lavarropas",
+      "microondas", "horno", "aspiradora", "ventilador", "aire acondicionado",
     ],
   },
 ];

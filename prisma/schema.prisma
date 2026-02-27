@@ -25,11 +25,13 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   // Auth relations
-  accounts Account[]
-  sessions Session[]
+  accounts        Account[]
+  sessions        Session[]
+  gmailConnection GmailConnection?
 
   // App relations
-  members Member[]
+  members         Member[]
+  processedEmails ProcessedEmail[]
 
   @@map("users")
 }
@@ -72,6 +74,35 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+model GmailConnection {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  accessToken  String    @db.Text
+  refreshToken String    @db.Text
+  expiresAt    Int       // epoch seconds when access_token expires
+  scope        String
+  connectedAt  DateTime  @default(now())
+  lastScanAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("gmail_connections")
+}
+
+model ProcessedEmail {
+  id             String   @id @default(cuid())
+  gmailMessageId String
+  userId         String
+  serviceName    String?  // Matched service name (informative)
+  processedAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([gmailMessageId, userId])
+  @@index([userId])
+  @@map("processed_emails")
 }
 
 model Household {
@@ -814,8 +845,21 @@ model CulturalEvent {
   imageUrl      String?
   status        EventStatus   @default(ACTIVE)
   searchVector  Unsupported("tsvector")?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+
+  // Pipeline LLM cultural scoring fields
+  culturalScore      Float?   // LLM cultural interest 0-10
+  originalityScore   Float?   // LLM originality 0-10
+  editorialHighlight String?  // LLM editorial text, max 240 chars
+  culturalCategory   String?  // Granular category: "Teatro", "Música en vivo", etc.
+  finalScore         Float?   // 0.5*cultural + 0.3*originality + 0.2*source_normalized
+
+  // Pre-formatted display fields (populated by pipeline)
+  ticketUrl  String?
+  bookingUrl String?
+  mapsUrl    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   venue  CulturalVenue? @relation(fields: [venueId], references: [id], onDelete: SetNull)
   city   CulturalCity?  @relation(fields: [cityId], references: [id], onDelete: SetNull)
@@ -825,6 +869,7 @@ model CulturalEvent {
   @@index([startDate, status])
   @@index([sourceId, sourceEventId])
   @@index([status, startDate])
+  @@index([cityId, status, finalScore])
   @@map("cultural_events")
 }
 

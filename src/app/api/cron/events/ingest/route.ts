@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
-import { runIngestion, pickNextDueSource } from "@/lib/events/ingestion-orchestrator";
+import { runIngestPhase, runScorePhase } from "@/lib/events/pipeline/run-pipeline";
 
 import type { NextRequest } from "next/server";
 
 // ============================================
 // POST /api/cron/events/ingest
+//
+// Query params:
+//   ?phase=ingest&city=Córdoba  → Phase A (discover + crawl + extract + persist)
+//   ?phase=score                → Phase B (score unscored events + rank)
 // ============================================
 
 export async function POST(request: NextRequest) {
@@ -14,7 +18,7 @@ export async function POST(request: NextRequest) {
     if (!cronSecret) {
       return NextResponse.json(
         { error: "CRON_SECRET not configured" },
-        { status: 503 }
+        { status: 503 },
       );
     }
 
@@ -22,27 +26,40 @@ export async function POST(request: NextRequest) {
     if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json(
         { error: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
-    // 2. Determine which provider to run
-    const providerParam = request.nextUrl.searchParams.get("provider");
-    const sourceName = providerParam ?? await pickNextDueSource();
+    // 2. Determine which phase to run
+    const phase = request.nextUrl.searchParams.get("phase") ?? "ingest";
 
-    if (!sourceName) {
+    if (phase === "score") {
+      const result = await runScorePhase();
       return NextResponse.json({
         success: true,
-        message: "No active providers found for ingestion",
+        phase: "score",
+        scored: result.scored,
+        errors: result.errors,
         timestamp: new Date().toISOString(),
       });
     }
 
-    // 3. Run ingestion
-    const outcome = await runIngestion(sourceName);
+    // Phase A: ingest
+    const city = request.nextUrl.searchParams.get("city");
+    if (!city) {
+      return NextResponse.json(
+        { error: "Missing required query param: city" },
+        { status: 400 },
+      );
+    }
+
+    const country = request.nextUrl.searchParams.get("country") ?? "AR";
+
+    const outcome = await runIngestPhase({ city, country });
 
     return NextResponse.json({
       success: outcome.status !== "FAILED",
+      phase: "ingest",
       outcome,
       timestamp: new Date().toISOString(),
     });
@@ -50,7 +67,7 @@ export async function POST(request: NextRequest) {
     console.error("POST /api/cron/events/ingest error:", error);
     return NextResponse.json(
       { error: "Error processing event ingestion" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

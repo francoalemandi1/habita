@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { storeColors, storeColorFallback } from "@/lib/design-tokens";
-import { ChevronDown, ChevronUp, Trophy, ExternalLink, Tag, X, Undo2, AlertCircle } from "lucide-react";
+import { StoreLogo } from "@/components/ui/store-logo";
+import { ChevronDown, ChevronUp, Trophy, ExternalLink, X, Undo2, AlertCircle, ArrowDownRight, ClipboardCopy, Check, Package } from "lucide-react";
 
 import type { AlternativeProduct, ProductUnitInfo } from "@/lib/supermarket-search";
 import type { AdjustedStoreCart, AdjustedCartProduct } from "@/components/features/grocery-advisor";
@@ -12,8 +12,7 @@ import type { AdjustedStoreCart, AdjustedCartProduct } from "@/components/featur
 // Helpers
 // ============================================
 
-/** Format price-per-unit for display: "500g · $3.260/kg" or "1.5L · $3.906/L" */
-function formatUnitInfo(unitInfo: ProductUnitInfo): string {
+function formatUnitLabel(unitInfo: ProductUnitInfo): string {
   if (unitInfo.unit === "g") {
     const perKg = (unitInfo.pricePerUnit * 1000).toLocaleString("es-AR", {
       maximumFractionDigits: 0,
@@ -28,10 +27,6 @@ function formatUnitInfo(unitInfo: ProductUnitInfo): string {
 
 function formatPrice(price: number): string {
   return `$${price.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
-
-function getStoreColor(storeName: string) {
-  return storeColors[storeName] ?? storeColorFallback;
 }
 
 // ============================================
@@ -49,7 +44,6 @@ interface StoreCartCardProps {
 
 export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onRemoveProduct, onRestoreProduct }: StoreCartCardProps) {
   const isBest = rank === 0;
-  const storeColor = getStoreColor(cart.storeName);
   const activeProducts = cart.products.filter((p) => !p.isRemoved);
   const activeCount = activeProducts.length;
 
@@ -57,6 +51,7 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onRemoveP
   const productsWithAverage = activeProducts.filter((p) => p.averagePrice != null);
   const cartAvgTotal = productsWithAverage.reduce((s, p) => s + (p.averagePrice ?? 0), 0);
   const cartActualTotal = productsWithAverage.reduce((s, p) => s + p.price, 0);
+  const savingsAmount = cartAvgTotal > 0 ? Math.round(cartAvgTotal - cartActualTotal) : 0;
   const savingsPercent = cartAvgTotal > 0 ? Math.round((1 - cartActualTotal / cartAvgTotal) * 100) : null;
 
   return (
@@ -73,12 +68,8 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onRemoveP
       {/* Header */}
       <div className="flex items-center justify-between p-4">
         <div className="flex items-center gap-3">
-          {/* Store avatar — letter with brand color */}
-          <div
-            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
-            style={{ backgroundColor: storeColor.bg, color: storeColor.text }}
-          >
-            {cart.storeName.charAt(0).toUpperCase()}
+          <div className="relative">
+            <StoreLogo storeName={cart.storeName} sizeClass="h-10 w-10" radiusClass="rounded-xl" fallbackFontClass="text-sm" />
             {isBest && (
               <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow-sm">
                 <Trophy className="h-2.5 w-2.5 text-white" />
@@ -104,9 +95,8 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onRemoveP
               {cart.cheapestCount > 0 && (
                 <>
                   {" · "}
-                  <span className="inline-flex items-center gap-0.5 text-green-600 dark:text-green-400">
-                    <Tag className="inline h-2.5 w-2.5" />
-                    {cart.cheapestCount}/{activeCount} al menor precio
+                  <span className="text-green-600 dark:text-green-400">
+                    {cart.cheapestCount} al mejor precio
                   </span>
                 </>
               )}
@@ -124,7 +114,7 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onRemoveP
               "text-[11px] font-medium",
               savingsPercent > 0 ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400",
             )}>
-              {savingsPercent > 0 ? `${savingsPercent}% menos` : `+${Math.abs(savingsPercent)}%`}
+              {savingsPercent > 0 ? `${savingsPercent}% menos vs promedio` : `+${Math.abs(savingsPercent)}% vs promedio`}
             </span>
           )}
         </div>
@@ -148,6 +138,29 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onRemoveP
               {cart.missingTerms.join(", ")}
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Savings footer — actionable conclusion */}
+      {savingsAmount > 0 && isBest && (
+        <div className="mx-3 mb-3 rounded-xl bg-green-50 px-3 py-2 dark:bg-green-950/30">
+          <p className="text-xs font-medium text-green-700 dark:text-green-400">
+            Ahorrás {formatPrice(savingsAmount)} comprando acá vs el promedio del mercado
+          </p>
+        </div>
+      )}
+      {savingsAmount < 0 && (
+        <div className="mx-3 mb-3 rounded-xl bg-amber-50 px-3 py-2 dark:bg-amber-950/30">
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            {formatPrice(Math.abs(savingsAmount))} más caro que el promedio
+          </p>
+        </div>
+      )}
+
+      {/* Copy list — winner card only */}
+      {isBest && (
+        <div className="mx-3 mb-3">
+          <CopyListButton products={activeProducts} storeName={cart.storeName} />
         </div>
       )}
     </div>
@@ -223,15 +236,20 @@ interface ProductRowProps {
 function ProductRow({ product, onSwap, onRemove, onRestore }: ProductRowProps) {
   const hasDiscount = product.listPrice && product.listPrice > product.price;
 
+  // Find cheapest alternative (for inline suggestion)
+  const cheaperAlt = product.alternatives.length > 0
+    ? product.alternatives.reduce<AlternativeProduct | null>((best, alt) => {
+        if (alt.price < product.price && (!best || alt.price < best.price)) return alt;
+        return best;
+      }, null)
+    : null;
+
   // Removed product: strikethrough with restore button
   if (product.isRemoved) {
     return (
       <div className="flex items-center justify-between px-4 py-2.5 opacity-50">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm line-through">{product.productName}</p>
-          <p className="truncate text-xs text-muted-foreground line-through">
-            {product.searchTerm}
-          </p>
         </div>
         <div className="ml-2 flex shrink-0 items-center gap-1.5">
           <span className="text-sm text-muted-foreground line-through">
@@ -255,50 +273,29 @@ function ProductRow({ product, onSwap, onRemove, onRestore }: ProductRowProps) {
   return (
     <div>
       <div className="flex items-center justify-between px-4 py-2.5 transition-colors hover:bg-muted/20">
-        <a
-          href={product.link}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="min-w-0 flex-1"
-        >
-          <div className="flex items-center gap-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <ProductThumbnail imageUrl={product.imageUrl} />
+          <a
+            href={product.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="min-w-0 flex-1"
+          >
             <p className="truncate text-sm font-medium">{product.productName}</p>
-            {product.isCheapest && (
-              <Tag className="h-3 w-3 shrink-0 text-green-600 dark:text-green-400" />
+            {product.unitInfo && (
+              <p className="text-[11px] text-muted-foreground/70">
+                {formatUnitLabel(product.unitInfo)}
+              </p>
             )}
-          </div>
-          <p className="truncate text-xs text-muted-foreground/70">
-            {product.searchTerm}
-          </p>
-          {product.unitInfo && (
-            <p className="text-[11px] text-muted-foreground/70">
-              {formatUnitInfo(product.unitInfo)}
-            </p>
-          )}
-          {product.averagePrice != null && (
-            <p className="text-[11px] text-muted-foreground/70">
-              {"Prom: "}
-              {formatPrice(Math.round(product.averagePrice))}
-              {product.price < product.averagePrice && (
-                <span className="ml-1 text-green-600">
-                  ({Math.round((1 - product.price / product.averagePrice) * 100)}% menos)
-                </span>
-              )}
-              {product.price > product.averagePrice && (
-                <span className="ml-1 text-amber-600">
-                  ({Math.round((product.price / product.averagePrice - 1) * 100)}% mas)
-                </span>
-              )}
-            </p>
-          )}
-        </a>
+          </a>
+        </div>
         <div className="ml-2 flex shrink-0 items-center gap-1.5">
           <div className="text-right">
             <span
               className={cn(
                 "tabular-nums",
                 product.isCheapest
-                  ? "text-base font-bold text-green-600 dark:text-green-400"
+                  ? "text-sm font-bold text-green-600 dark:text-green-400"
                   : "text-sm font-semibold text-foreground",
               )}
             >
@@ -326,8 +323,31 @@ function ProductRow({ product, onSwap, onRemove, onRestore }: ProductRowProps) {
         </div>
       </div>
 
-      {/* Alternatives */}
-      {product.alternatives.length > 0 && (
+      {/* Cheaper alternative inline suggestion */}
+      {cheaperAlt && onSwap && (
+        <button
+          type="button"
+          onClick={() => onSwap(cheaperAlt)}
+          className="mx-4 mb-1 flex w-[calc(100%-2rem)] items-center gap-1.5 rounded-lg bg-green-50 px-2.5 py-1.5 text-left transition-colors hover:bg-green-100 dark:bg-green-950/30 dark:hover:bg-green-950/50"
+        >
+          <ArrowDownRight className="h-3 w-3 shrink-0 text-green-600 dark:text-green-400" />
+          <span className="min-w-0 flex-1 truncate text-[11px] text-green-700 dark:text-green-400">
+            {cheaperAlt.productName}
+          </span>
+          <span className="shrink-0 text-[11px] font-semibold text-green-600 dark:text-green-400">
+            {formatPrice(cheaperAlt.price)}
+          </span>
+        </button>
+      )}
+
+      {/* More alternatives (if any beyond the inline suggestion) */}
+      {product.alternatives.length > 1 && (
+        <AlternativesSection
+          alternatives={product.alternatives.filter((a) => a.link !== cheaperAlt?.link)}
+          onSwap={onSwap}
+        />
+      )}
+      {product.alternatives.length === 1 && !cheaperAlt && (
         <AlternativesSection alternatives={product.alternatives} onSwap={onSwap} />
       )}
     </div>
@@ -345,6 +365,8 @@ interface AlternativesSectionProps {
 
 function AlternativesSection({ alternatives, onSwap }: AlternativesSectionProps) {
   const [isOpen, setIsOpen] = useState(false);
+
+  if (alternatives.length === 0) return null;
 
   return (
     <div className="px-4 pb-1.5">
@@ -368,23 +390,17 @@ function AlternativesSection({ alternatives, onSwap }: AlternativesSectionProps)
             <div
               key={alt.link}
               className={cn(
-                "flex items-center justify-between rounded-lg px-2 py-1.5 text-xs transition-colors",
+                "flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors",
                 onSwap ? "cursor-pointer hover:bg-primary/10" : "hover:bg-muted/40",
               )}
               onClick={onSwap ? () => onSwap(alt) : undefined}
             >
-              <div className="min-w-0 flex-1">
-                <span className="truncate text-muted-foreground">
-                  {alt.productName}
-                </span>
-              </div>
+              <ProductThumbnail imageUrl={alt.imageUrl} size="sm" />
+              <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                {alt.productName}
+              </span>
               <div className="ml-2 flex shrink-0 items-center gap-2">
                 <span className="font-medium">{formatPrice(alt.price)}</span>
-                {alt.unitInfo && (
-                  <span className="text-[11px] text-muted-foreground/60">
-                    {formatUnitInfo(alt.unitInfo)}
-                  </span>
-                )}
                 {onSwap && (
                   <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                     Elegir
@@ -403,6 +419,82 @@ function AlternativesSection({ alternatives, onSwap }: AlternativesSectionProps)
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================
+// Copy List Button
+// ============================================
+
+function CopyListButton({ products, storeName }: { products: AdjustedCartProduct[]; storeName: string }) {
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    const lines = products.map((p) => `- ${p.productName}`);
+    const text = `Lista para ${storeName}:\n${lines.join("\n")}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch {
+      // Clipboard API not available
+    }
+  }, [products, storeName]);
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className={cn(
+        "flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-medium transition-colors",
+        isCopied
+          ? "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
+          : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      {isCopied ? (
+        <>
+          <Check className="h-3 w-3" />
+          Lista copiada
+        </>
+      ) : (
+        <>
+          <ClipboardCopy className="h-3 w-3" />
+          Copiar lista
+        </>
+      )}
+    </button>
+  );
+}
+
+// ============================================
+// Product Thumbnail
+// ============================================
+
+function ProductThumbnail({ imageUrl, size = "md" }: { imageUrl: string | null; size?: "sm" | "md" }) {
+  const [hasError, setHasError] = useState(false);
+  const sizeClass = size === "sm" ? "h-7 w-7" : "h-9 w-9";
+  const iconClass = size === "sm" ? "h-3 w-3" : "h-4 w-4";
+
+  if (!imageUrl || hasError) {
+    return (
+      <div className={cn("flex shrink-0 items-center justify-center rounded-lg bg-muted/40", sizeClass)}>
+        <Package className={cn(iconClass, "text-muted-foreground/50")} />
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("shrink-0 overflow-hidden rounded-lg bg-white", sizeClass)}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={imageUrl}
+        alt=""
+        className="h-full w-full object-contain"
+        loading="lazy"
+        onError={() => setHasError(true)}
+      />
     </div>
   );
 }

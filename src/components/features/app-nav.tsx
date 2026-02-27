@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, ClipboardCheck, Scale, Compass, User } from "lucide-react";
+import { ClipboardCheck, Receipt, ShoppingCart, Compass, ChefHat } from "lucide-react";
 import { NotificationsDropdown } from "@/components/features/notifications-dropdown";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", icon: Home, label: "Hoy" },
-  { href: "/my-tasks", icon: ClipboardCheck, label: "Tareas" },
-  { href: "/balance", icon: Scale, label: "Gastos" },
-  { href: "/descubrir", icon: Compass, label: "Descubrir" },
-  { href: "/profile", icon: User, label: "Perfil" },
+  { href: "/my-tasks", icon: ClipboardCheck, label: "Planificá" },
+  { href: "/balance", icon: Receipt, label: "Registrá" },
+  { href: "/compras", icon: ShoppingCart, label: "Ahorrá" },
+  { href: "/descubrir", icon: Compass, label: "Descubrí" },
+  { href: "/cocina", icon: ChefHat, label: "Cociná" },
 ];
 
 export function AppNav() {
@@ -22,10 +22,7 @@ export function AppNav() {
       <div className="hidden md:flex md:items-center md:gap-4">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const isActive =
-            item.href === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname.startsWith(item.href);
+          const isActive = pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}

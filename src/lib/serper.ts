@@ -76,7 +76,8 @@ function extractDomain(url: string): string {
  */
 export async function searchWithSerper(
   queries: string[],
-  cacheKey: string
+  cacheKey: string,
+  countryCode?: string
 ): Promise<WebSearchResult[]> {
   const apiKey = process.env.SERPER_API_KEY;
   if (!apiKey) return [];
@@ -90,7 +91,7 @@ export async function searchWithSerper(
     // Run web searches + one image search in parallel
     const imageQuery = queries[0] ?? "";
     const [webBatches, imageResults] = await Promise.all([
-      Promise.all(queries.map((query) => runSerperSearch(apiKey, query))),
+      Promise.all(queries.map((query) => runSerperSearch(apiKey, query, countryCode))),
       fetchSerperImages(apiKey, imageQuery),
     ]);
 
@@ -135,7 +136,8 @@ export async function searchWithSerper(
 /** Run a single Serper web search, returning [] on failure (never throws). */
 async function runSerperSearch(
   apiKey: string,
-  query: string
+  query: string,
+  countryCode?: string
 ): Promise<WebSearchResult[]> {
   try {
     const response = await fetch(`${SERPER_BASE_URL}/search`, {
@@ -144,7 +146,12 @@ async function runSerperSearch(
         "X-API-KEY": apiKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ q: query, num: 8, hl: "es" }),
+      body: JSON.stringify({
+        q: query,
+        num: 20,
+        hl: "es",
+        ...(countryCode && { gl: countryCode }),
+      }),
       signal: AbortSignal.timeout(SERPER_TIMEOUT_MS),
     });
 

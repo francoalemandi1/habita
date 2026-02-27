@@ -2,14 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
-import { isAIEnabled } from "@/lib/llm/provider";
-import { generateRelaxSuggestions } from "@/lib/llm/relax-finder";
 import { handleApiError } from "@/lib/api-response";
+import { resolveCityId } from "@/lib/events/city-normalizer";
+import { eventRowToRelaxEvent } from "@/lib/events/event-mapper";
+import { generateRelaxSuggestions } from "@/lib/llm/relax-finder";
 
 import type { NextRequest } from "next/server";
-import type { RelaxResult } from "@/lib/llm/relax-finder";
-
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const bodySchema = z.object({
   section: z.enum(["activities", "restaurants"]),
@@ -23,18 +21,13 @@ const bodySchema = z.object({
 
 /**
  * POST /api/ai/relax-suggestions
- * Generate or return cached suggestions for a section and location.
+ *
+ * Returns events from the cultural_events table, ordered by finalScore.
+ * The Python pipeline is the sole source of events — this route only reads from DB.
  */
 export async function POST(request: NextRequest) {
   try {
     const member = await requireMember();
-
-    if (!isAIEnabled()) {
-      return NextResponse.json(
-        { error: "Las funciones de IA no están configuradas" },
-        { status: 503 }
-      );
-    }
 
     const body: unknown = await request.json();
     const validation = bodySchema.safeParse(body);
@@ -45,86 +38,65 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { section, forceRefresh } = validation.data;
+    const { section } = validation.data;
     const household = member.household;
 
-    // Resolve location: request body > household fallback
-    const latitude = validation.data.latitude ?? household.latitude;
-    const longitude = validation.data.longitude ?? household.longitude;
+    // Resolve city: request body > household fallback
     const city = validation.data.city ?? household.city;
-    const country = validation.data.country ?? household.country;
-    const timezone = validation.data.timezone ?? household.timezone;
 
-    if (!latitude || !longitude || !city || !country || !timezone) {
+    if (!city) {
       return NextResponse.json(
-        { error: "No se pudo determinar la ubicación. Activá la geolocalización o configurá la ubicación del hogar." },
+        { error: "No se pudo determinar la ubicación. Configurá la ubicación del hogar en el perfil." },
         { status: 400 }
       );
     }
 
-    // For restaurants, include meal period in key so cache is per-meal-time
-    const baseLoc = `${latitude.toFixed(1)}:${longitude.toFixed(1)}`;
-    const locationKey = section === "restaurants"
-      ? `${baseLoc}:${getMealPeriod(timezone)}`
-      : baseLoc;
-
-    // Check cache
-    if (!forceRefresh) {
-      const cached = await prisma.relaxSuggestion.findFirst({
-        where: {
-          householdId: member.householdId,
-          locationKey,
-          sectionType: section,
-          expiresAt: { gt: new Date() },
-        },
-        orderBy: { generatedAt: "desc" },
+    // Restaurants: on-demand LLM search (no pipeline/DB)
+    if (section === "restaurants") {
+      const result = await generateRelaxSuggestions({
+        city,
+        country: validation.data.country ?? household.country ?? "AR",
+        latitude: validation.data.latitude ?? household.latitude ?? 0,
+        longitude: validation.data.longitude ?? household.longitude ?? 0,
+        timezone: validation.data.timezone ?? "America/Argentina/Cordoba",
+        section: "restaurants",
       });
 
-      if (cached) {
-        const result = cached.suggestions as unknown as RelaxResult;
+      if (!result) {
         return NextResponse.json({
-          events: result.events,
-          summary: result.summary,
-          generatedAt: cached.generatedAt.toISOString(),
-          cached: true,
+          events: [],
+          summary: "",
+          generatedAt: new Date().toISOString(),
+          cached: false,
         });
       }
+
+      // Add fields that the LLM output doesn't include but RelaxEvent requires
+      const events = result.events.map((e) => ({
+        ...e,
+        startDate: null,
+        finalScore: null,
+        culturalCategory: null,
+        artists: [],
+        tags: [],
+      }));
+
+      return NextResponse.json({
+        events,
+        summary: result.summary,
+        generatedAt: new Date().toISOString(),
+        cached: false,
+      });
     }
 
-    // Generate new suggestions
-    const result = await generateRelaxSuggestions({
-      city,
-      country,
-      latitude,
-      longitude,
-      timezone,
-      section,
-    });
-
-    if (!result || result.events.length === 0) {
-      return NextResponse.json(
-        { error: "No se pudieron generar sugerencias. Intentá de nuevo más tarde." },
-        { status: 500 }
-      );
-    }
-
-    // Store in cache
-    const now = new Date();
-    await prisma.relaxSuggestion.create({
-      data: {
-        householdId: member.householdId,
-        locationKey,
-        sectionType: section,
-        suggestions: JSON.parse(JSON.stringify(result)),
-        generatedAt: now,
-        expiresAt: new Date(now.getTime() + CACHE_TTL_MS),
-      },
-    });
+    const events = await fetchEventsFromDb(city);
 
     return NextResponse.json({
-      events: result.events,
-      summary: result.summary,
-      generatedAt: now.toISOString(),
+      events,
+      summary: events.length > 0
+        ? `${events.length} planes y actividades en ${city}`
+        : "",
+      generatedAt: new Date().toISOString(),
       cached: false,
     });
   } catch (error) {
@@ -132,18 +104,29 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** Determine the meal period based on local hour in the given timezone. */
-function getMealPeriod(timezone: string): string {
-  try {
-    const hour = parseInt(
-      new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: timezone }).format(new Date()),
-      10
-    );
-    if (hour < 10) return "breakfast";
-    if (hour < 15) return "lunch";
-    if (hour < 19) return "merienda";
-    return "dinner";
-  } catch {
-    return "unknown";
-  }
+/** Fetch active events from cultural_events, ordered by finalScore. */
+async function fetchEventsFromDb(cityName: string) {
+  const cityId = await resolveCityId(cityName);
+  const now = new Date();
+  const threeMonthsFromNow = new Date(now);
+  threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
+
+  const rows = await prisma.culturalEvent.findMany({
+    where: {
+      status: "ACTIVE",
+      ...(cityId ? { cityId } : {}),
+      startDate: {
+        gte: now,
+        lte: threeMonthsFromNow,
+      },
+    },
+    orderBy: [
+      { finalScore: { sort: "desc", nulls: "last" } },
+      { startDate: "asc" },
+    ],
+    take: 50,
+    include: { city: true },
+  });
+
+  return rows.map((row) => eventRowToRelaxEvent(row));
 }

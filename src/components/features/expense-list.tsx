@@ -5,6 +5,7 @@ import { CATEGORY_ICONS, CATEGORY_COLORS } from "@/lib/expense-constants";
 import { frequencyLabel } from "@/lib/service-utils";
 import { Receipt, ChevronDown, ChevronUp, Trash2, Repeat, Plus, Settings, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/features/error-states";
 import { EditExpenseDialog } from "@/components/features/edit-expense-dialog";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ interface ExpenseListProps {
   onServiceEdit?: (service: SerializedService) => void;
   onManageServices?: () => void;
   onCreateService?: () => void;
+  isSolo?: boolean;
 }
 
 /** An expense is settled when every split that isn't the payer's own is marked settled. */
@@ -153,6 +155,7 @@ interface ExpenseItemProps {
   isDeleting: boolean;
   isNew: boolean;
   forceSettledStyle: boolean;
+  hideSplitInfo?: boolean;
   onClick: () => void;
 }
 
@@ -162,6 +165,7 @@ function ExpenseItem({
   isDeleting,
   isNew,
   forceSettledStyle,
+  hideSplitInfo,
   onClick,
 }: ExpenseItemProps) {
   const CategoryIcon = CATEGORY_ICONS[expense.category];
@@ -196,12 +200,12 @@ function ExpenseItem({
         <p className="mt-0.5 text-xs text-muted-foreground">
           {isPayer ? "Vos pagaste" : `${expense.paidBy.name} pago`}
         </p>
-        {mySplit && !isPayer && myAmount > 0 && (
+        {!hideSplitInfo && mySplit && !isPayer && myAmount > 0 && (
           <p className={`mt-0.5 text-xs font-medium ${allSettled ? "text-muted-foreground line-through" : "text-red-600"}`}>
             Te toca ${myAmount.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
           </p>
         )}
-        {isPayer && !allSettled && expense.amount - myAmount > 0.01 && (
+        {!hideSplitInfo && isPayer && !allSettled && expense.amount - myAmount > 0.01 && (
           <p className="mt-0.5 text-xs font-medium text-green-600">
             Te deben ${(expense.amount - myAmount).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
           </p>
@@ -389,6 +393,7 @@ function ExpenseGroups({
   deletingIds,
   newlyCreatedIds,
   forceSettledStyle,
+  hideSplitInfo,
   onItemClick,
   keyPrefix,
   swipe,
@@ -398,6 +403,7 @@ function ExpenseGroups({
   deletingIds: Set<string>;
   newlyCreatedIds: Set<string>;
   forceSettledStyle: boolean;
+  hideSplitInfo?: boolean;
   onItemClick: (expense: SerializedExpense) => void;
   keyPrefix: string;
   swipe?: {
@@ -423,6 +429,7 @@ function ExpenseGroups({
                   isDeleting={deletingIds.has(expense.id)}
                   isNew={newlyCreatedIds.has(expense.id)}
                   forceSettledStyle={forceSettledStyle}
+                  hideSplitInfo={hideSplitInfo}
                   onClick={() => onItemClick(expense)}
                 />
               );
@@ -562,6 +569,7 @@ export function ExpenseList({
   onServiceEdit,
   onManageServices,
   onCreateService,
+  isSolo,
 }: ExpenseListProps) {
   const [editingExpense, setEditingExpense] = useState<SerializedExpense | null>(null);
   const [showSettled, setShowSettled] = useState(false);
@@ -579,12 +587,14 @@ export function ExpenseList({
     : [];
   const hasMoreServices = hasServices && activeServices.length > MAX_SERVICES_COLLAPSED;
 
-  if (pendingExpenses.length === 0 && settledExpenses.length === 0 && !hasServices) {
+  if (expenses.length === 0 && !hasServices) {
     return (
       <EmptyState
         icon={<Receipt className="h-12 w-12 text-muted-foreground" />}
         title="Registrá el primer gasto"
-        message="Anotá los gastos compartidos y Habita calcula quién le debe a quién."
+        message={isSolo
+          ? "Anotá tus gastos para llevar el control de tus finanzas."
+          : "Anotá los gastos compartidos y Habita calcula quién le debe a quién."}
         action={
           <p className="text-sm text-muted-foreground">
             Usá el botón <span className="font-medium text-foreground">Nuevo gasto</span> de arriba para empezar
@@ -594,94 +604,106 @@ export function ExpenseList({
     );
   }
 
-  const pendingGroups = groupByDate(pendingExpenses);
-  const settledGroups = groupBySettlementDate(settledExpenses);
+  // Solo mode: flat chronological list; Multi mode: pending/settled sections
+  const allGroups = isSolo ? groupByDate(expenses) : [];
+  const pendingGroups = isSolo ? [] : groupByDate(pendingExpenses);
+  const settledGroups = isSolo ? [] : groupBySettlementDate(settledExpenses);
 
   return (
     <div className="mt-4">
-      {/* Servicios — always visible */}
-      <div className="mb-4">
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Servicios
-          </p>
-          <div className="flex items-center gap-1">
-            {onCreateService && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 gap-1 px-1.5 text-xs text-muted-foreground"
-                onClick={onCreateService}
-              >
-                <Plus className="h-3 w-3" />
-                Nuevo
-              </Button>
-            )}
-            {onManageServices && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 text-muted-foreground"
-                onClick={onManageServices}
-              >
-                <Settings className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {hasServices ? (
-          <div className="space-y-1.5">
-            {visibleServices.map((service) => (
-              <ServiceItem
-                key={service.id}
-                service={service}
-                isGenerating={generatingIds?.has(service.id) ?? false}
-                onGenerate={() => onServiceGenerate?.(service.id)}
-                onEdit={() => onServiceEdit?.(service)}
-              />
-            ))}
-            {hasMoreServices && (
-              <button
-                type="button"
-                onClick={() => setShowAllServices((prev) => !prev)}
-                className="flex w-full items-center justify-center gap-1 py-1.5 text-xs font-medium text-primary"
-              >
-                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showAllServices && "rotate-180")} />
-                {showAllServices ? "Colapsar" : `Ver todos (${activeServices!.length})`}
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-muted-foreground/25 px-4 py-5 text-center">
-            <p className="text-sm text-muted-foreground">
-              Agregá tus servicios fijos: alquiler, expensas, Netflix...
+      {/* Servicios — wrapped in Card */}
+      <Card className="mb-4">
+        <CardContent className="py-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Servicios
             </p>
-            {onCreateService && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3 gap-1.5"
-                onClick={onCreateService}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Agregar servicio
-              </Button>
-            )}
+            <div className="flex items-center gap-1">
+              {onCreateService && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-1.5 text-xs text-muted-foreground"
+                  onClick={onCreateService}
+                >
+                  <Plus className="h-3 w-3" />
+                  Nuevo
+                </Button>
+              )}
+              {onManageServices && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-muted-foreground"
+                  onClick={onManageServices}
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Pending expenses */}
-      {pendingGroups.length > 0 ? (
+          {hasServices ? (
+            <div className="space-y-1.5">
+              {visibleServices.map((service) => (
+                <ServiceItem
+                  key={service.id}
+                  service={service}
+                  isGenerating={generatingIds?.has(service.id) ?? false}
+                  onGenerate={() => onServiceGenerate?.(service.id)}
+                  onEdit={() => onServiceEdit?.(service)}
+                />
+              ))}
+              {hasMoreServices && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllServices((prev) => !prev)}
+                  className="flex w-full items-center justify-center gap-1 py-1.5 text-xs font-medium text-primary"
+                >
+                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showAllServices && "rotate-180")} />
+                  {showAllServices ? "Colapsar" : `Ver todos (${activeServices!.length})`}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-muted-foreground/25 px-4 py-5 text-center">
+              <p className="text-sm text-muted-foreground">
+                Agregá tus servicios fijos: alquiler, expensas, Netflix...
+              </p>
+              {onCreateService && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 gap-1.5"
+                  onClick={onCreateService}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Agregar servicio
+                </Button>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Section label */}
+      {expenses.length > 0 && (
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Gastos recientes
+        </p>
+      )}
+
+      {isSolo ? (
+        /* Solo mode: flat chronological list, no pending/settled distinction */
         <ExpenseGroups
-          groups={pendingGroups}
+          groups={allGroups}
           currentMemberId={currentMemberId}
           deletingIds={deletingIds}
           newlyCreatedIds={newlyCreatedIds}
           forceSettledStyle={false}
+          hideSplitInfo
           onItemClick={setEditingExpense}
-          keyPrefix="pending"
+          keyPrefix="all"
           swipe={{
             revealedId: revealedExpenseId,
             onReveal: setRevealedExpenseId,
@@ -689,42 +711,62 @@ export function ExpenseList({
           }}
         />
       ) : (
-        <p className="py-4 text-center text-sm text-muted-foreground">
-          No hay gastos pendientes
-        </p>
-      )}
-
-      {/* Toggle settled expenses */}
-      {settledExpenses.length > 0 && (
         <>
-          <button
-            type="button"
-            onClick={() => setShowSettled(!showSettled)}
-            className="mt-4 flex w-full items-center justify-center gap-1.5 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {showSettled ? (
-              <>
-                <ChevronUp className="h-3.5 w-3.5" />
-                Ocultar liquidados
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-3.5 w-3.5" />
-                Mostrar {settledExpenses.length} liquidado{settledExpenses.length !== 1 ? "s" : ""}
-              </>
-            )}
-          </button>
-
-          {showSettled && (
+          {/* Pending expenses */}
+          {pendingGroups.length > 0 ? (
             <ExpenseGroups
-              groups={settledGroups}
+              groups={pendingGroups}
               currentMemberId={currentMemberId}
               deletingIds={deletingIds}
               newlyCreatedIds={newlyCreatedIds}
-              forceSettledStyle={true}
+              forceSettledStyle={false}
               onItemClick={setEditingExpense}
-              keyPrefix="settled"
+              keyPrefix="pending"
+              swipe={{
+                revealedId: revealedExpenseId,
+                onReveal: setRevealedExpenseId,
+                onDelete: onExpenseDeleted,
+              }}
             />
+          ) : (
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              No hay gastos pendientes
+            </p>
+          )}
+
+          {/* Toggle settled expenses */}
+          {settledExpenses.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowSettled(!showSettled)}
+                className="mt-4 flex w-full items-center justify-center gap-1.5 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {showSettled ? (
+                  <>
+                    <ChevronUp className="h-3.5 w-3.5" />
+                    Ocultar liquidados
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-3.5 w-3.5" />
+                    Mostrar {settledExpenses.length} liquidado{settledExpenses.length !== 1 ? "s" : ""}
+                  </>
+                )}
+              </button>
+
+              {showSettled && (
+                <ExpenseGroups
+                  groups={settledGroups}
+                  currentMemberId={currentMemberId}
+                  deletingIds={deletingIds}
+                  newlyCreatedIds={newlyCreatedIds}
+                  forceSettledStyle={true}
+                  onItemClick={setEditingExpense}
+                  keyPrefix="settled"
+                />
+              )}
+            </>
           )}
         </>
       )}

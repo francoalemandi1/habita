@@ -1,4 +1,4 @@
-import type { RelaxSection } from "@/lib/llm/relax-finder";
+import type { RelaxSection } from "@/lib/events/types";
 import type { GroceryTab } from "@/lib/llm/grocery-advisor";
 
 export const queryKeys = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useProductSelection } from "@/hooks/use-product-selection";
 import {
   Dialog,
@@ -52,6 +52,8 @@ interface CatalogSheetProps {
   selectedTerms: string[];
   /** Called when the user taps a product to add it */
   onAddTerm: (term: string) => void;
+  /** Open pre-filtered to a specific category */
+  initialCategory?: GroceryCategory | null;
 }
 
 // ============================================
@@ -63,6 +65,7 @@ export function CatalogSheet({
   onOpenChange,
   selectedTerms,
   onAddTerm,
+  initialCategory,
 }: CatalogSheetProps) {
   const { data, isLoading } = useProductSelection();
   const [searchQuery, setSearchQuery] = useState("");
@@ -74,6 +77,15 @@ export function CatalogSheet({
   if (!open && searchQuery) {
     setSearchQuery("");
   }
+
+  // When opening with a category filter, collapse all others
+  useEffect(() => {
+    if (open && initialCategory) {
+      setExpandedCategories(new Set([initialCategory]));
+    } else if (open && !initialCategory) {
+      setExpandedCategories(new Set(CATEGORY_ORDER));
+    }
+  }, [open, initialCategory]);
 
   const selectedSet = useMemo(
     () => new Set(selectedTerms.map((t) => t.toLowerCase())),

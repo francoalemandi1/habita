@@ -119,3 +119,47 @@ export interface DuplicateResult {
   existingEventId?: string;
   score: number;
 }
+
+// ============================================
+// Relax / Descubrir UI types
+// ============================================
+
+export type RelaxSection = "activities" | "restaurants";
+
+/** Event shape used by EventCard and descubrir UI. */
+export interface RelaxEvent {
+  title: string;
+  description: string;
+  category: string;
+  venue: string;
+  dateInfo: string;
+  priceRange: string;
+  audience: string | null;
+  tip: string | null;
+  url: string | null;
+  sourceUrl: string | null;
+  imageUrl: string | null;
+  isVerified?: boolean;
+  /** Pipeline editorial highlight: why this event is a must-see */
+  highlightReason: string | null;
+  /** Direct link to buy tickets */
+  ticketUrl: string | null;
+  /** Direct link to book/reserve */
+  bookingUrl: string | null;
+  /** Composite score 0-10, used for "Destacados" logic */
+  finalScore: number | null;
+  /** Granular cultural category from LLM: "Cine arte", "Música en vivo", etc. */
+  culturalCategory: string | null;
+  /** Artist/performer names from ingestion pipeline */
+  artists: string[];
+  /** Tags from ingestion pipeline */
+  tags: string[];
+  /** ISO date string for client-side sorting/grouping (null for LLM-generated items) */
+  startDate: string | null;
+}
+
+/** API response shape for relax suggestions. */
+export interface RelaxResult {
+  events: RelaxEvent[];
+  summary: string;
+}

@@ -21,7 +21,13 @@ export async function searchEvents(options: EventSearchOptions): Promise<EventSe
   const { query, cityId, category, dateFrom, dateTo, limit, offset } = options;
 
   const conditions: Prisma.Sql[] = [Prisma.sql`e."status" = 'ACTIVE'`];
-  const params: Prisma.Sql[] = [];
+
+  // Default: only future events (unless explicit dateFrom is provided)
+  if (!dateFrom) {
+    conditions.push(
+      Prisma.sql`(e."startDate" >= NOW() OR e."startDate" IS NULL)`
+    );
+  }
 
   if (query) {
     conditions.push(

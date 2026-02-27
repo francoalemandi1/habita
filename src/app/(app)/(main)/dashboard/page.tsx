@@ -294,7 +294,7 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </Link>
-        <Link href="/descubrir?tab=cocina" className="group block">
+        <Link href="/cocina" className="group block">
           <Card className="border-orange-200/50 bg-orange-50/30 transition-all hover:shadow-md active:scale-[0.99]">
             <CardContent className="py-4">
               <div className="flex items-center gap-3">

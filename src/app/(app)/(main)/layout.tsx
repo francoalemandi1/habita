@@ -21,6 +21,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
   }
 
   const households = allMembers.map((m) => ({ id: m.householdId, name: m.household.name }));
+  const memberInitial = member.name.charAt(0).toUpperCase();
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -39,7 +40,16 @@ export default async function MainLayout({ children }: MainLayoutProps) {
               className="flex"
             />
           </div>
-          <AppNav />
+          <div className="flex items-center gap-2">
+            <AppNav />
+            <Link
+              href="/profile"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium hover:bg-muted/80 transition-colors"
+              aria-label="Perfil"
+            >
+              {memberInitial}
+            </Link>
+          </div>
         </div>
       </header>
       <main className="flex-1 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0">{children}</main>

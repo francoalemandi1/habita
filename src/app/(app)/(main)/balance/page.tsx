@@ -43,15 +43,12 @@ export default async function BalancePage() {
     })),
   }));
 
-  const hasLocation = !!(member.household.latitude && member.household.longitude);
-
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
       <ExpensesView
         initialExpenses={serializedExpenses}
         currentMemberId={member.id}
         allMembers={activeMembers}
-        hasLocation={hasLocation}
         householdCity={member.household.city ?? null}
         isSolo={isSoloHousehold(activeMembers.length)}
       />

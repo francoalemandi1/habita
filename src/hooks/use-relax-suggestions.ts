@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 
 import type { GeolocationResult } from "@/hooks/use-geolocation";
-import type { RelaxEvent, RelaxSection } from "@/lib/llm/relax-finder";
+import type { RelaxEvent, RelaxSection } from "@/lib/events/types";
 
 // ============================================
 // Types
@@ -24,7 +24,6 @@ interface UseRelaxSuggestionsOptions {
   location: GeolocationResult | null;
   isGeoLoading: boolean;
   hasHouseholdLocation: boolean;
-  aiEnabled: boolean;
   /** External gate for lazy-loading (e.g., only fetch when tab is visited) */
   enabled?: boolean;
   /** Server-side pre-fetched data passed as initial cache value */
@@ -37,7 +36,7 @@ interface UseRelaxSuggestionsOptions {
 // Constants
 // ============================================
 
-const FIVE_MINUTES_MS = 5 * 60 * 1000;
+const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
 const THIRTY_MINUTES_MS = 30 * 60 * 1000;
 
 // ============================================
@@ -80,33 +79,27 @@ function getForceRefreshRef(section: RelaxSection) {
 /**
  * Query hook for a single Relax section.
  *
- * - Gated by geolocation readiness + AI enabled + external `enabled` flag
- * - `staleTime: 5min` — server has 24h DB cache, this prevents redundant network calls
+ * Data comes from cultural_events (written by the event ingestion pipeline).
+ * - `staleTime: 15min` — data only changes when pipeline runs
  * - `gcTime: 30min` — keeps results in memory across navigation
- * - `refetchOnMount: false` — don't refetch if cache is fresh when user navigates back
- *
- * When `forceRefreshRef.current` is set, the next queryFn call sends `forceRefresh: true`
- * to bypass the server-side DB cache (used by the "Actualizar" button).
+ * - `refetchOnMount: false` — don't refetch if cache is fresh
  */
 export function useRelaxSuggestions({
   section,
   location,
   isGeoLoading,
   hasHouseholdLocation,
-  aiEnabled,
   enabled: externalEnabled = true,
   initialData,
   initialDataUpdatedAt,
 }: UseRelaxSuggestionsOptions) {
   const hasGeo = !!(location && location.latitude !== 0 && location.longitude !== 0);
   const isLocationReady = !isGeoLoading && (hasGeo || hasHouseholdLocation);
-  const isEnabled = aiEnabled && isLocationReady && externalEnabled;
+  const isEnabled = isLocationReady && externalEnabled;
 
-  // Ref so queryFn can read latest location without causing re-renders
   const locationRef = useRef(location);
   locationRef.current = location;
 
-  // Module-level flag that survives unmount/remount — signals forceRefresh to the queryFn
   const forceRefreshRef = getForceRefreshRef(section);
 
   const query = useQuery<RelaxSuggestionsResponse>({
@@ -126,7 +119,7 @@ export function useRelaxSuggestions({
       });
     },
     enabled: isEnabled,
-    staleTime: FIVE_MINUTES_MS,
+    staleTime: FIFTEEN_MINUTES_MS,
     gcTime: THIRTY_MINUTES_MS,
     initialData,
     initialDataUpdatedAt,
@@ -137,18 +130,21 @@ export function useRelaxSuggestions({
 }
 
 /**
- * Returns a function that force-refreshes a Relax section.
+ * Returns a function that triggers the event ingestion pipeline and then re-fetches from DB.
  *
- * Uses `invalidateQueries` which triggers the existing `useQuery`'s `queryFn`,
- * keeping `isFetching`, `error`, and `data` state in sync automatically.
- * The `forceRefreshRef` flag signals the `queryFn` to send `forceRefresh: true`
- * to bypass the server-side DB cache.
+ * Flow: POST /api/events/refresh (runs pipeline) → invalidate query cache → re-fetch from DB.
  */
 export function useRefreshRelaxSection() {
   const queryClient = useQueryClient();
 
   return useCallback(
-    (section: RelaxSection, forceRefreshRef: React.RefObject<boolean>) => {
+    async (section: RelaxSection, forceRefreshRef: React.RefObject<boolean>) => {
+      // 1. Trigger the ingestion pipeline
+      await apiFetch<{ success: boolean; eventsStored: number }>("/api/events/refresh", {
+        method: "POST",
+      });
+
+      // 2. Re-fetch from DB
       forceRefreshRef.current = true;
       return queryClient.invalidateQueries({
         queryKey: queryKeys.relax.section(section),

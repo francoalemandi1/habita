@@ -39,7 +39,6 @@ interface MyTasksPageClientProps {
   totalCompleted: number;
   showPlanCta: boolean;
   transfers: Transfer[];
-  pendingCount: number;
   calendarAssignments: CalendarAssignment[];
   calendarMembers: CalendarMember[];
   initialWeekStart: string;
@@ -55,7 +54,6 @@ export function MyTasksPageClient({
   totalCompleted,
   showPlanCta,
   transfers,
-  pendingCount,
   calendarAssignments,
   calendarMembers,
   initialWeekStart,
@@ -98,11 +96,6 @@ export function MyTasksPageClient({
             </Button>
           </div>
         </div>
-        {viewMode === "list" && (
-          <p className="mt-1 text-sm text-muted-foreground">
-            {pendingCount} pendientes · {completedToday} completadas hoy
-          </p>
-        )}
       </div>
 
       {viewMode === "list" ? (

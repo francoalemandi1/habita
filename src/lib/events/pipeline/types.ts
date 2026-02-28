@@ -1,27 +1,29 @@
 /**
  * Pipeline-specific types — intermediate data shapes between stages.
  *
- * Flow: DiscoveredUrl → CrawledPage → ExtractedEvent → ValidatedEvent
+ * Flow: DiscoveredUrl (with markdown) → ExtractedEvent → ValidatedEvent
  *       → (persist) → ScoredEvent → (update DB)
  */
 
 // ============================================
-// Stage 1: URL Discovery (Tavily)
+// Stage 1: URL Discovery + Content (Tavily)
 // ============================================
 
-/** URL discovered by Tavily search. */
+/** URL discovered by Tavily search, with optional raw markdown content. */
 export interface DiscoveredUrl {
   url: string;
   domain: string;
   title: string;
   snippet: string;
+  /** Markdown content from Tavily includeRawContent. Null if Tavily didn't return it. */
+  rawContent: string | null;
 }
 
 // ============================================
-// Stage 3: Content Crawling (Firecrawl)
+// Stage 3: Crawled Page (for DeepSeek extraction)
 // ============================================
 
-/** Crawled page content — markdown from Firecrawl. */
+/** Page content ready for DeepSeek extraction. */
 export interface CrawledPage {
   url: string;
   domain: string;

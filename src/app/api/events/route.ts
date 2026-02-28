@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
     // run a lightweight ingest to populate events for this city.
     if (city && result.total === 0 && offset === 0 && !q) {
       const country = member.household.country ?? "AR";
-      const outcome = await runIngestPhase({ city, country, maxCrawlPages: 5 });
+      const outcome = await runIngestPhase({ city, country });
       if (outcome.eventsCreated > 0) {
         result = await searchEvents(searchOptions);
       }

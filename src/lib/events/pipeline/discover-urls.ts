@@ -1,9 +1,11 @@
 /**
- * Stage 1: URL discovery via Tavily Search.
+ * Stage 1: URL discovery + content via Tavily Search.
  *
- * Finds candidate URLs for cultural event listings in a given city.
- * Uses multiple targeted queries per category to ensure diversity.
- * No LLM involved — Tavily is a search API.
+ * Finds candidate URLs for cultural event listings in a given city
+ * and fetches their markdown content in the same API call
+ * (includeRawContent: "markdown"). Eliminates the need for Firecrawl.
+ *
+ * Cost: 2 credits per query (advanced search).
  */
 
 import { tavily } from "@tavily/core";
@@ -68,38 +70,13 @@ const EXCLUDED_DOMAINS = [
 // ============================================
 
 function buildQueries(city: string): string[] {
-  const now = new Date();
-  const monthNames = [
-    "enero", "febrero", "marzo", "abril", "mayo", "junio",
-    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
-  ];
-  const month = monthNames[now.getMonth()]!;
-  const year = String(now.getFullYear());
-
   return [
-    // Official / government sources
-    `${city} agenda cultural ${month} ${year}`,
-    `${city} secretaría de cultura programación`,
-    `site:gob.ar ${city} agenda cultural ${month} ${year}`,
-    `${city} gobierno cultura agenda eventos ${month}`,
-    // Theater & performing arts
-    `${city} cartelera teatro obras ${month} ${year}`,
-    // Cinema
-    `${city} cine cartelera películas esta semana`,
-    // Independent / community
-    `${city} centro cultural eventos actividades ${month}`,
-    `${city} espacio cultural independiente agenda`,
-    // Local media & aggregators
-    `qué hacer en ${city} esta semana ${month} ${year}`,
-    // Museums & exhibitions
-    `${city} museo exposición muestra ${month}`,
-    // Ticket platforms — major concerts, shows, commercial events
-    `site:ticketek.com.ar ${city} ${month} ${year}`,
-    `site:passline.com ${city} eventos`,
-    `${city} entradas recitales conciertos ${month} ${year}`,
-    // Free / government events
-    `${city} eventos gratuitos gobierno ${month} ${year}`,
-    `${city} agenda municipal actividades gratuitas`,
+    `${city} secretaría de cultura sitio oficial`,
+    `${city} agenda cultural sitio oficial`,
+    `${city} centro cultural programación`,
+    `${city} teatro oficial programación`,
+    `${city} museo programación oficial`,
+    `${city} cine cartelera oficial`,
   ];
 }
 
@@ -109,7 +86,7 @@ function buildQueries(city: string): string[] {
 
 /**
  * Discover candidate URLs for cultural events in a city.
- * Runs 15 Tavily queries in parallel, deduplicates by URL, returns top N.
+ * Runs multiple Tavily queries in parallel, deduplicates by URL, returns top N.
  */
 export async function discoverUrls(
   city: string,
@@ -147,7 +124,8 @@ export async function discoverUrls(
   // eat all slots with URLs from the same 2-3 government sites.
   const results = diversifyByDomain(deduped, MAX_DISCOVERY_URLS);
 
-  console.log(`[discover-urls] ${city}: ${results.length} unique URLs from ${queries.length} queries`);
+  const withContent = results.filter((r) => r.rawContent).length;
+  console.log(`[discover-urls] ${city}: ${results.length} unique URLs (${withContent} with content) from ${queries.length} queries`);
   return results;
 }
 
@@ -159,6 +137,7 @@ interface TavilySearchResult {
   title: string;
   url: string;
   content: string;
+  rawContent?: string;
 }
 
 async function runSearch(
@@ -172,7 +151,7 @@ async function runSearch(
 
     const response = await client.search(query, {
       searchDepth: "advanced",
-      includeRawContent: false,
+      includeRawContent: "markdown",
       maxResults: RESULTS_PER_QUERY,
       topic: "general",
       excludeDomains: EXCLUDED_DOMAINS,
@@ -187,6 +166,7 @@ async function runSearch(
         domain: extractDomain(r.url),
         title: r.title,
         snippet: r.content?.slice(0, 300) ?? "",
+        rawContent: r.rawContent ?? null,
       }));
   } catch (error) {
     console.warn(`[discover-urls] Query "${query}" failed:`, error instanceof Error ? error.message : error);

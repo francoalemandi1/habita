@@ -136,9 +136,10 @@ function isWrongLocation(venueAndAddress: string, targetCity: string): boolean {
   // Argentina doesn't use this format — Argentine codes are letter+4digits (e.g., X5000)
   if (/\b14\d{3}\b/.test(normalized)) return true;
 
-  // Explicit Spain markers
+  // Explicit Spain markers — but skip if the venue also mentions the target city
+  // (e.g., "Centro Cultural España Córdoba" is a legitimate Argentine venue)
   const spainMarkers = ["andalucia", "espana", "spain", "comunidad autonoma", "junta de andalucia"];
-  if (spainMarkers.some((m) => normalized.includes(m))) return true;
+  if (spainMarkers.some((m) => normalized.includes(m)) && !normalized.includes(targetCity)) return true;
 
   // Landmarks/venues unique to Córdoba, Spain — zero presence in Argentina
   const spanishCordobaVenues = [

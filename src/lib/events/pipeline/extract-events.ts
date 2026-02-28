@@ -1,7 +1,10 @@
 /**
- * Stage 4: DeepSeek event extraction — strict JSON mode.
+ * Stage 3: DeepSeek event extraction — strict JSON mode.
  *
- * Given markdown from crawled pages, extracts structured events using DeepSeek.
+ * Given markdown from Tavily raw content, extracts structured events using DeepSeek.
+ * Includes pre-filtering (skip pages without event-like patterns) and markdown
+ * cleaning (strip nav/footer noise) to reduce tokens and speed up extraction.
+ *
  * Temperature ≤ 0.2 for deterministic extraction.
  * Anti-hallucination rules enforced via system prompt.
  */
@@ -19,8 +22,14 @@ import type { CrawledPage, ExtractedEvent, PageExtractionResult } from "./types"
 /** DeepSeek extraction temperature — low for strict mode. */
 const EXTRACTION_TEMPERATURE = 0.2;
 
-/** Max pages to process in parallel. */
-const EXTRACTION_CONCURRENCY = 3;
+/** Max pages to process in parallel. DeepSeek handles high concurrency well. */
+const EXTRACTION_CONCURRENCY = 10;
+
+/** Max characters of markdown per page for DeepSeek extraction context. */
+const MARKDOWN_MAX_CHARS = 8_000;
+
+/** Minimum markdown length to be worth sending to DeepSeek. */
+const MARKDOWN_MIN_CHARS = 200;
 
 // ============================================
 // Zod schema (strict JSON output)
@@ -96,7 +105,8 @@ Return STRICT JSON only. No markdown, no explanations, no comments.`;
 
 /**
  * Extract structured events from crawled pages using DeepSeek.
- * Processes pages in parallel batches with retry on JSON parse failure.
+ * Pre-filters pages without event patterns, cleans markdown, then
+ * processes in parallel batches with retry on JSON parse failure.
  */
 export async function extractEventsFromPages(
   pages: CrawledPage[],
@@ -104,13 +114,34 @@ export async function extractEventsFromPages(
 ): Promise<PageExtractionResult[]> {
   if (pages.length === 0) return [];
 
+  // Pre-filter: skip pages that don't look like event listings
+  const candidates = pages.filter((page) => {
+    if (page.markdown.length < MARKDOWN_MIN_CHARS) {
+      console.log(`[extract-events] SKIP (too short: ${page.markdown.length} chars) ${page.url}`);
+      return false;
+    }
+    if (!looksLikeEventContent(page.markdown)) {
+      console.log(`[extract-events] SKIP (no event patterns) ${page.url}`);
+      return false;
+    }
+    return true;
+  });
+
+  console.log(`[extract-events] ${candidates.length}/${pages.length} pages passed pre-filter`);
+
+  // Clean markdown: strip nav/footer noise, truncate to budget
+  const cleaned: CrawledPage[] = candidates.map((page) => ({
+    ...page,
+    markdown: cleanAndTruncateMarkdown(page.markdown),
+  }));
+
   const todayIso = new Date().toISOString().slice(0, 10);
   const systemPrompt = buildSystemPrompt(city, todayIso);
   const results: PageExtractionResult[] = [];
 
   // Process in concurrent batches
-  for (let i = 0; i < pages.length; i += EXTRACTION_CONCURRENCY) {
-    const batch = pages.slice(i, i + EXTRACTION_CONCURRENCY);
+  for (let i = 0; i < cleaned.length; i += EXTRACTION_CONCURRENCY) {
+    const batch = cleaned.slice(i, i + EXTRACTION_CONCURRENCY);
 
     const batchResults = await Promise.all(
       batch.map((page) => extractFromPage(page, systemPrompt))
@@ -122,7 +153,7 @@ export async function extractEventsFromPages(
   }
 
   const totalEvents = results.reduce((sum, r) => sum + r.events.length, 0);
-  console.log(`[extract-events] ${totalEvents} events from ${results.length}/${pages.length} pages`);
+  console.log(`[extract-events] ${totalEvents} events from ${results.length}/${cleaned.length} pages`);
 
   return results;
 }
@@ -180,4 +211,79 @@ async function extractFromPage(
   }
 
   return null;
+}
+
+// ============================================
+// Pre-filter: does the markdown look like event content?
+// ============================================
+
+/**
+ * Quick heuristic check: does this markdown contain patterns typical of
+ * event listings? (dates, times, prices, venue keywords in Spanish).
+ * Avoids sending nav-only or empty pages to DeepSeek.
+ */
+function looksLikeEventContent(markdown: string): boolean {
+  const lower = markdown.toLowerCase();
+
+  // Date patterns: "1 de marzo", "15/03", "2026-03-01", "sábado 1"
+  const datePatterns = [
+    /\d{1,2}\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)/,
+    /\d{1,2}\/\d{1,2}/,
+    /\d{4}-\d{2}-\d{2}/,
+    /(lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)\s+\d/i,
+  ];
+
+  // Time patterns: "20:30", "21h", "de 19 a 22"
+  const timePatterns = [
+    /\d{1,2}:\d{2}/,
+    /\d{1,2}\s*h\b/,
+    /de\s+\d{1,2}\s+a\s+\d{1,2}/,
+  ];
+
+  // Venue/event keywords in Spanish
+  const eventKeywords = [
+    "teatro", "cine", "museo", "sala", "centro cultural",
+    "exposición", "exposicion", "concierto", "recital",
+    "función", "funcion", "estreno", "entradas", "localidades",
+    "gratis", "entrada libre", "bono contribución",
+  ];
+
+  const hasDate = datePatterns.some((p) => p.test(lower));
+  const hasTime = timePatterns.some((p) => p.test(lower));
+  const hasKeyword = eventKeywords.some((k) => lower.includes(k));
+
+  // Need at least a date + (time OR keyword) to qualify
+  return hasDate && (hasTime || hasKeyword);
+}
+
+// ============================================
+// Markdown cleaning + truncation
+// ============================================
+
+/**
+ * Clean markdown noise (nav links, footers, repeated whitespace)
+ * and truncate to MARKDOWN_MAX_CHARS for DeepSeek context budget.
+ */
+function cleanAndTruncateMarkdown(markdown: string): string {
+  let cleaned = markdown;
+
+  // Remove navigation link blocks: lines that are just "[text](url)" or "* [text](url)"
+  cleaned = cleaned.replace(/^[\s*-]*\[([^\]]{1,40})\]\([^)]+\)\s*$/gm, "");
+
+  // Remove lines that are purely URLs
+  cleaned = cleaned.replace(/^https?:\/\/\S+\s*$/gm, "");
+
+  // Collapse 3+ consecutive blank lines into 2
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+
+  // Trim leading/trailing whitespace
+  cleaned = cleaned.trim();
+
+  // Truncate at last newline before limit
+  if (cleaned.length <= MARKDOWN_MAX_CHARS) return cleaned;
+  const truncated = cleaned.slice(0, MARKDOWN_MAX_CHARS);
+  const lastNewline = truncated.lastIndexOf("\n");
+  return lastNewline > MARKDOWN_MAX_CHARS * 0.8
+    ? truncated.slice(0, lastNewline)
+    : truncated;
 }

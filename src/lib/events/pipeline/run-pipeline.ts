@@ -1,14 +1,14 @@
 /**
  * Pipeline orchestrator — wires all stages together.
  *
- * Phase A (Ingest): Tavily → filter → Firecrawl → DeepSeek extract → validate → yield → dedup → persist
+ * Phase A (Ingest): Tavily (URLs + markdown) → filter → DeepSeek extract → validate → yield → dedup → persist
  * Phase B (Score): fetch unscored → DeepSeek score → rank → update DB
  */
 
 import { prisma } from "@/lib/prisma";
+import { extractDomain } from "@/lib/web-search";
 import { discoverUrls } from "./discover-urls";
 import { filterDomains } from "./domain-filter";
-import { crawlPages } from "./crawl-pages";
 import { extractEventsFromPages } from "./extract-events";
 import { validateEvents } from "./validate-events";
 import { enforceSourceYield } from "./source-yield";
@@ -23,7 +23,7 @@ import {
 } from "./persistence";
 
 import type { IngestionOutcome, RawEventData } from "../types";
-import type { ValidatedEvent, SourceYieldReport } from "./types";
+import type { ValidatedEvent, CrawledPage, SourceYieldReport } from "./types";
 import type { EventToScore } from "./score-events";
 import type { RankableEvent } from "./rank-events";
 
@@ -40,8 +40,6 @@ const PIPELINE_SOURCE_NAME = "external-pipeline";
 interface IngestOptions {
   city: string;
   country: string;
-  /** Override max pages to crawl (default 10, on-demand uses 5). */
-  maxCrawlPages?: number;
 }
 
 /**
@@ -50,18 +48,22 @@ interface IngestOptions {
  */
 export async function runIngestPhase(options: IngestOptions): Promise<IngestionOutcome> {
   const startTime = Date.now();
-  const { city, country, maxCrawlPages } = options;
+  const { city, country } = options;
 
   // Load or create the pipeline source
   const source = await getOrCreatePipelineSource();
 
   try {
     console.log(`[pipeline] Phase A: ingesting events for ${city}, ${country}`);
+    const stageTimings: Record<string, number> = {};
+    let stageStart = Date.now();
 
-    // Stage 1: Discover URLs via Tavily
+    // Stage 1: Discover URLs + content via Tavily (includeRawContent: "markdown")
     const discoveredUrls = await discoverUrls(city, country);
+    stageTimings["1-discover"] = Date.now() - stageStart;
     if (discoveredUrls.length === 0) {
       console.warn("[pipeline] No URLs discovered — aborting");
+      logTimings(stageTimings);
       const outcome = buildOutcome(source.id, PIPELINE_SOURCE_NAME, "PARTIAL", startTime, {
         errorMessage: "Tavily returned no URLs",
       });
@@ -70,13 +72,17 @@ export async function runIngestPhase(options: IngestOptions): Promise<IngestionO
     }
 
     // Stage 2: Filter domains
+    stageStart = Date.now();
     const filteredUrls = filterDomains(discoveredUrls);
+    stageTimings["2-filter"] = Date.now() - stageStart;
     console.log(`[pipeline] ${filteredUrls.length}/${discoveredUrls.length} URLs after domain filtering`);
     for (const u of filteredUrls) {
-      console.log(`[pipeline]   → ${u.url}`);
+      const hasContent = u.rawContent ? `${u.rawContent.length} chars` : "no content";
+      console.log(`[pipeline]   → ${u.url} (${hasContent})`);
     }
 
     if (filteredUrls.length === 0) {
+      logTimings(stageTimings);
       const outcome = buildOutcome(source.id, PIPELINE_SOURCE_NAME, "PARTIAL", startTime, {
         errorMessage: "All discovered URLs were filtered out",
       });
@@ -84,20 +90,34 @@ export async function runIngestPhase(options: IngestOptions): Promise<IngestionO
       return outcome;
     }
 
-    // Stage 3: Crawl pages via Firecrawl
-    const pages = await crawlPages(filteredUrls, maxCrawlPages);
+    // Stage 3: Convert Tavily raw content to pages (no Firecrawl needed)
+    stageStart = Date.now();
+    const pages: CrawledPage[] = filteredUrls
+      .filter((u) => u.rawContent && u.rawContent.length > 0)
+      .map((u) => ({
+        url: u.url,
+        domain: extractDomain(u.url),
+        markdown: u.rawContent!,
+      }));
+    stageTimings["3-convert"] = Date.now() - stageStart;
+    console.log(`[pipeline] ${pages.length}/${filteredUrls.length} URLs have Tavily markdown content`);
+
     if (pages.length === 0) {
+      logTimings(stageTimings);
       const outcome = buildOutcome(source.id, PIPELINE_SOURCE_NAME, "PARTIAL", startTime, {
-        errorMessage: "Firecrawl returned no content",
+        errorMessage: "Tavily returned no raw content for any URL",
       });
       await logIngestion(outcome);
       return outcome;
     }
 
-    // Stage 4: Extract events via DeepSeek
+    // Stage 4: Extract events via DeepSeek (includes pre-filter + markdown cleaning)
+    stageStart = Date.now();
     const extractions = await extractEventsFromPages(pages, city);
+    stageTimings["4-extract"] = Date.now() - stageStart;
 
     // Stage 5: Validate events (deterministic)
+    stageStart = Date.now();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -118,8 +138,10 @@ export async function runIngestPhase(options: IngestOptions): Promise<IngestionO
         perDomain.set(extraction.domain, { valid, expired, invalid });
       }
     }
+    stageTimings["5-validate"] = Date.now() - stageStart;
 
     // Stage 6: Source yield control
+    stageStart = Date.now();
     // expired events (past date, structurally sound) don't count against source quality
     const yieldInput = Array.from(perDomain.entries()).map(([domain, { valid, expired, invalid }]) => ({
       domain,
@@ -128,10 +150,12 @@ export async function runIngestPhase(options: IngestOptions): Promise<IngestionO
       expired,
     }));
     const { acceptedEvents, reports } = enforceSourceYield(yieldInput);
+    stageTimings["6-yield"] = Date.now() - stageStart;
 
     logYieldReports(reports);
 
     if (acceptedEvents.length === 0) {
+      logTimings(stageTimings);
       const outcome = buildOutcome(source.id, PIPELINE_SOURCE_NAME, "PARTIAL", startTime, {
         eventsFound: yieldInput.reduce((sum, r) => sum + r.valid.length + r.expired.length + r.invalid.length, 0),
         errorMessage: "All sources rejected by yield control",
@@ -141,6 +165,7 @@ export async function runIngestPhase(options: IngestOptions): Promise<IngestionO
     }
 
     // Stage 7-8: Dedup + persist
+    stageStart = Date.now();
     let eventsCreated = 0;
     let eventsUpdated = 0;
     let eventsDuplicate = 0;
@@ -161,9 +186,12 @@ export async function runIngestPhase(options: IngestOptions): Promise<IngestionO
         console.error(`[pipeline] persist error: "${event.title}": ${message}`);
       }
     }
+    stageTimings["7-persist"] = Date.now() - stageStart;
 
     // Update source health
     await updateSourceHealth(source.id, eventsCreated > 0);
+
+    logTimings(stageTimings);
 
     const status = errors.length > 0 && eventsCreated === 0 ? "PARTIAL" : "SUCCESS";
     const outcome = buildOutcome(source.id, PIPELINE_SOURCE_NAME, status, startTime, {
@@ -360,5 +388,14 @@ function logYieldReports(reports: SourceYieldReport[]): void {
     console.log(
       `[pipeline] yield: ${report.domain} → ${status} (${report.validCount} valid, ${report.invalidCount} invalid, ${Math.round(report.invalidRate * 100)}% invalid)`
     );
+  }
+}
+
+function logTimings(timings: Record<string, number>): void {
+  const total = Object.values(timings).reduce((sum, ms) => sum + ms, 0);
+  console.log(`[pipeline] ⏱ Stage timings (total ${(total / 1000).toFixed(1)}s):`);
+  for (const [stage, ms] of Object.entries(timings)) {
+    const pct = total > 0 ? Math.round((ms / total) * 100) : 0;
+    console.log(`[pipeline]   ${stage}: ${(ms / 1000).toFixed(1)}s (${pct}%)`);
   }
 }

@@ -3,8 +3,6 @@ import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { runIngestPhase, runScorePhase } from "@/lib/events/pipeline/run-pipeline";
 
-/** On-demand uses fewer pages to stay within Vercel function timeout. */
-const ON_DEMAND_MAX_CRAWL_PAGES = 16;
 /** Score all newly ingested events after on-demand ingest. */
 const ON_DEMAND_SCORE_LIMIT = 50;
 
@@ -12,7 +10,7 @@ const ON_DEMAND_SCORE_LIMIT = 50;
  * POST /api/events/refresh
  *
  * Triggers the event ingestion pipeline for the household's city.
- * Phase A: discover URLs, crawl, extract, validate, persist.
+ * Phase A: discover URLs + content via Tavily, extract, validate, persist.
  * Phase B: score newly ingested events (if any were created).
  */
 export async function POST() {
@@ -28,11 +26,7 @@ export async function POST() {
       );
     }
 
-    const outcome = await runIngestPhase({
-      city,
-      country,
-      maxCrawlPages: ON_DEMAND_MAX_CRAWL_PAGES,
-    });
+    const outcome = await runIngestPhase({ city, country });
 
     // Score newly ingested events if any were created
     if (outcome.eventsCreated > 0) {

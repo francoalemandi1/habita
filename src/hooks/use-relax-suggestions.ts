@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useRef } from "react";
 import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
@@ -130,26 +130,15 @@ export function useRelaxSuggestions({
 }
 
 /**
- * Returns a function that triggers the event ingestion pipeline and then re-fetches from DB.
+ * Returns a function that triggers the event ingestion pipeline (fire-and-forget).
  *
- * Flow: POST /api/events/refresh (runs pipeline) → invalidate query cache → re-fetch from DB.
+ * The pipeline runs in background via after(). Completion is detected by usePipelineStatus
+ * polling, which invalidates the query cache when the pipeline finishes.
  */
 export function useRefreshRelaxSection() {
-  const queryClient = useQueryClient();
-
-  return useCallback(
-    async (section: RelaxSection, forceRefreshRef: React.RefObject<boolean>) => {
-      // 1. Trigger the ingestion pipeline
-      await apiFetch<{ success: boolean; eventsStored: number }>("/api/events/refresh", {
-        method: "POST",
-      });
-
-      // 2. Re-fetch from DB
-      forceRefreshRef.current = true;
-      return queryClient.invalidateQueries({
-        queryKey: queryKeys.relax.section(section),
-      });
-    },
-    [queryClient],
-  );
+  return useCallback(async () => {
+    await apiFetch<{ started: boolean; alreadyRunning: boolean }>("/api/events/refresh", {
+      method: "POST",
+    });
+  }, []);
 }

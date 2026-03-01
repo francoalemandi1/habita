@@ -74,6 +74,18 @@ CRITICAL RULES:
 - Never fabricate information.
 - If no valid events exist → return an empty array.
 
+YEAR INFERENCE (CRITICAL — READ CAREFULLY):
+- The current year is ${todayIso.slice(0, 4)}. Today is ${todayIso}.
+- If a date includes an EXPLICIT YEAR → use that year as-is.
+- If a date has NO EXPLICIT YEAR (e.g. "27 de marzo", "Sábado 15 de abril"):
+  1. If the page contextualizes dates to a year (e.g. "Agenda 2026", "Temporada 2026", "Cartelera marzo 2026") → use that year.
+  2. Otherwise, assume the current year (${todayIso.slice(0, 4)}) ONLY if the resulting date is within the next 90 days from today. If it would fall MORE than 90 days in the future or in the past → SKIP the event.
+  3. IMPORTANT: after assigning the year, still apply the PAST EVENT SIGNALS check below. If the page says "evento finalizado" or similar → SKIP regardless.
+
+PAST EVENT SIGNALS (CRITICAL):
+- If the page contains "evento finalizado", "evento pasado", "sold out" (past tense), "ya fue", "finalizada", "agotado" near an event → SKIP that event.
+- If a ticketing page shows no "comprar" / "comprar entradas" button but shows "evento finalizado" → the event is over, SKIP it.
+
 GEOGRAPHIC FILTER (CRITICAL):
 - The target city is ${city}, ARGENTINA.
 - ONLY include events physically located in ${city} or its immediate metropolitan area.

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
+  Bookmark,
   ChefHat,
   Camera,
   Mic,
@@ -22,8 +23,15 @@ import { radius, spacing, iconSize } from "@/lib/design-tokens";
 import { useCocinaMutation } from "@/hooks/use-cocina-mutation";
 import { useSessionStorageState } from "@/hooks/use-session-storage-state";
 import { queryKeys } from "@/lib/query-keys";
+import { SaveButton } from "@/components/ui/save-button";
+import {
+  useSavedRecipes,
+  useToggleSaveRecipe,
+} from "@/hooks/use-saved-items";
+import { computeRecipeHashAsync } from "@/lib/content-hash";
 
 import type { Recipe, MealType } from "@/lib/llm/recipe-finder";
+import type { SavedRecipe } from "@prisma/client";
 
 // ============================================
 // Types
@@ -120,6 +128,10 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
   const [textInput, setTextInput] = useSessionStorageState("cocina-text", "");
   const [images, setImages] = useSessionStorageState<string[]>("cocina-images", []);
   const [mealType, setMealType] = useSessionStorageState<MealType>("cocina-meal", autoDetectMealType());
+
+  // Guardados
+  const [showSaved, setShowSaved] = useState(false);
+  const { data: savedRecipes } = useSavedRecipes();
 
   // React Query mutation — survives navigation via MutationCache (gcTime 30min)
   const mutation = useCocinaMutation();
@@ -250,6 +262,48 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
 
   return (
     <div className={spacing.contentStack}>
+      {/* Guardados chip */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setShowSaved(false)}
+          className={cn(
+            "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+            !showSaved
+              ? "bg-primary text-white shadow-sm"
+              : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          Buscar
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowSaved(true)}
+          className={cn(
+            "flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+            showSaved
+              ? "bg-primary text-white shadow-sm"
+              : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          <Bookmark className={iconSize.xs} />
+          Guardados
+          {savedRecipes && savedRecipes.length > 0 && (
+            <span className={cn(
+              "ml-0.5 rounded-full px-1.5 text-[10px]",
+              showSaved ? "bg-white/20" : "bg-primary/10 text-primary"
+            )}>
+              {savedRecipes.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Saved recipes view */}
+      {showSaved ? (
+        <SavedRecipesView savedRecipes={savedRecipes ?? []} />
+      ) : (
+      <>
       {/* Input section */}
       <div className={cn(radius.card, "border bg-white p-4", spacing.contentStack)}>
         {/* Textarea */}
@@ -408,10 +462,16 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
           )}
           <div className="grid grid-cols-1 gap-4">
             {mutation.data.recipes.map((recipe, index) => (
-              <RecipeCard key={`${recipe.title}-${index}`} recipe={recipe} />
+              <RecipeCard
+                key={`${recipe.title}-${index}`}
+                recipe={recipe}
+                savedRecipes={savedRecipes}
+              />
             ))}
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );
@@ -423,11 +483,52 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
 
 const INGREDIENTS_COLLAPSED_LIMIT = 6;
 
-function RecipeCard({ recipe }: { recipe: Recipe }) {
+interface RecipeCardProps {
+  recipe: Recipe;
+  savedRecipes?: SavedRecipe[];
+  /** For saved view — the DB id to delete directly */
+  savedRecipeId?: string;
+}
+
+function RecipeCard({ recipe, savedRecipes, savedRecipeId }: RecipeCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAllIngredients, setShowAllIngredients] = useState(false);
+  const [contentHash, setContentHash] = useState<string | null>(null);
+  const { toggle, isPending: isSaveToggling } = useToggleSaveRecipe();
   const difficultyConfig = DIFFICULTY_CONFIG[recipe.difficulty] ?? { label: "Facil", color: "bg-emerald-100 text-emerald-700" };
   const speedBadge = getSpeedBadge(recipe.prepTimeMinutes);
+
+  // Compute content hash async for "is saved" check
+  useEffect(() => {
+    computeRecipeHashAsync(recipe.title, recipe.ingredients).then(setContentHash);
+  }, [recipe.title, recipe.ingredients]);
+
+  const matchedSaved = savedRecipeId
+    ? savedRecipes?.find((r) => r.id === savedRecipeId)
+    : contentHash
+      ? savedRecipes?.find((r) => r.contentHash === contentHash)
+      : undefined;
+  const isSaved = !!matchedSaved;
+
+  const handleToggleSave = useCallback(() => {
+    if (matchedSaved) {
+      toggle({ savedRecipeId: matchedSaved.id });
+    } else {
+      toggle({
+        input: {
+          title: recipe.title,
+          description: recipe.description,
+          difficulty: recipe.difficulty,
+          prepTimeMinutes: recipe.prepTimeMinutes,
+          servings: recipe.servings,
+          ingredients: recipe.ingredients,
+          missingIngredients: recipe.missingIngredients,
+          steps: recipe.steps,
+          tip: recipe.tip ?? null,
+        },
+      });
+    }
+  }, [matchedSaved, toggle, recipe]);
 
   const visibleIngredients = showAllIngredients
     ? recipe.ingredients
@@ -437,12 +538,19 @@ function RecipeCard({ recipe }: { recipe: Recipe }) {
   return (
     <div className={cn(radius.card, "overflow-hidden border bg-white transition-shadow hover:shadow-md")}>
       <div className="p-4">
-        {/* Header: title + badge row */}
+        {/* Header: title + badge + save */}
         <div className="mb-2 flex items-start justify-between gap-2">
           <h3 className="text-sm font-semibold leading-tight">{recipe.title}</h3>
-          <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", difficultyConfig.color)}>
-            {difficultyConfig.label}
-          </span>
+          <div className="flex shrink-0 items-center gap-1">
+            <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", difficultyConfig.color)}>
+              {difficultyConfig.label}
+            </span>
+            <SaveButton
+              isSaved={isSaved}
+              isPending={isSaveToggling}
+              onToggle={handleToggleSave}
+            />
+          </div>
         </div>
 
         {/* Meta badges: speed + time + servings */}
@@ -553,4 +661,49 @@ function getSpeedBadge(minutes: number): { label: string; style: string } | null
   if (minutes <= 30) return { label: "Media", style: "bg-blue-100 text-blue-700" };
   if (minutes >= 60) return { label: "Elaborada", style: "bg-purple-100 text-purple-700" };
   return null;
+}
+
+// ============================================
+// SavedRecipesView
+// ============================================
+
+function savedRecipeToRecipe(saved: SavedRecipe): Recipe {
+  return {
+    title: saved.title,
+    description: saved.description,
+    difficulty: saved.difficulty as Recipe["difficulty"],
+    prepTimeMinutes: saved.prepTimeMinutes,
+    servings: saved.servings,
+    ingredients: saved.ingredients,
+    missingIngredients: saved.missingIngredients,
+    steps: saved.steps,
+    tip: saved.tip,
+  };
+}
+
+function SavedRecipesView({ savedRecipes }: { savedRecipes: SavedRecipe[] }) {
+  if (savedRecipes.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/20 px-6 py-12 text-center">
+        <Bookmark className="h-10 w-10 text-foreground-tertiary" />
+        <h3 className="mt-3 text-sm font-semibold">Sin recetas guardadas</h3>
+        <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+          Generá recetas y tocá el ícono de guardado para verlas acá.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-4">
+      {savedRecipes.map((saved) => (
+        <RecipeCard
+          key={saved.id}
+          recipe={savedRecipeToRecipe(saved)}
+          savedRecipes={savedRecipes}
+          savedRecipeId={saved.id}
+        />
+      ))}
+    </div>
+  );
 }

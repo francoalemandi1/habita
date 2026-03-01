@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
       // Add fields that the LLM output doesn't include but RelaxEvent requires
       const events = result.events.map((e) => ({
         ...e,
+        id: null,
         startDate: null,
         finalScore: null,
         culturalCategory: null,

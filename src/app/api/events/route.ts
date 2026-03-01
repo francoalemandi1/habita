@@ -4,7 +4,7 @@ import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { searchEvents } from "@/lib/events/search";
 import { resolveCityId } from "@/lib/events/city-normalizer";
-import { runIngestPhase } from "@/lib/events/pipeline/run-pipeline";
+import { runPipeline } from "@/lib/events/pipeline/run-pipeline";
 
 import type { NextRequest } from "next/server";
 import type { EventCategory } from "@prisma/client";
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
     // run a lightweight ingest to populate events for this city.
     if (city && result.total === 0 && offset === 0 && !q) {
       const country = member.household.country ?? "AR";
-      const outcome = await runIngestPhase({ city, country });
+      const outcome = await runPipeline({ city, country });
       if (outcome.eventsCreated > 0) {
         result = await searchEvents(searchOptions);
       }

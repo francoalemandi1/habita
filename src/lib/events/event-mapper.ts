@@ -46,22 +46,39 @@ export interface EventRow {
 // Category mapping
 // ============================================
 
+/** Map structured curator tags (CINE, TEATRO, etc.) to UI slugs. */
+const TAG_TO_UI_SLUG: Record<string, string> = {
+  CINE:       "cine",
+  TEATRO:     "teatro",
+  MUSICA:     "musica",
+  DANZA:      "danza",
+  EXPOSICION: "muestras",
+  TALLER:     "talleres",
+  FERIA:      "ferias",
+  FESTIVAL:   "ferias",
+  INFANTIL:   "infantil",
+  OTRO:       "ferias",
+};
+
+const VALID_TAGS = new Set(Object.keys(TAG_TO_UI_SLUG));
+
+/** Fallback: Prisma EventCategory enum → UI slug (for rows without curator tags). */
 const CATEGORY_TO_RELAX: Record<EventCategory, string> = {
   CINE: "cine",
   TEATRO: "teatro",
   MUSICA: "musica",
-  EXPOSICIONES: "exposiciones",
-  FESTIVALES: "festivales",
-  MERCADOS: "mercados",
-  PASEOS: "paseos",
-  EXCURSIONES: "excursiones",
+  DANZA: "danza",
+  EXPOSICIONES: "muestras",
+  FESTIVALES: "ferias",
+  MERCADOS: "ferias",
+  PASEOS: "ferias",
+  EXCURSIONES: "ferias",
   TALLERES: "talleres",
-  DANZA: "musica",
-  LITERATURA: "talleres",
-  GASTRONOMIA: "mercados",
-  DEPORTES: "deportes",
+  LITERATURA: "muestras",
+  GASTRONOMIA: "ferias",
+  DEPORTES: "ferias",
   INFANTIL: "infantil",
-  OTRO: "festivales",
+  OTRO: "ferias",
 };
 
 // ============================================
@@ -71,6 +88,7 @@ const CATEGORY_TO_RELAX: Record<EventCategory, string> = {
 /** Convert a DB event row to the RelaxEvent shape used by EventCard. */
 export function eventRowToRelaxEvent(row: EventRow): RelaxEvent {
   return {
+    id: row.id,
     title: row.title,
     description: row.description ?? "",
     category: mapCategory(row),
@@ -97,38 +115,16 @@ export function eventRowToRelaxEvent(row: EventRow): RelaxEvent {
 }
 
 /**
- * Map DB category to UI category string.
- * Prefers the granular culturalCategory from the pipeline LLM
- * (e.g. "Música en vivo", "Cine arte"), falling back to the
- * Prisma EventCategory enum mapping.
+ * Map DB category to UI slug string.
+ * New events: culturalCategory holds a structured tag (e.g. "MUSICA") from z.enum().
+ * Legacy events: culturalCategory may hold old free-text or be null — falls back to Prisma enum.
  */
 function mapCategory(row: EventRow): string {
-  if (row.culturalCategory) {
-    return mapCulturalCategoryToRelax(row.culturalCategory);
+  const tag = row.culturalCategory;
+  if (tag && VALID_TAGS.has(tag)) {
+    return TAG_TO_UI_SLUG[tag]!;
   }
-  return CATEGORY_TO_RELAX[row.category] ?? "festivales";
-}
-
-/** Map LLM cultural category strings to the UI filter keys. */
-const CULTURAL_CATEGORY_MAP: Record<string, string> = {
-  "teatro": "teatro",
-  "música en vivo": "musica",
-  "musica en vivo": "musica",
-  "cine arte": "cine",
-  "cine comercial": "cine",
-  "exposición": "muestras",
-  "exposicion": "muestras",
-  "festival": "ferias",
-  "feria/mercado": "ferias",
-  "danza": "musica",
-  "stand-up/humor": "teatro",
-  "taller/workshop": "muestras",
-  "otro": "festivales",
-};
-
-function mapCulturalCategoryToRelax(culturalCategory: string): string {
-  const normalized = culturalCategory.toLowerCase().trim();
-  return CULTURAL_CATEGORY_MAP[normalized] ?? "festivales";
+  return CATEGORY_TO_RELAX[row.category] ?? "ferias";
 }
 
 // ============================================

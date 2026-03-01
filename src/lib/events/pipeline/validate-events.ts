@@ -1,93 +1,77 @@
 /**
- * Stage 5: Deterministic validation — factual integrity checks.
+ * Deterministic event filter — date + location checks.
  *
- * Every rule is deterministic — no LLM involved.
- * Events failing ANY required check are rejected.
+ * Filters out:
+ * - Events with invalid or past dates
+ * - Events in wrong locations (Spain, Buenos Aires when target is Córdoba, etc.)
  *
- * Returns three buckets:
- *   - valid: passed all checks
- *   - expired: only failed dateFuture (structurally sound but past date)
- *   - invalid: failed structural checks (bad data from LLM)
- *
- * This distinction matters for yield control: expired events are normal
- * (agendas list the whole month), but invalid events signal a bad source.
+ * No LLM involved — pure deterministic filtering.
  */
 
-import type { ExtractedEvent, ValidatedEvent } from "./types";
-
-// ============================================
-// Types
-// ============================================
-
-export interface ValidationResult {
-  valid: ValidatedEvent[];
-  /** Events that only failed dateFuture — structurally sound but past date. */
-  expired: ExtractedEvent[];
-  /** Events that failed structural checks — bad data. */
-  invalid: ExtractedEvent[];
-}
+import type { ExtractedEvent, FilteredEvent } from "./types";
 
 // ============================================
 // Main function
 // ============================================
 
 /**
- * Validate extracted events with deterministic rules.
- * Returns separate valid/expired/invalid lists.
+ * Filter extracted events: keep only future events in the target city.
+ * Returns accepted events + count of rejected ones for logging.
  */
-export function validateEvents(
+export function filterEvents(
   events: ExtractedEvent[],
   city: string,
-  today: Date
-): ValidationResult {
-  const valid: ValidatedEvent[] = [];
-  const expired: ExtractedEvent[] = [];
-  const invalid: ExtractedEvent[] = [];
-
+  today: Date,
+): { accepted: FilteredEvent[]; rejected: number } {
   const normalizedCity = normalizeText(city);
   const todayIso = toIsoDateString(today);
+
+  const accepted: FilteredEvent[] = [];
+  let rejected = 0;
 
   for (const event of events) {
     const venueAndAddress = [event.venue, event.address].filter(Boolean).join(" ");
 
-    const flags = {
-      dateValid: isValidIsoDate(event.date),
-      dateFuture: isDateFuture(event.date, todayIso),
-      titleMinLength: event.title.trim().length >= 3,
-      venueNonEmpty: event.venue.trim().length > 0,
-      sourceUrlValid: isValidUrl(event.sourceUrl),
-      cityMentioned: cityAppearsIn(normalizedCity, venueAndAddress),
-      notWrongLocation: !isWrongLocation(venueAndAddress, normalizedCity),
-    };
-
-    // Structural checks — notWrongLocation rejects cross-city/cross-country events
-    const structurallySound = flags.dateValid
-      && flags.titleMinLength
-      && flags.venueNonEmpty
-      && flags.sourceUrlValid
-      && flags.notWrongLocation;
-
-    if (structurallySound && flags.dateFuture) {
-      valid.push({ ...event, validationFlags: flags });
-    } else if (structurallySound && !flags.dateFuture) {
-      // Good data, just past date — don't penalize the source
-      expired.push(event);
-    } else {
-      const failedChecks = Object.entries(flags)
-        .filter(([, passed]) => !passed)
-        .map(([name]) => name);
-      console.log(
-        `[validate] REJECTED "${event.title}" | venue="${event.venue}" | date="${event.date}" | failed: ${failedChecks.join(", ")}`
-      );
-      invalid.push(event);
+    // Must have a valid ISO date
+    if (!isValidIsoDate(event.date)) {
+      console.log(`[filter] REJECT (invalid date "${event.date}") "${event.title}"`);
+      rejected++;
+      continue;
     }
+
+    // Must be today or in the future
+    if (event.date < todayIso) {
+      rejected++;
+      continue;
+    }
+
+    // Must not be in a wrong location (Spain, Buenos Aires, etc.)
+    if (isWrongLocation(venueAndAddress, normalizedCity)) {
+      console.log(`[filter] REJECT (wrong location) "${event.title}" — venue="${event.venue}"`);
+      rejected++;
+      continue;
+    }
+
+    accepted.push({
+      title: event.title,
+      date: event.date,
+      time: event.time,
+      venue: event.venue,
+      address: event.address,
+      categoryGuess: event.categoryGuess,
+      description: event.description,
+      priceMin: event.priceMin,
+      priceMax: event.priceMax,
+      artists: event.artists,
+      sourceUrl: event.sourceUrl,
+    });
   }
 
-  return { valid, expired, invalid };
+  return { accepted, rejected };
 }
 
 // ============================================
-// Validation rules
+// Validation helpers
 // ============================================
 
 /** Check that date string is a valid ISO 8601 date (YYYY-MM-DD). */
@@ -95,30 +79,6 @@ function isValidIsoDate(date: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   const parsed = new Date(`${date}T00:00:00`);
   return !isNaN(parsed.getTime());
-}
-
-/** Check that date is today or in the future. */
-function isDateFuture(eventDate: string, todayIso: string): boolean {
-  return eventDate >= todayIso;
-}
-
-/** Check that a string is a valid URL. */
-function isValidUrl(url: string): boolean {
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Check if city name appears in the venue text.
- * Normalizes both strings: strips accents, lowercases, trims.
- */
-function cityAppearsIn(normalizedCity: string, venue: string): boolean {
-  const normalizedVenue = normalizeText(venue);
-  return normalizedVenue.includes(normalizedCity);
 }
 
 /**
@@ -133,7 +93,6 @@ function isWrongLocation(venueAndAddress: string, targetCity: string): boolean {
   if (/cp\d{5}/.test(normalized)) return true;
 
   // Córdoba Spain postal codes: 14xxx (standalone 5-digit codes starting with 14)
-  // Argentina doesn't use this format — Argentine codes are letter+4digits (e.g., X5000)
   if (/\b14\d{3}\b/.test(normalized)) return true;
 
   // Explicit Spain markers — but skip if the venue also mentions the target city
@@ -148,8 +107,8 @@ function isWrongLocation(venueAndAddress: string, targetCity: string): boolean {
     "alcazar de los reyes",
     "sinagoga de cordoba",
     "palacio de viana",
-    "juderia",              // medieval Jewish quarter, unique to Córdoba Spain
-    "montilla-moriles",     // wine region near Córdoba Spain
+    "juderia",
+    "montilla-moriles",
   ];
   if (spanishCordobaVenues.some((v) => normalized.includes(v))) return true;
 

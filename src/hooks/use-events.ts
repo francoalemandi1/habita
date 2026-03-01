@@ -59,22 +59,23 @@ export interface EventsQueryResult {
 // Category enum → lowercase map (matches RelaxClient category keys)
 // ============================================
 
+/** Fallback: Prisma EventCategory enum → UI slug. Kept in sync with event-mapper.ts. */
 const CATEGORY_TO_RELAX: Record<EventCategory, string> = {
   CINE: "cine",
   TEATRO: "teatro",
   MUSICA: "musica",
-  EXPOSICIONES: "exposiciones",
-  FESTIVALES: "festivales",
-  MERCADOS: "mercados",
-  PASEOS: "paseos",
-  EXCURSIONES: "excursiones",
+  DANZA: "danza",
+  EXPOSICIONES: "muestras",
+  FESTIVALES: "ferias",
+  MERCADOS: "ferias",
+  PASEOS: "ferias",
+  EXCURSIONES: "ferias",
   TALLERES: "talleres",
-  DANZA: "musica",
-  LITERATURA: "talleres",
-  GASTRONOMIA: "mercados",
-  DEPORTES: "excursiones",
-  INFANTIL: "paseos",
-  OTRO: "festivales",
+  LITERATURA: "muestras",
+  GASTRONOMIA: "ferias",
+  DEPORTES: "ferias",
+  INFANTIL: "infantil",
+  OTRO: "ferias",
 };
 
 // ============================================
@@ -153,6 +154,7 @@ function buildMapsUrl(row: EventsApiRow): string | null {
 /** Convert an API event row to the RelaxEvent shape used by EventCard. */
 export function eventRowToRelaxEvent(row: EventsApiRow): RelaxEvent {
   return {
+    id: row.id,
     title: row.title,
     description: row.description ?? "",
     category: CATEGORY_TO_RELAX[row.category] ?? "exposiciones",

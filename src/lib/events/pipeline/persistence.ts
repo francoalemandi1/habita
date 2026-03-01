@@ -23,13 +23,23 @@ import type { RawEventData, IngestionOutcome } from "../types";
 
 export type ProcessOutcome = "created" | "updated" | "duplicate" | "skipped";
 
+/** Curator data to persist alongside the event. */
+export interface CurationData {
+  culturalScore: number;
+  originalityScore: number;
+  editorialHighlight: string;
+  culturalCategory: string;
+  finalScore: number;
+}
+
 /**
  * Process a single event: dedup check, normalize, insert or merge.
  * Returns the outcome for counting.
  */
 export async function processEvent(
   rawEvent: RawEventData,
-  source: EventSource
+  source: EventSource,
+  curation?: CurationData,
 ): Promise<ProcessOutcome> {
   // Skip events without title
   if (!rawEvent.title.trim()) return "skipped";
@@ -91,6 +101,14 @@ export async function processEvent(
       sourceEventId: rawEvent.sourceEventId ?? null,
       imageUrl: rawEvent.imageUrl ?? null,
       status: rawEvent.status ?? "ACTIVE",
+      // Curator scores (populated when coming from pipeline)
+      ...(curation && {
+        culturalScore: curation.culturalScore,
+        originalityScore: curation.originalityScore,
+        editorialHighlight: curation.editorialHighlight || null,
+        culturalCategory: curation.culturalCategory,
+        finalScore: curation.finalScore,
+      }),
     },
   });
 
@@ -176,6 +194,84 @@ export async function logIngestion(outcome: IngestionOutcome): Promise<void> {
 }
 
 // ============================================
+// Pipeline status tracking
+// ============================================
+
+/** Stale threshold — RUNNING entries older than this are considered crashed. */
+const STALE_PIPELINE_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** Create a RUNNING log entry at pipeline start. Returns the log ID. */
+export async function markPipelineRunning(sourceId: string, city: string): Promise<string> {
+  const log = await prisma.eventIngestionLog.create({
+    data: {
+      sourceId,
+      status: "RUNNING",
+      city,
+      startedAt: new Date(),
+    },
+  });
+  return log.id;
+}
+
+/** Transition a RUNNING log entry to its final status. */
+export async function completePipelineLog(
+  logId: string,
+  outcome: IngestionOutcome,
+): Promise<void> {
+  try {
+    await prisma.eventIngestionLog.update({
+      where: { id: logId },
+      data: {
+        status: outcome.status,
+        eventsFound: outcome.eventsFound,
+        eventsCreated: outcome.eventsCreated,
+        eventsUpdated: outcome.eventsUpdated,
+        eventsDuplicate: outcome.eventsDuplicate,
+        errorMessage: outcome.errorMessage ?? null,
+        durationMs: outcome.durationMs,
+      },
+    });
+  } catch (error) {
+    console.error("[pipeline] Failed to complete pipeline log:", error);
+  }
+}
+
+/**
+ * Check if there's a running pipeline for a city.
+ * Cleans up stale RUNNING entries (>5 min) as crash protection.
+ */
+export async function findRunningPipeline(city: string) {
+  const cutoff = new Date(Date.now() - STALE_PIPELINE_TIMEOUT_MS);
+
+  // Clean up stale RUNNING entries (crash protection)
+  await prisma.eventIngestionLog.updateMany({
+    where: {
+      status: "RUNNING",
+      city,
+      startedAt: { lt: cutoff },
+    },
+    data: {
+      status: "FAILED",
+      errorMessage: "Pipeline timed out (stale RUNNING entry cleaned up)",
+    },
+  });
+
+  // Check for a genuinely running pipeline
+  return prisma.eventIngestionLog.findFirst({
+    where: {
+      status: "RUNNING",
+      city,
+      startedAt: { gte: cutoff },
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      startedAt: true,
+    },
+  });
+}
+
+// ============================================
 // Outcome builder
 // ============================================
 
@@ -197,6 +293,29 @@ export function buildOutcome(
     durationMs: Date.now() - startTime,
     ...overrides,
   };
+}
+
+// ============================================
+// Pipeline source
+// ============================================
+
+const PIPELINE_SOURCE_NAME = "external-pipeline";
+
+export async function getOrCreatePipelineSource() {
+  const existing = await prisma.eventSource.findUnique({
+    where: { name: PIPELINE_SOURCE_NAME },
+  });
+
+  if (existing) return existing;
+
+  return prisma.eventSource.create({
+    data: {
+      type: "WEB_DISCOVERY",
+      name: PIPELINE_SOURCE_NAME,
+      reliabilityScore: 70,
+      isActive: true,
+    },
+  });
 }
 
 // ============================================

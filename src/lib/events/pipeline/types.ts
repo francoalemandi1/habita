@@ -1,8 +1,8 @@
 /**
  * Pipeline-specific types — intermediate data shapes between stages.
  *
- * Flow: DiscoveredUrl (with markdown) → ExtractedEvent → ValidatedEvent
- *       → (persist) → ScoredEvent → (update DB)
+ * Flow: DiscoveredUrl (with markdown) → ExtractedEvent → FilteredEvent
+ *       → CuratedEvent → (persist with scores)
  */
 
 // ============================================
@@ -20,7 +20,7 @@ export interface DiscoveredUrl {
 }
 
 // ============================================
-// Stage 3: Crawled Page (for DeepSeek extraction)
+// Stage 2: Crawled Page (for DeepSeek extraction)
 // ============================================
 
 /** Page content ready for DeepSeek extraction. */
@@ -31,7 +31,7 @@ export interface CrawledPage {
 }
 
 // ============================================
-// Stage 4: Event Extraction (DeepSeek)
+// Stage 3: Event Extraction (DeepSeek)
 // ============================================
 
 /** Event extracted by DeepSeek from a crawled page (strict JSON). */
@@ -69,54 +69,33 @@ export interface PageExtractionResult {
 }
 
 // ============================================
-// Stage 5: Deterministic Validation
+// Stage 4: Deterministic Filter
 // ============================================
 
-/** Event that passed all deterministic validation checks. */
-export interface ValidatedEvent extends ExtractedEvent {
-  /** Which checks this event passed (all must be true). */
-  validationFlags: {
-    dateValid: boolean;
-    dateFuture: boolean;
-    titleMinLength: boolean;
-    venueNonEmpty: boolean;
-    sourceUrlValid: boolean;
-    cityMentioned: boolean;
-    notWrongLocation: boolean;
-  };
+/** Event that passed deterministic filters (date future + not wrong location). */
+export interface FilteredEvent {
+  title: string;
+  date: string;
+  time: string | null;
+  venue: string;
+  address: string | null;
+  categoryGuess: string;
+  description: string;
+  priceMin: number | null;
+  priceMax: number | null;
+  artists: string[];
+  sourceUrl: string;
 }
 
 // ============================================
-// Stage 6: Source Yield Control
+// Stage 5: Curator (DeepSeek)
 // ============================================
 
-/** Yield report for a single source domain. */
-export interface SourceYieldReport {
-  domain: string;
-  totalExtracted: number;
-  validCount: number;
-  invalidCount: number;
-  invalidRate: number;
-  /** false if <2 valid OR >70% invalid. */
-  accepted: boolean;
-}
-
-// ============================================
-// Stage 9: Cultural Scoring (DeepSeek)
-// ============================================
-
-/** Cultural scoring result from DeepSeek. */
-export interface ScoredEvent {
+/** Event after curator scoring — ready for persistence. */
+export interface CuratedEvent extends FilteredEvent {
   culturalCategory: string;
-  culturalInterestScore: number;
+  culturalScore: number;
   originalityScore: number;
-  commercialVsIndependent: "commercial" | "independent" | "mixed";
   editorialHighlight: string;
-}
-
-/** Scored event ready for DB update. */
-export interface ScoredEventWithId {
-  eventId: string;
-  scoring: ScoredEvent;
   finalScore: number;
 }

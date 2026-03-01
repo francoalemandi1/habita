@@ -1,96 +1,97 @@
 /**
- * Pipeline orchestrator — wires all stages together.
+ * Pipeline orchestrator — single linear flow.
  *
- * Phase A (Ingest): Tavily (URLs + markdown) → filter → DeepSeek extract → validate → yield → dedup → persist
- * Phase B (Score): fetch unscored → DeepSeek score → rank → update DB
+ * 1. Tavily search (URLs + markdown)
+ * 2. Domain filter (deterministic blocklist)
+ * 3. Convert Tavily rawContent → pages
+ * 4. DeepSeek extractor (1 call per page, parallel)
+ * 5. Deterministic filter (date + wrongLocation)
+ * 6. DeepSeek curator (batch scoring + highlights)
+ * 7. Persist with scores
  */
 
-import { prisma } from "@/lib/prisma";
 import { extractDomain } from "@/lib/web-search";
 import { discoverUrls } from "./discover-urls";
 import { filterDomains } from "./domain-filter";
 import { extractEventsFromPages } from "./extract-events";
-import { validateEvents } from "./validate-events";
-import { enforceSourceYield } from "./source-yield";
-import { scoreEvents } from "./score-events";
-import { rankAndDiversify } from "./rank-events";
+import { filterEvents } from "./validate-events";
+import { curateEvents } from "./curate-events";
 import {
   processEvent,
   detectCategory,
   updateSourceHealth,
   logIngestion,
+  completePipelineLog,
   buildOutcome,
+  getOrCreatePipelineSource,
 } from "./persistence";
 
 import type { IngestionOutcome, RawEventData } from "../types";
-import type { ValidatedEvent, CrawledPage, SourceYieldReport } from "./types";
-import type { EventToScore } from "./score-events";
-import type { RankableEvent } from "./rank-events";
+import type { CrawledPage, CuratedEvent, ExtractedEvent } from "./types";
 
 // ============================================
-// Constants
+// Main function
 // ============================================
 
-const PIPELINE_SOURCE_NAME = "external-pipeline";
-
-// ============================================
-// Phase A: Ingest
-// ============================================
-
-interface IngestOptions {
+interface PipelineOptions {
   city: string;
   country: string;
+  /** Pre-created RUNNING log ID (fire-and-forget flow). When absent, uses logIngestion (cron flow). */
+  runningLogId?: string;
 }
 
 /**
- * Phase A: Discover URLs, crawl, extract, validate, and persist events.
- * Events are persisted with culturalScore = null (Phase B scores them).
+ * Run the full event pipeline: discover → extract → filter → curate → persist.
+ * All events are persisted with scores in a single pass.
  */
-export async function runIngestPhase(options: IngestOptions): Promise<IngestionOutcome> {
+export async function runPipeline(options: PipelineOptions): Promise<IngestionOutcome> {
   const startTime = Date.now();
-  const { city, country } = options;
+  const { city, country, runningLogId } = options;
 
-  // Load or create the pipeline source
+  /** Persist outcome: update existing RUNNING row or create new log entry. */
+  const persistOutcome = async (outcome: IngestionOutcome) => {
+    if (runningLogId) {
+      await completePipelineLog(runningLogId, outcome);
+    } else {
+      await logIngestion(outcome);
+    }
+  };
+
   const source = await getOrCreatePipelineSource();
 
   try {
-    console.log(`[pipeline] Phase A: ingesting events for ${city}, ${country}`);
-    const stageTimings: Record<string, number> = {};
+    console.log(`[pipeline] Starting pipeline for ${city}, ${country}`);
+    const timings: Record<string, number> = {};
     let stageStart = Date.now();
 
-    // Stage 1: Discover URLs + content via Tavily (includeRawContent: "markdown")
+    // Stage 1: Discover URLs + content via Tavily
     const discoveredUrls = await discoverUrls(city, country);
-    stageTimings["1-discover"] = Date.now() - stageStart;
+    timings["1-discover"] = Date.now() - stageStart;
     if (discoveredUrls.length === 0) {
-      console.warn("[pipeline] No URLs discovered — aborting");
-      logTimings(stageTimings);
-      const outcome = buildOutcome(source.id, PIPELINE_SOURCE_NAME, "PARTIAL", startTime, {
+      logTimings(timings);
+      const outcome = buildOutcome(source.id, "external-pipeline", "PARTIAL", startTime, {
         errorMessage: "Tavily returned no URLs",
       });
-      await logIngestion(outcome);
+      await persistOutcome(outcome);
       return outcome;
     }
 
-    // Stage 2: Filter domains
+    // Stage 2: Filter domains (deterministic blocklist)
     stageStart = Date.now();
     const filteredUrls = filterDomains(discoveredUrls);
-    stageTimings["2-filter"] = Date.now() - stageStart;
+    timings["2-filter-domains"] = Date.now() - stageStart;
     console.log(`[pipeline] ${filteredUrls.length}/${discoveredUrls.length} URLs after domain filtering`);
-    for (const u of filteredUrls) {
-      const hasContent = u.rawContent ? `${u.rawContent.length} chars` : "no content";
-      console.log(`[pipeline]   → ${u.url} (${hasContent})`);
-    }
 
     if (filteredUrls.length === 0) {
-      logTimings(stageTimings);
-      const outcome = buildOutcome(source.id, PIPELINE_SOURCE_NAME, "PARTIAL", startTime, {
+      logTimings(timings);
+      const outcome = buildOutcome(source.id, "external-pipeline", "PARTIAL", startTime, {
         errorMessage: "All discovered URLs were filtered out",
       });
-      await logIngestion(outcome);
+      await persistOutcome(outcome);
       return outcome;
     }
 
-    // Stage 3: Convert Tavily raw content to pages (no Firecrawl needed)
+    // Stage 3: Convert Tavily raw content to pages
     stageStart = Date.now();
     const pages: CrawledPage[] = filteredUrls
       .filter((u) => u.rawContent && u.rawContent.length > 0)
@@ -99,252 +100,128 @@ export async function runIngestPhase(options: IngestOptions): Promise<IngestionO
         domain: extractDomain(u.url),
         markdown: u.rawContent!,
       }));
-    stageTimings["3-convert"] = Date.now() - stageStart;
-    console.log(`[pipeline] ${pages.length}/${filteredUrls.length} URLs have Tavily markdown content`);
+    timings["3-convert"] = Date.now() - stageStart;
+    console.log(`[pipeline] ${pages.length}/${filteredUrls.length} URLs have markdown content`);
 
     if (pages.length === 0) {
-      logTimings(stageTimings);
-      const outcome = buildOutcome(source.id, PIPELINE_SOURCE_NAME, "PARTIAL", startTime, {
+      logTimings(timings);
+      const outcome = buildOutcome(source.id, "external-pipeline", "PARTIAL", startTime, {
         errorMessage: "Tavily returned no raw content for any URL",
       });
-      await logIngestion(outcome);
+      await persistOutcome(outcome);
       return outcome;
     }
 
-    // Stage 4: Extract events via DeepSeek (includes pre-filter + markdown cleaning)
+    // Stage 4: Extract events via DeepSeek (1 call per page, parallel)
     stageStart = Date.now();
     const extractions = await extractEventsFromPages(pages, city);
-    stageTimings["4-extract"] = Date.now() - stageStart;
+    timings["4-extract"] = Date.now() - stageStart;
 
-    // Stage 5: Validate events (deterministic)
+    const allExtracted: ExtractedEvent[] = extractions.flatMap((e) => e.events);
+    console.log(`[pipeline] ${allExtracted.length} events extracted from ${extractions.length} pages`);
+
+    if (allExtracted.length === 0) {
+      logTimings(timings);
+      const outcome = buildOutcome(source.id, "external-pipeline", "PARTIAL", startTime, {
+        errorMessage: "DeepSeek extracted no events from any page",
+      });
+      await persistOutcome(outcome);
+      return outcome;
+    }
+
+    // Stage 5: Deterministic filter (date + wrongLocation)
     stageStart = Date.now();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const { accepted: filteredEvents, rejected } = filterEvents(allExtracted, city, today);
+    timings["5-filter-events"] = Date.now() - stageStart;
+    console.log(`[pipeline] ${filteredEvents.length} accepted, ${rejected} rejected by date/location filter`);
 
-    const perDomain = new Map<string, {
-      valid: ValidatedEvent[];
-      expired: typeof extractions[0]["events"];
-      invalid: typeof extractions[0]["events"];
-    }>();
-
-    for (const extraction of extractions) {
-      const { valid, expired, invalid } = validateEvents(extraction.events, city, today);
-      const existing = perDomain.get(extraction.domain);
-      if (existing) {
-        existing.valid.push(...valid);
-        existing.expired.push(...expired);
-        existing.invalid.push(...invalid);
-      } else {
-        perDomain.set(extraction.domain, { valid, expired, invalid });
-      }
-    }
-    stageTimings["5-validate"] = Date.now() - stageStart;
-
-    // Stage 6: Source yield control
-    stageStart = Date.now();
-    // expired events (past date, structurally sound) don't count against source quality
-    const yieldInput = Array.from(perDomain.entries()).map(([domain, { valid, expired, invalid }]) => ({
-      domain,
-      valid,
-      invalid,
-      expired,
-    }));
-    const { acceptedEvents, reports } = enforceSourceYield(yieldInput);
-    stageTimings["6-yield"] = Date.now() - stageStart;
-
-    logYieldReports(reports);
-
-    if (acceptedEvents.length === 0) {
-      logTimings(stageTimings);
-      const outcome = buildOutcome(source.id, PIPELINE_SOURCE_NAME, "PARTIAL", startTime, {
-        eventsFound: yieldInput.reduce((sum, r) => sum + r.valid.length + r.expired.length + r.invalid.length, 0),
-        errorMessage: "All sources rejected by yield control",
+    if (filteredEvents.length === 0) {
+      logTimings(timings);
+      const outcome = buildOutcome(source.id, "external-pipeline", "PARTIAL", startTime, {
+        eventsFound: allExtracted.length,
+        errorMessage: "All events rejected by date/location filter",
       });
-      await logIngestion(outcome);
+      await persistOutcome(outcome);
       return outcome;
     }
 
-    // Stage 7-8: Dedup + persist
+    // Stage 6: DeepSeek curator (batch scoring + highlights)
+    stageStart = Date.now();
+    const curatedEvents = await curateEvents(filteredEvents, city);
+    timings["6-curate"] = Date.now() - stageStart;
+
+    // Stage 7: Persist with scores
     stageStart = Date.now();
     let eventsCreated = 0;
     let eventsUpdated = 0;
     let eventsDuplicate = 0;
     const errors: string[] = [];
 
-    for (const event of acceptedEvents) {
+    for (const event of curatedEvents) {
       try {
-        const rawEvent = validatedEventToRawData(event, city);
-        const result = await processEvent(rawEvent, source);
+        const rawEvent = curatedEventToRawData(event, city);
+        const result = await processEvent(rawEvent, source, {
+          culturalScore: event.culturalScore,
+          originalityScore: event.originalityScore,
+          editorialHighlight: event.editorialHighlight,
+          culturalCategory: event.culturalCategory,
+          finalScore: event.finalScore,
+        });
 
         if (result === "created") eventsCreated++;
         else if (result === "updated") eventsUpdated++;
         else if (result === "duplicate") eventsDuplicate++;
-        else console.warn(`[pipeline] persist: "${event.title}" → ${result}`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         errors.push(`"${event.title}": ${message}`);
         console.error(`[pipeline] persist error: "${event.title}": ${message}`);
       }
     }
-    stageTimings["7-persist"] = Date.now() - stageStart;
+    timings["7-persist"] = Date.now() - stageStart;
 
-    // Update source health
     await updateSourceHealth(source.id, eventsCreated > 0);
-
-    logTimings(stageTimings);
+    logTimings(timings);
 
     const status = errors.length > 0 && eventsCreated === 0 ? "PARTIAL" : "SUCCESS";
-    const outcome = buildOutcome(source.id, PIPELINE_SOURCE_NAME, status, startTime, {
-      eventsFound: acceptedEvents.length,
+    const outcome = buildOutcome(source.id, "external-pipeline", status, startTime, {
+      eventsFound: filteredEvents.length,
       eventsCreated,
       eventsUpdated,
       eventsDuplicate,
       errorMessage: errors.length > 0 ? errors.join("; ") : undefined,
     });
 
-    await logIngestion(outcome);
-    console.log(`[pipeline] Phase A done: ${eventsCreated} created, ${eventsUpdated} updated, ${eventsDuplicate} dupes, ${errors.length} errors`);
+    await persistOutcome(outcome);
+    console.log(`[pipeline] Done: ${eventsCreated} created, ${eventsUpdated} updated, ${eventsDuplicate} dupes, ${errors.length} errors`);
     return outcome;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[pipeline] Phase A failed:", errorMessage);
+    console.error("[pipeline] Pipeline failed:", errorMessage);
 
     await updateSourceHealth(source.id, false);
 
-    const outcome = buildOutcome(source.id, PIPELINE_SOURCE_NAME, "FAILED", startTime, {
+    const outcome = buildOutcome(source.id, "external-pipeline", "FAILED", startTime, {
       errorMessage,
     });
-    await logIngestion(outcome);
+    await persistOutcome(outcome);
     return outcome;
   }
-}
-
-// ============================================
-// Phase B: Score
-// ============================================
-
-interface ScoreOptions {
-  /** Max events to score per run. Default 50. */
-  limit?: number;
-}
-
-/**
- * Phase B: Score unscored events, rank, and update DB.
- * Picks up events with culturalScore = null.
- */
-export async function runScorePhase(
-  options: ScoreOptions = {}
-): Promise<{ scored: number; errors: string[] }> {
-  const limit = options.limit ?? 50;
-
-  // Fetch unscored active events
-  const unscoredRows = await prisma.culturalEvent.findMany({
-    where: {
-      culturalScore: null,
-      status: "ACTIVE",
-    },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      venueName: true,
-      category: true,
-    },
-    take: limit,
-    orderBy: { createdAt: "desc" },
-  });
-
-  if (unscoredRows.length === 0) {
-    console.log("[pipeline] Phase B: no unscored events");
-    return { scored: 0, errors: [] };
-  }
-
-  console.log(`[pipeline] Phase B: scoring ${unscoredRows.length} events`);
-
-  const eventsToScore: EventToScore[] = unscoredRows.map((row) => ({
-    id: row.id,
-    title: row.title,
-    description: row.description,
-    venueName: row.venueName,
-    category: row.category,
-  }));
-
-  // Score with DeepSeek
-  const scoredResults = await scoreEvents(eventsToScore);
-
-  // Rank for diversity (to compute finalScore with diversity context)
-  const rankableEvents: RankableEvent[] = scoredResults.map((s) => {
-    const row = unscoredRows.find((r) => r.id === s.eventId);
-    return {
-      eventId: s.eventId,
-      scoring: s.scoring,
-      finalScore: s.finalScore,
-      venueName: row?.venueName ?? "",
-    };
-  });
-
-  const rankedIds = rankAndDiversify(rankableEvents);
-
-  // Update DB with scores + rank order
-  const errors: string[] = [];
-  let scored = 0;
-
-  for (let i = 0; i < rankedIds.length; i++) {
-    const eventId = rankedIds[i]!;
-    const scoreResult = scoredResults.find((s) => s.eventId === eventId);
-    if (!scoreResult) continue;
-
-    try {
-      await prisma.culturalEvent.update({
-        where: { id: eventId },
-        data: {
-          culturalScore: scoreResult.scoring.culturalInterestScore,
-          originalityScore: scoreResult.scoring.originalityScore,
-          editorialHighlight: scoreResult.scoring.editorialHighlight || null,
-          culturalCategory: scoreResult.scoring.culturalCategory,
-          finalScore: scoreResult.finalScore,
-        },
-      });
-      scored++;
-    } catch (error) {
-      errors.push(`Event ${eventId}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  console.log(`[pipeline] Phase B done: ${scored}/${unscoredRows.length} scored`);
-  return { scored, errors };
 }
 
 // ============================================
 // Helpers
 // ============================================
 
-async function getOrCreatePipelineSource() {
-  const existing = await prisma.eventSource.findUnique({
-    where: { name: PIPELINE_SOURCE_NAME },
-  });
-
-  if (existing) return existing;
-
-  return prisma.eventSource.create({
-    data: {
-      type: "WEB_DISCOVERY",
-      name: PIPELINE_SOURCE_NAME,
-      reliabilityScore: 70,
-      isActive: true,
-    },
-  });
-}
-
-/** Convert a validated pipeline event into the common RawEventData shape. */
-function validatedEventToRawData(event: ValidatedEvent, city: string): RawEventData {
+/** Convert a curated event into the common RawEventData shape for persistence. */
+function curatedEventToRawData(event: CuratedEvent, city: string): RawEventData {
   const category = detectCategory({
     title: event.title,
     description: event.description,
     tags: [event.categoryGuess],
   });
 
-  // Combine date + time into a proper ISO datetime
   const startDate = combineDateTime(event.date, event.time);
 
   return {
@@ -366,13 +243,10 @@ function validatedEventToRawData(event: ValidatedEvent, city: string): RawEventD
 
 /**
  * Combine a YYYY-MM-DD date with an optional HH:MM time into an ISO string.
- * If time is provided, produces "2026-02-28T21:00:00" (local time).
- * If not, produces "2026-02-28" (date only, parsed as midnight UTC by Prisma).
  */
 function combineDateTime(dateStr: string, timeStr: string | null): string {
   if (!timeStr) return dateStr;
 
-  // Normalize common time formats: "21:00h" → "21:00", "21.30" → "21:30"
   const cleaned = timeStr.replace(/h$/i, "").replace(".", ":").trim();
   const match = /^(\d{1,2}):(\d{2})$/.exec(cleaned);
   if (!match) return dateStr;
@@ -382,18 +256,9 @@ function combineDateTime(dateStr: string, timeStr: string | null): string {
   return `${dateStr}T${hours}:${minutes}:00`;
 }
 
-function logYieldReports(reports: SourceYieldReport[]): void {
-  for (const report of reports) {
-    const status = report.accepted ? "ACCEPTED" : "REJECTED";
-    console.log(
-      `[pipeline] yield: ${report.domain} → ${status} (${report.validCount} valid, ${report.invalidCount} invalid, ${Math.round(report.invalidRate * 100)}% invalid)`
-    );
-  }
-}
-
 function logTimings(timings: Record<string, number>): void {
   const total = Object.values(timings).reduce((sum, ms) => sum + ms, 0);
-  console.log(`[pipeline] ⏱ Stage timings (total ${(total / 1000).toFixed(1)}s):`);
+  console.log(`[pipeline] Stage timings (total ${(total / 1000).toFixed(1)}s):`);
   for (const [stage, ms] of Object.entries(timings)) {
     const pct = total > 0 ? Math.round((ms / total) * 100) : 0;
     console.log(`[pipeline]   ${stage}: ${(ms / 1000).toFixed(1)}s (${pct}%)`);

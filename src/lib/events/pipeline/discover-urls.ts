@@ -20,8 +20,8 @@ import type { DiscoveredUrl } from "./types";
 /** Max results per query from Tavily. */
 const RESULTS_PER_QUERY = 7;
 
-/** Max unique URLs to return after dedup (raised to accommodate ticket platforms + gov sites). */
-const MAX_DISCOVERY_URLS = 45;
+/** Max unique URLs to return after dedup (7 search queries × 7 results + ticket platforms). */
+const MAX_DISCOVERY_URLS = 55;
 
 /** Tavily search timeout per query (ms). */
 const SEARCH_TIMEOUT_MS = 15_000;
@@ -72,13 +72,30 @@ const EXCLUDED_DOMAINS = [
 function buildQueries(city: string): string[] {
   return [
     `${city} secretaría de cultura sitio oficial`,
-    `${city} agenda cultural sitio oficial`,
-    `${city} centro cultural programación`,
-    `${city} teatro oficial programación`,
-    `${city} museo programación oficial`,
-    `${city} cine cartelera oficial`,
+    `${city} agenda cultural oficial`,
+    `${city} centro cultural agenda`,
+    `${city} teatro programación`,
+    `${city} museo exposiciones agenda`,
+    `${city} espacio cultural independiente`,
+    `${city} sala cultural agenda`,
   ];
 }
+
+// ============================================
+// Ticket platform search
+// ============================================
+
+/**
+ * Ticket platform domains to search via Tavily `includeDomains`.
+ * We run a dedicated search query scoped to these domains to guarantee
+ * coverage of individual event pages (which contain dates and prices).
+ */
+const TICKET_PLATFORM_DOMAINS = [
+  "ticketek.com.ar",
+] as const;
+
+/** Max results from ticket platform search. */
+const TICKET_RESULTS_PER_PLATFORM = 5;
 
 // ============================================
 // Main function
@@ -102,14 +119,23 @@ export async function discoverUrls(
   const queries = buildQueries(city);
   const countryCode = ISO_TO_TAVILY_COUNTRY[country.toUpperCase()];
 
-  // Run all queries in parallel
-  const batchResults = await Promise.all(
-    queries.map((query) => runSearch(client, query, countryCode))
-  );
+  // Run search queries + ticket platform searches in parallel
+  const [batchResults, ticketResults] = await Promise.all([
+    Promise.all(queries.map((query) => runSearch(client, query, countryCode))),
+    searchTicketPlatforms(client, city, countryCode),
+  ]);
 
   // Deduplicate by URL
   const seenUrls = new Set<string>();
   const deduped: DiscoveredUrl[] = [];
+
+  // Ticket platforms first — guaranteed coverage
+  for (const result of ticketResults) {
+    if (!seenUrls.has(result.url)) {
+      seenUrls.add(result.url);
+      deduped.push(result);
+    }
+  }
 
   for (const batch of batchResults) {
     for (const result of batch) {
@@ -125,8 +151,54 @@ export async function discoverUrls(
   const results = diversifyByDomain(deduped, MAX_DISCOVERY_URLS);
 
   const withContent = results.filter((r) => r.rawContent).length;
-  console.log(`[discover-urls] ${city}: ${results.length} unique URLs (${withContent} with content) from ${queries.length} queries`);
+  console.log(`[discover-urls] ${city}: ${results.length} unique URLs (${withContent} with content) from ${queries.length} queries + ${ticketResults.length} ticket platforms`);
   return results;
+}
+
+// ============================================
+// Ticket platform search
+// ============================================
+
+/**
+ * Search ticket platforms for events in the target city.
+ * Uses `includeDomains` to scope results to known ticket platforms,
+ * returning individual event pages (with dates, prices, venues).
+ */
+async function searchTicketPlatforms(
+  client: ReturnType<typeof tavily>,
+  city: string,
+  country?: string,
+): Promise<DiscoveredUrl[]> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
+
+    const response = await client.search(`${city} eventos entradas`, {
+      searchDepth: "advanced",
+      includeRawContent: "markdown",
+      maxResults: TICKET_RESULTS_PER_PLATFORM,
+      topic: "general",
+      includeDomains: [...TICKET_PLATFORM_DOMAINS],
+      ...(country && { country }),
+    });
+    clearTimeout(timeout);
+
+    const results = (response.results as TavilySearchResult[])
+      .filter((r) => r.title && r.url)
+      .map((r) => ({
+        url: r.url,
+        domain: extractDomain(r.url),
+        title: r.title,
+        snippet: r.content?.slice(0, 300) ?? "",
+        rawContent: r.rawContent ?? null,
+      }));
+
+    console.log(`[discover-urls] Ticket platforms: ${results.length} results (${results.filter((r) => r.rawContent).length} with content)`);
+    return results;
+  } catch (error) {
+    console.warn("[discover-urls] Ticket platform search failed:", error instanceof Error ? error.message : error);
+    return [];
+  }
 }
 
 // ============================================

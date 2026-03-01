@@ -17,12 +17,8 @@
       "schedule": "0 20 * * 0"
     },
     {
-      "path": "/api/cron/events/ingest?phase=ingest&city=C%C3%B3rdoba",
+      "path": "/api/cron/events/ingest?city=C%C3%B3rdoba",
       "schedule": "0 15 * * *"
-    },
-    {
-      "path": "/api/cron/events/ingest?phase=score",
-      "schedule": "0 16 * * *"
     }
   ]
 }

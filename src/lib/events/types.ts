@@ -128,6 +128,8 @@ export type RelaxSection = "activities" | "restaurants";
 
 /** Event shape used by EventCard and descubrir UI. */
 export interface RelaxEvent {
+  /** CulturalEvent.id — used for save/unsave matching (null for LLM-generated events). */
+  id: string | null;
   title: string;
   description: string;
   category: string;

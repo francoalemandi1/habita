@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import {
+  Bookmark,
   Film,
   Drama,
   Music,
@@ -28,13 +29,24 @@ import {
   Beer,
   Pizza,
   Sandwich,
+  Baby,
+  GraduationCap,
+  Footprints,
 } from "lucide-react";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useRelaxSuggestions, useRefreshRelaxSection } from "@/hooks/use-relax-suggestions";
+import { usePipelineStatus } from "@/hooks/use-pipeline-status";
+import { SaveButton } from "@/components/ui/save-button";
+import {
+  useSavedEvents,
+  useToggleSaveEvent,
+  isEventSaved,
+} from "@/hooks/use-saved-items";
 import { cn } from "@/lib/utils";
 import { radius, spacing, iconSize, typography, animation } from "@/lib/design-tokens";
 
-import type { RelaxEvent, RelaxSection } from "@/lib/events/types";
+import type { RelaxEvent } from "@/lib/events/types";
+import type { SavedEvent } from "@prisma/client";
 import type { LucideIcon } from "lucide-react";
 
 // ============================================
@@ -59,8 +71,11 @@ const CATEGORIES: Record<string, CategoryConfig> = {
   cine: { label: "Cine", icon: Film, sectionHeader: "En cartelera" },
   teatro: { label: "Teatro", icon: Drama, sectionHeader: "En escena" },
   musica: { label: "Música", icon: Music, sectionHeader: "Música en vivo" },
+  danza: { label: "Danza", icon: Footprints, sectionHeader: "Danza" },
   muestras: { label: "Muestras", icon: Palette, sectionHeader: "Para ver" },
+  talleres: { label: "Talleres", icon: GraduationCap, sectionHeader: "Talleres" },
   ferias: { label: "Ferias", icon: PartyPopper, sectionHeader: "Para visitar" },
+  infantil: { label: "Infantil", icon: Baby, sectionHeader: "Para chicos" },
   // Restaurants
   restaurantes: { label: "Restaurantes", icon: UtensilsCrossed, sectionHeader: "Dónde comer" },
   bares: { label: "Bares", icon: Wine, sectionHeader: "Bares y cervecerías" },
@@ -72,16 +87,19 @@ const CATEGORIES: Record<string, CategoryConfig> = {
   parrillas: { label: "Parrillas", icon: Flame, sectionHeader: "Parrillas" },
 };
 
-const ACTIVITIES_CATEGORY_ORDER = ["cine", "teatro", "musica", "muestras", "ferias"];
-const RESTAURANTS_CATEGORY_ORDER = ["restaurantes", "bares", "cafes", "cervecerias", "heladerias", "pizzerias", "comida_rapida", "parrillas"];
+const ACTIVITIES_CATEGORY_ORDER = ["cine", "teatro", "musica", "danza", "muestras", "talleres", "ferias", "infantil"];
 
-const SECTION_CATEGORY_ORDER: Record<RelaxSection, string[]> = {
-  activities: ACTIVITIES_CATEGORY_ORDER,
-  restaurants: RESTAURANTS_CATEGORY_ORDER,
-};
+// ============================================
+// Temporal filter
+// ============================================
 
-/** Categories that represent restaurants/gastronomic venues (no calendar link). */
-const RESTAURANT_CATEGORY_SET = new Set(RESTAURANTS_CATEGORY_ORDER);
+type TimeFilter = "today" | "weekend" | "week" | "all";
+
+const TIME_FILTERS: { key: TimeFilter; label: string }[] = [
+  { key: "today", label: "Hoy" },
+  { key: "weekend", label: "Finde" },
+  { key: "week", label: "Entre semana" },
+];
 
 // ============================================
 // Category color system
@@ -98,149 +116,112 @@ interface CategoryColorSet {
   chipText: string;
 }
 
+/** Per-category color system — accent color for chips, CTAs, and card left border. */
 const CATEGORY_COLORS: Record<string, CategoryColorSet> = {
   cine: {
-    cardBg: "bg-violet-100",
-    cardBorder: "border-violet-300",
-    iconBg: "bg-violet-200",
-    iconColor: "text-violet-700",
-    pillActiveBg: "bg-violet-600",
-    pillActiveText: "text-white",
-    chipBg: "bg-violet-200/80",
-    chipText: "text-violet-800",
+    cardBg: "bg-violet-50/60", cardBorder: "border-violet-200/70",
+    iconBg: "bg-violet-100", iconColor: "text-violet-600",
+    pillActiveBg: "bg-violet-600", pillActiveText: "text-white",
+    chipBg: "bg-violet-100", chipText: "text-violet-700",
   },
   teatro: {
-    cardBg: "bg-orange-100",
-    cardBorder: "border-orange-300",
-    iconBg: "bg-orange-200",
-    iconColor: "text-orange-700",
-    pillActiveBg: "bg-orange-600",
-    pillActiveText: "text-white",
-    chipBg: "bg-orange-200/80",
-    chipText: "text-orange-800",
+    cardBg: "bg-orange-50/60", cardBorder: "border-orange-200/70",
+    iconBg: "bg-orange-100", iconColor: "text-orange-600",
+    pillActiveBg: "bg-orange-600", pillActiveText: "text-white",
+    chipBg: "bg-orange-100", chipText: "text-orange-700",
   },
   musica: {
-    cardBg: "bg-pink-100",
-    cardBorder: "border-pink-300",
-    iconBg: "bg-pink-200",
-    iconColor: "text-pink-700",
-    pillActiveBg: "bg-pink-600",
-    pillActiveText: "text-white",
-    chipBg: "bg-pink-200/80",
-    chipText: "text-pink-800",
+    cardBg: "bg-pink-50/60", cardBorder: "border-pink-200/70",
+    iconBg: "bg-pink-100", iconColor: "text-pink-600",
+    pillActiveBg: "bg-pink-600", pillActiveText: "text-white",
+    chipBg: "bg-pink-100", chipText: "text-pink-700",
   },
   muestras: {
-    cardBg: "bg-emerald-100",
-    cardBorder: "border-emerald-300",
-    iconBg: "bg-emerald-200",
-    iconColor: "text-emerald-700",
-    pillActiveBg: "bg-emerald-600",
-    pillActiveText: "text-white",
-    chipBg: "bg-emerald-200/80",
-    chipText: "text-emerald-800",
+    cardBg: "bg-emerald-50/60", cardBorder: "border-emerald-200/70",
+    iconBg: "bg-emerald-100", iconColor: "text-emerald-600",
+    pillActiveBg: "bg-emerald-600", pillActiveText: "text-white",
+    chipBg: "bg-emerald-100", chipText: "text-emerald-700",
+  },
+  danza: {
+    cardBg: "bg-fuchsia-50/60", cardBorder: "border-fuchsia-200/70",
+    iconBg: "bg-fuchsia-100", iconColor: "text-fuchsia-600",
+    pillActiveBg: "bg-fuchsia-600", pillActiveText: "text-white",
+    chipBg: "bg-fuchsia-100", chipText: "text-fuchsia-700",
+  },
+  talleres: {
+    cardBg: "bg-cyan-50/60", cardBorder: "border-cyan-200/70",
+    iconBg: "bg-cyan-100", iconColor: "text-cyan-600",
+    pillActiveBg: "bg-cyan-600", pillActiveText: "text-white",
+    chipBg: "bg-cyan-100", chipText: "text-cyan-700",
   },
   ferias: {
-    cardBg: "bg-amber-100",
-    cardBorder: "border-amber-300",
-    iconBg: "bg-amber-200",
-    iconColor: "text-amber-700",
-    pillActiveBg: "bg-amber-600",
-    pillActiveText: "text-white",
-    chipBg: "bg-amber-200/80",
-    chipText: "text-amber-800",
+    cardBg: "bg-amber-50/60", cardBorder: "border-amber-200/70",
+    iconBg: "bg-amber-100", iconColor: "text-amber-600",
+    pillActiveBg: "bg-amber-600", pillActiveText: "text-white",
+    chipBg: "bg-amber-100", chipText: "text-amber-700",
   },
-  // Restaurant categories
+  infantil: {
+    cardBg: "bg-teal-50/60", cardBorder: "border-teal-200/70",
+    iconBg: "bg-teal-100", iconColor: "text-teal-600",
+    pillActiveBg: "bg-teal-600", pillActiveText: "text-white",
+    chipBg: "bg-teal-100", chipText: "text-teal-700",
+  },
   restaurantes: {
-    cardBg: "bg-rose-100",
-    cardBorder: "border-rose-300",
-    iconBg: "bg-rose-200",
-    iconColor: "text-rose-700",
-    pillActiveBg: "bg-rose-600",
-    pillActiveText: "text-white",
-    chipBg: "bg-rose-200/80",
-    chipText: "text-rose-800",
+    cardBg: "bg-rose-50/60", cardBorder: "border-rose-200/70",
+    iconBg: "bg-rose-100", iconColor: "text-rose-600",
+    pillActiveBg: "bg-rose-600", pillActiveText: "text-white",
+    chipBg: "bg-rose-100", chipText: "text-rose-700",
   },
   bares: {
-    cardBg: "bg-indigo-100",
-    cardBorder: "border-indigo-300",
-    iconBg: "bg-indigo-200",
-    iconColor: "text-indigo-700",
-    pillActiveBg: "bg-indigo-600",
-    pillActiveText: "text-white",
-    chipBg: "bg-indigo-200/80",
-    chipText: "text-indigo-800",
+    cardBg: "bg-indigo-50/60", cardBorder: "border-indigo-200/70",
+    iconBg: "bg-indigo-100", iconColor: "text-indigo-600",
+    pillActiveBg: "bg-indigo-600", pillActiveText: "text-white",
+    chipBg: "bg-indigo-100", chipText: "text-indigo-700",
   },
   cafes: {
-    cardBg: "bg-yellow-100",
-    cardBorder: "border-yellow-300",
-    iconBg: "bg-yellow-200",
-    iconColor: "text-yellow-700",
-    pillActiveBg: "bg-yellow-600",
-    pillActiveText: "text-white",
-    chipBg: "bg-yellow-200/80",
-    chipText: "text-yellow-800",
+    cardBg: "bg-yellow-50/60", cardBorder: "border-yellow-200/70",
+    iconBg: "bg-yellow-100", iconColor: "text-yellow-700",
+    pillActiveBg: "bg-yellow-600", pillActiveText: "text-white",
+    chipBg: "bg-yellow-100", chipText: "text-yellow-700",
   },
   cervecerias: {
-    cardBg: "bg-amber-100",
-    cardBorder: "border-amber-300",
-    iconBg: "bg-amber-200",
-    iconColor: "text-amber-700",
-    pillActiveBg: "bg-amber-600",
-    pillActiveText: "text-white",
-    chipBg: "bg-amber-200/80",
-    chipText: "text-amber-800",
+    cardBg: "bg-amber-50/60", cardBorder: "border-amber-200/70",
+    iconBg: "bg-amber-100", iconColor: "text-amber-600",
+    pillActiveBg: "bg-amber-600", pillActiveText: "text-white",
+    chipBg: "bg-amber-100", chipText: "text-amber-700",
   },
   heladerias: {
-    cardBg: "bg-sky-100",
-    cardBorder: "border-sky-300",
-    iconBg: "bg-sky-200",
-    iconColor: "text-sky-700",
-    pillActiveBg: "bg-sky-600",
-    pillActiveText: "text-white",
-    chipBg: "bg-sky-200/80",
-    chipText: "text-sky-800",
+    cardBg: "bg-sky-50/60", cardBorder: "border-sky-200/70",
+    iconBg: "bg-sky-100", iconColor: "text-sky-600",
+    pillActiveBg: "bg-sky-600", pillActiveText: "text-white",
+    chipBg: "bg-sky-100", chipText: "text-sky-700",
   },
   pizzerias: {
-    cardBg: "bg-orange-100",
-    cardBorder: "border-orange-300",
-    iconBg: "bg-orange-200",
-    iconColor: "text-orange-700",
-    pillActiveBg: "bg-orange-600",
-    pillActiveText: "text-white",
-    chipBg: "bg-orange-200/80",
-    chipText: "text-orange-800",
+    cardBg: "bg-orange-50/60", cardBorder: "border-orange-200/70",
+    iconBg: "bg-orange-100", iconColor: "text-orange-600",
+    pillActiveBg: "bg-orange-600", pillActiveText: "text-white",
+    chipBg: "bg-orange-100", chipText: "text-orange-700",
   },
   comida_rapida: {
-    cardBg: "bg-lime-100",
-    cardBorder: "border-lime-300",
-    iconBg: "bg-lime-200",
-    iconColor: "text-lime-700",
-    pillActiveBg: "bg-lime-600",
-    pillActiveText: "text-white",
-    chipBg: "bg-lime-200/80",
-    chipText: "text-lime-800",
+    cardBg: "bg-lime-50/60", cardBorder: "border-lime-200/70",
+    iconBg: "bg-lime-100", iconColor: "text-lime-700",
+    pillActiveBg: "bg-lime-600", pillActiveText: "text-white",
+    chipBg: "bg-lime-100", chipText: "text-lime-700",
   },
   parrillas: {
-    cardBg: "bg-red-100",
-    cardBorder: "border-red-300",
-    iconBg: "bg-red-200",
-    iconColor: "text-red-700",
-    pillActiveBg: "bg-red-600",
-    pillActiveText: "text-white",
-    chipBg: "bg-red-200/80",
-    chipText: "text-red-800",
+    cardBg: "bg-red-50/60", cardBorder: "border-red-200/70",
+    iconBg: "bg-red-100", iconColor: "text-red-600",
+    pillActiveBg: "bg-red-600", pillActiveText: "text-white",
+    chipBg: "bg-red-100", chipText: "text-red-700",
   },
 };
 
-const DEFAULT_CATEGORY_COLOR: CategoryColorSet = {
-  cardBg: "bg-muted/40",
-  cardBorder: "border-border",
-  iconBg: "bg-muted",
-  iconColor: "text-muted-foreground",
-  pillActiveBg: "bg-primary",
-  pillActiveText: "text-white",
-  chipBg: "bg-muted/70",
-  chipText: "text-muted-foreground",
+/** Fallback for unknown categories. */
+const DEFAULT_CARD_COLORS: CategoryColorSet = {
+  cardBg: "bg-muted/40", cardBorder: "border-border",
+  iconBg: "bg-muted", iconColor: "text-muted-foreground",
+  pillActiveBg: "bg-primary", pillActiveText: "text-white",
+  chipBg: "bg-muted/70", chipText: "text-muted-foreground",
 };
 
 /** Gradient backgrounds for highlighted cards (rotate through). */
@@ -263,11 +244,32 @@ const HIGHLIGHT_SCORE_THRESHOLD = 7;
 // ============================================
 
 function getCategoryColors(category: string): CategoryColorSet {
-  return CATEGORY_COLORS[category] ?? DEFAULT_CATEGORY_COLOR;
+  return CATEGORY_COLORS[category] ?? DEFAULT_CARD_COLORS;
+}
+
+/** Build the save input payload from a RelaxEvent. */
+function buildSaveEventInput(event: RelaxEvent) {
+  return {
+    culturalEventId: event.id ?? undefined,
+    title: event.title,
+    description: event.description || undefined,
+    category: event.category,
+    startDate: event.startDate,
+    venueName: event.venue || undefined,
+    priceRange: event.priceRange,
+    sourceUrl: event.sourceUrl,
+    imageUrl: event.imageUrl,
+    artists: event.artists,
+    tags: event.tags,
+    culturalCategory: event.culturalCategory,
+    highlightReason: event.highlightReason,
+    ticketUrl: event.ticketUrl,
+    bookingUrl: event.bookingUrl,
+    dateInfo: event.dateInfo,
+  };
 }
 
 function getCategoryLabel(event: RelaxEvent): string {
-  if (event.culturalCategory) return event.culturalCategory;
   return CATEGORIES[event.category]?.label ?? event.category;
 }
 
@@ -283,10 +285,39 @@ function formatTimeAgo(isoDate: string): string {
   return `Hace ${days}d`;
 }
 
-/** Build a Google Calendar "add event" URL from RelaxEvent data. */
+/** Compact proximity label for event dates: "Hoy", "Mañana", "Sáb 1 mar", etc. */
+function getDateProximityLabel(startDate: string | null): { label: string; isUrgent: boolean } | null {
+  if (!startDate) return null;
+  const eventDate = new Date(startDate);
+  if (isNaN(eventDate.getTime())) return null;
+
+  const now = new Date();
+  const todayStr = now.toLocaleDateString("en-CA");
+  const eventStr = eventDate.toLocaleDateString("en-CA");
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toLocaleDateString("en-CA");
+
+  if (eventStr === todayStr) return { label: "Hoy", isUrgent: true };
+  if (eventStr === tomorrowStr) return { label: "Mañana", isUrgent: true };
+
+  // Within 7 days — show day name + date
+  const diffMs = eventDate.getTime() - new Date(`${todayStr}T00:00:00`).getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays <= 7) {
+    const dayLabel = eventDate.toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "short" });
+    return { label: dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1), isUrgent: false };
+  }
+
+  // Beyond 7 days — compact date
+  const dateLabel = eventDate.toLocaleDateString("es-AR", { day: "numeric", month: "short" });
+  return { label: dateLabel, isUrgent: false };
+}
+
+/** Build a Google Calendar "add event" URL with preconfigured date/time. */
 function buildCalendarUrl(event: RelaxEvent): string | null {
-  // dateInfo is formatted like "Sáb 1 mar, 21:00" — we need to parse it back
-  // Since we don't have raw dates on the client, use dateInfo as the event time text
   const title = encodeURIComponent(event.title);
   const location = encodeURIComponent(event.venue);
   const details = encodeURIComponent(
@@ -295,78 +326,77 @@ function buildCalendarUrl(event: RelaxEvent): string | null {
       .join("\n\n"),
   );
 
-  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&location=${location}&details=${details}`;
+  let dateParams = "";
+  if (event.startDate) {
+    const start = new Date(event.startDate);
+    if (!isNaN(start.getTime())) {
+      // Format as Google Calendar date string: YYYYMMDDTHHmmss
+      const toGcalDate = (d: Date) => {
+        const pad = (n: number) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+      };
+      // Default duration: 2 hours
+      const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+      dateParams = `&dates=${toGcalDate(start)}/${toGcalDate(end)}`;
+    }
+  }
+
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&location=${location}&details=${details}${dateParams}`;
 }
 
 // ============================================
-// Temporal bucketing
+// Temporal filtering
 // ============================================
 
-interface TemporalBucket {
+/** Filter events by time window. All comparisons use date-only (ignore time). */
+function filterByTimeWindow(events: RelaxEvent[], filter: TimeFilter): RelaxEvent[] {
+  if (filter === "all") return events;
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  return events.filter((event) => {
+    if (!event.startDate) return false;
+    const eventDate = new Date(event.startDate);
+    if (isNaN(eventDate.getTime())) return false;
+    const eventDayStart = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+
+    switch (filter) {
+      case "today":
+        return eventDayStart.getTime() === todayStart.getTime();
+      case "weekend": {
+        const dayOfWeek = todayStart.getDay();
+        // Viernes = 5, Sábado = 6, Domingo = 0
+        const daysUntilFri = dayOfWeek <= 5 ? 5 - dayOfWeek : dayOfWeek === 6 ? 6 : 5;
+        const friStart = new Date(todayStart);
+        friStart.setDate(friStart.getDate() + daysUntilFri);
+        const monStart = new Date(friStart);
+        monStart.setDate(monStart.getDate() + 3);
+        return eventDayStart >= friStart && eventDayStart < monStart;
+      }
+      case "week": {
+        const weekEnd = new Date(todayStart);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        return eventDayStart >= todayStart && eventDayStart < weekEnd;
+      }
+      default:
+        return true;
+    }
+  });
+}
+
+// ============================================
+// Category bucketing
+// ============================================
+
+interface CategoryBucket {
   key: string;
   label: string;
   events: RelaxEvent[];
 }
 
-/** Group events into temporal buckets: Hoy → Esta semana → Fin de semana → Próximamente. */
-function bucketByDate(events: RelaxEvent[]): TemporalBucket[] {
-  const now = new Date();
-  const todayStr = now.toLocaleDateString("en-CA");
-  const today = new Date(`${todayStr}T00:00:00`);
-
-  const weekEnd = new Date(today);
-  weekEnd.setDate(today.getDate() + 7);
-
-  // Next Saturday 00:00
-  const dayOfWeek = today.getDay();
-  const daysUntilSaturday = (6 - dayOfWeek + 7) % 7;
-  const nextSaturday = new Date(today);
-  nextSaturday.setDate(today.getDate() + (daysUntilSaturday === 0 ? 7 : daysUntilSaturday));
-  // Monday 00:00 after the weekend
-  const nextMondayAfterWeekend = new Date(nextSaturday);
-  nextMondayAfterWeekend.setDate(nextSaturday.getDate() + 2);
-
-  const todayBucket: RelaxEvent[] = [];
-  const weekBucket: RelaxEvent[] = [];
-  const weekendBucket: RelaxEvent[] = [];
-  const laterBucket: RelaxEvent[] = [];
-
-  for (const event of events) {
-    if (!event.startDate) continue;
-    const eventDate = new Date(event.startDate);
-    const eventDay = eventDate.toLocaleDateString("en-CA");
-
-    if (eventDay === todayStr) {
-      todayBucket.push(event);
-    } else if (eventDate >= nextSaturday && eventDate < nextMondayAfterWeekend) {
-      weekendBucket.push(event);
-    } else if (eventDate < weekEnd) {
-      weekBucket.push(event);
-    } else {
-      laterBucket.push(event);
-    }
-  }
-
-  // Sort each bucket by startDate ASC
-  const sortByDate = (a: RelaxEvent, b: RelaxEvent) => {
-    if (!a.startDate || !b.startDate) return 0;
-    return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
-  };
-  todayBucket.sort(sortByDate);
-  weekBucket.sort(sortByDate);
-  weekendBucket.sort(sortByDate);
-  laterBucket.sort(sortByDate);
-
-  const buckets: TemporalBucket[] = [];
-  if (todayBucket.length > 0) buckets.push({ key: "today", label: "Hoy", events: todayBucket });
-  if (weekBucket.length > 0) buckets.push({ key: "week", label: "Esta semana", events: weekBucket });
-  if (weekendBucket.length > 0) buckets.push({ key: "weekend", label: "Fin de semana", events: weekendBucket });
-  if (laterBucket.length > 0) buckets.push({ key: "later", label: "Próximamente", events: laterBucket });
-  return buckets;
-}
-
-/** Group events by category (for restaurants tab). */
-function bucketByCategory(events: RelaxEvent[], categoryOrder: string[]): TemporalBucket[] {
+/** Group events by category, sorted chronologically within each group. */
+function bucketByCategory(events: RelaxEvent[], categoryOrder: string[]): CategoryBucket[] {
   const groups = new Map<string, RelaxEvent[]>();
   for (const event of events) {
     const existing = groups.get(event.category);
@@ -377,12 +407,17 @@ function bucketByCategory(events: RelaxEvent[], categoryOrder: string[]): Tempor
     }
   }
 
+  const sortByDate = (a: RelaxEvent, b: RelaxEvent) => {
+    if (!a.startDate || !b.startDate) return 0;
+    return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+  };
+
   return categoryOrder
     .filter((key) => groups.has(key))
     .map((key) => ({
       key,
       label: CATEGORIES[key]?.sectionHeader ?? key,
-      events: groups.get(key)!,
+      events: groups.get(key)!.sort(sortByDate),
     }));
 }
 
@@ -396,9 +431,11 @@ export function DescubrirClient({
   initialEvents,
 }: DescubrirClientProps) {
   const { location, isLoading: isGeoLoading } = useGeolocation();
-  const [activeSection, setActiveSection] = useState<RelaxSection>("activities");
+  const [activeTimeFilter, setActiveTimeFilter] = useState<TimeFilter>("all");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [isPipelineRunning, setIsPipelineRunning] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+  const { isRunning: isPipelineRunning, refetchStatus } = usePipelineStatus();
+  const { data: savedEvents } = useSavedEvents();
 
   const initialData = useMemo(() => {
     if (initialEvents.length === 0) return undefined;
@@ -416,7 +453,7 @@ export function DescubrirClient({
   }, [location, householdCity]);
 
   // Activities query — always enabled, uses SSR initial data
-  const activitiesQuery = useRelaxSuggestions({
+  const query = useRelaxSuggestions({
     section: "activities",
     enabled: true,
     initialData,
@@ -426,55 +463,37 @@ export function DescubrirClient({
     hasHouseholdLocation,
   });
 
-  // Restaurants query — lazy-loaded on first tab visit
-  const [restaurantsVisited, setRestaurantsVisited] = useState(false);
-  const restaurantsQuery = useRelaxSuggestions({
-    section: "restaurants",
-    enabled: restaurantsVisited,
-    location,
-    isGeoLoading,
-    hasHouseholdLocation,
-  });
-
-  const query = activeSection === "activities" ? activitiesQuery : restaurantsQuery;
-  const categoryOrder = SECTION_CATEGORY_ORDER[activeSection];
-
-  const handleTabChange = useCallback((section: RelaxSection) => {
-    setActiveSection(section);
+  const handleTimeFilterChange = useCallback((filter: TimeFilter) => {
+    setActiveTimeFilter(filter);
     setActiveCategory(null);
-    if (section === "restaurants") {
-      setRestaurantsVisited(true);
-    }
   }, []);
 
   const refreshSection = useRefreshRelaxSection();
   const handleRefresh = useCallback(async () => {
-    setIsPipelineRunning(true);
-    try {
-      await refreshSection("activities", activitiesQuery.forceRefreshRef);
-    } finally {
-      setIsPipelineRunning(false);
-    }
-  }, [activitiesQuery.forceRefreshRef, refreshSection]);
+    await refreshSection();
+    refetchStatus();
+  }, [refreshSection, refetchStatus]);
 
-  // Split: recommended events + rest bucketed by time
-  const { recommendedEvents, temporalBuckets, visibleCategories } = useMemo(() => {
-    const events = query.data?.events;
-    if (!events || events.length === 0) {
+  // Split: recommended events + rest bucketed by category
+  const { recommendedEvents, categoryBuckets, visibleCategories } = useMemo(() => {
+    const allEvents = query.data?.events;
+    if (!allEvents || allEvents.length === 0) {
       return {
         recommendedEvents: [] as RelaxEvent[],
-        temporalBuckets: [] as TemporalBucket[],
+        categoryBuckets: [] as CategoryBucket[],
         visibleCategories: [] as string[],
       };
     }
 
-    // 1. Extract recommended events (activities only, pipeline-scored)
+    // 0. Apply temporal filter
+    const events = filterByTimeWindow(allEvents, activeTimeFilter);
+
+    // 1. Extract recommended events (pipeline-scored)
     const recommended: RelaxEvent[] = [];
     const remaining: RelaxEvent[] = [];
 
     for (const event of events) {
       const isRecommended =
-        activeSection === "activities" &&
         event.finalScore !== null &&
         event.finalScore >= HIGHLIGHT_SCORE_THRESHOLD &&
         event.highlightReason !== null &&
@@ -487,10 +506,8 @@ export function DescubrirClient({
       }
     }
 
-    // 2. Bucket remaining events by date (activities) or category (restaurants)
-    const buckets = activeSection === "activities"
-      ? bucketByDate(remaining)
-      : bucketByCategory(remaining, categoryOrder);
+    // 2. Bucket remaining events by category, sorted chronologically within each
+    const buckets = bucketByCategory(remaining, ACTIVITIES_CATEGORY_ORDER);
 
     // 3. Collect visible categories (union across all buckets)
     const categorySet = new Set<string>();
@@ -502,21 +519,21 @@ export function DescubrirClient({
     for (const event of recommended) {
       categorySet.add(event.category);
     }
-    const visible = categoryOrder.filter((key) => categorySet.has(key));
+    const visible = ACTIVITIES_CATEGORY_ORDER.filter((key) => categorySet.has(key));
 
-    return { recommendedEvents: recommended, temporalBuckets: buckets, visibleCategories: visible };
-  }, [query.data?.events, activeSection, categoryOrder]);
+    return { recommendedEvents: recommended, categoryBuckets: buckets, visibleCategories: visible };
+  }, [query.data?.events, activeTimeFilter]);
 
   // Apply category filter across all temporal buckets
   const displayBuckets = useMemo(() => {
-    if (!activeCategory) return temporalBuckets;
-    return temporalBuckets
+    if (!activeCategory) return categoryBuckets;
+    return categoryBuckets
       .map((bucket) => ({
         ...bucket,
         events: bucket.events.filter((e) => e.category === activeCategory),
       }))
       .filter((bucket) => bucket.events.length > 0);
-  }, [temporalBuckets, activeCategory]);
+  }, [categoryBuckets, activeCategory]);
 
   // No location available
   const hasGeo = !!(location && location.latitude !== 0 && location.longitude !== 0);
@@ -533,7 +550,7 @@ export function DescubrirClient({
   const isBusy = isPipelineRunning || query.isFetching;
   const isLoading = isBusy && !query.data;
   const isRefreshing = isBusy && !!query.data;
-  const hasEvents = (query.data?.events?.length ?? 0) > 0;
+  const hasFilteredEvents = recommendedEvents.length > 0 || categoryBuckets.length > 0;
 
   return (
     <div className={spacing.contentStack}>
@@ -553,8 +570,7 @@ export function DescubrirClient({
             </>
           )}
         </div>
-        {activeSection === "activities" && (
-          <button
+        <button
             type="button"
             onClick={handleRefresh}
             disabled={isBusy}
@@ -563,21 +579,6 @@ export function DescubrirClient({
             <RefreshCw className={cn(iconSize.xs, isBusy && "animate-spin")} />
             {isPipelineRunning ? "Buscando eventos..." : isRefreshing ? "Actualizando..." : "Actualizar"}
           </button>
-        )}
-      </div>
-
-      {/* Section tabs */}
-      <div className="flex gap-1 rounded-full bg-muted/60 p-1">
-        <TabButton
-          label="Planes"
-          isActive={activeSection === "activities"}
-          onClick={() => handleTabChange("activities")}
-        />
-        <TabButton
-          label="Dónde comer"
-          isActive={activeSection === "restaurants"}
-          onClick={() => handleTabChange("restaurants")}
-        />
       </div>
 
       {/* Loading state */}
@@ -585,11 +586,9 @@ export function DescubrirClient({
         <div className="flex flex-col items-center justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="mt-3 text-sm text-muted-foreground">
-            {activeSection === "restaurants"
-              ? "Buscando restaurantes y bares..."
-              : isPipelineRunning
-                ? "Buscando eventos en la web... esto puede tardar unos minutos"
-                : "Cargando planes y actividades..."}
+            {isPipelineRunning
+              ? "Buscando eventos en la web... esto puede tardar unos minutos"
+              : "Cargando planes y actividades..."}
           </p>
         </div>
       )}
@@ -599,9 +598,7 @@ export function DescubrirClient({
         <EmptyState
           icon={Info}
           title="Error"
-          description={activeSection === "restaurants"
-            ? "No pudimos cargar los restaurantes. Intentá en unos minutos."
-            : "No pudimos cargar los planes. Intentá en unos minutos."}
+          description="No pudimos cargar los planes. Intentá en unos minutos."
         />
       )}
       {query.error && query.data && (
@@ -621,60 +618,120 @@ export function DescubrirClient({
                 key={`highlight-${event.title}-${index}`}
                 event={event}
                 colorIndex={index}
+                savedEvents={savedEvents}
               />
             ))}
           </div>
         </section>
       )}
 
-      {/* Category filter pills */}
-      {visibleCategories.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+      {/* Filter chips: guardados + temporal + category */}
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {/* Guardados chip */}
+        <button
+          type="button"
+          onClick={() => {
+            setShowSaved(!showSaved);
+            if (!showSaved) {
+              setActiveTimeFilter("all");
+              setActiveCategory(null);
+            }
+          }}
+          className={cn(
+            "flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            showSaved
+              ? "bg-primary text-white"
+              : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}
+        >
+          <Bookmark className={iconSize.xs} />
+          Guardados
+          {savedEvents && savedEvents.length > 0 && (
+            <span className={cn(
+              "ml-0.5 rounded-full px-1.5 text-[10px]",
+              showSaved ? "bg-white/20" : "bg-primary/10 text-primary"
+            )}>
+              {savedEvents.length}
+            </span>
+          )}
+        </button>
+
+        {/* Divider */}
+        <div className="mx-0.5 my-1 w-px shrink-0 bg-border" />
+
+        {/* Temporal chips */}
+        {TIME_FILTERS.map(({ key, label }) => (
           <FilterPill
-            label="Todas"
-            isActive={activeCategory === null}
-            onClick={() => setActiveCategory(null)}
+            key={`time-${key}`}
+            label={label}
+            isActive={!showSaved && activeTimeFilter === key}
+            onClick={() => {
+              if (showSaved) setShowSaved(false);
+              handleTimeFilterChange(activeTimeFilter === key ? "all" : key);
+            }}
           />
-          {visibleCategories.map((key) => {
-            const config = CATEGORIES[key];
-            if (!config) return null;
-            const Icon = config.icon;
-            return (
-              <FilterPill
-                key={key}
-                label={config.label}
-                icon={<Icon className={iconSize.xs} />}
-                isActive={activeCategory === key}
-                onClick={() => setActiveCategory(activeCategory === key ? null : key)}
-                categoryKey={key}
-              />
-            );
-          })}
-        </div>
-      )}
+        ))}
 
-      {/* Temporal / category sections */}
-      {hasEvents && (
-        <div className="space-y-6">
-          {displayBuckets.map((bucket) => (
-            <TemporalSection
-              key={bucket.key}
-              label={bucket.label}
-              events={bucket.events}
+        {/* Divider */}
+        {visibleCategories.length > 1 && (
+          <div className="mx-0.5 my-1 w-px shrink-0 bg-border" />
+        )}
+
+        {/* Category chips */}
+        {visibleCategories.map((key) => {
+          const config = CATEGORIES[key];
+          if (!config) return null;
+          const Icon = config.icon;
+          return (
+            <FilterPill
+              key={key}
+              label={config.label}
+              icon={<Icon className={iconSize.xs} />}
+              isActive={activeCategory === key}
+              onClick={() => setActiveCategory(activeCategory === key ? null : key)}
+              categoryKey={key}
             />
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
 
-      {/* No results */}
-      {query.data?.events && query.data.events.length === 0 && (
-        <EmptyState
-          icon={Info}
-          title={activeSection === "restaurants" ? "Sin resultados" : "Sin planes por hoy"}
-          description={activeSection === "restaurants"
-            ? "No encontramos restaurantes cerca. Intentá más tarde."
-            : "No encontramos planes para hoy. Volvé mañana."}
-        />
+      {/* Saved events view */}
+      {showSaved ? (
+        <SavedEventsView savedEvents={savedEvents ?? []} />
+      ) : (
+        <>
+          {/* Temporal / category sections */}
+          {hasFilteredEvents && (
+            <div className="space-y-6">
+              {displayBuckets.map((bucket) => (
+                <CategorySection
+                  key={bucket.key}
+                  label={bucket.label}
+                  events={bucket.events}
+                  savedEvents={savedEvents}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* No results */}
+          {query.data?.events && !hasFilteredEvents && (
+            <EmptyState
+              icon={Info}
+              title="Sin planes"
+              description={
+                activeTimeFilter === "today"
+                  ? "No hay planes para hoy. Probá con otro filtro."
+                  : activeTimeFilter === "weekend"
+                    ? "No encontramos planes para este finde."
+                    : activeTimeFilter === "week"
+                      ? "No hay planes esta semana."
+                      : "No encontramos planes. Intentá actualizar."
+              }
+            />
+          )}
+        </>
       )}
     </div>
   );
@@ -684,11 +741,31 @@ export function DescubrirClient({
 // Highlighted event card (Destacados)
 // ============================================
 
-function HighlightedEventCard({ event, colorIndex }: { event: RelaxEvent; colorIndex: number }) {
+function HighlightedEventCard({
+  event,
+  colorIndex,
+  savedEvents,
+}: {
+  event: RelaxEvent;
+  colorIndex: number;
+  savedEvents?: SavedEvent[];
+}) {
   const gradient = HIGHLIGHT_GRADIENTS[colorIndex % HIGHLIGHT_GRADIENTS.length]!;
   const colors = getCategoryColors(event.category);
-  const isRestaurant = RESTAURANT_CATEGORY_SET.has(event.category);
-  const calendarUrl = isRestaurant ? null : buildCalendarUrl(event);
+  const calendarUrl = buildCalendarUrl(event);
+  const dateProximity = getDateProximityLabel(event.startDate);
+  const { toggle, isPending: isSaveToggling } = useToggleSaveEvent();
+
+  const matchedSaved = isEventSaved(savedEvents, event.id ?? undefined);
+  const isSaved = !!matchedSaved;
+
+  const handleToggleSave = useCallback(() => {
+    if (matchedSaved) {
+      toggle({ savedEventId: matchedSaved.id });
+    } else {
+      toggle({ input: buildSaveEventInput(event) });
+    }
+  }, [matchedSaved, toggle, event]);
 
   const primaryCta = event.ticketUrl
     ? { href: event.ticketUrl, label: "Entradas", icon: Ticket }
@@ -710,19 +787,37 @@ function HighlightedEventCard({ event, colorIndex }: { event: RelaxEvent; colorI
         "hover:shadow-md",
       )}
     >
-      {/* Category chip + star */}
+      {/* Category chip + date + star */}
       <div className="flex items-center justify-between">
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5",
-            "text-[11px] font-bold uppercase tracking-wide",
-            colors.chipBg,
-            colors.chipText,
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5",
+              "text-[11px] font-bold uppercase tracking-wide",
+              colors.chipBg,
+              colors.chipText,
+            )}
+          >
+            {getCategoryLabel(event)}
+          </span>
+          {dateProximity && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                dateProximity.isUrgent
+                  ? "bg-foreground/10 text-foreground font-bold"
+                  : "bg-foreground/5 text-muted-foreground",
+              )}
+            >
+              <Clock className="h-3 w-3" />
+              {dateProximity.label}
+            </span>
           )}
-        >
-          {getCategoryLabel(event)}
-        </span>
-        <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+        </div>
+        <div className="flex items-center gap-1">
+          <SaveButton isSaved={isSaved} isPending={isSaveToggling} onToggle={handleToggleSave} />
+          <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+        </div>
       </div>
 
       {/* Title */}
@@ -774,6 +869,17 @@ function HighlightedEventCard({ event, colorIndex }: { event: RelaxEvent; colorI
             {primaryCta.label}
           </a>
         )}
+        {event.url && (
+          <a
+            href={event.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium opacity-60 transition-opacity hover:opacity-100"
+          >
+            <Navigation className="h-3 w-3" />
+            Ir
+          </a>
+        )}
         {calendarUrl && (
           <a
             href={calendarUrl}
@@ -794,12 +900,14 @@ function HighlightedEventCard({ event, colorIndex }: { event: RelaxEvent; colorI
 // Temporal section
 // ============================================
 
-function TemporalSection({
+function CategorySection({
   label,
   events,
+  savedEvents,
 }: {
   label: string;
   events: RelaxEvent[];
+  savedEvents?: SavedEvent[];
 }) {
   return (
     <section>
@@ -813,16 +921,16 @@ function TemporalSection({
       {/* Mobile: horizontal scroll | Desktop: 2-col grid */}
       <div
         className={cn(
-          "flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-proximity -mx-4 px-4",
-          "sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 sm:items-stretch sm:overflow-visible sm:snap-none",
+          "flex items-stretch gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-proximity -mx-4 px-4",
+          "sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none",
         )}
       >
         {events.map((event, index) => (
           <div
             key={`${event.title}-${index}`}
-            className="w-[260px] shrink-0 snap-start sm:w-auto sm:shrink sm:h-auto"
+            className="flex min-w-0 w-[260px] shrink-0 snap-start sm:w-auto sm:shrink"
           >
-            <EventCard event={event} />
+            <EventCard event={event} savedEvents={savedEvents} />
           </div>
         ))}
       </div>
@@ -834,10 +942,22 @@ function TemporalSection({
 // Event card (regular)
 // ============================================
 
-function EventCard({ event }: { event: RelaxEvent }) {
+function EventCard({ event, savedEvents }: { event: RelaxEvent; savedEvents?: SavedEvent[] }) {
   const colors = getCategoryColors(event.category);
-  const isRestaurant = RESTAURANT_CATEGORY_SET.has(event.category);
-  const calendarUrl = isRestaurant ? null : buildCalendarUrl(event);
+  const calendarUrl = buildCalendarUrl(event);
+  const dateProximity = getDateProximityLabel(event.startDate);
+  const { toggle, isPending: isSaveToggling } = useToggleSaveEvent();
+
+  const matchedSaved = isEventSaved(savedEvents, event.id ?? undefined);
+  const isSaved = !!matchedSaved;
+
+  const handleToggleSave = useCallback(() => {
+    if (matchedSaved) {
+      toggle({ savedEventId: matchedSaved.id });
+    } else {
+      toggle({ input: buildSaveEventInput(event) });
+    }
+  }, [matchedSaved, toggle, event]);
 
   // Determine primary CTA
   const primaryCta = event.ticketUrl
@@ -852,24 +972,42 @@ function EventCard({ event }: { event: RelaxEvent }) {
     <div
       className={cn(
         radius.card,
-        "flex h-full flex-col border p-4 transition-all",
+        "flex h-full min-w-0 flex-col border p-4 transition-all",
         colors.cardBg,
         colors.cardBorder,
         animation.hoverScaleSubtle,
         "hover:shadow-md",
       )}
     >
-      {/* Category chip */}
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 self-start rounded-full px-2.5 py-0.5",
-          "text-[11px] font-bold uppercase tracking-wide",
-          colors.chipBg,
-          colors.chipText,
-        )}
-      >
-        {getCategoryLabel(event)}
-      </span>
+      {/* Category chip + date proximity + save */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5",
+              "text-[11px] font-bold uppercase tracking-wide",
+              colors.chipBg,
+              colors.chipText,
+            )}
+          >
+            {getCategoryLabel(event)}
+          </span>
+          {dateProximity && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                dateProximity.isUrgent
+                  ? "bg-foreground/10 text-foreground font-bold"
+                  : "bg-foreground/5 text-muted-foreground",
+              )}
+            >
+              <Clock className="h-3 w-3" />
+              {dateProximity.label}
+            </span>
+          )}
+        </div>
+        <SaveButton isSaved={isSaved} isPending={isSaveToggling} onToggle={handleToggleSave} />
+      </div>
 
       {/* Title */}
       <h3 className="mt-2 text-[15px] font-bold leading-snug line-clamp-2">
@@ -922,10 +1060,10 @@ function EventCard({ event }: { event: RelaxEvent }) {
               target="_blank"
               rel="noopener noreferrer"
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-colors",
-                colors.chipBg,
-                colors.chipText,
-                "hover:brightness-95",
+                "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors",
+                colors.pillActiveBg,
+                colors.pillActiveText,
+                "hover:brightness-110",
               )}
             >
               <primaryCta.icon className="h-3.5 w-3.5" />
@@ -937,7 +1075,12 @@ function EventCard({ event }: { event: RelaxEvent }) {
               href={event.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium opacity-60 transition-opacity hover:opacity-100"
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold transition-colors",
+                colors.chipBg,
+                colors.chipText,
+                "hover:brightness-95",
+              )}
             >
               <Navigation className="h-3 w-3" />
               Ir
@@ -948,7 +1091,12 @@ function EventCard({ event }: { event: RelaxEvent }) {
               href={calendarUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium opacity-60 transition-opacity hover:opacity-100"
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-semibold transition-colors",
+                colors.chipBg,
+                colors.chipText,
+                "hover:brightness-95",
+              )}
             >
               <CalendarPlus className="h-3 w-3" />
               Agendar
@@ -995,32 +1143,6 @@ function PriceBadge({ priceRange }: { priceRange: string }) {
 // Shared sub-components
 // ============================================
 
-function TabButton({
-  label,
-  isActive,
-  onClick,
-}: {
-  label: string;
-  isActive: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex-1 rounded-full px-4 py-2 text-sm font-medium transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        isActive
-          ? "bg-background text-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
 function FilterPill({
   label,
   icon,
@@ -1034,7 +1156,7 @@ function FilterPill({
   onClick: () => void;
   categoryKey?: string;
 }) {
-  const colors = categoryKey ? CATEGORY_COLORS[categoryKey] : undefined;
+  const catColors = categoryKey ? CATEGORY_COLORS[categoryKey] : undefined;
 
   return (
     <button
@@ -1043,8 +1165,8 @@ function FilterPill({
       className={cn(
         "flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        isActive && colors
-          ? cn(colors.pillActiveBg, colors.pillActiveText)
+        isActive && catColors
+          ? cn(catColors.pillActiveBg, catColors.pillActiveText)
           : isActive
             ? "bg-primary text-white"
             : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -1070,6 +1192,130 @@ function EmptyState({
       <Icon className="h-10 w-10 text-muted-foreground" />
       <h3 className="mt-3 text-sm font-semibold">{title}</h3>
       <p className="mt-1 max-w-xs text-xs text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+// ============================================
+// Saved events view
+// ============================================
+
+function savedEventToRelax(saved: SavedEvent): RelaxEvent {
+  return {
+    id: saved.culturalEventId,
+    title: saved.title,
+    description: saved.description ?? "",
+    category: saved.category,
+    venue: saved.venueName ?? "",
+    dateInfo: saved.dateInfo ?? "",
+    priceRange: saved.priceRange,
+    audience: null,
+    tip: null,
+    url: null,
+    sourceUrl: saved.sourceUrl,
+    imageUrl: saved.imageUrl,
+    highlightReason: saved.highlightReason,
+    ticketUrl: saved.ticketUrl,
+    bookingUrl: saved.bookingUrl,
+    finalScore: null,
+    culturalCategory: saved.culturalCategory,
+    artists: saved.artists,
+    tags: saved.tags,
+    startDate: saved.startDate ? new Date(saved.startDate).toISOString() : null,
+  };
+}
+
+function SavedEventsView({ savedEvents }: { savedEvents: SavedEvent[] }) {
+  const { upcoming, past } = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const upcomingList: SavedEvent[] = [];
+    const pastList: SavedEvent[] = [];
+
+    for (const event of savedEvents) {
+      if (event.startDate) {
+        const eventDate = new Date(event.startDate);
+        if (eventDate < todayStart) {
+          pastList.push(event);
+        } else {
+          upcomingList.push(event);
+        }
+      } else {
+        // No date — consider upcoming
+        upcomingList.push(event);
+      }
+    }
+
+    // Upcoming: soonest first
+    upcomingList.sort((a, b) => {
+      if (!a.startDate) return 1;
+      if (!b.startDate) return -1;
+      return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+    });
+
+    // Past: most recent first
+    pastList.sort((a, b) => {
+      if (!a.startDate || !b.startDate) return 0;
+      return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+    });
+
+    return { upcoming: upcomingList, past: pastList };
+  }, [savedEvents]);
+
+  if (savedEvents.length === 0) {
+    return (
+      <EmptyState
+        icon={Bookmark}
+        title="Sin eventos guardados"
+        description="Tocá el ícono de guardado en cualquier evento para verlo acá."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Upcoming */}
+      {upcoming.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center gap-2.5">
+            <h2 className="text-sm font-bold">Próximos</h2>
+            <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+              {upcoming.length}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {upcoming.map((saved) => (
+              <EventCard
+                key={saved.id}
+                event={savedEventToRelax(saved)}
+                savedEvents={savedEvents}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Past */}
+      {past.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center gap-2.5">
+            <h2 className="text-sm font-bold text-muted-foreground">Pasados</h2>
+            <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+              {past.length}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-3 opacity-60 sm:grid-cols-2">
+            {past.map((saved) => (
+              <EventCard
+                key={saved.id}
+                event={savedEventToRelax(saved)}
+                savedEvents={savedEvents}
+              />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

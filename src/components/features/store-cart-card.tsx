@@ -3,10 +3,12 @@
 import { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { StoreLogo } from "@/components/ui/store-logo";
-import { ChevronDown, ChevronUp, Trophy, ExternalLink, X, Undo2, AlertCircle, ArrowDownRight, ClipboardCopy, Check, Package } from "lucide-react";
+import { SaveButton } from "@/components/ui/save-button";
+import { ChevronDown, ChevronUp, Trophy, ExternalLink, X, Undo2, AlertCircle, ArrowDownRight, ClipboardCopy, Check, Package, Tag } from "lucide-react";
 
 import type { AlternativeProduct, ProductUnitInfo } from "@/lib/supermarket-search";
 import type { AdjustedStoreCart, AdjustedCartProduct } from "@/components/features/grocery-advisor";
+import type { BankPromo } from "@prisma/client";
 
 // ============================================
 // Helpers
@@ -29,6 +31,15 @@ function formatPrice(price: number): string {
   return `$${price.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+/** Calculate discounted price respecting the cap amount. */
+function calcDiscountedPrice(totalPrice: number, discountPercent: number, capAmount: number | null): number {
+  const rawDiscount = totalPrice * discountPercent / 100;
+  const actualDiscount = capAmount && capAmount > 0
+    ? Math.min(rawDiscount, capAmount)
+    : rawDiscount;
+  return Math.round(totalPrice - actualDiscount);
+}
+
 // ============================================
 // Store Cart Card
 // ============================================
@@ -40,9 +51,13 @@ interface StoreCartCardProps {
   onSwapProduct?: (searchTerm: string, alternative: AlternativeProduct) => void;
   onRemoveProduct?: (searchTerm: string) => void;
   onRestoreProduct?: (searchTerm: string) => void;
+  isSaved?: boolean;
+  isSavePending?: boolean;
+  onToggleSave?: () => void;
+  promos?: BankPromo[];
 }
 
-export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onRemoveProduct, onRestoreProduct }: StoreCartCardProps) {
+export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onRemoveProduct, onRestoreProduct, isSaved, isSavePending, onToggleSave, promos }: StoreCartCardProps) {
   const isBest = rank === 0;
   const activeProducts = cart.products.filter((p) => !p.isRemoved);
   const activeCount = activeProducts.length;
@@ -53,6 +68,13 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onRemoveP
   const cartActualTotal = productsWithAverage.reduce((s, p) => s + p.price, 0);
   const savingsAmount = cartAvgTotal > 0 ? Math.round(cartAvgTotal - cartActualTotal) : 0;
   const savingsPercent = cartAvgTotal > 0 ? Math.round((1 - cartActualTotal / cartAvgTotal) * 100) : null;
+
+  // Promo selection + discounted price
+  const [selectedPromoId, setSelectedPromoId] = useState<string | null>(null);
+  const selectedPromo = promos?.find((p) => p.id === selectedPromoId) ?? null;
+  const discountedPrice = selectedPromo
+    ? calcDiscountedPrice(cart.totalPrice, selectedPromo.discountPercent, selectedPromo.capAmount)
+    : null;
 
   return (
     <div
@@ -104,21 +126,56 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onRemoveP
           </div>
         </div>
 
-        {/* Price block */}
-        <div className="text-right">
-          <div className={cn("text-lg font-bold tabular-nums", isBest ? "text-primary" : "text-foreground")}>
-            {formatPrice(cart.totalPrice)}
+        {/* Price block + save button */}
+        <div className="flex items-center gap-2">
+          <div className="text-right">
+            {discountedPrice != null ? (
+              <>
+                <div className="text-[11px] tabular-nums text-muted-foreground line-through">
+                  {formatPrice(cart.totalPrice)}
+                </div>
+                <div className="text-lg font-bold tabular-nums text-primary">
+                  {formatPrice(discountedPrice)}
+                </div>
+                <span className="text-[10px] font-medium text-primary">
+                  -{selectedPromo!.discountPercent}% {selectedPromo!.bankDisplayName}
+                </span>
+              </>
+            ) : (
+              <>
+                <div className={cn("text-lg font-bold tabular-nums", isBest ? "text-primary" : "text-foreground")}>
+                  {formatPrice(cart.totalPrice)}
+                </div>
+                {savingsPercent != null && savingsPercent !== 0 && (
+                  <span className={cn(
+                    "text-[11px] font-medium",
+                    savingsPercent > 0 ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400",
+                  )}>
+                    {savingsPercent > 0 ? `${savingsPercent}% menos vs promedio` : `+${Math.abs(savingsPercent)}% vs promedio`}
+                  </span>
+                )}
+              </>
+            )}
           </div>
-          {savingsPercent != null && savingsPercent !== 0 && (
-            <span className={cn(
-              "text-[11px] font-medium",
-              savingsPercent > 0 ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400",
-            )}>
-              {savingsPercent > 0 ? `${savingsPercent}% menos vs promedio` : `+${Math.abs(savingsPercent)}% vs promedio`}
-            </span>
+          {onToggleSave && (
+            <SaveButton
+              isSaved={isSaved ?? false}
+              isPending={isSavePending ?? false}
+              onToggle={onToggleSave}
+              size="md"
+            />
           )}
         </div>
       </div>
+
+      {/* Bank promo banner */}
+      {promos && promos.length > 0 && (
+        <PromoBanner
+          promos={promos}
+          selectedPromoId={selectedPromoId}
+          onSelectPromo={setSelectedPromoId}
+        />
+      )}
 
       {/* Product list */}
       <ProductList
@@ -495,6 +552,149 @@ function ProductThumbnail({ imageUrl, size = "md" }: { imageUrl: string | null; 
         loading="lazy"
         onError={() => setHasError(true)}
       />
+    </div>
+  );
+}
+
+// ============================================
+// Promo Banner
+// ============================================
+
+import { scorePromo, parseDaysOfWeek, getTodayDayName } from "@/lib/promos/scoring";
+
+/** Format daysOfWeek JSON array into a short label. */
+function formatDaysShort(daysOfWeek: string): string {
+  const days = parseDaysOfWeek(daysOfWeek);
+  if (days.length === 0 || days.length === 7) return "Todos";
+  const SHORT: Record<string, string> = {
+    Lunes: "Lun", Martes: "Mar", Miércoles: "Mié",
+    Jueves: "Jue", Viernes: "Vie", Sábado: "Sáb", Domingo: "Dom",
+  };
+  return days.map((d) => SHORT[d] ?? d).join(", ");
+}
+
+function formatCapShort(capAmount: number | null): string | null {
+  if (!capAmount) return null;
+  return `$${capAmount.toLocaleString("es-AR")}`;
+}
+
+/** Best promo per bank, sorted by score. */
+function getBankBestPromos(promos: BankPromo[], todayName: string) {
+  const bankMap = new Map<string, BankPromo>();
+  // For each bank, keep only the best promo (by score)
+  for (const promo of promos) {
+    const existing = bankMap.get(promo.bankSlug);
+    if (!existing || scorePromo(promo, todayName) > scorePromo(existing, todayName)) {
+      bankMap.set(promo.bankSlug, promo);
+    }
+  }
+  return Array.from(bankMap.values()).sort(
+    (a, b) => scorePromo(b, todayName) - scorePromo(a, todayName),
+  );
+}
+
+interface PromoBannerProps {
+  promos: BankPromo[];
+  selectedPromoId: string | null;
+  onSelectPromo: (promoId: string | null) => void;
+}
+
+function PromoBanner({ promos, selectedPromoId, onSelectPromo }: PromoBannerProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const todayName = getTodayDayName();
+  const bestPerBank = getBankBestPromos(promos, todayName);
+  const best = bestPerBank[0]!;
+  const extraPromos = promos.length - bestPerBank.length;
+
+  const selectedBank = selectedPromoId
+    ? bestPerBank.find((p) => p.id === selectedPromoId)
+    : null;
+
+  const summaryText = selectedBank
+    ? `${selectedBank.discountPercent}% ${selectedBank.bankDisplayName}`
+    : bestPerBank.length === 1
+      ? `${best.discountPercent}% ${best.bankDisplayName} (${formatDaysShort(best.daysOfWeek)})`
+      : `Hasta ${best.discountPercent}% dto · ${bestPerBank.length} bancos`;
+
+  return (
+    <div className="mx-3 mb-1">
+      {/* Summary line */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className={cn(
+          "flex w-full items-center gap-1.5 rounded-xl px-3 py-1.5 text-left transition-colors",
+          selectedPromoId
+            ? "bg-primary/10 hover:bg-primary/15 dark:bg-primary/20 dark:hover:bg-primary/25"
+            : "bg-muted/40 hover:bg-muted/60 dark:bg-muted/20 dark:hover:bg-muted/30",
+        )}
+      >
+        <Tag className={cn("h-3 w-3 shrink-0", selectedPromoId ? "text-primary" : "text-muted-foreground")} />
+        <span className={cn("flex-1 text-[11px] font-medium", selectedPromoId ? "text-primary" : "text-foreground")}>
+          {summaryText}
+        </span>
+        <ChevronDown className={cn(
+          "h-3 w-3 transition-transform duration-200",
+          selectedPromoId ? "text-primary" : "text-muted-foreground",
+          isExpanded && "rotate-180",
+        )} />
+      </button>
+
+      {/* Expanded: selectable promos */}
+      {isExpanded && (
+        <div className="mt-1 space-y-0.5 rounded-xl bg-muted/20 p-1.5 dark:bg-muted/10">
+          {bestPerBank.map((promo) => {
+            const isSelected = promo.id === selectedPromoId;
+            const cap = formatCapShort(promo.capAmount);
+            return (
+              <button
+                key={promo.bankSlug}
+                type="button"
+                onClick={() => onSelectPromo(isSelected ? null : promo.id)}
+                className={cn(
+                  "flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left transition-all",
+                  isSelected
+                    ? "bg-primary/10 ring-1.5 ring-primary/50 dark:bg-primary/15"
+                    : "hover:bg-muted/40 dark:hover:bg-muted/20",
+                )}
+              >
+                <span className={cn(
+                  "rounded-md px-1.5 py-0.5 text-[10px] font-bold",
+                  isSelected
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400",
+                )}>
+                  {promo.discountPercent}%
+                </span>
+                <span className={cn(
+                  "text-[11px] font-medium",
+                  isSelected ? "text-primary" : "text-foreground",
+                )}>
+                  {promo.bankDisplayName}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {formatDaysShort(promo.daysOfWeek)}
+                </span>
+                {cap && (
+                  <span className="text-[10px] text-muted-foreground">
+                    · tope {cap}
+                  </span>
+                )}
+                {isSelected && (
+                  <Check className="ml-auto h-3 w-3 shrink-0 text-primary" />
+                )}
+              </button>
+            );
+          })}
+
+          {/* Extra promos count */}
+          {extraPromos > 0 && (
+            <p className="px-2 pt-1 text-[10px] text-muted-foreground/60">
+              +{extraPromos} promo{extraPromos !== 1 ? "s" : ""} más de estos bancos
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

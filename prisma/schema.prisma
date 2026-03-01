@@ -132,6 +132,8 @@ model Household {
   priceCache           PriceCache[]
   services             Service[]
   invoices             Invoice[]
+  bankPromos           BankPromo[]
+  promoPipelineLogs    PromoPipelineLog[]
   @@map("households")
 }
 
@@ -163,6 +165,9 @@ model Member {
   expensesPaid     Expense[]      @relation("ExpensesPaid")
   expenseSplits    ExpenseSplit[] @relation("ExpenseSplits")
   servicesPaid         Service[] @relation("ServicesPaid")
+  savedEvents          SavedEvent[]
+  savedRecipes         SavedRecipe[]
+  savedCarts           SavedCart[]
   @@unique([userId, householdId])
   @@index([householdId])
   @@index([userId])
@@ -755,6 +760,7 @@ enum EventSourceType {
 }
 
 enum IngestionStatus {
+  RUNNING
   SUCCESS
   PARTIAL
   FAILED
@@ -877,16 +883,145 @@ model EventIngestionLog {
   id              String          @id @default(cuid())
   sourceId        String
   status          IngestionStatus
+  city            String?
   eventsFound     Int             @default(0)
   eventsCreated   Int             @default(0)
   eventsUpdated   Int             @default(0)
   eventsDuplicate Int             @default(0)
   errorMessage    String?
   durationMs      Int?
+  startedAt       DateTime?
   createdAt       DateTime        @default(now())
 
   source EventSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@index([sourceId, createdAt])
+  @@index([city, status])
   @@map("event_ingestion_logs")
+}
+
+// ============================================
+// SAVED ITEMS MODELS (per-member bookmarks)
+// ============================================
+
+model SavedEvent {
+  id               String    @id @default(cuid())
+  memberId         String
+  householdId      String
+  culturalEventId  String?   // Soft ref — survives CulturalEvent cleanup by cron
+  title            String
+  description      String?
+  category         String    // UI slug: "cine", "teatro", etc.
+  startDate        DateTime?
+  venueName        String?
+  address          String?
+  priceRange       String
+  sourceUrl        String?
+  imageUrl         String?
+  artists          String[]  @default([])
+  tags             String[]  @default([])
+  culturalCategory String?
+  highlightReason  String?
+  ticketUrl        String?
+  bookingUrl       String?
+  dateInfo         String?   // Pre-formatted: "Vie 6 mar, 21:00"
+  savedAt          DateTime  @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, culturalEventId])
+  @@index([memberId])
+  @@index([memberId, startDate])
+  @@map("saved_events")
+}
+
+model SavedRecipe {
+  id                 String   @id @default(cuid())
+  memberId           String
+  householdId        String
+  contentHash        String   // SHA-256 of title+ingredients for dedup
+  title              String
+  description        String
+  difficulty         String   // "facil" | "media" | "dificil"
+  prepTimeMinutes    Int
+  servings           Int
+  ingredients        String[] @default([])
+  missingIngredients String[] @default([])
+  steps              String[] @default([])
+  tip                String?
+  savedAt            DateTime @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, contentHash])
+  @@index([memberId])
+  @@map("saved_recipes")
+}
+
+model SavedCart {
+  id            String   @id @default(cuid())
+  memberId      String
+  householdId   String
+  storeName     String
+  searchTerms   String[]  // The search terms that generated this cart
+  products      Json      // Array of CartProduct serialized
+  totalPrice    Float
+  cheapestCount Int       @default(0)
+  missingTerms  String[]  @default([])
+  totalSearched Int       @default(0)
+  savedAt       DateTime  @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@map("saved_carts")
+}
+
+// ============================================
+// BANK PROMOTIONS
+// ============================================
+
+model BankPromo {
+  id              String    @id @default(cuid())
+  householdId     String
+  promoargId      String?       // UUID original de promoarg
+  bankSlug        String        // "patagonia", "naranjax", "icbc"
+  bankDisplayName String        // "Patagonia", "Naranja X", "ICBC"
+  storeName       String        // Normalized name matching SUPERMARKET_STORES
+  title           String?       // "30% en Coto"
+  description     String?       // Full description text
+  discountPercent Int           // Porcentaje de descuento (solo > 0)
+  daysOfWeek      String        // JSON array: '["Jueves"]' o '[]'
+  paymentMethods  String?       // JSON array: '["Tarjeta Patagonia","VISA"]'
+  eligiblePlans   String?       // JSON array mergeado: '["Clasica","Plus"]'
+  capAmount       Int?          // null/0 = sin tope, >0 = tope en pesos
+  categories      String?       // JSON array: '["Supermercados"]'
+  validUntil      DateTime?
+  sourceUrl       String?       // detailsUrl de la API
+  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime      @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@index([householdId, storeName])
+  @@map("bank_promos")
+}
+
+model PromoPipelineLog {
+  id            String    @id @default(cuid())
+  householdId   String
+  status        String    // "RUNNING", "SUCCESS", "FAILED"
+  promosFound   Int       @default(0)
+  promosCreated Int       @default(0)
+  promosUpdated Int       @default(0)
+  durationMs    Int?
+  errorMessage  String?
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, status])
+  @@map("promo_pipeline_logs")
 }

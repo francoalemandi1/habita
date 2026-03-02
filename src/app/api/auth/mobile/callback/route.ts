@@ -120,5 +120,23 @@ function redirectToApp(params: Record<string, string>): NextResponse {
   for (const [key, value] of Object.entries(params)) {
     deepLink.searchParams.set(key, value);
   }
-  return NextResponse.redirect(deepLink.toString());
+  const deepLinkUrl = deepLink.toString();
+
+  // SFSafariViewController (used by openAuthSessionAsync) cannot follow HTTP
+  // redirects to custom schemes — it just closes with "dismiss". We must serve
+  // an HTML page that redirects via window.location so the OS can intercept it.
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="refresh" content="0;url=${deepLinkUrl}" />
+  <script>window.location.replace(${JSON.stringify(deepLinkUrl)});</script>
+</head>
+<body>Redirigiendo a Habita...</body>
+</html>`;
+
+  return new NextResponse(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
 }

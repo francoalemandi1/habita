@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm run db:up && next dev -p 3001",
     "dev:mobile": "pnpm --filter @habita/mobile dev",
+    "mobile:qr": "pnpm --filter @habita/mobile qr",
     "build": "prisma generate && next build",
     "build:mobile": "pnpm --filter @habita/mobile build",
     "db:deploy": "prisma migrate deploy",
@@ -13,6 +14,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "typecheck:mobile": "pnpm --filter @habita/mobile typecheck",
+    "typecheck:packages": "pnpm --filter './packages/*' exec tsc --noEmit",
+    "typecheck:all": "pnpm typecheck && pnpm typecheck:packages && pnpm typecheck:mobile",
     "db:generate": "prisma generate",
     "db:up": "docker compose up -d",
     "db:push": "prisma db push",
@@ -26,6 +29,10 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@habita/api-client": "workspace:*",
+    "@habita/contracts": "workspace:*",
+    "@habita/design-tokens": "workspace:*",
+    "@habita/domain": "workspace:*",
     "@ai-sdk/deepseek": "^2.0.20",
     "@ai-sdk/google": "^3.0.21",
     "@ai-sdk/react": "^3.0.74",

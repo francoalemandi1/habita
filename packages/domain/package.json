@@ -1,0 +1,11 @@
+{
+  "name": "@habita/domain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./expense-subcategory": "./src/expense-subcategory.ts",
+    "./unit-parser": "./src/unit-parser.ts"
+  }
+}

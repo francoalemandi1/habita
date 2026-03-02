@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const ACCESS_TOKEN_KEY = "habita_mobile_access_token";
 const REFRESH_TOKEN_KEY = "habita_mobile_refresh_token";
 const HOUSEHOLD_ID_KEY = "habita_mobile_household_id";
+const DEVICE_ID_KEY = "habita_mobile_device_id";
 
 export interface MobileSessionSnapshot {
   accessToken: string | null;
@@ -41,4 +42,13 @@ export async function clearMobileSession(): Promise<void> {
     AsyncStorage.removeItem(REFRESH_TOKEN_KEY),
     AsyncStorage.removeItem(HOUSEHOLD_ID_KEY),
   ]);
+}
+
+export async function getOrCreateDeviceId(): Promise<string> {
+  const existing = await AsyncStorage.getItem(DEVICE_ID_KEY);
+  if (existing) return existing;
+
+  const generated = `device_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  await AsyncStorage.setItem(DEVICE_ID_KEY, generated);
+  return generated;
 }

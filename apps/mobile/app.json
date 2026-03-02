@@ -6,9 +6,36 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "platforms": ["ios", "android"],
+    "ios": {
+      "bundleIdentifier": "casa.habita.app",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.615232460202-r8buqnl4jgo1894drai2h4l9qiegutte"
+            ]
+          }
+        ]
+      }
+    },
+    "android": {
+      "package": "casa.habita.app"
+    },
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "experiments": {
       "typedRoutes": true
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b661be21-7f51-4bfc-98ef-a61e7e2d20dd"
+      }
     }
   }
 }

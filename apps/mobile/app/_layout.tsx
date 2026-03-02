@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { RuntimeBanner } from "@/components/runtime-banner";
 import { MobileQueryProvider } from "@/providers/query-provider";
 import { MobileAuthProvider, useMobileAuth } from "@/providers/mobile-auth-provider";
 
@@ -16,10 +17,11 @@ function RootNavigator() {
   }
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
       <StatusBar style="dark" />
+      <RuntimeBanner />
       <Stack screenOptions={{ headerShown: false }} />
-    </>
+    </View>
   );
 }
 

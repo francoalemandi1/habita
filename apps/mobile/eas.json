@@ -1,0 +1,37 @@
+{
+  "cli": {
+    "version": ">= 18.0.6"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "http://192.168.100.17:3001",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "615232460202-r8buqnl4jgo1894drai2h4l9qiegutte.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "615232460202-e89h4nrbg8cte00m600q77m832nt5170.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "615232460202-7376tg8tkprrr87q97o54eu0g40kp9nu.apps.googleusercontent.com"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://habita.vercel.app",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "615232460202-r8buqnl4jgo1894drai2h4l9qiegutte.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "615232460202-e89h4nrbg8cte00m600q77m832nt5170.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "615232460202-7376tg8tkprrr87q97o54eu0g40kp9nu.apps.googleusercontent.com"
+      }
+    },
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://habita.vercel.app",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "615232460202-r8buqnl4jgo1894drai2h4l9qiegutte.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "615232460202-e89h4nrbg8cte00m600q77m832nt5170.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "615232460202-7376tg8tkprrr87q97o54eu0g40kp9nu.apps.googleusercontent.com"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

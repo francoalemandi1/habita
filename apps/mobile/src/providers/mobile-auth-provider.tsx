@@ -3,9 +3,11 @@ import { mobileApi } from "@/lib/api";
 import {
   clearMobileSession,
   getMobileSessionSnapshot,
+  getOrCreateDeviceId,
   setActiveHousehold,
   setMobileTokens,
 } from "@/lib/storage";
+import { subscribeRuntimeEvents } from "@/lib/runtime-events";
 import { trackMobileEvent } from "@/lib/telemetry";
 
 import type { AuthMeResponse, MobileTokenExchangeResponse } from "@habita/contracts";
@@ -18,6 +20,8 @@ interface MobileAuthContextValue {
   activeHouseholdId: string | null;
   hydrate: () => Promise<void>;
   exchangeTokens: (input: { accessToken: string; refreshToken: string }) => Promise<void>;
+  exchangeGoogleIdToken: (idToken: string) => Promise<void>;
+  exchangeGoogleAuthCode: (authCode: string, codeVerifier: string) => Promise<void>;
   refreshAccessToken: () => Promise<void>;
   logout: () => Promise<void>;
   setHouseholdId: (householdId: string | null) => Promise<void>;
@@ -67,6 +71,17 @@ export function MobileAuthProvider({ children }: MobileAuthProviderProps) {
     void hydrate();
   }, [hydrate]);
 
+  useEffect(() => {
+    return subscribeRuntimeEvents((event) => {
+      if (event.type !== "auth-expired") {
+        return;
+      }
+
+      setMe(null);
+      setActiveHouseholdIdState(null);
+    });
+  }, []);
+
   const exchangeTokens = useCallback(
     async (input: { accessToken: string; refreshToken: string }) => {
       await setMobileTokens(input.accessToken, input.refreshToken);
@@ -75,12 +90,41 @@ export function MobileAuthProvider({ children }: MobileAuthProviderProps) {
     [hydrate],
   );
 
+  const exchangeGoogleIdToken = useCallback(
+    async (idToken: string) => {
+      const deviceId = await getOrCreateDeviceId();
+      const response = await mobileApi.post<MobileTokenExchangeResponse>("/api/auth/mobile/exchange", {
+        idToken,
+        deviceId,
+      });
+      await setMobileTokens(response.accessToken, response.refreshToken);
+      await hydrate();
+    },
+    [hydrate],
+  );
+
+  const exchangeGoogleAuthCode = useCallback(
+    async (authCode: string, codeVerifier: string) => {
+      const deviceId = await getOrCreateDeviceId();
+      const response = await mobileApi.post<MobileTokenExchangeResponse>("/api/auth/mobile/exchange", {
+        authCode,
+        codeVerifier,
+        deviceId,
+      });
+      await setMobileTokens(response.accessToken, response.refreshToken);
+      await hydrate();
+    },
+    [hydrate],
+  );
+
   const refreshAccessToken = useCallback(async () => {
     const session = await getMobileSessionSnapshot();
     if (!session.refreshToken) return;
+    const deviceId = await getOrCreateDeviceId();
 
     const response = await mobileApi.post<MobileTokenExchangeResponse>("/api/auth/mobile/refresh", {
       refreshToken: session.refreshToken,
+      deviceId,
     });
     await setMobileTokens(response.accessToken, response.refreshToken);
     await hydrate();
@@ -113,6 +157,8 @@ export function MobileAuthProvider({ children }: MobileAuthProviderProps) {
       activeHouseholdId,
       hydrate,
       exchangeTokens,
+      exchangeGoogleIdToken,
+      exchangeGoogleAuthCode,
       refreshAccessToken,
       logout,
       setHouseholdId,
@@ -123,6 +169,8 @@ export function MobileAuthProvider({ children }: MobileAuthProviderProps) {
       activeHouseholdId,
       hydrate,
       exchangeTokens,
+      exchangeGoogleIdToken,
+      exchangeGoogleAuthCode,
       refreshAccessToken,
       logout,
       setHouseholdId,

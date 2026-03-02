@@ -22,11 +22,20 @@ export const authMeResponseSchema = z.object({
 });
 
 export const mobileExchangeInputSchema = z.object({
+  // idToken: from native iOS client (real device, implicit flow)
+  // authCode + codeVerifier: from Web client (simulator/Android, PKCE flow)
+  idToken: z.string().min(1).optional(),
+  authCode: z.string().min(1).optional(),
+  codeVerifier: z.string().min(1).optional(),
+  deviceId: z.string().min(1).max(200).optional(),
   householdId: z.string().min(1).optional(),
+}).refine((data) => data.idToken ?? data.authCode, {
+  message: "Either idToken or authCode is required",
 });
 
 export const mobileRefreshInputSchema = z.object({
   refreshToken: z.string().min(1),
+  deviceId: z.string().min(1).max(200).optional(),
 });
 
 export const mobileTokenExchangeResponseSchema = z.object({

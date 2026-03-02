@@ -22,16 +22,23 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@habita/api-client": ["./packages/api-client/src/index.ts"],
+      "@habita/contracts": ["./packages/contracts/src/index.ts"],
+      "@habita/design-tokens": ["./packages/design-tokens/src/index.ts"],
+      "@habita/domain": ["./packages/domain/src/index.ts"],
+      "@habita/domain/*": ["./packages/domain/src/*"]
     }
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.mts",
+    "packages/**/*.ts",
+    "packages/**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "apps"]
 }

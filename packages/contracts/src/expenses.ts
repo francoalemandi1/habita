@@ -35,6 +35,13 @@ export const createExpenseSchema = z.object({
   chargeToFund: z.boolean().optional(),
 });
 
+export const updateExpenseSchema = z.object({
+  title: z.string().min(1).max(100).optional(),
+  amount: z.number().positive().max(99_999_999).optional(),
+  category: expenseCategorySchema.optional(),
+  notes: z.string().max(500).nullable().optional(),
+});
+
 export const serializedExpenseSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -77,5 +84,6 @@ export const expensesListResponseSchema = z.object({
 export type ExpenseCategory = z.infer<typeof expenseCategorySchema>;
 export type SplitType = z.infer<typeof splitTypeSchema>;
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
+export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
 export type SerializedExpense = z.infer<typeof serializedExpenseSchema>;
 export type ExpensesListResponse = z.infer<typeof expensesListResponseSchema>;

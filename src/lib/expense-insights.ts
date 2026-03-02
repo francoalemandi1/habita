@@ -8,7 +8,7 @@
  * No side effects, no DB access — fully deterministic and testable.
  */
 
-import type { ExpenseCategory } from "@prisma/client";
+import type { ExpenseCategory, ExpenseSubcategory } from "@prisma/client";
 
 // ============================================
 // Types
@@ -17,6 +17,7 @@ import type { ExpenseCategory } from "@prisma/client";
 export interface ExpenseRow {
   amount: number;
   category: ExpenseCategory;
+  subcategory: ExpenseSubcategory;
   title: string;
   date: string;
   hasInvoice: boolean;
@@ -25,6 +26,7 @@ export interface ExpenseRow {
 export interface LastMonthExpenseRow {
   amount: number;
   category: ExpenseCategory;
+  subcategory: ExpenseSubcategory;
   title: string;
   date: string;
   hasInvoice: boolean;
@@ -34,6 +36,7 @@ export interface LastMonthExpenseRow {
 export interface HistoricalExpenseRow {
   amount: number;
   category: ExpenseCategory;
+  subcategory: ExpenseSubcategory;
   title: string;
   hasInvoice: boolean;
 }
@@ -59,6 +62,7 @@ export interface SpendingTip {
   id: string;
   emoji: string;
   message: string;
+  severity: "info" | "alerta" | "critica";
   action?: {
     label: string;
     href: string;
@@ -83,9 +87,17 @@ export interface CategoryGrowthInsight {
   growthPercent: number;
 }
 
+export interface MonthlyHistoryPoint {
+  month: string;
+  fixed: number;
+  variable: number;
+  total: number;
+}
+
 export interface ExpenseInsightsContext {
   thisMonthExpenses: ExpenseRow[];
   lastMonthExpenses: LastMonthExpenseRow[];
+  historicalExpenses: ExpenseRow[];
   activeServices: ActiveServiceRow[];
   upcomingServices: Array<{ lastAmount: number | null }>;
   daysElapsedThisMonth: number;
@@ -148,6 +160,19 @@ export interface ExpenseInsightsResponse {
   fixedExpensesCount: number;
   /** Fixed expenses as percent of total */
   fixedPercentOfTotal: number;
+
+  /** Variable spending breakdown by category (sorted desc by amount). */
+  categoryBreakdown: CategoryAmount[];
+  /** Variable spending total this month (excludes fixed). */
+  variableThisMonth: number;
+  /** Number of expenses this month (to differentiate zero-spend from new user). */
+  thisMonthExpenseCount: number;
+  /** At least one expense exists in the analyzed historical window. */
+  hasAnyHistoricalExpenses: boolean;
+  /** Prevents noisy alerts/projections when month just started. */
+  hasReliableMonthlyTrend: boolean;
+  /** Monthly history (oldest → newest) split by fixed/variable/total. */
+  monthlyHistory: MonthlyHistoryPoint[];
 }
 
 // ============================================
@@ -187,6 +212,12 @@ const FIXED_TITLE_KEYWORDS = [
 const MAX_SPENDING_TIPS = 2;
 const DELIVERY_KEYWORDS = ["rappi", "pedidosya", "pedidos ya", "ifood", "globo", "didi food"];
 const KIOSCO_KEYWORDS = ["kiosco", "maxikiosco", "minimarket", "almacen", "drugstore"];
+const DELIVERY_ALERT_MIN_SHARE = 0.18; // 18% del variable mensual
+const KIOSCO_ALERT_MIN_SHARE = 0.10; // 10% del variable mensual
+const GROCERIES_ALERT_MIN_SHARE = 0.15; // 15% del variable mensual
+const MIN_VARIABLE_TOTAL_FOR_ALERTS = 40_000; // Evita alertas cuando el mes recién arranca con montos bajos
+const MIN_DAYS_FOR_RELIABLE_TREND = 10;
+const MIN_EXPENSES_FOR_RELIABLE_TREND = 6;
 
 /** Multiplier to normalize service frequency to monthly equivalent. */
 const FREQUENCY_TO_MONTHLY: Record<string, number> = {
@@ -200,6 +231,7 @@ const FREQUENCY_TO_MONTHLY: Record<string, number> = {
 /** Minimum growth % and absolute amount to consider a category for the growth insight. */
 const GROWTH_MIN_PERCENT = 10;
 const GROWTH_MIN_AMOUNT = 1_000;
+const HISTORY_MONTHS = 6;
 
 // ============================================
 // Helpers (exported for API route aggregation)
@@ -214,6 +246,16 @@ export function isFixedExpense(expense: { hasInvoice: boolean; category: Expense
 
   const normalized = normalizeTitle(expense.title);
   return FIXED_TITLE_KEYWORDS.some((kw) => normalized.includes(kw));
+}
+
+function isSubcategory(
+  expense: { subcategory: ExpenseSubcategory; title: string },
+  target: ExpenseSubcategory,
+  fallbackKeywords: string[],
+): boolean {
+  if (expense.subcategory === target) return true;
+  const normalized = normalizeTitle(expense.title);
+  return matchesKeywords(normalized, fallbackKeywords);
 }
 
 function computeTrend(
@@ -245,6 +287,47 @@ function computeExpectedMonthlyFixed(services: ActiveServiceRow[]): number {
     const monthlyFactor = FREQUENCY_TO_MONTHLY[s.frequency] ?? 1;
     return sum + (s.lastAmount ?? 0) * monthlyFactor;
   }, 0);
+}
+
+function toMonthKey(dateString: string): string {
+  return dateString.slice(0, 7); // YYYY-MM
+}
+
+function buildMonthlyHistory(expenses: ExpenseRow[]): MonthlyHistoryPoint[] {
+  const now = new Date();
+  const monthKeys: string[] = [];
+  for (let index = HISTORY_MONTHS - 1; index >= 0; index--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - index, 1, 0, 0, 0, 0);
+    monthKeys.push(d.toISOString().slice(0, 7));
+  }
+
+  const buckets = new Map<string, { fixed: number; variable: number }>();
+  for (const key of monthKeys) {
+    buckets.set(key, { fixed: 0, variable: 0 });
+  }
+
+  for (const expense of expenses) {
+    const key = toMonthKey(expense.date);
+    const bucket = buckets.get(key);
+    if (!bucket) continue;
+    if (isFixedExpense(expense)) {
+      bucket.fixed += expense.amount;
+      continue;
+    }
+    bucket.variable += expense.amount;
+  }
+
+  return monthKeys.map((month) => {
+    const bucket = buckets.get(month) ?? { fixed: 0, variable: 0 };
+    const fixed = round2(bucket.fixed);
+    const variable = round2(bucket.variable);
+    return {
+      month,
+      fixed,
+      variable,
+      total: round2(fixed + variable),
+    };
+  });
 }
 
 // ============================================
@@ -403,6 +486,33 @@ function formatTipAmount(amount: number): string {
   return `$${amount.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+interface TipCandidate {
+  tip: Omit<SpendingTip, "severity">;
+  score: number;
+}
+
+function buildTipScore(params: {
+  amount: number;
+  variableTotal: number;
+  count: number;
+  minCount: number;
+}): number {
+  const amountShare = params.variableTotal > 0 ? params.amount / params.variableTotal : 0;
+  const frequencyRatio = params.minCount > 0 ? params.count / params.minCount : 1;
+  const normalizedFrequency = Math.min(2, frequencyRatio);
+
+  // Score final:
+  // - 70% impacto monetario (share del gasto variable)
+  // - 30% repetición (frecuencia relativa al umbral de alerta)
+  return amountShare * 0.7 + normalizedFrequency * 0.3;
+}
+
+function getTipSeverity(score: number): SpendingTip["severity"] {
+  if (score >= 1.0) return "critica";
+  if (score >= 0.65) return "alerta";
+  return "info";
+}
+
 /**
  * Compute contextual banners that cross-link to other Habita features.
  *
@@ -418,8 +528,9 @@ function computeSpendingTips(
   variableCategoryBreakdown: CategoryAmount[],
 ): SpendingTip[] {
   if (variableTotal === 0 || variableExpenses.length === 0) return [];
+  if (variableTotal < MIN_VARIABLE_TOTAL_FOR_ALERTS) return [];
 
-  const tips: SpendingTip[] = [];
+  const candidates: TipCandidate[] = [];
 
   // Aggregate delivery, kiosco, and grocery spending from titles
   let deliveryTotal = 0;
@@ -430,14 +541,13 @@ function computeSpendingTips(
   let groceryCount = 0;
 
   for (const expense of variableExpenses) {
-    const normalized = normalizeTitle(expense.title);
-    if (matchesKeywords(normalized, DELIVERY_KEYWORDS)) {
+    if (isSubcategory(expense, "DELIVERY", DELIVERY_KEYWORDS)) {
       deliveryTotal += expense.amount;
       deliveryCount++;
-    } else if (matchesKeywords(normalized, KIOSCO_KEYWORDS)) {
+    } else if (isSubcategory(expense, "KIOSCO", KIOSCO_KEYWORDS)) {
       kioscoTotal += expense.amount;
       kioscoCount++;
-    } else if (expense.category === "GROCERIES") {
+    } else if (expense.subcategory === "SUPERMARKET" || expense.category === "GROCERIES") {
       groceryTotal += expense.amount;
       groceryCount++;
     }
@@ -448,66 +558,80 @@ function computeSpendingTips(
   for (const cat of variableCategoryBreakdown) {
     categoryTotals.set(cat.category, cat.amount);
   }
-  const foodTotal = categoryTotals.get("FOOD") ?? 0;
-  const entertainmentTotal = categoryTotals.get("ENTERTAINMENT") ?? 0;
+  const _foodTotal = categoryTotals.get("FOOD") ?? 0;
+  const _entertainmentTotal = categoryTotals.get("ENTERTAINMENT") ?? 0;
 
-  // ── Banner: Grocery → Price comparison ──
-  if (groceryCount >= 2) {
-    tips.push({
-      id: "grocery_compare",
-      emoji: "\uD83D\uDED2", // 🛒
-      message: `Gastaste ${formatTipAmount(groceryTotal)} en super este mes. Mirá precios en distintas cadenas`,
-      action: { label: "Comparar precios", href: "/compras" },
+  // ── Candidate: Grocery → Price comparison ──
+  const groceriesShare = groceryTotal / variableTotal;
+  if (groceryCount >= 2 && groceriesShare >= GROCERIES_ALERT_MIN_SHARE) {
+    candidates.push({
+      tip: {
+        id: "grocery_compare",
+        emoji: "\uD83D\uDED2", // 🛒
+        message: `Gastaste ${formatTipAmount(groceryTotal)} en super este mes. Mirá precios en distintas cadenas`,
+        action: { label: "Comparar precios", href: "/compras" },
+      },
+      score: buildTipScore({
+        amount: groceryTotal,
+        variableTotal,
+        count: groceryCount,
+        minCount: 2,
+      }),
     });
   }
 
-  // ── Banner: Delivery → Recipes ──
-  if (tips.length < MAX_SPENDING_TIPS && deliveryCount >= 2) {
-    tips.push({
-      id: "delivery_recipes",
-      emoji: "\uD83C\uDF73", // 🍳
-      message: `Pediste delivery ${deliveryCount} veces (${formatTipAmount(deliveryTotal)}). Sacale una foto a tu heladera y te sugerimos recetas`,
-      action: { label: "Buscar recetas", href: "/cocina" },
+  // ── Candidate: Delivery → Recipes ──
+  const deliveryShare = deliveryTotal / variableTotal;
+  if (deliveryCount >= 2 && deliveryShare >= DELIVERY_ALERT_MIN_SHARE) {
+    candidates.push({
+      tip: {
+        id: "delivery_recipes",
+        emoji: "\uD83C\uDF73", // 🍳
+        message: `Pediste delivery ${deliveryCount} veces (${formatTipAmount(deliveryTotal)}). Sacale una foto a tu heladera y te sugerimos recetas`,
+        action: { label: "Buscar recetas", href: "/cocina" },
+      },
+      score: buildTipScore({
+        amount: deliveryTotal,
+        variableTotal,
+        count: deliveryCount,
+        minCount: 2,
+      }),
     });
   }
 
-  // ── Banner: Kiosco → Shopping list ──
-  if (tips.length < MAX_SPENDING_TIPS && kioscoCount >= 3) {
-    tips.push({
-      id: "kiosco_list",
-      emoji: "\uD83C\uDFEA", // 🏪
-      message: `Fuiste ${kioscoCount} veces al kiosco por ${formatTipAmount(kioscoTotal)}. ¿Querés armar una lista para el super?`,
-      action: { label: "Armar lista", href: "/compras" },
+  // ── Candidate: Kiosco → Shopping list ──
+  const kioscoShare = kioscoTotal / variableTotal;
+  if (kioscoCount >= 3 && kioscoShare >= KIOSCO_ALERT_MIN_SHARE) {
+    candidates.push({
+      tip: {
+        id: "kiosco_list",
+        emoji: "\uD83C\uDFEA", // 🏪
+        message: `Fuiste ${kioscoCount} veces al kiosco por ${formatTipAmount(kioscoTotal)}. ¿Querés armar una lista para el super?`,
+        action: { label: "Armar lista", href: "/compras" },
+      },
+      score: buildTipScore({
+        amount: kioscoTotal,
+        variableTotal,
+        count: kioscoCount,
+        minCount: 3,
+      }),
     });
   }
 
-  // ── Banner: Eating out → Discover restaurants ──
-  if (tips.length < MAX_SPENDING_TIPS && foodTotal > 0) {
-    const foodExpenseCount = variableExpenses.filter((e) => e.category === "FOOD").length;
-    if (foodExpenseCount >= 2) {
-      tips.push({
-        id: "food_discover",
-        emoji: "\uD83C\uDF7D\uFE0F", // 🍽️
-        message: `${formatTipAmount(foodTotal)} en salidas y comida. Descubrí restaurantes y bares cerca tuyo`,
-        action: { label: "Explorar", href: "/descubrir" },
-      });
-    }
-  }
+  // Momentáneamente no mostramos recomendaciones que dependan de /descubrir.
+  void _foodTotal;
+  void _entertainmentTotal;
 
-  // ── Banner: Entertainment → Discover plans ──
-  if (tips.length < MAX_SPENDING_TIPS && entertainmentTotal > 0) {
-    const entertainmentCount = variableExpenses.filter((e) => e.category === "ENTERTAINMENT").length;
-    if (entertainmentCount >= 2) {
-      tips.push({
-        id: "entertainment_discover",
-        emoji: "\uD83C\uDFAD", // 🎭
-        message: `Gastaste ${formatTipAmount(entertainmentTotal)} en entretenimiento. Mirá qué planes hay cerca`,
-        action: { label: "Ver planes", href: "/descubrir" },
-      });
-    }
-  }
+  if (candidates.length === 0) return [];
 
-  return tips.slice(0, MAX_SPENDING_TIPS);
+  // Prioriza señales con mayor impacto + repetición.
+  return candidates
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_SPENDING_TIPS)
+    .map((candidate) => ({
+      ...candidate.tip,
+      severity: getTipSeverity(candidate.score),
+    }));
 }
 
 // ============================================
@@ -518,6 +642,7 @@ export function computeExpenseInsights(context: ExpenseInsightsContext): Expense
   const {
     thisMonthExpenses,
     lastMonthExpenses,
+    historicalExpenses,
     activeServices,
     upcomingServices,
     daysElapsedThisMonth,
@@ -535,6 +660,9 @@ export function computeExpenseInsights(context: ExpenseInsightsContext): Expense
   const variableThisMonth = variableThisMonthExpenses.reduce((sum, e) => sum + e.amount, 0);
   const fixedThisMonth = fixedThisMonthExpenses.reduce((sum, e) => sum + e.amount, 0);
   const thisMonthTotal = variableThisMonth + fixedThisMonth;
+  const hasReliableMonthlyTrend =
+    daysElapsedThisMonth >= MIN_DAYS_FOR_RELIABLE_TREND &&
+    thisMonthExpenses.length >= MIN_EXPENSES_FOR_RELIABLE_TREND;
 
   // ── Last month: variable only ──
 
@@ -611,11 +739,13 @@ export function computeExpenseInsights(context: ExpenseInsightsContext): Expense
 
   // ── Spending tips ──
 
-  const spendingTips = computeSpendingTips(
-    variableThisMonthExpenses,
-    variableThisMonth,
-    variableCategoryBreakdown,
-  );
+  const spendingTips = hasReliableMonthlyTrend
+    ? computeSpendingTips(
+        variableThisMonthExpenses,
+        variableThisMonth,
+        variableCategoryBreakdown,
+      )
+    : [];
 
   // ── 3-month average ──
 
@@ -625,7 +755,7 @@ export function computeExpenseInsights(context: ExpenseInsightsContext): Expense
     threeMonthsAgoSummary,
   );
 
-  const vsAverageResult = variableMonthlyAverage
+  const vsAverageResult = hasReliableMonthlyTrend && variableMonthlyAverage
     ? computeTrend(variableProjected, variableMonthlyAverage)
     : { trend: "flat" as const, percent: 0 };
 
@@ -638,7 +768,7 @@ export function computeExpenseInsights(context: ExpenseInsightsContext): Expense
     threeMonthsAgoSummary,
   );
 
-  const dailyVsAverageResult = historicalDailyAverage
+  const dailyVsAverageResult = hasReliableMonthlyTrend && historicalDailyAverage
     ? computeTrend(variableDailyAverage, historicalDailyAverage)
     : { trend: "flat" as const, percent: 0 };
 
@@ -659,6 +789,8 @@ export function computeExpenseInsights(context: ExpenseInsightsContext): Expense
   const fixedPercentOfTotal = thisMonthTotal > 0
     ? Math.round((fixedThisMonth / thisMonthTotal) * 100)
     : 0;
+  const monthlyHistory = buildMonthlyHistory(historicalExpenses);
+  const hasAnyHistoricalExpenses = historicalExpenses.length > 0;
 
   return {
     variableDailyAverage,
@@ -689,9 +821,16 @@ export function computeExpenseInsights(context: ExpenseInsightsContext): Expense
     dailyVsAverageTrend: dailyVsAverageResult.trend,
     dailyVsAveragePercent: dailyVsAverageResult.percent,
 
-    topGrowthCategory,
+    topGrowthCategory: hasReliableMonthlyTrend ? topGrowthCategory : null,
 
     fixedExpensesCount,
     fixedPercentOfTotal,
+
+    categoryBreakdown: variableCategoryBreakdown,
+    variableThisMonth: round2(variableThisMonth),
+    thisMonthExpenseCount: thisMonthExpenses.length,
+    hasAnyHistoricalExpenses,
+    hasReliableMonthlyTrend,
+    monthlyHistory,
   };
 }

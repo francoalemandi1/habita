@@ -1,9 +1,21 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { CATEGORY_ICONS, CATEGORY_COLORS } from "@/lib/expense-constants";
+import { CATEGORY_ICONS, CATEGORY_COLORS, SUBCATEGORY_LABELS } from "@/lib/expense-constants";
 import { frequencyLabel } from "@/lib/service-utils";
-import { Receipt, ChevronDown, ChevronUp, Trash2, Repeat, Plus, Settings, Loader2 } from "lucide-react";
+import {
+  Receipt,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+  Repeat,
+  Plus,
+  Settings,
+  Loader2,
+  Bike,
+  Store,
+  ShoppingCart,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/features/error-states";
@@ -11,10 +23,11 @@ import { EditExpenseDialog } from "@/components/features/edit-expense-dialog";
 import { cn } from "@/lib/utils";
 
 import type { SerializedExpense, SerializedService, MemberOption } from "@/types/expense";
-import type { ExpenseCategory, RecurringFrequency } from "@prisma/client";
+import type { ExpenseCategory, ExpenseSubcategory, RecurringFrequency } from "@prisma/client";
 import type { UpdateExpensePayload } from "@/components/features/expenses-view";
 
 const MAX_SERVICES_COLLAPSED = 3;
+const SHOW_SERVICES_SECTION = false;
 
 interface ExpenseListProps {
   expenses: SerializedExpense[];
@@ -34,6 +47,24 @@ interface ExpenseListProps {
   onCreateService?: () => void;
   isSolo?: boolean;
 }
+
+type ExpenseSubcategoryFilter = "ALL" | ExpenseSubcategory;
+const SUBCATEGORY_PRIORITY: ExpenseSubcategory[] = [
+  "DELIVERY",
+  "KIOSCO",
+  "SUPERMARKET",
+];
+const SUBCATEGORY_ICON_OVERRIDES: Partial<Record<ExpenseSubcategory, typeof Bike>> = {
+  DELIVERY: Bike,
+  KIOSCO: Store,
+  SUPERMARKET: ShoppingCart,
+};
+
+const SUBCATEGORY_COLOR_OVERRIDES: Partial<Record<ExpenseSubcategory, string>> = {
+  DELIVERY: "bg-orange-100 text-orange-600",
+  KIOSCO: "bg-fuchsia-100 text-fuchsia-600",
+  SUPERMARKET: "bg-green-100 text-green-600",
+};
 
 /** An expense is settled when every split that isn't the payer's own is marked settled. */
 function isExpenseSettled(expense: SerializedExpense): boolean {
@@ -168,8 +199,8 @@ function ExpenseItem({
   hideSplitInfo,
   onClick,
 }: ExpenseItemProps) {
-  const CategoryIcon = CATEGORY_ICONS[expense.category];
-  const categoryColorClasses = CATEGORY_COLORS[expense.category];
+  const CategoryIcon = SUBCATEGORY_ICON_OVERRIDES[expense.subcategory] ?? CATEGORY_ICONS[expense.category];
+  const categoryColorClasses = SUBCATEGORY_COLOR_OVERRIDES[expense.subcategory] ?? CATEGORY_COLORS[expense.category];
   const isPayer = expense.paidBy.id === currentMemberId;
 
   const mySplit = expense.splits.find((s) => s.memberId === currentMemberId);
@@ -199,6 +230,7 @@ function ExpenseItem({
         <p className="truncate text-sm font-medium">{expense.title}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {isPayer ? "Vos pagaste" : `${expense.paidBy.name} pago`}
+          {expense.subcategory !== "GENERAL" ? ` · ${SUBCATEGORY_LABELS[expense.subcategory]}` : ""}
         </p>
         {!hideSplitInfo && mySplit && !isPayer && myAmount > 0 && (
           <p className={`mt-0.5 text-xs font-medium ${allSettled ? "text-muted-foreground line-through" : "text-red-600"}`}>
@@ -575,9 +607,13 @@ export function ExpenseList({
   const [showSettled, setShowSettled] = useState(false);
   const [showAllServices, setShowAllServices] = useState(false);
   const [revealedExpenseId, setRevealedExpenseId] = useState<string | null>(null);
+  const [subcategoryFilter, setSubcategoryFilter] = useState<ExpenseSubcategoryFilter>("ALL");
 
-  const pendingExpenses = expenses.filter((expense) => !isExpenseSettled(expense));
-  const settledExpenses = expenses.filter((expense) => isExpenseSettled(expense));
+  const filteredExpenses = subcategoryFilter === "ALL"
+    ? expenses
+    : expenses.filter((expense) => expense.subcategory === subcategoryFilter);
+  const pendingExpenses = filteredExpenses.filter((expense) => !isExpenseSettled(expense));
+  const settledExpenses = filteredExpenses.filter((expense) => isExpenseSettled(expense));
 
   const hasServices = activeServices && activeServices.length > 0;
   const visibleServices = hasServices
@@ -587,7 +623,29 @@ export function ExpenseList({
     : [];
   const hasMoreServices = hasServices && activeServices.length > MAX_SERVICES_COLLAPSED;
 
-  if (expenses.length === 0 && !hasServices) {
+  const hasVisibleServices = SHOW_SERVICES_SECTION && hasServices;
+  const subcategoryCounts = expenses.reduce(
+    (acc, expense) => {
+      acc[expense.subcategory] = (acc[expense.subcategory] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<ExpenseSubcategory, number>,
+  );
+  const subcategoryOptions = Object.entries(subcategoryCounts)
+    .map(([subcategory, count]) => ({
+      subcategory: subcategory as ExpenseSubcategory,
+      count,
+    }))
+    .sort((a, b) => {
+      const aPriority = SUBCATEGORY_PRIORITY.indexOf(a.subcategory);
+      const bPriority = SUBCATEGORY_PRIORITY.indexOf(b.subcategory);
+      const aRank = aPriority === -1 ? Number.MAX_SAFE_INTEGER : aPriority;
+      const bRank = bPriority === -1 ? Number.MAX_SAFE_INTEGER : bPriority;
+      if (aRank !== bRank) return aRank - bRank;
+      return b.count - a.count;
+    });
+
+  if (expenses.length === 0 && !hasVisibleServices) {
     return (
       <EmptyState
         icon={<Receipt className="h-12 w-12 text-muted-foreground" />}
@@ -605,86 +663,87 @@ export function ExpenseList({
   }
 
   // Solo mode: flat chronological list; Multi mode: pending/settled sections
-  const allGroups = isSolo ? groupByDate(expenses) : [];
+  const allGroups = isSolo ? groupByDate(filteredExpenses) : [];
   const pendingGroups = isSolo ? [] : groupByDate(pendingExpenses);
   const settledGroups = isSolo ? [] : groupBySettlementDate(settledExpenses);
 
   return (
     <div className="mt-4">
-      {/* Servicios — wrapped in Card */}
-      <Card className="mb-4">
-        <CardContent className="py-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Servicios
-            </p>
-            <div className="flex items-center gap-1">
-              {onCreateService && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 gap-1 px-1.5 text-xs text-muted-foreground"
-                  onClick={onCreateService}
-                >
-                  <Plus className="h-3 w-3" />
-                  Nuevo
-                </Button>
-              )}
-              {onManageServices && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-muted-foreground"
-                  onClick={onManageServices}
-                >
-                  <Settings className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {hasServices ? (
-            <div className="space-y-1.5">
-              {visibleServices.map((service) => (
-                <ServiceItem
-                  key={service.id}
-                  service={service}
-                  isGenerating={generatingIds?.has(service.id) ?? false}
-                  onGenerate={() => onServiceGenerate?.(service.id)}
-                  onEdit={() => onServiceEdit?.(service)}
-                />
-              ))}
-              {hasMoreServices && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllServices((prev) => !prev)}
-                  className="flex w-full items-center justify-center gap-1 py-1.5 text-xs font-medium text-primary"
-                >
-                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showAllServices && "rotate-180")} />
-                  {showAllServices ? "Colapsar" : `Ver todos (${activeServices!.length})`}
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-muted-foreground/25 px-4 py-5 text-center">
-              <p className="text-sm text-muted-foreground">
-                Agregá tus servicios fijos: alquiler, expensas, Netflix...
+      {SHOW_SERVICES_SECTION && (
+        <Card className="mb-4">
+          <CardContent className="py-4">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Servicios
               </p>
-              {onCreateService && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3 gap-1.5"
-                  onClick={onCreateService}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Agregar servicio
-                </Button>
-              )}
+              <div className="flex items-center gap-1">
+                {onCreateService && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 gap-1 px-1.5 text-xs text-muted-foreground"
+                    onClick={onCreateService}
+                  >
+                    <Plus className="h-3 w-3" />
+                    Nuevo
+                  </Button>
+                )}
+                {onManageServices && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-muted-foreground"
+                    onClick={onManageServices}
+                  >
+                    <Settings className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+
+            {hasServices ? (
+              <div className="space-y-1.5">
+                {visibleServices.map((service) => (
+                  <ServiceItem
+                    key={service.id}
+                    service={service}
+                    isGenerating={generatingIds?.has(service.id) ?? false}
+                    onGenerate={() => onServiceGenerate?.(service.id)}
+                    onEdit={() => onServiceEdit?.(service)}
+                  />
+                ))}
+                {hasMoreServices && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllServices((prev) => !prev)}
+                    className="flex w-full items-center justify-center gap-1 py-1.5 text-xs font-medium text-primary"
+                  >
+                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showAllServices && "rotate-180")} />
+                    {showAllServices ? "Colapsar" : `Ver todos (${activeServices!.length})`}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-muted-foreground/25 px-4 py-5 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Agregá tus servicios fijos: alquiler, expensas, Netflix...
+                </p>
+                {onCreateService && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 gap-1.5"
+                    onClick={onCreateService}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Agregar servicio
+                  </Button>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Section label */}
       {expenses.length > 0 && (
@@ -692,8 +751,45 @@ export function ExpenseList({
           Gastos recientes
         </p>
       )}
+      {expenses.length > 0 && (
+        <div className="mb-3 flex items-center gap-2 overflow-x-auto pb-1">
+          <button
+            type="button"
+            onClick={() => setSubcategoryFilter("ALL")}
+            className={cn(
+              "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              subcategoryFilter === "ALL"
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Todas ({expenses.length})
+          </button>
+          {subcategoryOptions.map((option) => (
+            <button
+              key={option.subcategory}
+              type="button"
+              onClick={() => setSubcategoryFilter(option.subcategory)}
+              className={cn(
+                "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                subcategoryFilter === option.subcategory
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {SUBCATEGORY_LABELS[option.subcategory]} ({option.count})
+            </button>
+          ))}
+        </div>
+      )}
 
-      {isSolo ? (
+      {expenses.length > 0 && filteredExpenses.length === 0 && (
+        <p className="py-4 text-center text-sm text-muted-foreground">
+          No hay gastos en la subcategoría seleccionada.
+        </p>
+      )}
+
+      {filteredExpenses.length > 0 && isSolo ? (
         /* Solo mode: flat chronological list, no pending/settled distinction */
         <ExpenseGroups
           groups={allGroups}
@@ -710,7 +806,7 @@ export function ExpenseList({
             onDelete: onExpenseDeleted,
           }}
         />
-      ) : (
+      ) : filteredExpenses.length > 0 ? (
         <>
           {/* Pending expenses */}
           {pendingGroups.length > 0 ? (
@@ -769,7 +865,7 @@ export function ExpenseList({
             </>
           )}
         </>
-      )}
+      ) : null}
 
       {editingExpense && (
         <EditExpenseDialog

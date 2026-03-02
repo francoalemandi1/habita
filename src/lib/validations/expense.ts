@@ -30,6 +30,7 @@ export const createExpenseSchema = z.object({
       }),
     )
     .optional(),
+  chargeToFund: z.boolean().optional(),
 });
 
 export const settleSchema = z.object({

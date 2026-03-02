@@ -51,6 +51,12 @@ export type SaveRecipeInput = z.infer<typeof saveRecipeSchema>;
 export const saveCartSchema = z.object({
   storeName: z.string().min(1).max(200),
   searchTerms: z.array(z.string().min(1)).min(1).max(50),
+  searchItems: z.array(
+    z.object({
+      term: z.string().min(1).max(100),
+      quantity: z.number().int().min(1).max(99),
+    }),
+  ).optional(),
   products: z.array(z.record(z.unknown())).min(1).max(100),
   totalPrice: z.number().min(0),
   cheapestCount: z.number().int().min(0).default(0),

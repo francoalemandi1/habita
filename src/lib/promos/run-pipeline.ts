@@ -8,9 +8,9 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { KNOWN_STORE_NAMES, STALE_PIPELINE_TIMEOUT_MS } from "./constants";
+import { KNOWN_STORE_NAMES, STALE_PIPELINE_TIMEOUT_MS, STORE_TITLE_TOKENS } from "./constants";
 import { fetchAllStorePromos } from "./promoarg-client";
-import { getBankDisplayName } from "./bank-mapping";
+import { getBankDisplayName, resolvePromoBank } from "./bank-mapping";
 
 import type { Prisma } from "@prisma/client";
 import type { PromoargPromotion, PromosPipelineOutcome, StorePromosResult } from "./types";
@@ -86,6 +86,38 @@ export async function runPromosPipeline(options: PipelineOptions): Promise<Promo
 }
 
 // ============================================
+// Filtering + normalization helpers
+// ============================================
+
+/** Normalize unaccented Spanish day names from the API to canonical accented form. */
+const DAY_ACCENT_MAP: Record<string, string> = {
+  Miercoles: "Miércoles",
+  Sabado: "Sábado",
+};
+
+function normalizeDayName(day: string): string {
+  return DAY_ACCENT_MAP[day] ?? day;
+}
+
+/** Escape special regex characters in a literal string. */
+function escapeRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Returns true when at least one token for this store appears in the title
+ * as a whole word (word-boundary match, case-insensitive).
+ */
+function promoTitleMatchesStore(title: string, storeName: string): boolean {
+  const tokens = STORE_TITLE_TOKENS[storeName] ?? [storeName.toLowerCase()];
+  const normalizedTitle = title.toLowerCase();
+  return tokens.some((token) => {
+    const pattern = new RegExp(`\\b${escapeRegex(token)}\\b`, "i");
+    return pattern.test(normalizedTitle);
+  });
+}
+
+// ============================================
 // Dedup + mapping
 // ============================================
 
@@ -105,11 +137,22 @@ function buildDatabaseRows(
       (p) => p.discountPercentage !== null && p.discountPercentage > 0,
     );
 
+    // Filter: only promos whose title actually references this store
+    const relevant = withDiscount.filter((p) => {
+      if (!p.title) return false;
+      return promoTitleMatchesStore(p.title, storeName);
+    });
+
+    const dropped = withDiscount.length - relevant.length;
+    if (dropped > 0) {
+      console.log(`[promos-pipeline] ${storeName}: dropped ${dropped} off-topic promos after title filter`);
+    }
+
     // Dedup: merge by bankId + % + days
     const dedupMap = new Map<string, PromoargPromotion & { mergedPlans: string[] }>();
 
-    for (const promo of withDiscount) {
-      const days = Array.isArray(promo.validDays) ? promo.validDays : [];
+    for (const promo of relevant) {
+      const days = Array.isArray(promo.validDays) ? promo.validDays.map(normalizeDayName) : [];
       const plans = Array.isArray(promo.eligiblePlans) ? promo.eligiblePlans : [];
       const sortedDays = [...days].sort().join(",");
       const dedupKey = `${promo.bankId}|${promo.discountPercentage}|${sortedDays}`;
@@ -129,17 +172,31 @@ function buildDatabaseRows(
 
     // Map to DB rows
     for (const promo of dedupMap.values()) {
+      const participatingBanks = Array.isArray(promo.participatingBanks) ? promo.participatingBanks : null;
+      const resolved = resolvePromoBank(promo.bankId, promo.title ?? null, participatingBanks);
+
+      const existingMethods =
+        Array.isArray(promo.paymentMethods) && promo.paymentMethods.length > 0
+          ? promo.paymentMethods
+          : [];
+
+      // When resolved to a real bank, inject the network label as first paymentMethod
+      // so the UI can display "Ciudad · MODO" instead of just "MODO".
+      const enrichedMethods = resolved
+        ? [resolved.networkLabel, ...existingMethods.filter((m) => m !== resolved.networkLabel)]
+        : existingMethods;
+
       rows.push({
         householdId,
         promoargId: promo.id,
-        bankSlug: promo.bankId,
-        bankDisplayName: getBankDisplayName(promo.bankId),
+        bankSlug: resolved?.bankSlug ?? promo.bankId,
+        bankDisplayName: resolved?.bankDisplayName ?? getBankDisplayName(promo.bankId),
         storeName,
         title: promo.title || null,
         description: promo.description || null,
         discountPercent: promo.discountPercentage!,
         daysOfWeek: JSON.stringify(promo.validDays),
-        paymentMethods: Array.isArray(promo.paymentMethods) && promo.paymentMethods.length > 0 ? JSON.stringify(promo.paymentMethods) : null,
+        paymentMethods: enrichedMethods.length > 0 ? JSON.stringify(enrichedMethods) : null,
         eligiblePlans: promo.mergedPlans.length > 0 ? JSON.stringify(promo.mergedPlans) : null,
         capAmount: promo.capAmount ?? null,
         categories: Array.isArray(promo.categories) && promo.categories.length > 0 ? JSON.stringify(promo.categories) : null,

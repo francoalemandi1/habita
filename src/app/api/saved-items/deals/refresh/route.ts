@@ -6,6 +6,27 @@ import { refreshCartSchema } from "@/lib/validations/saved-items";
 import { compareProducts } from "@/lib/supermarket-search";
 
 import type { Prisma } from "@prisma/client";
+import type { SearchItem } from "@/lib/supermarket-search";
+
+function extractSearchItems(savedCart: { searchTerms: string[]; products: Prisma.JsonValue }): SearchItem[] {
+  if (Array.isArray(savedCart.products)) {
+    const map = new Map<string, number>();
+    for (const rawProduct of savedCart.products) {
+      if (!rawProduct || typeof rawProduct !== "object") continue;
+      const product = rawProduct as Record<string, unknown>;
+      const term = typeof product.searchTerm === "string" ? product.searchTerm.trim() : "";
+      const quantityRaw = typeof product.quantity === "number" ? product.quantity : 1;
+      if (!term) continue;
+      const quantity = Math.max(1, Math.floor(quantityRaw));
+      map.set(term, Math.max(map.get(term) ?? 0, quantity));
+    }
+    if (map.size > 0) {
+      return Array.from(map.entries()).map(([term, quantity]) => ({ term, quantity }));
+    }
+  }
+
+  return savedCart.searchTerms.map((term) => ({ term, quantity: 1 }));
+}
 
 /**
  * POST /api/saved-items/deals/refresh
@@ -28,7 +49,7 @@ export async function POST(request: Request) {
     }
 
     const city = member.household.city;
-    const freshResults = await compareProducts(savedCart.searchTerms, city);
+    const freshResults = await compareProducts(extractSearchItems(savedCart), city);
 
     // Find the matching store in fresh results
     const freshStoreCart = freshResults.storeCarts.find(

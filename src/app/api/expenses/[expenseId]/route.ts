@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { updateExpenseSchema } from "@/lib/validations/expense";
+import { inferExpenseSubcategory } from "@/lib/expense-subcategory";
 
 import type { NextRequest } from "next/server";
 
@@ -95,7 +96,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const existing = await prisma.expense.findFirst({
       where: { id: expenseId, householdId },
-      select: { id: true, amount: true, splitType: true },
+      select: { id: true, amount: true, splitType: true, category: true, title: true },
     });
 
     if (!existing) {
@@ -118,6 +119,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (data.category !== undefined) updateData.category = data.category;
     if (data.notes !== undefined) updateData.notes = data.notes;
     if (data.amount !== undefined) updateData.amount = new Prisma.Decimal(data.amount.toFixed(2));
+    if (data.title !== undefined || data.category !== undefined) {
+      updateData.subcategory = inferExpenseSubcategory(
+        data.title ?? existing.title,
+        data.category ?? existing.category,
+      );
+    }
 
     // If amount changed on EQUAL split, recalculate all splits
     if (amountChanged && data.amount !== undefined) {

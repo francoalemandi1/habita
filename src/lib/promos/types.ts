@@ -17,6 +17,7 @@ export interface PromoargPromotion {
   imageUrl: string | null;
   paymentMethods: string[];
   eligiblePlans: string[];
+  participatingBanks: string[] | null;
   detailsUrl: string | null;
 }
 

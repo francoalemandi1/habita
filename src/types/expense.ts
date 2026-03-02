@@ -1,4 +1,4 @@
-import type { ExpenseCategory, SplitType } from "@prisma/client";
+import type { ExpenseCategory, ExpenseSubcategory, SplitType } from "@prisma/client";
 
 export interface ExpenseSplitSerialized {
   id: string;
@@ -15,6 +15,7 @@ export interface SerializedExpense {
   amount: number;
   currency: string;
   category: ExpenseCategory;
+  subcategory: ExpenseSubcategory;
   splitType: SplitType;
   date: string;
   notes: string | null;

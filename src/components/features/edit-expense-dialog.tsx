@@ -13,7 +13,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { CATEGORY_OPTIONS, CATEGORY_ICONS, CATEGORY_COLORS } from "@/lib/expense-constants";
+import { CATEGORY_OPTIONS, CATEGORY_ICONS, CATEGORY_COLORS, SUBCATEGORY_LABELS } from "@/lib/expense-constants";
+import { inferExpenseSubcategory } from "@/lib/expense-subcategory";
 import { Trash2 } from "lucide-react";
 import { iconSize } from "@/lib/design-tokens";
 
@@ -47,6 +48,7 @@ export function EditExpenseDialog({
   const isCustomSplit = expense.splitType !== "EQUAL";
   const CategoryIcon = CATEGORY_ICONS[category];
   const categoryColorClasses = CATEGORY_COLORS[category];
+  const inferredSubcategory = inferExpenseSubcategory(title, category);
 
   function handleSave() {
     const parsedAmount = parseFloat(amount);
@@ -143,7 +145,11 @@ export function EditExpenseDialog({
                 <span className={`flex h-6 w-6 items-center justify-center rounded-lg ${categoryColorClasses}`}>
                   <CategoryIcon className="h-3 w-3" />
                 </span>
-                {CATEGORY_OPTIONS.find((o) => o.value === category)?.label}
+                <span>
+                  {inferredSubcategory !== "GENERAL"
+                    ? SUBCATEGORY_LABELS[inferredSubcategory]
+                    : CATEGORY_OPTIONS.find((o) => o.value === category)?.label}
+                </span>
               </button>
             </div>
 

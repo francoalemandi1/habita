@@ -4,6 +4,7 @@ import { requireMember } from "@/lib/session";
 import { createExpenseSchema } from "@/lib/validations/expense";
 import { handleApiError } from "@/lib/api-response";
 import { buildSplitsData } from "@/lib/expense-splits";
+import { inferExpenseSubcategory } from "@/lib/expense-subcategory";
 
 import { Prisma } from "@prisma/client";
 
@@ -104,6 +105,19 @@ export async function POST(request: NextRequest) {
     }
 
     const splitsData = splitsResult.data;
+    const subcategory = inferExpenseSubcategory(data.title, data.category);
+
+    // When chargeToFund is requested, look up active fund and verify the category is in fundCategories
+    let fundToCharge: { id: string } | null = null;
+    if (data.chargeToFund) {
+      const activeFund = await prisma.sharedFund.findUnique({
+        where: { householdId: member.householdId },
+        select: { id: true, isActive: true, fundCategories: true },
+      });
+      if (activeFund?.isActive && activeFund.fundCategories.includes(data.category)) {
+        fundToCharge = { id: activeFund.id };
+      }
+    }
 
     const expense = await prisma.expense.create({
       data: {
@@ -113,12 +127,26 @@ export async function POST(request: NextRequest) {
         amount: new Prisma.Decimal(data.amount.toFixed(2)),
         currency: "ARS",
         category: data.category,
+        subcategory,
         date: data.date ? new Date(data.date) : new Date(),
         notes: data.notes ?? null,
         splitType: data.splitType,
         splits: {
           create: splitsData,
         },
+        // Link to fund expense if applicable
+        ...(fundToCharge && {
+          fundExpense: {
+            create: {
+              fundId: fundToCharge.id,
+              title: data.title,
+              amount: new Prisma.Decimal(data.amount.toFixed(2)),
+              category: data.category,
+              date: data.date ? new Date(data.date) : new Date(),
+              notes: data.notes ?? null,
+            },
+          },
+        }),
       },
       include: {
         paidBy: { select: { id: true, name: true } },

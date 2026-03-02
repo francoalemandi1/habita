@@ -11,11 +11,17 @@ import type { NextRequest } from "next/server";
 // ============================================
 
 const bodySchema = z.object({
-  searchTerms: z
-    .array(z.string().min(1).max(100))
-    .min(1, "Agregá al menos un producto")
-    .max(30, "Máximo 30 productos por búsqueda"),
-});
+  searchTerms: z.array(z.string().min(1).max(100)).max(30).optional(),
+  searchItems: z.array(
+    z.object({
+      term: z.string().min(1).max(100),
+      quantity: z.number().int().min(1).max(99),
+    }),
+  ).max(30).optional(),
+}).refine(
+  (body) => (body.searchItems?.length ?? 0) > 0 || (body.searchTerms?.length ?? 0) > 0,
+  { message: "Agregá al menos un producto" },
+);
 
 // ============================================
 // Route
@@ -38,10 +44,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { searchTerms } = validation.data;
+    const searchInput = validation.data.searchItems ?? validation.data.searchTerms ?? [];
     const city = member.household.city ?? null;
 
-    const result = await compareProducts(searchTerms, city);
+    const result = await compareProducts(searchInput, city);
 
     return NextResponse.json(result);
   } catch (error) {

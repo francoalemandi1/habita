@@ -21,6 +21,19 @@ export const FETCH_CONCURRENCY = 3;
 /** Canonical store names from the supermarket search system. */
 export const KNOWN_STORE_NAMES = SUPERMARKET_STORES.map((s) => s.name);
 
+/**
+ * Word-boundary tokens for validating that a promoarg.com title actually
+ * refers to the expected supermarket. Only stores with short/ambiguous names
+ * need explicit overrides — others use their own name as the token.
+ */
+export const STORE_TITLE_TOKENS: Record<string, string[]> = {
+  "Dia": ["dia"],
+  "Vea": ["vea"],
+  "Coop. Obrera": ["cooperativa", "coop. obrera", "coop obrera"],
+  "HiperLibertad": ["hiperlibertad"],
+  "Mas Online": ["mas online"],
+};
+
 // ============================================
 // Pipeline settings
 // ============================================

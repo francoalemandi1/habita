@@ -612,7 +612,7 @@ export function DescubrirClient({
       {recommendedEvents.length > 0 && (
         <section>
           <h2 className={cn(typography.label, "mb-2")}>Recomendados para vos</h2>
-          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 scrollbar-none snap-x snap-proximity">
+          <div className="-mx-2 flex gap-3 overflow-x-auto px-2 pb-2 scrollbar-none snap-x snap-proximity">
             {recommendedEvents.map((event, index) => (
               <HighlightedEventCard
                 key={`highlight-${event.title}-${index}`}
@@ -779,7 +779,7 @@ function HighlightedEventCard({
     <div
       className={cn(
         radius.card,
-        "w-[280px] shrink-0 snap-start border p-4",
+        "w-[280px] shrink-0 snap-start border p-4 md:w-[320px]",
         "bg-linear-to-br",
         gradient,
         colors.cardBorder,
@@ -918,17 +918,16 @@ function CategorySection({
         </span>
       </div>
 
-      {/* Mobile: horizontal scroll | Desktop: 2-col grid */}
+      {/* Mobile + Desktop: horizontal scroll row */}
       <div
         className={cn(
-          "flex items-stretch gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-proximity -mx-4 px-4",
-          "sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:snap-none",
+          "flex items-stretch gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-proximity -mx-2 px-2",
         )}
       >
         {events.map((event, index) => (
           <div
             key={`${event.title}-${index}`}
-            className="flex min-w-0 w-[260px] shrink-0 snap-start sm:w-auto sm:shrink"
+            className="flex min-w-0 w-[260px] shrink-0 snap-start md:w-[320px]"
           >
             <EventCard event={event} savedEvents={savedEvents} />
           </div>

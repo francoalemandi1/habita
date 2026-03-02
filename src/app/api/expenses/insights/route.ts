@@ -27,6 +27,7 @@ export async function GET() {
     const twoMonthsAgoEnd = new Date(lastMonthStart.getTime() - 1);
     const threeMonthsAgoStart = new Date(now.getFullYear(), now.getMonth() - 3, 1, 0, 0, 0, 0);
     const threeMonthsAgoEnd = new Date(twoMonthsAgoStart.getTime() - 1);
+    const sixMonthsAgoStart = new Date(now.getFullYear(), now.getMonth() - 5, 1, 0, 0, 0, 0);
 
     const daysElapsedThisMonth = now.getDate();
     const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -42,6 +43,7 @@ export async function GET() {
     const historicalSelect = {
       amount: true,
       category: true,
+      subcategory: true,
       title: true,
       invoice: { select: { id: true } },
     } as const;
@@ -52,6 +54,7 @@ export async function GET() {
       lastMonthExpenses,
       twoMonthsAgoExpenses,
       threeMonthsAgoExpenses,
+      sixMonthsExpenses,
       activeServicesRaw,
       upcomingServices,
     ] = await Promise.all([
@@ -64,6 +67,7 @@ export async function GET() {
         select: {
           amount: true,
           category: true,
+          subcategory: true,
           title: true,
           date: true,
           invoice: { select: { id: true } },
@@ -81,6 +85,7 @@ export async function GET() {
         select: {
           amount: true,
           category: true,
+          subcategory: true,
           title: true,
           date: true,
           invoice: { select: { id: true } },
@@ -109,13 +114,31 @@ export async function GET() {
         take: 500,
       }),
 
-      // 5. All active services (for expected fixed cost)
+      // 5. Six-month history for monthly chart/state resolution
+      prisma.expense.findMany({
+        where: {
+          householdId,
+          date: { gte: sixMonthsAgoStart, lte: now },
+        },
+        select: {
+          amount: true,
+          category: true,
+          subcategory: true,
+          title: true,
+          date: true,
+          invoice: { select: { id: true } },
+        },
+        take: 2000,
+        orderBy: { date: "desc" },
+      }),
+
+      // 6. All active services (for expected fixed cost)
       prisma.service.findMany({
         where: { householdId, isActive: true },
         select: { lastAmount: true, frequency: true },
       }),
 
-      // 6. Active services due in next 7 days
+      // 7. Active services due in next 7 days
       prisma.service.findMany({
         where: {
           householdId,
@@ -130,6 +153,7 @@ export async function GET() {
     const monthExpenseRows: ExpenseRow[] = thisMonthExpenses.map((e) => ({
       amount: e.amount.toNumber(),
       category: e.category,
+      subcategory: e.subcategory,
       title: e.title,
       date: e.date.toISOString(),
       hasInvoice: e.invoice !== null,
@@ -139,6 +163,16 @@ export async function GET() {
     const lastMonthRows: LastMonthExpenseRow[] = lastMonthExpenses.map((e) => ({
       amount: e.amount.toNumber(),
       category: e.category,
+      subcategory: e.subcategory,
+      title: e.title,
+      date: e.date.toISOString(),
+      hasInvoice: e.invoice !== null,
+    }));
+
+    const historicalRows: ExpenseRow[] = sixMonthsExpenses.map((e) => ({
+      amount: e.amount.toNumber(),
+      category: e.category,
+      subcategory: e.subcategory,
       title: e.title,
       date: e.date.toISOString(),
       hasInvoice: e.invoice !== null,
@@ -151,6 +185,7 @@ export async function GET() {
       expenses.map((e) => ({
         amount: e.amount.toNumber(),
         category: e.category,
+        subcategory: e.subcategory,
         title: e.title,
         hasInvoice: e.invoice !== null,
       }));
@@ -176,6 +211,7 @@ export async function GET() {
     const insights = computeExpenseInsights({
       thisMonthExpenses: monthExpenseRows,
       lastMonthExpenses: lastMonthRows,
+      historicalExpenses: historicalRows,
       activeServices: activeServiceRows,
       upcomingServices: serializedUpcoming,
       daysElapsedThisMonth,

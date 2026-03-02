@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api-client";
 
-import type { ShoppingPlanResult } from "@/lib/supermarket-search";
+import type { SearchItem, ShoppingPlanResult } from "@/lib/supermarket-search";
 
 // ============================================
 // Hook
@@ -21,8 +21,8 @@ export function useShoppingPlan() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const search = useCallback(async (searchTerms: string[]) => {
-    if (searchTerms.length === 0) return;
+  const search = useCallback(async (searchItems: SearchItem[]) => {
+    if (searchItems.length === 0) return;
 
     setIsLoading(true);
     setError(null);
@@ -30,7 +30,7 @@ export function useShoppingPlan() {
     try {
       const result = await apiFetch<ShoppingPlanResult>("/api/ai/shopping-plan", {
         method: "POST",
-        body: { searchTerms },
+        body: { searchItems },
       });
       setData(result);
     } catch (err) {
@@ -46,5 +46,10 @@ export function useShoppingPlan() {
     setError(null);
   }, []);
 
-  return { data, isLoading, error, search, reset };
+  const restore = useCallback((previousData: ShoppingPlanResult) => {
+    setData(previousData);
+    setError(null);
+  }, []);
+
+  return { data, isLoading, error, search, reset, restore };
 }

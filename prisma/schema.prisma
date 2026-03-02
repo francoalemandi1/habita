@@ -134,6 +134,7 @@ model Household {
   invoices             Invoice[]
   bankPromos           BankPromo[]
   promoPipelineLogs    PromoPipelineLog[]
+  sharedFund           SharedFund?
   @@map("households")
 }
 
@@ -168,6 +169,8 @@ model Member {
   savedEvents          SavedEvent[]
   savedRecipes         SavedRecipe[]
   savedCarts           SavedCart[]
+  fundAllocations      FundAllocation[]
+  fundContributions    FundContribution[]
   @@unique([userId, householdId])
   @@index([householdId])
   @@index([userId])
@@ -597,16 +600,18 @@ model Expense {
   amount      Decimal         @db.Decimal(10, 2)
   currency    String          @default("ARS")
   category    ExpenseCategory @default(OTHER)
+  subcategory ExpenseSubcategory @default(GENERAL)
   date        DateTime        @default(now())
   notes       String?
   splitType   SplitType       @default(EQUAL)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
-  household Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  paidBy    Member       @relation("ExpensesPaid", fields: [paidById], references: [id], onDelete: Cascade)
-  splits    ExpenseSplit[]
-  invoice   Invoice?
+  household   Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  paidBy      Member       @relation("ExpensesPaid", fields: [paidById], references: [id], onDelete: Cascade)
+  splits      ExpenseSplit[]
+  invoice     Invoice?
+  fundExpense FundExpense?
 
   @@index([householdId])
   @@index([paidById])
@@ -642,6 +647,18 @@ enum ExpenseCategory {
   EDUCATION
   HOME
   OTHER
+}
+
+enum ExpenseSubcategory {
+  GENERAL
+  SUPERMARKET
+  KIOSCO
+  DELIVERY
+  RESTAURANT
+  STREAMING
+  PHARMACY
+  FUEL
+  TRANSPORT_APP
 }
 
 enum SplitType {
@@ -1024,4 +1041,77 @@ model PromoPipelineLog {
 
   @@index([householdId, status])
   @@map("promo_pipeline_logs")
+}
+
+// ============================================
+// SHARED FUND MODELS
+// ============================================
+
+model SharedFund {
+  id             String   @id @default(cuid())
+  householdId    String   @unique
+  name           String   @default("Fondo Común")
+  currency       String   @default("ARS")
+  monthlyTarget  Decimal? @db.Decimal(10, 2) // objetivo total mensual del fondo
+  fundCategories String[] @default(["RENT", "UTILITIES", "GROCERIES", "HOME"])
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  household         Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  memberAllocations FundAllocation[]
+  contributions     FundContribution[]
+  expenses          FundExpense[]
+
+  @@map("shared_funds")
+}
+
+model FundAllocation {
+  id       String  @id @default(cuid())
+  fundId   String
+  memberId String
+  amount   Decimal @db.Decimal(10, 2) // cuota mensual fija de este miembro
+
+  fund   SharedFund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+  member Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([fundId, memberId])
+  @@index([fundId])
+  @@map("fund_allocations")
+}
+
+model FundContribution {
+  id        String   @id @default(cuid())
+  fundId    String
+  memberId  String
+  amount    Decimal  @db.Decimal(10, 2)
+  period    String   // "2026-03" (YYYY-MM)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  fund   SharedFund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+  member Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([fundId])
+  @@index([fundId, period])
+  @@map("fund_contributions")
+}
+
+model FundExpense {
+  id        String          @id @default(cuid())
+  fundId    String
+  title     String
+  amount    Decimal         @db.Decimal(10, 2)
+  category  ExpenseCategory @default(OTHER)
+  date      DateTime        @default(now())
+  notes     String?
+  expenseId String?         @unique // link opcional al Expense registrado
+  createdAt DateTime        @default(now())
+
+  fund    SharedFund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+  expense Expense?   @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  @@index([fundId])
+  @@index([fundId, date])
+  @@map("fund_expenses")
 }

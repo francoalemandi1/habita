@@ -11,7 +11,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 
-import type { ExpenseCategory } from "@prisma/client";
+import type { ExpenseCategory, ExpenseSubcategory } from "@prisma/client";
 import type { LucideIcon } from "lucide-react";
 
 export const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
@@ -40,6 +40,20 @@ export const CATEGORY_ICONS: Record<ExpenseCategory, LucideIcon> = {
   OTHER: MoreHorizontal,
 };
 
+/** Solid bar colors for category breakdown visualizations. */
+export const CATEGORY_BAR_COLORS: Record<ExpenseCategory, string> = {
+  GROCERIES: "bg-green-500",
+  UTILITIES: "bg-yellow-500",
+  RENT: "bg-blue-500",
+  FOOD: "bg-orange-500",
+  TRANSPORT: "bg-sky-500",
+  HEALTH: "bg-red-500",
+  ENTERTAINMENT: "bg-purple-500",
+  EDUCATION: "bg-indigo-500",
+  HOME: "bg-stone-500",
+  OTHER: "bg-gray-400",
+};
+
 export const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
   GROCERIES: "bg-green-100 text-green-600",
   UTILITIES: "bg-yellow-100 text-yellow-600",
@@ -58,6 +72,18 @@ export const CATEGORY_OPTIONS: Array<{ value: ExpenseCategory; label: string }> 
     value: value as ExpenseCategory,
     label,
   }));
+
+export const SUBCATEGORY_LABELS: Record<ExpenseSubcategory, string> = {
+  GENERAL: "General",
+  SUPERMARKET: "Supermercado",
+  KIOSCO: "Kiosco",
+  DELIVERY: "Delivery",
+  RESTAURANT: "Restaurante",
+  STREAMING: "Streaming",
+  PHARMACY: "Farmacia",
+  FUEL: "Combustible",
+  TRANSPORT_APP: "Viaje app",
+};
 
 /** Strip diacritics so "farmacía" matches "farmacia". */
 function normalizeText(text: string): string {
@@ -112,7 +138,7 @@ const CATEGORY_KEYWORDS: Array<{ category: ExpenseCategory; keywords: string[] }
     keywords: [
       // Restaurantes y bares
       "restaurante", "restaurant", "comida", "delivery", "rappi", "pedidosya",
-      "pedidos ya", "mcdonalds", "burger", "pizza", "sushi", "cafe",
+      "pedidos ya", "peya", "pedidoya", "mcdonalds", "burger", "pizza", "sushi", "cafe",
       "bar", "cerveceria", "heladeria", "panaderia", "rotiseria",
       "empanadas", "milanesas", "asado",
       "cafeteria", "cerveza", "vino", "birra", "hamburgueseria",

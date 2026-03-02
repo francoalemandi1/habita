@@ -29,8 +29,10 @@ export interface AlternativeProduct {
 
 export interface CartProduct {
   searchTerm: string;
+  quantity: number;
   productName: string;
   price: number;
+  lineTotal: number;
   listPrice: number | null;
   imageUrl: string | null;
   link: string;
@@ -56,6 +58,11 @@ export interface ShoppingPlanResult {
   storeCarts: StoreCart[];
   notFound: string[];
   searchedAt: string;
+}
+
+export interface SearchItem {
+  term: string;
+  quantity: number;
 }
 
 // ============================================
@@ -148,6 +155,27 @@ interface TermResult {
   alternatives: AlternativeProduct[];
 }
 
+function normalizeSearchItems(searchInput: string[] | SearchItem[]): SearchItem[] {
+  const map = new Map<string, { term: string; quantity: number }>();
+
+  for (const rawItem of searchInput) {
+    const term = typeof rawItem === "string" ? rawItem : rawItem.term;
+    const quantity = typeof rawItem === "string" ? 1 : rawItem.quantity;
+    const trimmedTerm = term.trim();
+    if (!trimmedTerm) continue;
+    const normalizedKey = normalize(trimmedTerm);
+    const safeQuantity = Number.isFinite(quantity) ? Math.max(1, Math.floor(quantity)) : 1;
+    const existing = map.get(normalizedKey);
+    if (existing) {
+      existing.quantity += safeQuantity;
+    } else {
+      map.set(normalizedKey, { term: trimmedTerm, quantity: safeQuantity });
+    }
+  }
+
+  return Array.from(map.values());
+}
+
 /**
  * Score, filter, and rank products for a search term.
  * Returns the best product (by price/unit) plus up to 3 alternatives.
@@ -211,9 +239,11 @@ function pickRankedMatches(searchTerm: string, products: VtexProduct[]): TermRes
 
 /** Build shopping carts per store from search results. */
 function buildStoreCarts(
-  searchTerms: string[],
+  searchItems: SearchItem[],
   storeResults: Map<string, Map<string, TermResult>>,
 ): { storeCarts: StoreCart[]; notFound: string[] } {
+  const searchTerms = searchItems.map((item) => item.term);
+  const quantityByTerm = new Map(searchItems.map((item) => [item.term, item.quantity]));
   // Find cheapest and average price per search term across all stores
   const cheapestPriceByTerm = new Map<string, number>();
   const averagePriceByTerm = new Map<string, number>();
@@ -260,8 +290,10 @@ function buildStoreCarts(
 
       products.push({
         searchTerm: term,
+        quantity: quantityByTerm.get(term) ?? 1,
         productName: termResult.product.productName,
         price: termResult.product.price,
+        lineTotal: termResult.product.price * (quantityByTerm.get(term) ?? 1),
         listPrice: termResult.product.listPrice,
         imageUrl: termResult.product.imageUrl,
         link: termResult.product.link,
@@ -277,7 +309,7 @@ function buildStoreCarts(
     const foundTerms = new Set(products.map((p) => p.searchTerm));
     const missingTerms = searchableTerms.filter((t) => !foundTerms.has(t));
 
-    const totalPrice = products.reduce((sum, p) => sum + p.price, 0);
+    const totalPrice = products.reduce((sum, product) => sum + product.lineTotal, 0);
     const cheapestCount = products.filter((p) => p.isCheapest).length;
 
     storeCarts.push({
@@ -308,7 +340,16 @@ function buildStoreCarts(
 // ============================================
 
 /** Search all supermarkets for a list of products and build comparison carts. */
-export async function compareProducts(searchTerms: string[], city?: string | null): Promise<ShoppingPlanResult> {
+export async function compareProducts(
+  searchInput: string[] | SearchItem[],
+  city?: string | null,
+): Promise<ShoppingPlanResult> {
+  const searchItems = normalizeSearchItems(searchInput);
+  const searchTerms = searchItems.map((item) => item.term);
+  if (searchTerms.length === 0) {
+    return { storeCarts: [], notFound: [], searchedAt: new Date().toISOString() };
+  }
+
   // Search applicable stores for each term in parallel
   const allResults = await Promise.all(
     searchTerms.map(async (term) => ({
@@ -337,7 +378,7 @@ export async function compareProducts(searchTerms: string[], city?: string | nul
     }
   }
 
-  const { storeCarts, notFound } = buildStoreCarts(searchTerms, storeResults);
+  const { storeCarts, notFound } = buildStoreCarts(searchItems, storeResults);
 
   return {
     storeCarts,

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useProductSelection } from "@/hooks/use-product-selection";
+import { normalizeProductTerm } from "@/components/features/product-search-input";
 import {
   Dialog,
   DialogContent,
@@ -9,8 +10,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Search, X, ChevronDown, ChevronUp, Loader2, Check } from "lucide-react";
+import { Search, X, ChevronDown, ChevronUp, Loader2, Check, Plus } from "lucide-react";
 
 import type { GroceryCategory } from "@prisma/client";
 import type { ProductCatalogItem } from "@/hooks/use-product-selection";
@@ -50,8 +52,8 @@ interface CatalogSheetProps {
   onOpenChange: (open: boolean) => void;
   /** Currently selected search terms (to show as "already added") */
   selectedTerms: string[];
-  /** Called when the user taps a product to add it */
-  onAddTerm: (term: string) => void;
+  /** Called when the user confirms current modal selection */
+  onConfirmTerms: (terms: string[]) => void;
   /** Open pre-filtered to a specific category */
   initialCategory?: GroceryCategory | null;
 }
@@ -64,19 +66,29 @@ export function CatalogSheet({
   open,
   onOpenChange,
   selectedTerms,
-  onAddTerm,
+  onConfirmTerms,
   initialCategory,
 }: CatalogSheetProps) {
   const { data, isLoading } = useProductSelection();
   const [searchQuery, setSearchQuery] = useState("");
+  const [customTerm, setCustomTerm] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Set<GroceryCategory>>(
     new Set(CATEGORY_ORDER),
   );
+  const [pendingTerms, setPendingTerms] = useState<string[]>([]);
 
   // Reset search when dialog closes
-  if (!open && searchQuery) {
-    setSearchQuery("");
-  }
+  useEffect(() => {
+    if (!open) {
+      setSearchQuery("");
+      setCustomTerm("");
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    setPendingTerms(selectedTerms);
+  }, [open, selectedTerms]);
 
   // When opening with a category filter, collapse all others
   useEffect(() => {
@@ -87,10 +99,9 @@ export function CatalogSheet({
     }
   }, [open, initialCategory]);
 
-  const selectedSet = useMemo(
-    () => new Set(selectedTerms.map((t) => t.toLowerCase())),
-    [selectedTerms],
-  );
+  const selectedSet = useMemo(() => {
+    return new Set(pendingTerms.map((term) => normalizeProductTerm(term)));
+  }, [pendingTerms]);
 
   // Group & filter products
   const filteredByCategory = useMemo(() => {
@@ -123,13 +134,28 @@ export function CatalogSheet({
     });
   }, []);
 
+  const addPendingTerm = useCallback((term: string) => {
+    const trimmed = term.trim();
+    if (trimmed.length < 2) return;
+    setPendingTerms((prev) => {
+      const normalized = normalizeProductTerm(trimmed);
+      if (prev.some((item) => normalizeProductTerm(item) === normalized)) return prev;
+      return [...prev, trimmed];
+    });
+  }, []);
+
+  const removePendingTerm = useCallback((term: string) => {
+    const normalized = normalizeProductTerm(term);
+    setPendingTerms((prev) => prev.filter((item) => normalizeProductTerm(item) !== normalized));
+  }, []);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Catalogo de productos</DialogTitle>
           <DialogDescription>
-            Toca un producto para agregarlo a tu busqueda.
+            Seleccioná productos y confirmá para agregarlos a tu búsqueda.
           </DialogDescription>
         </DialogHeader>
 
@@ -153,6 +179,52 @@ export function CatalogSheet({
             </button>
           )}
         </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Producto personalizado..."
+            value={customTerm}
+            onChange={(event) => setCustomTerm(event.target.value)}
+            maxLength={100}
+            className="h-9 w-full rounded-lg border bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              addPendingTerm(customTerm);
+              setCustomTerm("");
+            }}
+            disabled={customTerm.trim().length < 2}
+            className="h-9 gap-1.5"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Agregar
+          </Button>
+        </div>
+
+        {pendingTerms.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {pendingTerms.map((term) => (
+              <span
+                key={term}
+                className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary"
+              >
+                {term}
+                <button
+                  type="button"
+                  onClick={() => removePendingTerm(term)}
+                  className="rounded-full p-0.5 transition-colors hover:bg-primary/20"
+                  aria-label={`Quitar ${term}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Category list */}
         <div className="-mx-6 flex-1 space-y-1 overflow-y-auto px-6">
@@ -198,13 +270,16 @@ export function CatalogSheet({
                             key={product.id}
                             type="button"
                             onClick={() => {
-                              if (!isAdded) onAddTerm(product.name);
+                              if (isAdded) {
+                                removePendingTerm(product.name);
+                              } else {
+                                addPendingTerm(product.name);
+                              }
                             }}
-                            disabled={isAdded}
                             className={cn(
                               "flex w-full items-center justify-between rounded-md px-1 py-1.5 text-left transition-colors",
                               isAdded
-                                ? "opacity-50"
+                                ? "bg-primary/5 text-primary"
                                 : "hover:bg-muted/50",
                             )}
                           >
@@ -221,6 +296,27 @@ export function CatalogSheet({
               );
             })
           )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t pt-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => {
+              onConfirmTerms(pendingTerms);
+              onOpenChange(false);
+            }}
+          >
+            Confirmar productos
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

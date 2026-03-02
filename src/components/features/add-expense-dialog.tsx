@@ -18,14 +18,17 @@ import {
   CATEGORY_ICONS,
   CATEGORY_COLORS,
   CATEGORY_LABELS,
+  SUBCATEGORY_LABELS,
   inferCategory,
 } from "@/lib/expense-constants";
-import { Plus, ChevronDown, ChevronUp, Check } from "lucide-react";
+import { inferExpenseSubcategory } from "@/lib/expense-subcategory";
+import { Plus, ChevronDown, ChevronUp, Check, Wallet } from "lucide-react";
 import { iconSize } from "@/lib/design-tokens";
 
 import type { ExpenseCategory, SplitType } from "@prisma/client";
 import type { MemberOption } from "@/types/expense";
 import type { CreateExpensePayload } from "@/components/features/expenses-view";
+import type { FundState } from "@/types/fund";
 
 interface CustomSplitValidationProps {
   totalAmount: number;
@@ -106,6 +109,8 @@ interface AddExpenseDialogProps {
   onExternalOpenChange?: (open: boolean) => void;
   /** Pre-filled values when opened externally via quick-add. */
   defaultValues?: QuickAddDefaults;
+  /** Active shared fund — enables "Cargar al fondo" toggle. */
+  fund?: FundState | null;
 }
 
 export function AddExpenseDialog({
@@ -116,6 +121,7 @@ export function AddExpenseDialog({
   externalOpen,
   onExternalOpenChange,
   defaultValues,
+  fund,
 }: AddExpenseDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isExternallyControlled = externalOpen !== undefined;
@@ -136,6 +142,7 @@ export function AddExpenseDialog({
   const [showPayerSelect, setShowPayerSelect] = useState(false);
   const [showCategorySelect, setShowCategorySelect] = useState(false);
   const [showExcludeMembers, setShowExcludeMembers] = useState(false);
+  const [chargeToFund, setChargeToFund] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
@@ -145,6 +152,13 @@ export function AddExpenseDialog({
 
   const CategoryIcon = CATEGORY_ICONS[category];
   const categoryColor = CATEGORY_COLORS[category];
+  const inferredSubcategory = inferExpenseSubcategory(title, category);
+
+  // Fund helpers
+  const activeFund = fund?.isActive ? fund : null;
+  const isFundCategory = activeFund
+    ? (activeFund.fundCategories as string[]).includes(category)
+    : false;
 
   const includedMembers = members.filter((m) => !excludedMembers.has(m.id));
 
@@ -162,6 +176,7 @@ export function AddExpenseDialog({
     setShowPayerSelect(false);
     setShowCategorySelect(false);
     setShowExcludeMembers(false);
+    setChargeToFund(false);
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -177,9 +192,14 @@ export function AddExpenseDialog({
     if (inferred) {
       setCategory(inferred);
       setCategoryAutoSet(true);
+      // Auto-enable fund toggle when inferred category is a fund category
+      if (activeFund && (activeFund.fundCategories as string[]).includes(inferred)) {
+        setChargeToFund(true);
+      }
     } else if (categoryAutoSet) {
       // Reset to OTHER only if the previous value was auto-set
       setCategory("OTHER");
+      setChargeToFund(false);
     }
   }
 
@@ -187,6 +207,12 @@ export function AddExpenseDialog({
     setCategory(cat);
     setCategoryAutoSet(false);
     setShowCategorySelect(false);
+    // Auto-enable fund toggle when selecting a fund category
+    if (activeFund && (activeFund.fundCategories as string[]).includes(cat)) {
+      setChargeToFund(true);
+    } else {
+      setChargeToFund(false);
+    }
   }
 
   function toggleExcludedMember(memberId: string) {
@@ -274,6 +300,7 @@ export function AddExpenseDialog({
       splitType: effectiveSplitType,
       splits: equalSplits ?? splits,
       notes: notes.trim() || undefined,
+      chargeToFund: chargeToFund && isFundCategory ? true : undefined,
     });
 
     toast.success("Gasto registrado");
@@ -335,7 +362,11 @@ export function AddExpenseDialog({
                 }`}
               >
                 <CategoryIcon className="h-3.5 w-3.5" />
-                <span>{CATEGORY_LABELS[category]}</span>
+                <span>
+                  {inferredSubcategory !== "GENERAL"
+                    ? SUBCATEGORY_LABELS[inferredSubcategory]
+                    : CATEGORY_LABELS[category]}
+                </span>
               </button>
 
               {/* Payer chip (hidden for solo — only one person) */}
@@ -529,6 +560,33 @@ export function AddExpenseDialog({
                   onDistributeRemaining={(distributed) => setCustomSplits(distributed)}
                 />
               </>
+            )}
+
+            {/* Fund toggle — only shown when fund is active and category matches */}
+            {activeFund && isFundCategory && (
+              <button
+                type="button"
+                onClick={() => setChargeToFund(!chargeToFund)}
+                className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-sm transition-colors ${
+                  chargeToFund
+                    ? "border-primary/30 bg-primary/5 text-primary"
+                    : "border-border text-muted-foreground hover:bg-muted/50"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4 shrink-0" />
+                  Cargar al fondo común
+                </span>
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors ${
+                    chargeToFund
+                      ? "border-primary bg-primary text-white"
+                      : "border-muted-foreground"
+                  }`}
+                >
+                  {chargeToFund && <Check className="h-3 w-3" />}
+                </span>
+              </button>
             )}
 
             {/* Advanced options toggle */}

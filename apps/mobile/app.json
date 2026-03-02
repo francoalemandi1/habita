@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Habita",
+    "slug": "habita-mobile",
+    "scheme": "habita",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "platforms": ["ios", "android"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

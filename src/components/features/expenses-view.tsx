@@ -7,11 +7,17 @@ import { apiFetch } from "@/lib/api-client";
 import { ExpenseList } from "@/components/features/expense-list";
 import { ExpenseSummary } from "@/components/features/expense-summary";
 import { AddExpenseDialog } from "@/components/features/add-expense-dialog";
-import { ExpenseInsights, QuickAddPills } from "@/components/features/expense-insights";
+import { QuickAddPills } from "@/components/features/expense-insights";
+import { FinancialPulse } from "@/components/features/financial-pulse";
+import { ExpenseDetailedStats } from "@/components/features/expense-detailed-stats";
+import { FundView } from "@/components/features/fund-view";
+import { useExpenseInsights } from "@/hooks/use-expense-insights";
+import { useFund } from "@/hooks/use-fund";
 import { useServices } from "@/hooks/use-services";
 import { ServicesManagement } from "@/components/features/services-management";
 import { ServiceDialog } from "@/components/features/service-dialog";
 import { spacing } from "@/lib/design-tokens";
+import { cn } from "@/lib/utils";
 
 import type { SerializedExpense, SerializedService, MemberOption } from "@/types/expense";
 import type { ExpenseCategory, SplitType } from "@prisma/client";
@@ -27,6 +33,8 @@ export interface CreateExpensePayload {
   splitType: SplitType;
   splits?: Array<{ memberId: string; amount?: number; percentage?: number }>;
   notes?: string;
+  /** If true, deduct from the shared fund instead of creating member splits. */
+  chargeToFund?: boolean;
 }
 
 /** Data needed for an optimistic update (only changed fields). */
@@ -45,6 +53,54 @@ interface ExpensesViewProps {
   isSolo?: boolean;
 }
 
+type ActiveTab = "gastos" | "fondo" | "deudas";
+
+// ============================================
+// Tab Bar
+// ============================================
+
+function TabBar({
+  active,
+  onChange,
+  isSolo,
+}: {
+  active: ActiveTab;
+  onChange: (tab: ActiveTab) => void;
+  isSolo: boolean;
+}) {
+  const tabs: Array<{ id: ActiveTab; label: string }> = [
+    { id: "gastos", label: "Gastos" },
+    ...(!isSolo ? [{ id: "fondo" as ActiveTab, label: "Fondo" }] : []),
+    ...(!isSolo ? [{ id: "deudas" as ActiveTab, label: "Saldos" }] : []),
+  ];
+
+  if (tabs.length === 1) return null;
+
+  return (
+    <div className="flex gap-1 rounded-xl bg-muted/60 p-1">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          onClick={() => onChange(tab.id)}
+          className={cn(
+            "flex-1 rounded-lg py-1.5 text-sm font-medium transition-colors",
+            active === tab.id
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ============================================
+// Main Component
+// ============================================
+
 export function ExpensesView({
   initialExpenses,
   currentMemberId,
@@ -62,6 +118,7 @@ export function ExpensesView({
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddDefaults, setQuickAddDefaults] = useState<QuickAddDefaults | undefined>();
   const [frequentExpenses, setFrequentExpenses] = useState<FrequentExpense[]>([]);
+  const [activeTab, setActiveTab] = useState<ActiveTab>("gastos");
 
   // Sync with server data after router.refresh()
   useEffect(() => {
@@ -114,6 +171,7 @@ export function ExpensesView({
         amount: payload.amount,
         currency: "ARS",
         category: payload.category,
+        subcategory: "GENERAL",
         splitType: payload.splitType,
         date: new Date().toISOString(),
         notes: payload.notes ?? null,
@@ -144,6 +202,7 @@ export function ExpensesView({
           splitType: payload.splitType,
           splits: payload.splits,
           notes: payload.notes,
+          chargeToFund: payload.chargeToFund,
         },
       })
         .then(() => {
@@ -242,17 +301,20 @@ export function ExpensesView({
     setQuickAddOpen(true);
   }, []);
 
+  const { data: insightsData, isLoading: insightsLoading } = useExpenseInsights({
+    refreshKey: balanceRefreshKey,
+    onFrequentExpensesLoaded: handleFrequentExpensesLoaded,
+  });
+
+  const { fund, isLoading: fundLoading, contribute, setup, updateAllocations } = useFund({
+    refreshKey: balanceRefreshKey,
+  });
+
   return (
     <>
       <div className={spacing.pageHeader}>
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Registrá</h1>
-          <AddExpenseDialog
-            members={allMembers}
-            currentMemberId={currentMemberId}
-            onExpenseCreated={handleExpenseCreated}
-            isSolo={isSolo}
-          />
         </div>
       </div>
 
@@ -268,34 +330,72 @@ export function ExpensesView({
       />
 
       <div className="space-y-4">
-        {!isSolo && <ExpenseSummary currentMemberId={currentMemberId} refreshKey={balanceRefreshKey} />}
-        {frequentExpenses.length > 0 && (
-          <QuickAddPills expenses={frequentExpenses} onQuickAdd={handleQuickAdd} />
-        )}
-        <ExpenseList
-          expenses={expenses}
-          currentMemberId={currentMemberId}
-          allMembers={allMembers}
-          deletingIds={deletingIds}
-          newlyCreatedIds={newlyCreatedIds}
-          onExpenseUpdated={handleExpenseUpdated}
-          onExpenseDeleted={handleExpenseDeleted}
-          activeServices={svc.activeServices}
-          generatingIds={svc.generatingIds}
-          onServiceGenerate={svc.generate}
-          onServiceEdit={(service) => setEditingService(service)}
-          onManageServices={() => setShowManageServices(true)}
-          onCreateService={() => setShowCreateService(true)}
-          isSolo={isSolo}
-        />
-      </div>
+        {/* Tab bar — only shown when household has multiple members */}
+        <TabBar active={activeTab} onChange={setActiveTab} isSolo={isSolo} />
 
-      {/* Financial insights — below expense list, secondary to registration */}
-      <ExpenseInsights
-        refreshKey={balanceRefreshKey}
-        onAddFixed={() => setShowCreateService(true)}
-        onFrequentExpensesLoaded={handleFrequentExpensesLoaded}
-      />
+        {/* Tab: Gastos */}
+        {activeTab === "gastos" && (
+          <>
+            {/* Financial pulse — hero + tips (above the list) */}
+            <FinancialPulse data={insightsData} isLoading={insightsLoading} />
+
+            {frequentExpenses.length > 0 && (
+              <QuickAddPills expenses={frequentExpenses} onQuickAdd={handleQuickAdd} />
+            )}
+            <div className="flex justify-end">
+              <AddExpenseDialog
+                members={allMembers}
+                currentMemberId={currentMemberId}
+                onExpenseCreated={handleExpenseCreated}
+                isSolo={isSolo}
+                fund={fund}
+              />
+            </div>
+            <ExpenseList
+              expenses={expenses}
+              currentMemberId={currentMemberId}
+              allMembers={allMembers}
+              deletingIds={deletingIds}
+              newlyCreatedIds={newlyCreatedIds}
+              onExpenseUpdated={handleExpenseUpdated}
+              onExpenseDeleted={handleExpenseDeleted}
+              activeServices={svc.activeServices}
+              generatingIds={svc.generatingIds}
+              onServiceGenerate={svc.generate}
+              onServiceEdit={(service) => setEditingService(service)}
+              onManageServices={() => setShowManageServices(true)}
+              onCreateService={() => setShowCreateService(true)}
+              isSolo={isSolo}
+            />
+
+            {/* Detailed stats — secondary, below the expense list */}
+            {insightsData && (
+              <ExpenseDetailedStats
+                data={insightsData}
+                onAddFixed={() => setShowCreateService(true)}
+              />
+            )}
+          </>
+        )}
+
+        {/* Tab: Fondo */}
+        {activeTab === "fondo" && !isSolo && (
+          <FundView
+            fund={fund}
+            isLoading={fundLoading}
+            allMembers={allMembers}
+            currentMemberId={currentMemberId}
+            onSetup={setup}
+            onContribute={contribute}
+            onUpdateAllocations={updateAllocations}
+          />
+        )}
+
+        {/* Tab: Deudas */}
+        {activeTab === "deudas" && !isSolo && (
+          <ExpenseSummary currentMemberId={currentMemberId} refreshKey={balanceRefreshKey} />
+        )}
+      </div>
 
       <ServicesManagement
         open={showManageServices}

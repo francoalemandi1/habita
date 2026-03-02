@@ -1,75 +1,40 @@
-/**
- * Typed fetch wrapper for API calls from client components.
- * Handles 401/403 with automatic redirect to login.
- * Returns parsed JSON with proper error extraction.
- */
+import { ApiError, createApiClient } from "@habita/api-client";
 
-interface ApiErrorResponse {
-  error: string;
-  code?: string;
-}
-
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-    public code?: string,
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
+const webApiClient = createApiClient({
+  baseUrl: "",
+  getAuth: async () => ({ accessToken: null, householdId: null }),
+  onAuthFailure: async () => {
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
+  },
+});
 
 /**
- * Fetch wrapper that:
- * - Adds Content-Type for JSON bodies
- * - Redirects to /login on 401 (session expired)
- * - Throws ApiError with parsed error message from the response
- *
- * Usage:
- *   const data = await apiFetch<{ task: Task }>("/api/tasks", { method: "POST", body: { name: "..." } });
+ * Typed fetch wrapper for API calls from web client components.
  */
 export async function apiFetch<T>(
   url: string,
   options?: Omit<RequestInit, "body"> & { body?: unknown },
 ): Promise<T> {
-  const { body, headers, ...rest } = options ?? {};
+  const method = (options?.method ?? "GET").toUpperCase() as "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  const headers = (options?.headers ?? {}) as Record<string, string>;
+  const signal = options?.signal ?? undefined;
 
-  const response = await fetch(url, {
-    ...rest,
-    headers: {
-      ...(body !== undefined && { "Content-Type": "application/json" }),
-      ...headers,
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-
-  // Session expired — redirect to landing
-  if (response.status === 401) {
-    window.location.href = "/";
-    throw new ApiError("Sesión expirada", 401, "UNAUTHORIZED");
+  switch (method) {
+    case "GET":
+      return webApiClient.get<T>(url, { headers, signal });
+    case "POST":
+      return webApiClient.post<T>(url, options?.body, { headers, signal });
+    case "PUT":
+      return webApiClient.put<T>(url, options?.body, { headers, signal });
+    case "PATCH":
+      return webApiClient.patch<T>(url, options?.body, { headers, signal });
+    case "DELETE":
+      return webApiClient.delete<T>(url, { headers, signal });
+    default:
+      throw new ApiError("Método HTTP no soportado", 400, "INVALID_METHOD");
   }
-
-  if (!response.ok) {
-    let errorMessage = "Error inesperado";
-    let errorCode: string | undefined;
-
-    try {
-      const errorData: ApiErrorResponse = await response.json();
-      errorMessage = errorData.error || errorMessage;
-      errorCode = errorData.code;
-    } catch {
-      // Response wasn't JSON — use status text
-      errorMessage = response.statusText || errorMessage;
-    }
-
-    throw new ApiError(errorMessage, response.status, errorCode);
-  }
-
-  // Handle empty responses (204 No Content)
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
 }
+
+export { ApiError };

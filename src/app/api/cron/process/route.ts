@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { buildSplitsData } from "@/lib/expense-splits";
 import { calculateNextDueDate, formatPeriod } from "@/lib/service-utils";
 import { expirePastEvents } from "@/lib/events/expire-events";
+import { cleanupExpiredMobileAuthSessions } from "@/lib/mobile-auth";
 import type { NextRequest } from "next/server";
 
 /** Auto-generate invoices + expenses for services with autoGenerate=true and nextDueDate <= now. */
@@ -104,11 +105,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [absenceResult, cleanupResult, billingResult, expireResult] = await Promise.all([
+    const [absenceResult, cleanupResult, billingResult, expireResult, mobileAuthCleanup] = await Promise.all([
       processAbsenceRedistribution(),
       cleanupOldNotifications(),
       processServiceBilling(),
       expirePastEvents(),
+      cleanupExpiredMobileAuthSessions(),
     ]);
 
     return NextResponse.json({
@@ -130,6 +132,10 @@ export async function POST(request: NextRequest) {
       events: {
         expiredEvents: expireResult.expiredEvents,
         deletedSuggestions: expireResult.deletedSuggestions,
+      },
+      mobileAuth: {
+        revokedExpired: mobileAuthCleanup.revokedExpired,
+        deletedOldRevoked: mobileAuthCleanup.deletedOldRevoked,
       },
       timestamp: new Date().toISOString(),
     });
@@ -160,6 +166,6 @@ export async function GET(request: NextRequest) {
     status: "ready",
     endpoint: "POST /api/cron/process",
     description:
-      "Redistribuye asignaciones por ausencias activas, limpia notificaciones antiguas y genera facturas de servicios",
+      "Redistribuye asignaciones por ausencias, limpia notificaciones y sesiones mobile expiradas, genera facturas de servicios",
   });
 }

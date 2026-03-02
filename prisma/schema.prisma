@@ -27,6 +27,7 @@ model User {
   // Auth relations
   accounts        Account[]
   sessions        Session[]
+  mobileAuthSessions MobileAuthSession[]
   gmailConnection GmailConnection?
 
   // App relations
@@ -34,6 +35,11 @@ model User {
   processedEmails ProcessedEmail[]
 
   @@map("users")
+}
+
+enum MobileAuthTokenKind {
+  ACCESS
+  REFRESH
 }
 
 model Account {
@@ -65,6 +71,30 @@ model Session {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
+}
+
+model MobileAuthSession {
+  id           String             @id @default(cuid())
+  userId       String
+  tokenKind    MobileAuthTokenKind
+  tokenHash    String             @unique
+  tokenFamilyId String
+  deviceId     String?
+  expiresAt    DateTime
+  issuedAt     DateTime           @default(now())
+  lastUsedAt   DateTime?
+  rotatedAt    DateTime?
+  revokedAt    DateTime?
+  replacedById String?
+
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replacedBy MobileAuthSession? @relation("MobileAuthTokenReplacement", fields: [replacedById], references: [id], onDelete: SetNull)
+  replaces   MobileAuthSession[] @relation("MobileAuthTokenReplacement")
+
+  @@index([userId, tokenKind])
+  @@index([tokenFamilyId, tokenKind])
+  @@index([expiresAt])
+  @@map("mobile_auth_sessions")
 }
 
 model VerificationToken {

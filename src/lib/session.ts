@@ -1,14 +1,37 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { auth } from "./auth";
 import { prisma } from "./prisma";
 import { hasPermission } from "./permissions";
+import { resolveMobileAccessTokenUserId } from "./mobile-auth";
 
 import type { Member, Household } from "@prisma/client";
 
 export const CURRENT_HOUSEHOLD_COOKIE = "habita_household_id";
+export const CURRENT_HOUSEHOLD_HEADER = "x-habita-household-id";
 
 export interface CurrentMember extends Member {
   household: Household;
+}
+
+async function getUserIdFromMobileBearer(): Promise<string | null> {
+  const requestHeaders = await headers();
+  const authorization = requestHeaders.get("authorization");
+  if (!authorization) return null;
+  if (!authorization.startsWith("Bearer ")) return null;
+
+  const token = authorization.slice("Bearer ".length).trim();
+  if (!token) return null;
+
+  return resolveMobileAccessTokenUserId(token);
+}
+
+async function getRequestedHouseholdId(): Promise<string | null> {
+  const requestHeaders = await headers();
+  const fromHeader = requestHeaders.get(CURRENT_HOUSEHOLD_HEADER)?.trim() || null;
+  if (fromHeader) return fromHeader;
+
+  const cookieStore = await cookies();
+  return cookieStore.get(CURRENT_HOUSEHOLD_COOKIE)?.value ?? null;
 }
 
 /**
@@ -17,17 +40,15 @@ export interface CurrentMember extends Member {
  * Returns null if user is not authenticated or not a member of any household.
  */
 export async function getCurrentMember(): Promise<CurrentMember | null> {
-  const session = await auth();
-
-  if (!session?.user?.id) {
+  const userId = await getCurrentUserId();
+  if (!userId) {
     return null;
   }
 
-  const cookieStore = await cookies();
-  const householdId = cookieStore.get(CURRENT_HOUSEHOLD_COOKIE)?.value;
+  const householdId = await getRequestedHouseholdId();
 
   const where: { userId: string; isActive: boolean; householdId?: string } = {
-    userId: session.user.id,
+    userId,
     isActive: true,
   };
   if (householdId) {
@@ -64,6 +85,9 @@ export async function getCurrentUserMembers(): Promise<CurrentMember[]> {
  * Use this only when you need the user ID without member context.
  */
 export async function getCurrentUserId(): Promise<string | null> {
+  const mobileUserId = await getUserIdFromMobileBearer();
+  if (mobileUserId) return mobileUserId;
+
   const session = await auth();
   return session?.user?.id ?? null;
 }

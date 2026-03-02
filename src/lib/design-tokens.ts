@@ -6,6 +6,7 @@
  * properties defined in src/app/globals.css (:root --brand-* variables).
  * When changing a color, update BOTH files.
  */
+import { semanticColors } from "@habita/design-tokens";
 
 // ============================================
 // 1. COLOR PALETTE (raw hex values)
@@ -13,17 +14,17 @@
 
 /** Raw hex palette — use for canvas, SVG, and inline styles where Tailwind classes cannot be used. */
 export const palette = {
-  primary: "#5260fe",
-  primaryLight: "#626efe",
+  primary: semanticColors.primary,
+  primaryLight: semanticColors.primaryLight,
   lime: "#d2ffa0",
   successDark: "#7aa649",
   lavender: "#d0b6ff",
   lavenderLight: "#e4d5ff",
   purpleDark: "#522a97",
-  foregroundDark: "#272727",
+  foregroundDark: semanticColors.text,
   tan: "#ffe8c3",
   cream: "#fff0d7",
-  background: "#fff7ea",
+  background: semanticColors.background,
   orange: "#fd7c52",
   peach: "#fed9cb",
   white: "#ffffff",

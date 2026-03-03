@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Bell } from "lucide-react-native";
 import { colors, fontFamily, spacing } from "@/theme";
@@ -17,10 +17,12 @@ export function ScreenHeader({ notificationCount = 0 }: ScreenHeaderProps) {
 
   return (
     <View style={styles.header}>
-      <Pressable onPress={() => router.push("/(app)/dashboard")} style={styles.nameRow} hitSlop={4}>
-        <Text style={styles.householdName} numberOfLines={1}>
-          {activeHousehold?.name ?? "Habita"}
-        </Text>
+      <Pressable onPress={() => router.push("/(app)/dashboard")} style={styles.logoRow} hitSlop={4}>
+        <Image
+          source={require("../../../assets/logo.png")}
+          style={styles.logoIcon}
+        />
+        <Text style={styles.logoBrand}>Habita</Text>
       </Pressable>
       <View style={styles.actions}>
         <Pressable
@@ -58,14 +60,24 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     backgroundColor: colors.background,
   },
-  nameRow: {
+  logoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
     flex: 1,
     marginRight: spacing.sm,
   },
-  householdName: {
-    fontSize: 16,
-    fontWeight: "700",
+  logoIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+  },
+  logoBrand: {
+    fontFamily: fontFamily.sans,
+    fontSize: 17,
+    fontWeight: "800",
     color: colors.text,
+    letterSpacing: -0.3,
   },
   actions: {
     flexDirection: "row",

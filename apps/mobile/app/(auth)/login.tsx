@@ -12,7 +12,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  ArrowRight,
   ChefHat,
   ClipboardCheck,
   Receipt,
@@ -43,25 +42,25 @@ const SLIDES: OnboardingSlide[] = [
     icon: ClipboardCheck,
     title: "Organizá las tareas\ndel hogar",
     subtitle: "Distribuí tareas de forma justa con IA.\nCada miembro sabe qué le toca.",
-    color: colors.primary,
+    color: "#ffffff",
   },
   {
     icon: ShoppingCart,
     title: "Ahorrá en\nel supermercado",
     subtitle: "Compará precios entre supermercados\ny encontrá las mejores ofertas.",
-    color: "#0891b2",
+    color: "#ffffff",
   },
   {
     icon: ChefHat,
     title: "Cociná sin\ncomplicarte",
     subtitle: "Recibí sugerencias de recetas basadas\nen lo que tenés en tu heladera.",
-    color: "#7c3aed",
+    color: "#ffffff",
   },
   {
     icon: Receipt,
     title: "Controlá los\ngastos del hogar",
     subtitle: "Registrá gastos, dividí cuentas\ny mantené las finanzas en orden.",
-    color: "#059669",
+    color: "#ffffff",
   },
 ];
 
@@ -95,9 +94,7 @@ function SlideItem({ slide, index, scrollX }: { slide: OnboardingSlide; index: n
   return (
     <View style={[slideStyles.container, { width: SCREEN_WIDTH }]}>
       <Animated.View style={{ transform: [{ scale }, { translateY }], opacity, alignItems: "center" }}>
-        <View style={[slideStyles.iconCircle, { backgroundColor: `${slide.color}20` }]}>
-          <slide.icon size={40} color={slide.color} strokeWidth={1.5} />
-        </View>
+        <slide.icon size={56} color={slide.color} strokeWidth={1.2} style={slideStyles.icon} />
         <Text style={slideStyles.title}>{slide.title}</Text>
         <Text style={slideStyles.subtitle}>{slide.subtitle}</Text>
       </Animated.View>
@@ -111,13 +108,8 @@ const slideStyles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: spacing.xl,
   },
-  iconCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
+  icon: {
+    marginBottom: 28,
   },
   title: {
     fontFamily: fontFamily.sans,
@@ -319,10 +311,12 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#d2ffa0",
     letterSpacing: -0.8,
+    lineHeight: 44,
   },
   slidesArea: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "flex-end",
+    paddingBottom: spacing.xl,
   },
   bottomArea: {
     paddingHorizontal: spacing.xl,

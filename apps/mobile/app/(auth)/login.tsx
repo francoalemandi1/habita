@@ -4,6 +4,7 @@ import {
   Animated,
   Dimensions,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -14,7 +15,6 @@ import {
   ArrowRight,
   ChefHat,
   ClipboardCheck,
-  Home,
   Receipt,
   ShoppingCart,
 } from "lucide-react-native";
@@ -236,9 +236,7 @@ export default function LoginScreen() {
       <SafeAreaView style={styles.safeArea}>
         {/* Logo */}
         <View style={styles.logoRow}>
-          <View style={styles.logoIcon}>
-            <Home size={16} color={colors.primary} strokeWidth={2.5} />
-          </View>
+          <Image source={require("../../assets/logo.png")} style={styles.logoIcon} />
           <Text style={styles.logoBrand}>Habita</Text>
         </View>
 
@@ -316,9 +314,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
   },
   logoBrand: {
     fontFamily: fontFamily.sans,

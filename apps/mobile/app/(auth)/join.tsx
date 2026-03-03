@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, Home, KeyRound, Users } from "lucide-react-native";
+import { ArrowLeft, KeyRound, Users } from "lucide-react-native";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { useJoinHousehold } from "@/hooks/use-households";
 import { StyledTextInput } from "@/components/ui/text-input";
@@ -43,7 +43,7 @@ export default function JoinHouseholdScreen() {
           <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
         </Pressable>
         <View style={styles.headerLogoRow}>
-          <Home size={16} color={colors.primary} />
+          <Image source={require("../../assets/logo.png")} style={styles.headerLogoImg} />
           <Text style={styles.headerBrand}>Habita</Text>
         </View>
         <View style={styles.backBtn} />
@@ -159,6 +159,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+  },
+  headerLogoImg: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
   },
   headerBrand: {
     fontFamily: fontFamily.sans,

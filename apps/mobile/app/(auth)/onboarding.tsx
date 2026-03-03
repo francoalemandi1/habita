@@ -2,6 +2,7 @@ import { useState } from "react";
 import { router } from "expo-router";
 import {
   Animated,
+  Image,
   Pressable,
   ScrollView,
   Share,
@@ -13,7 +14,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   ArrowLeft,
   Copy,
-  Home,
   Sparkles,
   User,
   Users,
@@ -102,7 +102,7 @@ export default function OnboardingScreen() {
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.header}>
           <View style={styles.logoRow}>
-            <Home size={14} color={colors.primary} strokeWidth={2.5} />
+            <Image source={require("../../assets/logo.png")} style={styles.logoImg} />
             <Text style={styles.logoBrand}>Habita</Text>
           </View>
         </View>
@@ -171,7 +171,7 @@ export default function OnboardingScreen() {
             <ArrowLeft size={20} color={colors.text} />
           </Pressable>
           <View style={styles.logoRow}>
-            <Home size={14} color={colors.primary} strokeWidth={2.5} />
+            <Image source={require("../../assets/logo.png")} style={styles.logoImg} />
             <Text style={styles.logoBrand}>Habita</Text>
           </View>
           <View style={{ width: 20 }} />
@@ -288,6 +288,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
+  },
+  logoImg: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
   },
   logoBrand: {
     fontFamily: fontFamily.sans,

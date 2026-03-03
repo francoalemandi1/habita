@@ -17,12 +17,11 @@ export function ScreenHeader({ notificationCount = 0 }: ScreenHeaderProps) {
 
   return (
     <View style={styles.header}>
-      <Pressable onPress={() => router.push("/(app)/dashboard")} style={styles.logoRow} hitSlop={4}>
+      <Pressable onPress={() => router.push("/(app)/dashboard")} hitSlop={8}>
         <Image
-          source={require("../../../assets/logo.png")}
+          source={require("../../../assets/logo-32.png")}
           style={styles.logoIcon}
         />
-        <Text style={styles.logoBrand}>Habita</Text>
       </Pressable>
       <View style={styles.actions}>
         <Pressable
@@ -60,24 +59,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     backgroundColor: colors.background,
   },
-  logoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    flex: 1,
-    marginRight: spacing.sm,
-  },
   logoIcon: {
-    width: 26,
-    height: 26,
-    borderRadius: 6,
-  },
-  logoBrand: {
-    fontFamily: fontFamily.sans,
-    fontSize: 17,
-    fontWeight: "800",
-    color: colors.text,
-    letterSpacing: -0.3,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
   },
   actions: {
     flexDirection: "row",

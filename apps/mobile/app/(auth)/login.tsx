@@ -234,14 +234,13 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        {/* Logo */}
-        <View style={styles.logoRow}>
-          <Image source={require("../../assets/logo.png")} style={styles.logoIcon} />
-          <Text style={styles.logoBrand}>Habita</Text>
-        </View>
-
         {/* Slides */}
         <View style={styles.slidesArea}>
+          {/* Logo — centrado dentro del área de slides */}
+          <View style={styles.logoRow}>
+            <Image source={require("../../assets/logo.png")} style={styles.logoIcon} />
+            <Text style={styles.logoBrand}>Habita</Text>
+          </View>
           <FlatList
             ref={flatListRef}
             data={SLIDES}
@@ -306,21 +305,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    gap: 10,
+    paddingBottom: spacing.xl,
   },
   logoIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
   },
   logoBrand: {
     fontFamily: fontFamily.sans,
-    fontSize: 20,
+    fontSize: 32,
     fontWeight: "800",
     color: "#d2ffa0",
-    letterSpacing: -0.5,
+    letterSpacing: -0.8,
   },
   slidesArea: {
     flex: 1,

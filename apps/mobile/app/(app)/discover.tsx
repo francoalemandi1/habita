@@ -1,55 +1,117 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
-  Alert,
   Linking,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
+  StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  Bookmark,
+  BookmarkCheck,
+  Calendar,
+  Compass,
+  MapPin,
+  Clock,
+  RefreshCw,
+  Star,
+  Ticket,
+} from "lucide-react-native";
 import { useEvents } from "@/hooks/use-events";
-import { usePromos, useRefreshPromos, usePromoPipelineStatus, parseJsonArray } from "@/hooks/use-promos";
+import { mobileApi } from "@/lib/api";
+import { useSavedEvents, useToggleSaveEvent, isEventSaved } from "@/hooks/use-saved-events";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
-import { semanticColors } from "@habita/design-tokens";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SkeletonCard } from "@/components/ui/skeleton";
+import { ScreenHeader } from "@/components/features/screen-header";
+import { colors, fontFamily, radius, spacing, typography } from "@/theme";
 
 import type { EventItem, EventCategory } from "@/hooks/use-events";
-import type { BankPromo } from "@/hooks/use-promos";
+import type { SaveEventInput } from "@/hooks/use-saved-events";
 
-// ── Category config ─────────────────────────────────────────────────────────
+// ─── constants ──────────────────────────────────────────────────────────────
 
-const EVENT_CATEGORY_LABELS: Partial<Record<EventCategory, string>> = {
-  TEATRO: "Teatro",
-  MUSICA: "Música",
-  CINE: "Cine",
-  EXPOSICIONES: "Expo",
-  FESTIVALES: "Festival",
-  GASTRONOMIA: "Gastro",
-  INFANTIL: "Niños",
-  MERCADOS: "Mercados",
-  PASEOS: "Paseos",
+const MAX_HIGHLIGHTED = 5;
+
+interface CategoryConfig {
+  label: string;
+  sectionHeader: string;
+  emoji: string;
+  chipBg: string;
+  chipText: string;
+}
+
+const CATEGORY_CONFIG: Partial<Record<EventCategory, CategoryConfig>> = {
+  CINE: { label: "Cine", sectionHeader: "En cartelera", emoji: "🎬", chipBg: "#dbeafe", chipText: "#1d4ed8" },
+  TEATRO: { label: "Teatro", sectionHeader: "En escena", emoji: "🎭", chipBg: "#fce7f3", chipText: "#be185d" },
+  MUSICA: { label: "Música", sectionHeader: "Música en vivo", emoji: "🎵", chipBg: "#ede9fe", chipText: "#6d28d9" },
+  EXPOSICIONES: { label: "Expo", sectionHeader: "Para ver", emoji: "🖼", chipBg: "#fef3c7", chipText: "#92400e" },
+  FESTIVALES: { label: "Festival", sectionHeader: "Festivales", emoji: "🎪", chipBg: "#fce7f3", chipText: "#be185d" },
+  GASTRONOMIA: { label: "Gastro", sectionHeader: "Dónde comer", emoji: "🍽", chipBg: "#ffedd5", chipText: "#c2410c" },
+  INFANTIL: { label: "Niños", sectionHeader: "Para chicos", emoji: "🧸", chipBg: "#dcfce7", chipText: "#15803d" },
+  MERCADOS: { label: "Mercados", sectionHeader: "Para visitar", emoji: "🛍", chipBg: "#e0e7ff", chipText: "#4338ca" },
+  PASEOS: { label: "Paseos", sectionHeader: "Paseos", emoji: "🌿", chipBg: "#dcfce7", chipText: "#15803d" },
 };
 
-const CATEGORY_EMOJIS: Partial<Record<EventCategory, string>> = {
-  TEATRO: "🎭",
-  MUSICA: "🎵",
-  CINE: "🎬",
-  EXPOSICIONES: "🖼",
-  FESTIVALES: "🎪",
-  GASTRONOMIA: "🍽",
-  INFANTIL: "🧸",
-  MERCADOS: "🛍",
-  PASEOS: "🌿",
-};
+const CATEGORY_ORDER: EventCategory[] = [
+  "CINE", "TEATRO", "MUSICA", "EXPOSICIONES", "FESTIVALES",
+  "GASTRONOMIA", "INFANTIL", "MERCADOS", "PASEOS",
+];
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+type ViewMode = "all" | "saved";
+type TimeFilter = "today" | "weekend" | "week" | "all";
+
+const TIME_FILTERS: { key: TimeFilter; label: string }[] = [
+  { key: "today", label: "Hoy" },
+  { key: "weekend", label: "Finde" },
+  { key: "week", label: "Semana" },
+];
+
+interface CategoryBucket {
+  category: EventCategory;
+  config: CategoryConfig;
+  events: EventItem[];
+}
+
+// ─── helpers ────────────────────────────────────────────────────────────────
 
 function formatEventDate(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   return d.toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "short" });
+}
+
+function getDateProximityLabel(startDate: string | null): { label: string; isUrgent: boolean } | null {
+  if (!startDate) return null;
+  const eventDate = new Date(startDate);
+  if (isNaN(eventDate.getTime())) return null;
+
+  const now = new Date();
+  const todayStr = now.toLocaleDateString("en-CA");
+  const eventStr = eventDate.toLocaleDateString("en-CA");
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toLocaleDateString("en-CA");
+
+  if (eventStr === todayStr) return { label: "Hoy", isUrgent: true };
+  if (eventStr === tomorrowStr) return { label: "Mañana", isUrgent: true };
+
+  const diffMs = eventDate.getTime() - new Date(`${todayStr}T00:00:00`).getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays <= 7) {
+    const dayLabel = eventDate.toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "short" });
+    return { label: dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1), isUrgent: false };
+  }
+
+  const dateLabel = eventDate.toLocaleDateString("es-AR", { day: "numeric", month: "short" });
+  return { label: dateLabel, isUrgent: false };
 }
 
 function formatPrice(min: number | null, max: number | null): string {
@@ -59,437 +121,924 @@ function formatPrice(min: number | null, max: number | null): string {
   return "";
 }
 
-// ── Event Card ──────────────────────────────────────────────────────────────
+function filterByTimeWindow(events: EventItem[], filter: TimeFilter): EventItem[] {
+  if (filter === "all") return events;
 
-function EventCard({ event }: { event: EventItem }) {
-  const handlePress = () => {
-    const url = event.ticketUrl ?? event.sourceUrl;
-    if (url) void Linking.openURL(url);
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  return events.filter((event) => {
+    if (!event.startDate) return false;
+    const eventDate = new Date(event.startDate);
+    if (isNaN(eventDate.getTime())) return false;
+    const eventDayStart = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+
+    switch (filter) {
+      case "today":
+        return eventDayStart.getTime() === todayStart.getTime();
+      case "weekend": {
+        const dayOfWeek = todayStart.getDay();
+        const daysUntilFri = dayOfWeek <= 5 ? 5 - dayOfWeek : dayOfWeek === 6 ? 6 : 5;
+        const friStart = new Date(todayStart);
+        friStart.setDate(friStart.getDate() + daysUntilFri);
+        const monStart = new Date(friStart);
+        monStart.setDate(monStart.getDate() + 3);
+        return eventDayStart >= friStart && eventDayStart < monStart;
+      }
+      case "week": {
+        const weekEnd = new Date(todayStart);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        return eventDayStart >= todayStart && eventDayStart < weekEnd;
+      }
+      default:
+        return true;
+    }
+  });
+}
+
+function bucketByCategory(events: EventItem[]): CategoryBucket[] {
+  const buckets = new Map<EventCategory, EventItem[]>();
+
+  for (const event of events) {
+    const existing = buckets.get(event.category);
+    if (existing) {
+      existing.push(event);
+    } else {
+      buckets.set(event.category, [event]);
+    }
+  }
+
+  const result: CategoryBucket[] = [];
+  for (const cat of CATEGORY_ORDER) {
+    const catEvents = buckets.get(cat);
+    const config = CATEGORY_CONFIG[cat];
+    if (catEvents?.length && config) {
+      result.push({ category: cat, config, events: catEvents });
+    }
+  }
+
+  // Add remaining categories not in CATEGORY_ORDER
+  for (const [cat, catEvents] of buckets) {
+    if (!CATEGORY_ORDER.includes(cat) && catEvents.length) {
+      const config = CATEGORY_CONFIG[cat] ?? {
+        label: cat, sectionHeader: cat, emoji: "📅",
+        chipBg: "#f3f4f6", chipText: "#374151",
+      };
+      result.push({ category: cat, config, events: catEvents });
+    }
+  }
+
+  return result;
+}
+
+function eventToSaveInput(event: EventItem): SaveEventInput {
+  const priceRange = formatPrice(event.priceMin, event.priceMax) || "Consultar";
+  return {
+    culturalEventId: event.id,
+    title: event.title,
+    description: event.description ?? undefined,
+    category: event.category,
+    startDate: event.startDate,
+    venueName: event.venueName,
+    address: event.address,
+    priceRange,
+    sourceUrl: event.sourceUrl,
+    imageUrl: event.imageUrl,
+    artists: event.artists,
+    tags: event.tags,
+    culturalCategory: event.culturalCategory,
+    highlightReason: event.editorialHighlight,
+    ticketUrl: event.ticketUrl,
+    dateInfo: event.startDate ? formatEventDate(event.startDate) : undefined,
   };
+}
 
-  const priceLabel = formatPrice(event.priceMin, event.priceMax);
-  const emoji = CATEGORY_EMOJIS[event.category] ?? "📅";
+function buildGoogleCalendarUrl(event: EventItem): string | null {
+  if (!event.startDate) return null;
+  const start = new Date(event.startDate);
+  if (isNaN(start.getTime())) return null;
 
+  const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+  const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const details = [event.description, event.venueName, event.address].filter(Boolean).join(" — ");
+
+  return `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(event.address ?? event.venueName ?? "")}`;
+}
+
+// ─── sub-components ─────────────────────────────────────────────────────────
+
+function FilterPill({
+  label,
+  isActive,
+  onPress,
+}: {
+  label: string;
+  isActive: boolean;
+  onPress: () => void;
+}) {
   return (
     <Pressable
-      onPress={handlePress}
-      style={{
-        borderWidth: 1,
-        borderColor: "#e5e7eb",
-        borderRadius: 14,
-        padding: 14,
-        marginBottom: 10,
-        backgroundColor: "#fff",
-      }}
+      onPress={onPress}
+      style={[styles.filterPill, isActive && styles.filterPillActive]}
     >
-      <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-        <View
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 10,
-            backgroundColor: "#f3f4f6",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Text style={{ fontSize: 22 }}>{emoji}</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: "700", color: "#111", fontSize: 14 }} numberOfLines={2}>
+      <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function EventCard({
+  event,
+  isSaved,
+  onToggleSave,
+  savePending,
+  wide,
+}: {
+  event: EventItem;
+  isSaved: boolean;
+  onToggleSave: () => void;
+  savePending: boolean;
+  wide?: boolean;
+}) {
+  const catConfig = CATEGORY_CONFIG[event.category];
+  const priceLabel = formatPrice(event.priceMin, event.priceMax);
+  const dateInfo = getDateProximityLabel(event.startDate);
+  const primaryUrl = event.ticketUrl ?? event.sourceUrl;
+  const calendarUrl = buildGoogleCalendarUrl(event);
+
+  return (
+    <View style={wide ? styles.wideEventCardWrapper : undefined}>
+      <Card style={[styles.eventCard, wide && styles.wideEventCardInner]}>
+        <CardContent compact>
+          {/* Header row: category chip + date + save */}
+          <View style={styles.eventHeaderRow}>
+            {catConfig ? (
+              <View style={[styles.categoryChip, { backgroundColor: catConfig.chipBg }]}>
+                <Text style={[styles.categoryChipText, { color: catConfig.chipText }]}>
+                  {catConfig.emoji} {catConfig.label}
+                </Text>
+              </View>
+            ) : null}
+            {dateInfo ? (
+              <Badge
+                bgColor={dateInfo.isUrgent ? "#fef9c3" : "#f0f9ff"}
+                textColor={dateInfo.isUrgent ? "#d97706" : "#0369a1"}
+              >
+                {dateInfo.label}
+              </Badge>
+            ) : null}
+            <View style={styles.headerSpacer} />
+            <Pressable
+              onPress={onToggleSave}
+              hitSlop={8}
+              style={styles.saveIconButton}
+              disabled={savePending}
+            >
+              {isSaved ? (
+                <BookmarkCheck size={18} color={colors.primary} />
+              ) : (
+                <Bookmark size={18} color={colors.mutedForeground} />
+              )}
+            </Pressable>
+          </View>
+
+          {/* Title */}
+          <Text style={styles.eventTitle} numberOfLines={2}>
             {event.title}
           </Text>
+
+          {/* Artists */}
+          {event.artists.length > 0 ? (
+            <Text style={styles.eventArtists} numberOfLines={1}>
+              {event.artists.join(", ")}
+            </Text>
+          ) : null}
+
+          {/* Description / editorial highlight */}
           {event.editorialHighlight ? (
-            <Text style={{ color: "#6b7280", fontSize: 12, marginTop: 3 }} numberOfLines={2}>
+            <Text style={styles.eventHighlight} numberOfLines={2}>
               {event.editorialHighlight}
             </Text>
           ) : event.description ? (
-            <Text style={{ color: "#6b7280", fontSize: 12, marginTop: 3 }} numberOfLines={2}>
+            <Text style={styles.eventDesc} numberOfLines={2}>
               {event.description}
             </Text>
           ) : null}
-          <View style={{ flexDirection: "row", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
-            {event.startDate && (
-              <Text style={{ fontSize: 11, color: "#6b7280" }}>
-                📅 {formatEventDate(event.startDate)}
-              </Text>
-            )}
-            {event.venueName && (
-              <Text style={{ fontSize: 11, color: "#6b7280" }} numberOfLines={1}>
-                📍 {event.venueName}
-              </Text>
-            )}
+
+          {/* Meta: date + venue + price */}
+          <View style={styles.eventMeta}>
+            {event.startDate ? (
+              <View style={styles.eventMetaChip}>
+                <Clock size={11} color={colors.mutedForeground} />
+                <Text style={styles.eventMetaText}>
+                  {formatEventDate(event.startDate)}
+                </Text>
+              </View>
+            ) : null}
+            {event.venueName ? (
+              <View style={styles.eventMetaChip}>
+                <MapPin size={11} color={colors.mutedForeground} />
+                <Text style={styles.eventMetaText} numberOfLines={1}>
+                  {event.venueName}
+                </Text>
+              </View>
+            ) : null}
             {priceLabel ? (
-              <View
-                style={{
-                  backgroundColor: priceLabel === "Gratis" ? "#dcfce7" : "#f0f9ff",
-                  borderRadius: 6,
-                  paddingHorizontal: 6,
-                  paddingVertical: 2,
-                }}
+              <Badge
+                bgColor={priceLabel === "Gratis" ? "#dcfce7" : "#f0f9ff"}
+                textColor={priceLabel === "Gratis" ? "#16a34a" : "#0369a1"}
               >
-                <Text style={{ fontSize: 11, color: priceLabel === "Gratis" ? "#16a34a" : "#0369a1", fontWeight: "600" }}>
-                  {priceLabel}
-                </Text>
-              </View>
+                {priceLabel}
+              </Badge>
             ) : null}
           </View>
-        </View>
-      </View>
-    </Pressable>
+
+          {/* CTAs */}
+          <View style={styles.eventCtas}>
+            {primaryUrl ? (
+              <Pressable
+                onPress={() => void Linking.openURL(primaryUrl)}
+                style={[
+                  styles.ctaButton,
+                  catConfig ? { backgroundColor: catConfig.chipBg } : undefined,
+                ]}
+              >
+                <Ticket size={13} color={catConfig?.chipText ?? colors.primary} />
+                <Text style={[styles.ctaButtonText, catConfig ? { color: catConfig.chipText } : undefined]}>
+                  {event.ticketUrl ? "Entradas" : "Ver más"}
+                </Text>
+              </Pressable>
+            ) : null}
+            {calendarUrl ? (
+              <Pressable
+                onPress={() => void Linking.openURL(calendarUrl)}
+                style={styles.ctaButtonSecondary}
+              >
+                <Calendar size={13} color={colors.mutedForeground} />
+                <Text style={styles.ctaButtonSecondaryText}>Agendar</Text>
+              </Pressable>
+            ) : null}
+            {event.mapsUrl ?? event.address ?? event.venueName ? (
+              <Pressable
+                onPress={() => {
+                  const url = event.mapsUrl
+                    ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.address ?? event.venueName ?? "")}`;
+                  void Linking.openURL(url);
+                }}
+                style={styles.ctaButtonSecondary}
+              >
+                <MapPin size={13} color={colors.mutedForeground} />
+                <Text style={styles.ctaButtonSecondaryText}>Ir</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </CardContent>
+      </Card>
+    </View>
   );
 }
 
-// ── Promo Card ──────────────────────────────────────────────────────────────
-
-function PromoCard({ promo }: { promo: BankPromo }) {
-  const days = parseJsonArray(promo.daysOfWeek);
-  const methods = parseJsonArray(promo.paymentMethods);
-  const plans = parseJsonArray(promo.eligiblePlans);
-
-  const handlePress = () => {
-    if (promo.sourceUrl) void Linking.openURL(promo.sourceUrl);
-  };
-
-  return (
-    <Pressable
-      onPress={promo.sourceUrl ? handlePress : undefined}
-      style={{
-        borderWidth: 1,
-        borderColor: "#e5e7eb",
-        borderRadius: 14,
-        padding: 14,
-        marginBottom: 10,
-        backgroundColor: "#fff",
-      }}
-    >
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
-            <Text style={{ fontWeight: "700", color: "#111", fontSize: 14 }}>
-              {promo.storeName}
-            </Text>
-            <Text style={{ fontSize: 11, color: "#6b7280" }}>· {promo.bankDisplayName}</Text>
-          </View>
-          {promo.title && (
-            <Text style={{ color: "#6b7280", fontSize: 12 }} numberOfLines={2}>
-              {promo.title}
-            </Text>
-          )}
-          <View style={{ flexDirection: "row", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-            {days.length > 0 && (
-              <View style={{ backgroundColor: "#f0f9ff", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                <Text style={{ fontSize: 11, color: "#0369a1", fontWeight: "500" }}>
-                  {days.join(" · ")}
-                </Text>
-              </View>
-            )}
-            {methods.slice(0, 2).map((m) => (
-              <View key={m} style={{ backgroundColor: "#f5f3ff", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                <Text style={{ fontSize: 11, color: "#7c3aed", fontWeight: "500" }}>{m}</Text>
-              </View>
-            ))}
-            {plans.length > 0 && (
-              <Text style={{ fontSize: 11, color: "#9ca3af" }}>
-                {plans.slice(0, 2).join(", ")}
-              </Text>
-            )}
-            {promo.capAmount && promo.capAmount > 0 ? (
-              <Text style={{ fontSize: 11, color: "#9ca3af" }}>
-                Tope ${promo.capAmount.toLocaleString("es-AR")}
-              </Text>
-            ) : null}
-          </View>
-        </View>
-        <View
-          style={{
-            backgroundColor: "#dcfce7",
-            borderRadius: 10,
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            marginLeft: 10,
-          }}
-        >
-          <Text style={{ color: "#16a34a", fontWeight: "800", fontSize: 18 }}>
-            {promo.discountPercent}%
-          </Text>
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
-// ── Events Tab ──────────────────────────────────────────────────────────────
-
-function EventsTab() {
-  const [city, setCity] = useState("Buenos Aires");
-  const [cityInput, setCityInput] = useState("Buenos Aires");
-  const [activeCategory, setActiveCategory] = useState<EventCategory | undefined>();
-
-  const eventsQuery = useEvents({ city, category: activeCategory, limit: 30 });
-  const events = eventsQuery.data?.events ?? [];
-
-  const handleCitySearch = () => {
-    const trimmed = cityInput.trim();
-    if (trimmed) setCity(trimmed);
-  };
+/** Horizontal carousel of highlighted events. */
+function RecommendedSection({
+  events,
+  savedEvents,
+  onToggleSave,
+  savePending,
+}: {
+  events: EventItem[];
+  savedEvents: ReturnType<typeof useSavedEvents>["data"];
+  onToggleSave: (event: EventItem) => void;
+  savePending: boolean;
+}) {
+  if (events.length === 0) return null;
 
   return (
-    <>
-      {/* City search */}
-      <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
-        <TextInput
-          value={cityInput}
-          onChangeText={setCityInput}
-          onSubmitEditing={handleCitySearch}
-          placeholder="Ciudad..."
-          returnKeyType="search"
-          style={{
-            flex: 1,
-            borderWidth: 1,
-            borderColor: "#d1d5db",
-            borderRadius: 10,
-            padding: 10,
-            fontSize: 14,
-          }}
-        />
-        <Pressable
-          onPress={handleCitySearch}
-          style={{
-            backgroundColor: semanticColors.primary,
-            borderRadius: 10,
-            paddingHorizontal: 14,
-            justifyContent: "center",
-          }}
-        >
-          <Text style={{ color: "#fff", fontWeight: "600" }}>Buscar</Text>
-        </Pressable>
+    <View style={styles.recommendedSection}>
+      <View style={styles.sectionHeaderRow}>
+        <Star size={16} color="#d97706" fill="#d97706" />
+        <Text style={styles.sectionTitle}>Recomendados para vos</Text>
       </View>
-
-      {/* Category pills */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{ marginTop: 10 }}
-        contentContainerStyle={{ gap: 6, paddingVertical: 2 }}
+        contentContainerStyle={styles.horizontalList}
+        snapToAlignment="start"
+        decelerationRate="fast"
       >
-        <Pressable
-          onPress={() => setActiveCategory(undefined)}
-          style={{
-            backgroundColor: !activeCategory ? semanticColors.primary : "#f3f4f6",
-            borderRadius: 20,
-            paddingHorizontal: 14,
-            paddingVertical: 6,
-          }}
-        >
-          <Text style={{ color: !activeCategory ? "#fff" : "#374151", fontSize: 13, fontWeight: "600" }}>
-            Todos
-          </Text>
-        </Pressable>
-        {(Object.keys(EVENT_CATEGORY_LABELS) as EventCategory[]).map((cat) => (
-          <Pressable
-            key={cat}
-            onPress={() => setActiveCategory(activeCategory === cat ? undefined : cat)}
-            style={{
-              backgroundColor: activeCategory === cat ? semanticColors.primary : "#f3f4f6",
-              borderRadius: 20,
-              paddingHorizontal: 14,
-              paddingVertical: 6,
-            }}
-          >
-            <Text style={{ color: activeCategory === cat ? "#fff" : "#374151", fontSize: 13, fontWeight: "500" }}>
-              {CATEGORY_EMOJIS[cat]} {EVENT_CATEGORY_LABELS[cat]}
-            </Text>
-          </Pressable>
+        {events.map((event) => (
+          <EventCard
+            key={event.id}
+            event={event}
+            isSaved={!!isEventSaved(savedEvents, event.id)}
+            onToggleSave={() => onToggleSave(event)}
+            savePending={savePending}
+            wide
+          />
         ))}
       </ScrollView>
-
-      {/* Events list */}
-      {eventsQuery.isLoading && (
-        <Text style={{ marginTop: 24, color: "#6b7280", textAlign: "center" }}>
-          Buscando eventos en {city}...
-        </Text>
-      )}
-
-      {eventsQuery.isError && (
-        <Text style={{ marginTop: 24, color: "#b91c1c" }}>
-          {getMobileErrorMessage(eventsQuery.error)}
-        </Text>
-      )}
-
-      {!eventsQuery.isLoading && events.length === 0 && !eventsQuery.isError && (
-        <View style={{ marginTop: 30, alignItems: "center" }}>
-          <Text style={{ fontSize: 36, marginBottom: 10 }}>📭</Text>
-          <Text style={{ color: "#6b7280", textAlign: "center" }}>
-            No encontramos eventos en {city}.{"\n"}
-            Probá con otra ciudad o categoría.
-          </Text>
-        </View>
-      )}
-
-      <View style={{ marginTop: 12 }}>
-        {events.map((event) => (
-          <EventCard key={event.id} event={event} />
-        ))}
-      </View>
-    </>
+    </View>
   );
 }
 
-// ── Promos Tab ──────────────────────────────────────────────────────────────
+/** A category section with horizontal-scrolling event cards. */
+function CategorySection({
+  bucket,
+  savedEvents,
+  onToggleSave,
+  savePending,
+}: {
+  bucket: CategoryBucket;
+  savedEvents: ReturnType<typeof useSavedEvents>["data"];
+  onToggleSave: (event: EventItem) => void;
+  savePending: boolean;
+}) {
+  return (
+    <View style={styles.categorySection}>
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionEmoji}>{bucket.config.emoji}</Text>
+        <Text style={styles.sectionTitle}>{bucket.config.sectionHeader}</Text>
+        <Text style={styles.sectionCount}>{bucket.events.length}</Text>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalList}
+        snapToAlignment="start"
+        decelerationRate="fast"
+      >
+        {bucket.events.map((event) => (
+          <EventCard
+            key={event.id}
+            event={event}
+            isSaved={!!isEventSaved(savedEvents, event.id)}
+            onToggleSave={() => onToggleSave(event)}
+            savePending={savePending}
+            wide
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
 
-function PromosTab() {
-  const promosQuery = usePromos();
-  const pipelineStatus = usePromoPipelineStatus();
-  const refreshM = useRefreshPromos();
+// ─── Events content ─────────────────────────────────────────────────────────
 
-  const promos = promosQuery.data ?? [];
-  const isRunning = pipelineStatus.data?.isRunning ?? false;
+function EventsTab() {
+  const [activeCategory, setActiveCategory] = useState<EventCategory | undefined>();
+  const [activeTimeFilter, setActiveTimeFilter] = useState<TimeFilter>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("all");
 
-  // Group by store
-  const byStore = promos.reduce<Record<string, BankPromo[]>>((acc, p) => {
-    const key = p.storeName;
-    if (!acc[key]) acc[key] = [];
-    acc[key]!.push(p);
-    return acc;
-  }, {});
+  const eventsQuery = useEvents({ category: activeCategory, limit: 50 });
+  const savedEventsQuery = useSavedEvents();
+  const { toggle: toggleSave, isPending: savePending } = useToggleSaveEvent();
+  const allEvents = eventsQuery.data?.events ?? [];
+  const savedEvents = savedEventsQuery.data;
 
-  const sortedStores = Object.keys(byStore).sort();
+  const filteredEvents = useMemo(
+    () => filterByTimeWindow(allEvents, activeTimeFilter),
+    [allEvents, activeTimeFilter],
+  );
 
-  const handleRefresh = () => {
-    refreshM.mutate(undefined, {
-      onError: (error) => Alert.alert("Error", getMobileErrorMessage(error)),
-    });
-  };
+  // Highlighted events for "Recomendados para vos" — fall back to top events if none are editorially highlighted
+  const highlightedEvents = useMemo(() => {
+    const editorial = filteredEvents.filter((e) => e.editorialHighlight);
+    return (editorial.length > 0 ? editorial : filteredEvents).slice(0, MAX_HIGHLIGHTED);
+  }, [filteredEvents]);
+
+  // Events grouped by category
+  const categoryBuckets = useMemo(
+    () => bucketByCategory(filteredEvents),
+    [filteredEvents],
+  );
+
+  const handleTimeFilterChange = useCallback((filter: TimeFilter) => {
+    setActiveTimeFilter((prev) => (prev === filter ? "all" : filter));
+  }, []);
+
+  const handleToggleSave = useCallback(
+    (event: EventItem) => {
+      const saved = isEventSaved(savedEvents, event.id);
+      if (saved) {
+        void toggleSave({ savedEventId: saved.id });
+      } else {
+        void toggleSave({ input: eventToSaveInput(event) });
+      }
+    },
+    [savedEvents, toggleSave],
+  );
 
   return (
     <>
-      {/* Status bar */}
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
-        <Text style={{ color: "#6b7280", fontSize: 13 }}>
-          {promos.length} promos disponibles
-        </Text>
-        <Pressable
-          onPress={handleRefresh}
-          disabled={isRunning || refreshM.isPending}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            backgroundColor: "#f3f4f6",
-            borderRadius: 10,
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-          }}
-        >
-          <Text style={{ fontSize: 13, color: isRunning ? "#9ca3af" : "#374151", fontWeight: "500" }}>
-            {isRunning ? "Actualizando..." : "Actualizar"}
-          </Text>
-        </Pressable>
+      {/* View mode: All / Guardados */}
+      <View style={styles.viewModeRow}>
+        <FilterPill
+          label="Todos"
+          isActive={viewMode === "all"}
+          onPress={() => setViewMode("all")}
+        />
+        <FilterPill
+          label={`🔖 Guardados${savedEvents?.length ? ` (${savedEvents.length})` : ""}`}
+          isActive={viewMode === "saved"}
+          onPress={() => setViewMode("saved")}
+        />
       </View>
 
-      {isRunning && (
-        <View style={{ backgroundColor: "#eff6ff", borderRadius: 10, padding: 10, marginTop: 10 }}>
-          <Text style={{ color: "#1d4ed8", fontSize: 13 }}>
-            Buscando promociones vigentes... esto puede tomar unos segundos.
-          </Text>
-        </View>
-      )}
+      {viewMode === "saved" ? (
+        /* Saved events view */
+        savedEventsQuery.isLoading ? (
+          <View style={styles.loadingList}>
+            <SkeletonCard />
+            <SkeletonCard />
+          </View>
+        ) : !savedEvents?.length ? (
+          <EmptyState
+            icon={<Bookmark size={32} color={colors.mutedForeground} />}
+            title="Sin eventos guardados"
+            subtitle="Tocá el ícono de guardar en un evento para verlo acá"
+          />
+        ) : (
+          <View style={styles.eventList}>
+            <Text style={styles.resultCount}>
+              {savedEvents.length} guardado{savedEvents.length !== 1 ? "s" : ""}
+            </Text>
+            {savedEvents.map((saved) => {
+              const asEvent: EventItem = {
+                id: saved.culturalEventId ?? saved.id,
+                title: saved.title,
+                description: saved.description,
+                slug: "",
+                startDate: saved.startDate,
+                endDate: null,
+                venueName: saved.venueName,
+                address: saved.address,
+                cityId: null,
+                province: null,
+                category: saved.category as EventCategory,
+                tags: saved.tags,
+                artists: saved.artists,
+                priceMin: null,
+                priceMax: null,
+                currency: null,
+                sourceUrl: saved.sourceUrl,
+                imageUrl: saved.imageUrl,
+                editorialHighlight: saved.highlightReason,
+                culturalCategory: saved.culturalCategory,
+                ticketUrl: saved.ticketUrl,
+                mapsUrl: null,
+              };
+              return (
+                <EventCard
+                  key={saved.id}
+                  event={asEvent}
+                  isSaved
+                  onToggleSave={() => void toggleSave({ savedEventId: saved.id })}
+                  savePending={savePending}
+                />
+              );
+            })}
+          </View>
+        )
+      ) : (
+        <>
+          {/* Time + category filter pills */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+            contentContainerStyle={styles.filterScrollContent}
+          >
+            {TIME_FILTERS.map(({ key, label }) => (
+              <FilterPill
+                key={key}
+                label={label}
+                isActive={activeTimeFilter === key}
+                onPress={() => handleTimeFilterChange(key)}
+              />
+            ))}
+            <View style={styles.filterDivider} />
+            {CATEGORY_ORDER.map((cat) => {
+              const cfg = CATEGORY_CONFIG[cat];
+              if (!cfg) return null;
+              return (
+                <FilterPill
+                  key={cat}
+                  label={`${cfg.emoji} ${cfg.label}`}
+                  isActive={activeCategory === cat}
+                  onPress={() => setActiveCategory(activeCategory === cat ? undefined : cat)}
+                />
+              );
+            })}
+          </ScrollView>
 
-      {promosQuery.isLoading && (
-        <Text style={{ marginTop: 24, color: "#6b7280", textAlign: "center" }}>
-          Cargando promos...
-        </Text>
+          {/* Content */}
+          {eventsQuery.isLoading ? (
+            <View style={styles.loadingList}>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </View>
+          ) : eventsQuery.isError ? (
+            <Card style={styles.errorCard}>
+              <CardContent>
+                <Text style={styles.errorText}>{getMobileErrorMessage(eventsQuery.error)}</Text>
+              </CardContent>
+            </Card>
+          ) : filteredEvents.length === 0 ? (
+            <EmptyState
+              icon={<Text style={{ fontSize: 36 }}>📭</Text>}
+              title="Sin eventos"
+              subtitle="Probá con otra fecha o categoría"
+            />
+          ) : activeCategory ? (
+            /* When filtering by category, show flat list */
+            <View style={styles.eventList}>
+              <Text style={styles.resultCount}>
+                {filteredEvents.length} evento{filteredEvents.length !== 1 ? "s" : ""}
+              </Text>
+              {filteredEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  isSaved={!!isEventSaved(savedEvents, event.id)}
+                  onToggleSave={() => handleToggleSave(event)}
+                  savePending={savePending}
+                />
+              ))}
+            </View>
+          ) : (
+            /* Default: Recomendados + category sections */
+            <View style={styles.sectionsContainer}>
+              <RecommendedSection
+                events={highlightedEvents}
+                savedEvents={savedEvents}
+                onToggleSave={handleToggleSave}
+                savePending={savePending}
+              />
+              {categoryBuckets.map((bucket) => (
+                <CategorySection
+                  key={bucket.category}
+                  bucket={bucket}
+                  savedEvents={savedEvents}
+                  onToggleSave={handleToggleSave}
+                  savePending={savePending}
+                />
+              ))}
+            </View>
+          )}
+        </>
       )}
-
-      {promosQuery.isError && (
-        <Text style={{ marginTop: 24, color: "#b91c1c" }}>
-          {getMobileErrorMessage(promosQuery.error)}
-        </Text>
-      )}
-
-      {!promosQuery.isLoading && promos.length === 0 && !promosQuery.isError && (
-        <View style={{ marginTop: 30, alignItems: "center" }}>
-          <Text style={{ fontSize: 36, marginBottom: 10 }}>🏦</Text>
-          <Text style={{ color: "#6b7280", textAlign: "center" }}>
-            No hay promos cargadas aún.{"\n"}
-            Tocá "Actualizar" para buscar las vigentes.
-          </Text>
-        </View>
-      )}
-
-      {sortedStores.map((store) => (
-        <View key={store} style={{ marginTop: 16 }}>
-          <Text style={{ fontWeight: "700", color: "#111", fontSize: 15, marginBottom: 8 }}>
-            {store}
-          </Text>
-          {(byStore[store] ?? []).map((promo) => (
-            <PromoCard key={promo.id} promo={promo} />
-          ))}
-        </View>
-      ))}
     </>
   );
 }
 
-// ── Main Screen ─────────────────────────────────────────────────────────────
-
-type Tab = "events" | "promos";
+// ─── main screen ────────────────────────────────────────────────────────────
 
 export default function DiscoverScreen() {
-  const [tab, setTab] = useState<Tab>("events");
+  const eventsQuery = useEvents({ limit: 50 });
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefreshPipeline = async () => {
+    setRefreshing(true);
+    try {
+      await mobileApi.post("/api/events/refresh", {});
+      // Wait a bit for pipeline to start, then refetch events
+      setTimeout(() => void eventsQuery.refetch(), 2000);
+    } catch {
+      // best effort
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff", padding: 20 }}>
-      {/* Header */}
-      <Text style={{ fontSize: 20, fontWeight: "700", color: "#111" }}>Descubrí</Text>
-      <Text style={{ color: "#6b7280", fontSize: 13, marginTop: 2 }}>
-        Eventos y promos bancarias
-      </Text>
-
-      {/* Tab switcher */}
-      <View
-        style={{
-          flexDirection: "row",
-          backgroundColor: "#f3f4f6",
-          borderRadius: 12,
-          padding: 4,
-          marginTop: 14,
-        }}
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <ScreenHeader />
+      <ScrollView
+        bounces={false}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={eventsQuery.isRefetching}
+            tintColor={colors.primary}
+            onRefresh={() => void eventsQuery.refetch()}
+          />
+        }
       >
-        {(["events", "promos"] as Tab[]).map((t) => (
+        {/* Title */}
+        <View style={styles.titleRow}>
+          <Compass size={22} color={colors.primary} strokeWidth={2} />
+          <Text style={styles.title}>Descubrí</Text>
+        </View>
+        <View style={styles.subtitleRow}>
+          <Text style={styles.subtitle}>Eventos y actividades cerca tuyo</Text>
           <Pressable
-            key={t}
-            onPress={() => setTab(t)}
-            style={{
-              flex: 1,
-              backgroundColor: tab === t ? "#fff" : "transparent",
-              borderRadius: 9,
-              paddingVertical: 8,
-              alignItems: "center",
-              shadowColor: tab === t ? "#000" : "transparent",
-              shadowOpacity: tab === t ? 0.06 : 0,
-              shadowRadius: tab === t ? 4 : 0,
-              elevation: tab === t ? 2 : 0,
-            }}
+            onPress={() => void handleRefreshPipeline()}
+            disabled={refreshing}
+            style={styles.refreshButton}
           >
-            <Text
-              style={{
-                fontWeight: "600",
-                fontSize: 14,
-                color: tab === t ? "#111" : "#6b7280",
-              }}
-            >
-              {t === "events" ? "🎭 Eventos" : "💳 Promos"}
+            <RefreshCw size={14} color={refreshing ? colors.mutedForeground : colors.primary} />
+            <Text style={[styles.refreshButtonText, refreshing && { color: colors.mutedForeground }]}>
+              {refreshing ? "Actualizando..." : "Actualizar"}
             </Text>
           </Pressable>
-        ))}
-      </View>
+        </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {tab === "events" ? <EventsTab /> : <PromosTab />}
-        <View style={{ height: 40 }} />
+        <EventsTab />
+
+        <View style={styles.bottomPadding} />
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+// ─── styles ─────────────────────────────────────────────────────────────────
+
+const WIDE_CARD_WIDTH = 280;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 24,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  title: {
+    ...typography.pageTitle,
+  },
+  subtitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.md,
+  },
+  subtitle: {
+    fontFamily: fontFamily.sans,
+    fontSize: 14,
+    color: colors.mutedForeground,
+  },
+  refreshButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    backgroundColor: `${colors.primary}12`,
+  },
+  refreshButtonText: {
+    fontFamily: fontFamily.sans,
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.primary,
+  },
+
+  // Filter pills
+  filterScroll: {
+    marginBottom: spacing.md,
+  },
+  filterScrollContent: {
+    gap: spacing.xs,
+    paddingVertical: 2,
+  },
+  filterPill: {
+    backgroundColor: `${colors.muted}99`,
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  filterPillActive: {
+    backgroundColor: colors.primary,
+  },
+  filterPillText: {
+    fontFamily: fontFamily.sans,
+    fontSize: 12,
+    fontWeight: "500",
+    color: colors.mutedForeground,
+  },
+  filterPillTextActive: {
+    color: "#ffffff",
+    fontWeight: "600",
+  },
+  filterDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: colors.border,
+    alignSelf: "center",
+    marginHorizontal: 4,
+  },
+
+  // View mode row
+  viewModeRow: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+
+  // Result count
+  resultCount: {
+    fontFamily: fontFamily.sans,
+    fontSize: 12,
+    color: colors.mutedForeground,
+    marginBottom: spacing.sm,
+  },
+
+  // Loading / error
+  loadingList: {
+    gap: spacing.md,
+  },
+  errorCard: {
+    backgroundColor: "#fee2e2",
+  },
+  errorText: {
+    fontFamily: fontFamily.sans,
+    color: "#b91c1c",
+    fontSize: 14,
+  },
+
+  // Events — vertical list
+  eventList: {
+    gap: spacing.sm,
+  },
+
+  // Event card
+  eventCard: {
+    marginBottom: 0,
+  },
+  wideEventCardWrapper: {
+    width: WIDE_CARD_WIDTH,
+    height: 220,
+  },
+  wideEventCardInner: {
+    flex: 1,
+  },
+
+  // Event header row: chip + date + save
+  eventHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 6,
+    flexWrap: "wrap",
+  },
+  categoryChip: {
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  categoryChipText: {
+    fontFamily: fontFamily.sans,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  headerSpacer: {
+    flex: 1,
+  },
+  saveIconButton: {
+    padding: 4,
+  },
+
+  // Event content
+  eventTitle: {
+    fontFamily: fontFamily.sans,
+    fontWeight: "600",
+    color: colors.text,
+    fontSize: 14,
+    lineHeight: 18,
+    marginBottom: 2,
+  },
+  eventArtists: {
+    fontFamily: fontFamily.sans,
+    fontSize: 12,
+    color: colors.mutedForeground,
+    fontStyle: "italic",
+    marginBottom: 2,
+  },
+  eventHighlight: {
+    fontFamily: fontFamily.sans,
+    fontSize: 12,
+    lineHeight: 16,
+    color: "#92400e",
+    fontStyle: "italic",
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  eventDesc: {
+    fontFamily: fontFamily.sans,
+    color: colors.mutedForeground,
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  eventMeta: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: 4,
+    flexWrap: "wrap",
+    alignItems: "center",
+  },
+  eventMetaChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  eventMetaText: {
+    fontFamily: fontFamily.sans,
+    fontSize: 11,
+    color: colors.mutedForeground,
+  },
+
+  // CTAs
+  eventCtas: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    flexWrap: "wrap",
+  },
+  ctaButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: `${colors.primary}15`,
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  ctaButtonText: {
+    fontFamily: fontFamily.sans,
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.primary,
+  },
+  ctaButtonSecondary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: `${colors.muted}80`,
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  ctaButtonSecondaryText: {
+    fontFamily: fontFamily.sans,
+    fontSize: 12,
+    fontWeight: "500",
+    color: colors.mutedForeground,
+  },
+
+  // Sections
+  sectionsContainer: {
+    gap: spacing.lg,
+  },
+  recommendedSection: {
+    gap: spacing.sm,
+  },
+  categorySection: {
+    gap: spacing.sm,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  sectionEmoji: {
+    fontSize: 16,
+  },
+  sectionTitle: {
+    fontFamily: fontFamily.sans,
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  sectionCount: {
+    fontFamily: fontFamily.sans,
+    fontSize: 12,
+    color: colors.mutedForeground,
+    marginLeft: 2,
+  },
+
+  // Horizontal scroll
+  horizontalList: {
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+
+  bottomPadding: {
+    height: 20,
+  },
+});

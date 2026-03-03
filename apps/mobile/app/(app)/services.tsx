@@ -1,16 +1,16 @@
 import { useState } from "react";
-import {
-  Alert,
-  Pressable,
-  RefreshControl,
-  SafeAreaView,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { AlertCircle, ArrowLeft, Layers, Trash2, Zap } from "lucide-react-native";
 import { useServices, useGenerateServiceExpense, useDeleteService } from "@/hooks/use-services";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
-import { semanticColors } from "@habita/design-tokens";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SkeletonCard } from "@/components/ui/skeleton";
+import { colors, fontFamily, spacing, typography } from "@/theme";
 
 import type { SerializedService } from "@/hooks/use-services";
 
@@ -36,8 +36,6 @@ function daysUntil(iso: string): number {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
-// ── Service Card ────────────────────────────────────────────────────────────
-
 interface ServiceCardProps {
   service: SerializedService;
   onGenerate: (service: SerializedService) => void;
@@ -50,85 +48,58 @@ function ServiceCard({ service, onGenerate, onDelete, isGenerating }: ServiceCar
   const isOverdue = days < 0;
   const isDueSoon = days >= 0 && days <= 7;
 
-  const dueDateColor = isOverdue ? "#b91c1c" : isDueSoon ? "#d97706" : "#6b7280";
+  const dueDateColor = isOverdue ? colors.errorText : isDueSoon ? colors.warningText : colors.mutedForeground;
+  const dueDateWeight = isOverdue || isDueSoon ? "600" : "400";
 
   return (
-    <View
-      style={{
-        borderWidth: 1,
-        borderColor: isOverdue ? "#fca5a5" : "#e5e7eb",
-        borderRadius: 14,
-        padding: 16,
-        marginBottom: 12,
-        backgroundColor: isOverdue ? "#fff1f2" : "#fff",
-      }}
-    >
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: "700", color: "#111", fontSize: 15 }}>{service.title}</Text>
-          {service.provider && (
-            <Text style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>{service.provider}</Text>
-          )}
-        </View>
-        <View style={{ alignItems: "flex-end" }}>
-          <Text style={{ fontWeight: "700", color: "#111", fontSize: 16 }}>
-            {formatAmount(service.lastAmount)}
-          </Text>
-          <Text style={{ color: "#6b7280", fontSize: 11 }}>
-            {FREQUENCY_LABELS[service.frequency] ?? service.frequency}
-          </Text>
-        </View>
-      </View>
-
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
-        <View>
-          <Text style={{ fontSize: 12, color: dueDateColor, fontWeight: isOverdue || isDueSoon ? "600" : "400" }}>
-            {isOverdue
-              ? `Venció hace ${Math.abs(days)} día${Math.abs(days) !== 1 ? "s" : ""}`
-              : days === 0
-              ? "Vence hoy"
-              : `Vence ${formatDate(service.nextDueDate)}`}
-          </Text>
-          <Text style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
-            Paga: {service.paidBy.name}
-          </Text>
-        </View>
-
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <Pressable
-            onPress={() => onGenerate(service)}
-            disabled={isGenerating || !service.lastAmount}
-            style={{
-              backgroundColor: service.lastAmount ? semanticColors.primary : "#e5e7eb",
-              borderRadius: 10,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-            }}
-          >
-            <Text style={{ color: service.lastAmount ? "#fff" : "#9ca3af", fontWeight: "600", fontSize: 13 }}>
-              {isGenerating ? "..." : "Generar"}
+    <Card style={isOverdue ? styles.overdueCard : undefined}>
+      <CardContent>
+        <View style={styles.serviceTopRow}>
+          <View style={styles.serviceInfo}>
+            <Text style={styles.serviceTitle}>{service.title}</Text>
+            {service.provider ? (
+              <Text style={styles.serviceProvider}>{service.provider}</Text>
+            ) : null}
+          </View>
+          <View style={styles.serviceAmountCol}>
+            <Text style={styles.serviceAmount}>{formatAmount(service.lastAmount)}</Text>
+            <Text style={styles.serviceFrequency}>
+              {FREQUENCY_LABELS[service.frequency] ?? service.frequency}
             </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => onDelete(service)}
-            style={{
-              borderWidth: 1,
-              borderColor: "#e5e7eb",
-              borderRadius: 10,
-              paddingHorizontal: 10,
-              paddingVertical: 8,
-            }}
-          >
-            <Text style={{ color: "#6b7280", fontSize: 13 }}>🗑</Text>
-          </Pressable>
+          </View>
         </View>
-      </View>
-    </View>
+
+        <View style={styles.serviceBottomRow}>
+          <View>
+            <Text style={[styles.serviceDueDate, { color: dueDateColor, fontWeight: dueDateWeight }]}>
+              {isOverdue
+                ? `Venció hace ${Math.abs(days)} día${Math.abs(days) !== 1 ? "s" : ""}`
+                : days === 0
+                ? "Vence hoy"
+                : `Vence ${formatDate(service.nextDueDate)}`}
+            </Text>
+            <Text style={styles.servicePaidBy}>Paga: {service.paidBy.name}</Text>
+          </View>
+          <View style={styles.serviceActions}>
+            <Button
+              variant="default"
+              size="sm"
+              loading={isGenerating}
+              disabled={!service.lastAmount || isGenerating}
+              onPress={() => onGenerate(service)}
+            >
+              <Zap size={14} color="#fff" />
+              Generar
+            </Button>
+            <Button variant="outline" size="sm" onPress={() => onDelete(service)}>
+              <Trash2 size={14} color={colors.mutedForeground} />
+            </Button>
+          </View>
+        </View>
+      </CardContent>
+    </Card>
   );
 }
-
-// ── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function ServicesScreen() {
   const servicesQuery = useServices();
@@ -142,7 +113,7 @@ export default function ServicesScreen() {
 
   const handleGenerate = (service: SerializedService) => {
     if (!service.lastAmount) {
-      Alert.alert("Sin monto", "Este servicio no tiene monto configurado. Editalo primero.");
+      Alert.alert("Sin monto", "Este servicio no tiene monto configurado. Editálo primero.");
       return;
     }
     Alert.alert(
@@ -181,9 +152,7 @@ export default function ServicesScreen() {
           style: "destructive",
           onPress: () => {
             deleteM.mutate(service.id, {
-              onError: (error) => {
-                Alert.alert("Error", getMobileErrorMessage(error));
-              },
+              onError: (error) => Alert.alert("Error", getMobileErrorMessage(error)),
             });
           },
         },
@@ -192,111 +161,134 @@ export default function ServicesScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff", padding: 20 }}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.header}>
+        <View style={styles.backRow}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+            <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
+          </Pressable>
+          <Text style={styles.backTitle}>Servicios</Text>
+          <View style={styles.backBtn} />
+        </View>
+        <Text style={styles.subtitle}>Suscripciones y gastos recurrentes del hogar</Text>
+      </View>
+
       <ScrollView
+        bounces={false}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={servicesQuery.isRefetching}
             onRefresh={() => void servicesQuery.refetch()}
+            tintColor={colors.primary}
           />
         }
       >
-        <Text style={{ fontSize: 20, fontWeight: "700", color: "#111" }}>Servicios</Text>
-        <Text style={{ color: "#6b7280", fontSize: 13, marginTop: 4 }}>
-          Suscripciones y gastos recurrentes del hogar
-        </Text>
+        {servicesQuery.isLoading ? (
+          <View style={styles.loadingList}><SkeletonCard /><SkeletonCard /></View>
+        ) : servicesQuery.isError ? (
+          <Card style={styles.errorCard}>
+            <CardContent><Text style={styles.errorText}>{getMobileErrorMessage(servicesQuery.error)}</Text></CardContent>
+          </Card>
+        ) : null}
 
-        {servicesQuery.isLoading && (
-          <Text style={{ marginTop: 24, color: "#6b7280" }}>Cargando servicios...</Text>
-        )}
-
-        {servicesQuery.isError && (
-          <Text style={{ marginTop: 24, color: "#b91c1c" }}>
-            {getMobileErrorMessage(servicesQuery.error)}
-          </Text>
-        )}
-
-        {/* Overdue / due-soon banner */}
+        {/* Overdue banner */}
         {(() => {
           const overdue = active.filter((s) => daysUntil(s.nextDueDate) < 0);
           if (overdue.length === 0) return null;
           return (
-            <View
-              style={{
-                marginTop: 14,
-                backgroundColor: "#fff1f2",
-                borderWidth: 1,
-                borderColor: "#fca5a5",
-                borderRadius: 12,
-                padding: 12,
-              }}
-            >
-              <Text style={{ color: "#b91c1c", fontWeight: "600" }}>
-                {overdue.length} servicio{overdue.length !== 1 ? "s" : ""} vencido{overdue.length !== 1 ? "s" : ""}
-              </Text>
-              <Text style={{ color: "#b91c1c", fontSize: 12, marginTop: 2 }}>
-                Generá el gasto para mantener el historial al día.
-              </Text>
-            </View>
+            <Card style={styles.overdueBanner}>
+              <CardContent>
+                <View style={styles.overdueBannerRow}>
+                  <AlertCircle size={16} color={colors.errorText} />
+                  <View>
+                    <Text style={styles.overdueBannerTitle}>
+                      {overdue.length} servicio{overdue.length !== 1 ? "s" : ""} vencido{overdue.length !== 1 ? "s" : ""}
+                    </Text>
+                    <Text style={styles.overdueBannerSub}>
+                      Generá el gasto para mantener el historial al día.
+                    </Text>
+                  </View>
+                </View>
+              </CardContent>
+            </Card>
           );
         })()}
 
-        {/* Active services */}
-        {active.length > 0 && (
-          <View style={{ marginTop: 16 }}>
-            {active.map((service) => (
-              <ServiceCard
-                key={service.id}
-                service={service}
-                onGenerate={handleGenerate}
-                onDelete={handleDelete}
-                isGenerating={generatingId === service.id}
-              />
-            ))}
-          </View>
-        )}
+        {active.length > 0 ? (
+          active.map((service) => (
+            <ServiceCard
+              key={service.id}
+              service={service}
+              onGenerate={handleGenerate}
+              onDelete={handleDelete}
+              isGenerating={generatingId === service.id}
+            />
+          ))
+        ) : null}
 
-        {/* Inactive services */}
-        {inactive.length > 0 && (
-          <View style={{ marginTop: 16 }}>
-            <Text style={{ color: "#9ca3af", fontSize: 12, fontWeight: "600", marginBottom: 8 }}>
-              INACTIVOS
-            </Text>
+        {inactive.length > 0 ? (
+          <View style={styles.inactiveSection}>
+            <Badge style={styles.inactiveBadge}>INACTIVOS</Badge>
             {inactive.map((service) => (
-              <View
-                key={service.id}
-                style={{
-                  borderWidth: 1,
-                  borderColor: "#e5e7eb",
-                  borderRadius: 14,
-                  padding: 14,
-                  marginBottom: 10,
-                  opacity: 0.6,
-                }}
-              >
-                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                  <Text style={{ fontWeight: "600", color: "#6b7280" }}>{service.title}</Text>
-                  <Text style={{ color: "#9ca3af" }}>{formatAmount(service.lastAmount)}</Text>
-                </View>
-              </View>
+              <Card key={service.id} style={styles.inactiveCard}>
+                <CardContent>
+                  <View style={styles.inactiveRow}>
+                    <Text style={styles.inactiveTitle}>{service.title}</Text>
+                    <Text style={styles.inactiveAmount}>{formatAmount(service.lastAmount)}</Text>
+                  </View>
+                </CardContent>
+              </Card>
             ))}
           </View>
-        )}
+        ) : null}
 
-        {!servicesQuery.isLoading && services.length === 0 && (
-          <View style={{ marginTop: 40, alignItems: "center" }}>
-            <Text style={{ fontSize: 40, marginBottom: 12 }}>📋</Text>
-            <Text style={{ fontSize: 16, fontWeight: "700", color: "#111", marginBottom: 6 }}>
-              Sin servicios configurados
-            </Text>
-            <Text style={{ color: "#6b7280", textAlign: "center" }}>
-              Agregá servicios desde la versión web para gestionar los gastos recurrentes del hogar.
-            </Text>
-          </View>
-        )}
-
-        <View style={{ height: 40 }} />
+        {!servicesQuery.isLoading && services.length === 0 && !servicesQuery.isError ? (
+          <EmptyState
+            icon={<Layers size={32} color={colors.mutedForeground} />}
+            title="Sin servicios configurados"
+            subtitle="Agregá servicios desde la versión web para gestionar los gastos recurrentes del hogar."
+          />
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
+  backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
+  backTitle: { ...typography.cardTitle },
+  subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, marginTop: 2 },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.sm },
+  loadingList: { gap: spacing.md },
+  errorCard: { backgroundColor: colors.errorBg },
+  errorText: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 13 },
+  overdueCard: { backgroundColor: colors.destructiveForeground, borderColor: colors.destructive },
+  overdueBanner: { backgroundColor: colors.destructiveForeground, borderColor: colors.destructive },
+  overdueBannerRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+  overdueBannerTitle: { fontFamily: fontFamily.sans, color: colors.errorText, fontWeight: "700", fontSize: 13 },
+  overdueBannerSub: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 12, marginTop: 2 },
+  serviceTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: spacing.sm },
+  serviceInfo: { flex: 1 },
+  serviceTitle: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 15 },
+  serviceProvider: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 12, marginTop: 2 },
+  serviceAmountCol: { alignItems: "flex-end" },
+  serviceAmount: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 16 },
+  serviceFrequency: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 11, marginTop: 2 },
+  serviceBottomRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  serviceDueDate: { fontFamily: fontFamily.sans, fontSize: 12 },
+  servicePaidBy: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground, marginTop: 2 },
+  serviceActions: { flexDirection: "row", gap: spacing.xs },
+  inactiveSection: { gap: spacing.xs },
+  inactiveBadge: { alignSelf: "flex-start" },
+  inactiveCard: { opacity: 0.6 },
+  inactiveRow: { flexDirection: "row", justifyContent: "space-between" },
+  inactiveTitle: { fontWeight: "600", color: colors.mutedForeground },
+  inactiveAmount: { color: colors.mutedForeground },
+});

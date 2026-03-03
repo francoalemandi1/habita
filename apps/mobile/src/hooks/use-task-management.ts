@@ -71,6 +71,18 @@ export function useCreateTask() {
   });
 }
 
+export function useDeleteTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (taskId: string) =>
+      mobileApi.delete<{ success: boolean }>(`/api/tasks/${taskId}`),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
+    },
+  });
+}
+
 export function useCreateAssignment() {
   const queryClient = useQueryClient();
 

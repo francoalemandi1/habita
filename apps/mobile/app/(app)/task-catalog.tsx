@@ -1,19 +1,17 @@
 import { useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import {
-  ActivityIndicator,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { useTaskCatalog } from "@/hooks/use-task-management";
+import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, Clock, UserCheck } from "lucide-react-native";
+import { useTaskCatalog, useCreateTask, useCreateAssignment } from "@/hooks/use-task-management";
 import { useMembers } from "@/hooks/use-members";
-import { useCreateTask, useCreateAssignment } from "@/hooks/use-task-management";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
-import { semanticColors } from "@habita/design-tokens";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { StyledTextInput } from "@/components/ui/text-input";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { EmptyState } from "@/components/ui/empty-state";
+import { colors, fontFamily, spacing, typography } from "@/theme";
 
 import type { CatalogTask } from "@/hooks/use-task-management";
 
@@ -46,15 +44,9 @@ function AssignSheet({ task, onClose }: AssignSheetProps) {
 
   const handleAssign = async () => {
     setError(null);
-    if (!selectedMemberId) {
-      setError("Seleccioná un miembro.");
-      return;
-    }
+    if (!selectedMemberId) { setError("Selecioná un miembro."); return; }
     const dueDateIso = dueDateToIso(dueDate);
-    if (!dueDateIso) {
-      setError("Fecha inválida.");
-      return;
-    }
+    if (!dueDateIso) { setError("Fecha inválida."); return; }
 
     try {
       const created = await createTask.mutateAsync({
@@ -77,119 +69,57 @@ function AssignSheet({ task, onClose }: AssignSheetProps) {
   };
 
   return (
-    <View
-      style={{
-        position: "absolute",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: "#ffffff",
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        padding: 24,
-        gap: 14,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 8,
-      }}
-    >
-      <Text style={{ fontSize: 17, fontWeight: "700", color: "#111111" }}>{task.name}</Text>
+    <BottomSheet visible onClose={onClose}>
+      <Text style={styles.sheetTitle}>{task.name}</Text>
       {task.estimatedMinutes ? (
-        <Text style={{ color: "#6b7280", fontSize: 13 }}>
-          ~{task.estimatedMinutes} min · Peso {task.defaultWeight}
-        </Text>
+        <View style={styles.taskMeta}>
+          <Clock size={14} color={colors.mutedForeground} />
+          <Text style={styles.taskMetaText}>~{task.estimatedMinutes} min · Peso {task.defaultWeight}</Text>
+        </View>
       ) : null}
 
-      <View style={{ gap: 6 }}>
-        <Text style={{ fontWeight: "600", color: "#374151", fontSize: 14 }}>Asignar a</Text>
-        {membersQuery.isLoading ? (
-          <ActivityIndicator />
-        ) : (
-          members.map((member) => {
-            const isSelected = member.id === selectedMemberId;
-            return (
-              <Pressable
-                key={member.id}
-                onPress={() => setSelectedMemberId(member.id)}
-                style={{
-                  borderWidth: 1,
-                  borderColor: isSelected ? semanticColors.primary : "#e5e7eb",
-                  backgroundColor: isSelected ? "#eff6ff" : "#ffffff",
-                  borderRadius: 8,
-                  paddingVertical: 9,
-                  paddingHorizontal: 12,
-                }}
-              >
-                <Text
-                  style={{
-                    color: "#111111",
-                    fontWeight: isSelected ? "700" : "500",
-                  }}
-                >
-                  {member.name}
-                </Text>
-              </Pressable>
-            );
-          })
-        )}
-      </View>
+      <Text style={styles.fieldLabel}>Asignar a</Text>
+      {membersQuery.isLoading ? (
+        <ActivityIndicator color={colors.primary} style={styles.loading} />
+      ) : (
+        <View style={styles.memberList}>
+          {members.map((member) => (
+            <Button
+              key={member.id}
+              variant={member.id === selectedMemberId ? "default" : "outline"}
+              onPress={() => setSelectedMemberId(member.id)}
+              style={styles.memberButton}
+            >
+              <UserCheck size={14} color={member.id === selectedMemberId ? "#fff" : colors.mutedForeground} />
+              {member.name}
+            </Button>
+          ))}
+        </View>
+      )}
 
-      <View style={{ gap: 6 }}>
-        <Text style={{ fontWeight: "600", color: "#374151", fontSize: 14 }}>Vencimiento</Text>
-        <TextInput
-          value={dueDate}
-          onChangeText={setDueDate}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor="#9ca3af"
-          autoCapitalize="none"
-          style={{
-            borderWidth: 1,
-            borderColor: "#e5e7eb",
-            borderRadius: 8,
-            padding: 10,
-            fontSize: 14,
-            color: "#111111",
-          }}
-        />
-      </View>
+      <Text style={styles.fieldLabel}>Vencimiento</Text>
+      <StyledTextInput
+        value={dueDate}
+        onChangeText={setDueDate}
+        placeholder="YYYY-MM-DD"
+        autoCapitalize="none"
+        style={styles.dateInput}
+      />
 
-      {error ? <Text style={{ color: "#b91c1c", fontSize: 13 }}>{error}</Text> : null}
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      <View style={{ flexDirection: "row", gap: 10 }}>
-        <Pressable
-          onPress={onClose}
-          style={{
-            flex: 1,
-            borderRadius: 10,
-            paddingVertical: 12,
-            alignItems: "center",
-            backgroundColor: "#f3f4f6",
-          }}
-        >
-          <Text style={{ fontWeight: "600", color: "#374151" }}>Cancelar</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => void handleAssign()}
+      <View style={styles.sheetActions}>
+        <Button variant="outline" onPress={onClose} style={styles.cancelButton}>Cancelar</Button>
+        <Button
+          loading={isSubmitting}
           disabled={!selectedMemberId || isSubmitting}
-          style={{
-            flex: 2,
-            borderRadius: 10,
-            paddingVertical: 12,
-            alignItems: "center",
-            backgroundColor: semanticColors.primary,
-            opacity: !selectedMemberId || isSubmitting ? 0.6 : 1,
-          }}
+          onPress={() => void handleAssign()}
+          style={styles.assignButton}
         >
-          {isSubmitting ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <Text style={{ color: "#ffffff", fontWeight: "700" }}>Asignar</Text>
-          )}
-        </Pressable>
+          Asignar
+        </Button>
       </View>
-    </View>
+    </BottomSheet>
   );
 }
 
@@ -205,136 +135,105 @@ export default function TaskCatalogScreen() {
     if (!query) return data.categories;
 
     return data.categories
-      .map((cat) => ({
-        ...cat,
-        tasks: cat.tasks.filter((t) => t.name.toLowerCase().includes(query)),
-      }))
+      .map((cat) => ({ ...cat, tasks: cat.tasks.filter((t) => t.name.toLowerCase().includes(query)) }))
       .filter((cat) => cat.tasks.length > 0);
   }, [data, search]);
 
   const toggleCategory = (category: string) => {
     setExpandedCategories((prev) => {
       const next = new Set(prev);
-      if (next.has(category)) {
-        next.delete(category);
-      } else {
-        next.add(category);
-      }
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
       return next;
     });
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }}>
-      <View style={{ padding: 20, paddingBottom: 0 }}>
-        <View
-          style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
-        >
-          <Text style={{ fontSize: 20, fontWeight: "700", color: "#111111" }}>
-            Catálogo de tareas
-          </Text>
-          <Pressable onPress={() => router.back()}>
-            <Text style={{ color: semanticColors.primary, fontWeight: "600" }}>Cerrar</Text>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.header}>
+        <View style={styles.backRow}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+            <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
           </Pressable>
+          <Text style={styles.backTitle}>Catálogo de tareas</Text>
+          <View style={styles.backBtn} />
         </View>
-
-        <TextInput
+        <StyledTextInput
           value={search}
           onChangeText={setSearch}
           placeholder="Buscar tarea..."
-          placeholderTextColor="#9ca3af"
-          style={{
-            marginTop: 12,
-            borderWidth: 1,
-            borderColor: "#e5e7eb",
-            borderRadius: 10,
-            padding: 10,
-            fontSize: 14,
-            color: "#111111",
-          }}
+          style={styles.searchInput}
         />
       </View>
 
       {isLoading ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator color={semanticColors.primary} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      ) : null}
+      ) : isError ? (
+        <Card style={styles.errorCard}>
+          <CardContent><Text style={styles.errorText}>{getMobileErrorMessage(error)}</Text></CardContent>
+        </Card>
+      ) : (
+        <ScrollView
+          bounces={false}
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {filtered.map((category) => {
+            const isExpanded = expandedCategories.has(category.category);
+            return (
+              <View key={category.category} style={styles.categoryContainer}>
+                <Button
+                  variant="outline"
+                  onPress={() => toggleCategory(category.category)}
+                  style={styles.categoryHeader}
+                >
+                  <Text style={styles.categoryLabel}>{category.icon} {category.label}</Text>
+                  <View style={styles.categoryRight}>
+                    <Text style={styles.categoryCount}>{category.tasks.length} tareas</Text>
+                    {isExpanded
+                      ? <ChevronUp size={16} color={colors.mutedForeground} />
+                      : <ChevronDown size={16} color={colors.mutedForeground} />
+                    }
+                  </View>
+                </Button>
 
-      {isError ? (
-        <Text style={{ margin: 20, color: "#b91c1c" }}>{getMobileErrorMessage(error)}</Text>
-      ) : null}
-
-      <ScrollView style={{ flex: 1, marginTop: 12 }} contentContainerStyle={{ padding: 20 }}>
-        {filtered.map((category) => {
-          const isExpanded = expandedCategories.has(category.category);
-          return (
-            <View key={category.category} style={{ marginBottom: 12 }}>
-              <Pressable
-                onPress={() => toggleCategory(category.category)}
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  backgroundColor: "#f9fafb",
-                  borderRadius: 10,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                }}
-              >
-                <Text style={{ fontWeight: "700", color: "#111111" }}>
-                  {category.icon} {category.label}
-                </Text>
-                <Text style={{ color: "#6b7280", fontSize: 13 }}>
-                  {category.tasks.length} tareas {isExpanded ? "▲" : "▼"}
-                </Text>
-              </Pressable>
-
-              {isExpanded
-                ? category.tasks.map((task) => (
-                    <Pressable
-                      key={task.name}
-                      onPress={() => setSelectedTask(task)}
-                      style={{
-                        flexDirection: "row",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        borderBottomWidth: 1,
-                        borderBottomColor: "#f3f4f6",
-                        paddingHorizontal: 14,
-                        paddingVertical: 10,
-                      }}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: "#111111", fontWeight: "500" }}>{task.name}</Text>
-                        {task.estimatedMinutes ? (
-                          <Text style={{ color: "#9ca3af", fontSize: 12 }}>
-                            ~{task.estimatedMinutes} min
-                          </Text>
-                        ) : null}
-                      </View>
-                      <Text
-                        style={{
-                          color: semanticColors.primary,
-                          fontWeight: "700",
-                          fontSize: 12,
-                        }}
+                {isExpanded ? (
+                  <Card style={styles.taskListCard}>
+                    {category.tasks.map((task, index) => (
+                      <View
+                        key={task.name}
+                        style={[styles.taskRow, index < category.tasks.length - 1 && styles.taskBorder]}
                       >
-                        Asignar
-                      </Text>
-                    </Pressable>
-                  ))
-                : null}
-            </View>
-          );
-        })}
+                        <View style={styles.taskInfo}>
+                          <Text style={styles.taskName}>{task.name}</Text>
+                          {task.estimatedMinutes ? (
+                            <View style={styles.taskMeta}>
+                              <Clock size={11} color={colors.mutedForeground} />
+                              <Text style={styles.taskMetaSmall}>~{task.estimatedMinutes} min</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Button size="sm" onPress={() => setSelectedTask(task)}>Asignar</Button>
+                      </View>
+                    ))}
+                  </Card>
+                ) : null}
+              </View>
+            );
+          })}
 
-        {!isLoading && filtered.length === 0 ? (
-          <Text style={{ color: "#6b7280", textAlign: "center" }}>
-            No hay tareas que coincidan con "{search}".
-          </Text>
-        ) : null}
-      </ScrollView>
+          {!isLoading && filtered.length === 0 ? (
+            <EmptyState
+              icon={<BookOpen size={32} color={colors.mutedForeground} />}
+              title="Sin resultados"
+              subtitle={`No hay tareas que coincidan con "${search}".`}
+            />
+          ) : null}
+        </ScrollView>
+      )}
 
       {selectedTask ? (
         <AssignSheet task={selectedTask} onClose={() => setSelectedTask(null)} />
@@ -342,3 +241,39 @@ export default function TaskCatalogScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
+  backTitle: { ...typography.cardTitle },
+  searchInput: { marginBottom: 0 },
+  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.xs },
+  errorCard: { backgroundColor: colors.errorBg, margin: spacing.lg },
+  errorText: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 13 },
+  categoryContainer: { gap: spacing.xs },
+  categoryHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  categoryLabel: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 14 },
+  categoryRight: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  categoryCount: { fontFamily: fontFamily.sans, fontSize: 12, color: colors.mutedForeground },
+  taskListCard: { marginTop: 2 },
+  taskRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm },
+  taskBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  taskInfo: { flex: 1, marginRight: spacing.sm },
+  taskName: { fontFamily: fontFamily.sans, color: colors.text, fontWeight: "500", fontSize: 14 },
+  taskMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  taskMetaText: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground },
+  taskMetaSmall: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground },
+  loading: { marginVertical: spacing.lg },
+  memberList: { gap: spacing.xs, marginBottom: spacing.md },
+  memberButton: { justifyContent: "flex-start" },
+  sheetTitle: { fontFamily: fontFamily.sans, fontSize: 17, fontWeight: "700", color: colors.text, marginBottom: spacing.xs },
+  fieldLabel: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "600", color: colors.text, marginBottom: spacing.xs, marginTop: spacing.sm },
+  dateInput: { marginBottom: spacing.sm },
+  sheetActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
+  cancelButton: { flex: 1 },
+  assignButton: { flex: 2 },
+});

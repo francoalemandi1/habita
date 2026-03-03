@@ -1,8 +1,17 @@
 import { useState } from "react";
-import { Pressable, SafeAreaView, ScrollView, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { ArrowLeft, Bell, CheckCheck } from "lucide-react-native";
 import { useMarkAllNotificationsRead, useNotifications } from "@/hooks/use-notifications";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
-import { semanticColors } from "@habita/design-tokens";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SkeletonCard } from "@/components/ui/skeleton";
+import { TabBar } from "@/components/ui/tab-bar";
+import { colors, fontFamily, spacing, typography } from "@/theme";
 
 export default function NotificationsScreen() {
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -13,80 +22,118 @@ export default function NotificationsScreen() {
   const unreadCount = notificationsQuery.data?.unreadCount ?? 0;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff", padding: 20 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <View>
-          <Text style={{ fontSize: 20, fontWeight: "700" }}>Notificaciones</Text>
-          <Text style={{ marginTop: 4, color: "#6b7280" }}>{unreadCount} sin leer</Text>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.headerOuter}>
+        <View style={styles.backRow}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+            <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
+          </Pressable>
+          <Text style={styles.backTitle}>Notificaciones</Text>
+          <View style={styles.backBtn} />
         </View>
-        <Pressable
-          onPress={() => markAllRead.mutate()}
-          style={{ borderRadius: 8, backgroundColor: "#f3f4f6", paddingHorizontal: 10, paddingVertical: 8 }}
-        >
-          <Text style={{ fontWeight: "700" }}>Marcar todas</Text>
-        </Pressable>
-      </View>
-
-      <View style={{ marginTop: 10, flexDirection: "row", gap: 8 }}>
-        <Pressable
-          onPress={() => setUnreadOnly(false)}
-          style={{
-            borderRadius: 999,
-            borderWidth: 1,
-            borderColor: !unreadOnly ? semanticColors.primary : "#d1d5db",
-            backgroundColor: !unreadOnly ? "#eff6ff" : "#ffffff",
-            paddingHorizontal: 12,
-            paddingVertical: 7,
-          }}
-        >
-          <Text style={{ fontWeight: "700", fontSize: 12 }}>Todas</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setUnreadOnly(true)}
-          style={{
-            borderRadius: 999,
-            borderWidth: 1,
-            borderColor: unreadOnly ? semanticColors.primary : "#d1d5db",
-            backgroundColor: unreadOnly ? "#eff6ff" : "#ffffff",
-            paddingHorizontal: 12,
-            paddingVertical: 7,
-          }}
-        >
-          <Text style={{ fontWeight: "700", fontSize: 12 }}>Sin leer</Text>
-        </Pressable>
-      </View>
-
-      {notificationsQuery.isLoading ? (
-        <Text style={{ marginTop: 16, color: "#6b7280" }}>Cargando notificaciones...</Text>
-      ) : null}
-
-      {notificationsQuery.isError ? (
-        <Text style={{ marginTop: 16, color: "#b91c1c" }}>
-          {getMobileErrorMessage(notificationsQuery.error)}
-        </Text>
-      ) : null}
-
-      <ScrollView style={{ marginTop: 12 }}>
-        {notifications.map((notification) => (
-          <View
-            key={notification.id}
-            style={{
-              borderWidth: 1,
-              borderColor: "#e5e7eb",
-              borderRadius: 12,
-              padding: 12,
-              marginBottom: 10,
-              backgroundColor: notification.isRead ? "#ffffff" : "#f8fafc",
-            }}
-          >
-            <Text style={{ fontWeight: "700" }}>{notification.title}</Text>
-            <Text style={{ marginTop: 4, color: "#374151" }}>{notification.message}</Text>
-            <Text style={{ marginTop: 6, color: "#9ca3af", fontSize: 12 }}>
-              {new Date(notification.createdAt).toLocaleString("es-AR")}
-            </Text>
+        <View style={styles.header}>
+          <View>
+            {unreadCount > 0 ? (
+              <Text style={styles.subtitle}>{unreadCount} sin leer</Text>
+            ) : null}
           </View>
-        ))}
+          <Button
+            variant="outline"
+            size="sm"
+            onPress={() => markAllRead.mutate()}
+            loading={markAllRead.isPending}
+          >
+            Marcar todas
+          </Button>
+        </View>
+      </View>
+
+      <TabBar
+        tabs={[{ label: "Todas" }, { label: "Sin leer" }]}
+        activeIndex={unreadOnly ? 1 : 0}
+        onTabPress={(i) => setUnreadOnly(i === 1)}
+        style={styles.tabBar}
+      />
+
+      <ScrollView
+        bounces={false}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={notificationsQuery.isRefetching}
+            onRefresh={() => void notificationsQuery.refetch()}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {notificationsQuery.isLoading ? (
+          <View style={styles.loadingList}>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </View>
+        ) : notificationsQuery.isError ? (
+          <Card style={styles.errorCard}>
+            <CardContent>
+              <Text style={styles.errorText}>
+                {getMobileErrorMessage(notificationsQuery.error)}
+              </Text>
+            </CardContent>
+          </Card>
+        ) : notifications.length === 0 ? (
+          <EmptyState
+            icon={<Bell size={32} color={colors.mutedForeground} />}
+            title="Sin notificaciones"
+            subtitle={unreadOnly ? "No tenés notificaciones sin leer" : "Todo tranquilo por acá"}
+          />
+        ) : (
+          notifications.map((notification) => (
+            <Card
+              key={notification.id}
+              style={[styles.notifCard, !notification.isRead && styles.notifCardUnread]}
+            >
+              <CardContent>
+                <View style={styles.notifHeader}>
+                  <Text style={styles.notifTitle}>{notification.title}</Text>
+                  {!notification.isRead ? (
+                    <Badge bgColor={colors.primary} textColor="#ffffff">
+                      Nueva
+                    </Badge>
+                  ) : null}
+                </View>
+                <Text style={styles.notifMessage}>{notification.message}</Text>
+                <Text style={styles.notifDate}>
+                  {new Date(notification.createdAt).toLocaleString("es-AR")}
+                </Text>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  headerOuter: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
+  backTitle: { ...typography.cardTitle },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, marginTop: 2 },
+  tabBar: { marginHorizontal: spacing.lg, marginBottom: spacing.sm },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.sm },
+  loadingList: { gap: spacing.md },
+  errorCard: { backgroundColor: colors.errorBg },
+  errorText: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 14 },
+  notifCard: { marginBottom: 0 },
+  notifCardUnread: { borderLeftWidth: 3, borderLeftColor: colors.primary },
+  notifHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.xs },
+  notifTitle: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 14, flex: 1, marginRight: spacing.sm },
+  notifMessage: { fontFamily: fontFamily.sans, color: colors.text, fontSize: 13, opacity: 0.8, marginBottom: spacing.xs },
+  notifDate: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 11 },
+});

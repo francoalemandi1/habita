@@ -1,20 +1,17 @@
-import { useState } from "react";
-import {
-  ActivityIndicator,
-  Linking,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router, useLocalSearchParams } from "expo-router";
+import { ArrowLeft, ChevronDown, ChevronUp, RefreshCw, Tag } from "lucide-react-native";
 import { useGroceryDeals } from "@/hooks/use-grocery-deals";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
-import { semanticColors } from "@habita/design-tokens";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { colors, fontFamily, spacing, typography } from "@/theme";
 
 import type { GroceryCategory, StoreCluster, ProductPrice } from "@/hooks/use-grocery-deals";
-
-// ── Category config ─────────────────────────────────────────────────────────
 
 const CATEGORIES: { value: GroceryCategory; label: string; emoji: string }[] = [
   { value: "almacen",          label: "Almacén",        emoji: "🛒" },
@@ -27,8 +24,6 @@ const CATEGORIES: { value: GroceryCategory; label: string; emoji: string }[] = [
   { value: "perfumeria",       label: "Perfumería",      emoji: "🧴" },
 ];
 
-// ── Product row ─────────────────────────────────────────────────────────────
-
 function ProductRow({ product }: { product: ProductPrice }) {
   const handlePress = () => {
     if (product.sourceUrl) void Linking.openURL(product.sourceUrl);
@@ -37,106 +32,75 @@ function ProductRow({ product }: { product: ProductPrice }) {
   return (
     <Pressable
       onPress={product.sourceUrl ? handlePress : undefined}
-      style={{
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        paddingVertical: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: "#f3f4f6",
-      }}
+      style={styles.productRow}
     >
-      <View style={{ flex: 1, marginRight: 10 }}>
-        <Text style={{ fontSize: 13, color: "#111", fontWeight: "500" }} numberOfLines={2}>
-          {product.productName}
-        </Text>
-        {product.discount && product.discount !== "0%" && (
-          <Text style={{ fontSize: 11, color: "#16a34a", marginTop: 2 }}>
-            ↓ {product.discount}
-          </Text>
-        )}
+      <View style={styles.productInfo}>
+        <Text style={styles.productName} numberOfLines={2}>{product.productName}</Text>
+        {product.discount && product.discount !== "0%" ? (
+          <Text style={styles.productDiscount}>↓ {product.discount}</Text>
+        ) : null}
       </View>
-      <View style={{ alignItems: "flex-end" }}>
-        <Text style={{ fontWeight: "700", color: "#111" }}>{product.price}</Text>
-        {product.originalPrice && (
-          <Text style={{ fontSize: 11, color: "#9ca3af", textDecorationLine: "line-through" }}>
-            {product.originalPrice}
-          </Text>
-        )}
+      <View style={styles.productPrices}>
+        <Text style={styles.productPrice}>{product.price}</Text>
+        {product.originalPrice ? (
+          <Text style={styles.productOriginalPrice}>{product.originalPrice}</Text>
+        ) : null}
       </View>
     </Pressable>
   );
 }
 
-// ── Store cluster card ──────────────────────────────────────────────────────
-
 function StoreCard({ cluster, rank }: { cluster: StoreCluster; rank: number }) {
-  const [expanded, setExpanded] = useState(rank === 0); // first store open by default
+  const [expanded, setExpanded] = useState(rank === 0);
 
   const medals = ["🥇", "🥈", "🥉"];
 
   return (
-    <View
-      style={{
-        borderWidth: rank === 0 ? 2 : 1,
-        borderColor: rank === 0 ? semanticColors.primary : "#e5e7eb",
-        borderRadius: 14,
-        marginBottom: 12,
-        overflow: "hidden",
-        backgroundColor: rank === 0 ? "#f0f9ff" : "#fff",
-      }}
-    >
-      <Pressable
-        onPress={() => setExpanded((v) => !v)}
-        style={{ padding: 14 }}
-      >
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Text style={{ fontSize: 20 }}>{medals[rank] ?? `#${rank + 1}`}</Text>
+    <Card style={rank === 0 ? styles.topStoreCard : undefined}>
+      <CardContent>
+        <Pressable onPress={() => setExpanded((v) => !v)} style={styles.storeHeader}>
+          <View style={styles.storeHeaderLeft}>
+            <Text style={styles.storeMedal}>{medals[rank] ?? `#${rank + 1}`}</Text>
             <View>
-              <Text style={{ fontWeight: "700", color: "#111", fontSize: 15 }}>
-                {cluster.storeName}
-              </Text>
-              <Text style={{ color: "#6b7280", fontSize: 12 }}>
-                {cluster.productCount} productos encontrados
-              </Text>
+              <Text style={styles.storeName}>{cluster.storeName}</Text>
+              <Text style={styles.storeProductCount}>{cluster.productCount} productos encontrados</Text>
             </View>
           </View>
-          <View style={{ alignItems: "flex-end" }}>
-            {cluster.averageDiscountPercent > 0 && (
-              <View style={{ backgroundColor: "#dcfce7", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                <Text style={{ color: "#16a34a", fontWeight: "700", fontSize: 13 }}>
-                  -{cluster.averageDiscountPercent.toFixed(0)}% prom.
-                </Text>
-              </View>
-            )}
-            <Text style={{ color: "#6b7280", fontSize: 12, marginTop: 3 }}>
-              {expanded ? "▲" : "▼"}
-            </Text>
+          <View style={styles.storeHeaderRight}>
+            {cluster.averageDiscountPercent > 0 ? (
+              <Badge style={styles.discountBadge}>
+                -{cluster.averageDiscountPercent.toFixed(0)}% prom.
+              </Badge>
+            ) : null}
+            {expanded
+              ? <ChevronUp size={16} color={colors.mutedForeground} />
+              : <ChevronDown size={16} color={colors.mutedForeground} />
+            }
           </View>
-        </View>
-      </Pressable>
+        </Pressable>
 
-      {expanded && (
-        <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
-          {cluster.products.map((p, i) => (
-            <ProductRow key={i} product={p} />
-          ))}
-          {cluster.totalEstimatedSavings > 0 && (
-            <Text style={{ color: "#16a34a", fontSize: 12, fontWeight: "600", marginTop: 8 }}>
-              Ahorro estimado total: ${cluster.totalEstimatedSavings.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
-            </Text>
-          )}
-        </View>
-      )}
-    </View>
+        {expanded ? (
+          <View style={styles.storeProducts}>
+            {cluster.products.map((p, i) => (
+              <ProductRow key={p.productName} product={p} />
+            ))}
+            {cluster.totalEstimatedSavings > 0 ? (
+              <Text style={styles.totalSavings}>
+                Ahorro estimado total: ${cluster.totalEstimatedSavings.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
-// ── Main screen ─────────────────────────────────────────────────────────────
-
 export default function GroceryDealsScreen() {
-  const [selectedCategory, setSelectedCategory] = useState<GroceryCategory>("almacen");
+  const params = useLocalSearchParams<{ category?: string }>();
+  const initialCategory = (params.category as GroceryCategory | undefined) ?? "almacen";
+
+  const [selectedCategory, setSelectedCategory] = useState<GroceryCategory>(initialCategory);
   const dealsM = useGroceryDeals();
 
   const handleSearch = (category: GroceryCategory, forceRefresh = false) => {
@@ -144,138 +108,169 @@ export default function GroceryDealsScreen() {
     dealsM.mutate({ category, city: "Buenos Aires", country: "AR", forceRefresh });
   };
 
+  // Auto-trigger search when arriving with a pre-selected category from the dashboard
+  useEffect(() => {
+    if (params.category) {
+      handleSearch(initialCategory);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const clusters = dealsM.data?.clusters ?? [];
   const recommendation = dealsM.data?.recommendation;
   const notFound = dealsM.data?.productsNotFound ?? [];
   const isCached = dealsM.data?.cached ?? false;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff", padding: 20 }}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: "#111" }}>Ofertas del super</Text>
-        <Text style={{ color: "#6b7280", fontSize: 13, marginTop: 4 }}>
-          Mejores precios por categoría en supermercados cercanos
-        </Text>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.header}>
+        <View style={styles.backRow}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+            <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
+          </Pressable>
+          <Text style={styles.backTitle}>Ofertas del super</Text>
+          <View style={styles.backBtn} />
+        </View>
+        <Text style={styles.subtitle}>Mejores precios por categoría en supermercados cercanos</Text>
+      </View>
 
+      <ScrollView
+        bounces={false}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Category pills */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={{ marginTop: 14 }}
-          contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
+          contentContainerStyle={styles.categoryPills}
         >
-          {CATEGORIES.map((cat) => (
-            <Pressable
-              key={cat.value}
-              onPress={() => handleSearch(cat.value)}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 6,
-                paddingHorizontal: 14,
-                paddingVertical: 9,
-                borderRadius: 20,
-                backgroundColor:
-                  selectedCategory === cat.value && dealsM.data
-                    ? semanticColors.primary
-                    : "#f3f4f6",
-              }}
-            >
-              <Text style={{ fontSize: 16 }}>{cat.emoji}</Text>
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: "600",
-                  color:
-                    selectedCategory === cat.value && dealsM.data ? "#fff" : "#374151",
-                }}
+          {CATEGORIES.map((cat) => {
+            const isActive = selectedCategory === cat.value && !!dealsM.data;
+            return (
+              <Pressable
+                key={cat.value}
+                onPress={() => handleSearch(cat.value)}
+                style={[styles.categoryPill, isActive && styles.categoryPillActive]}
               >
-                {cat.label}
-              </Text>
-            </Pressable>
-          ))}
+                <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
+                <Text style={[styles.categoryLabel, isActive && styles.categoryLabelActive]}>
+                  {cat.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </ScrollView>
 
         {/* Loading */}
-        {dealsM.isPending && (
-          <View style={{ marginTop: 40, alignItems: "center", gap: 12 }}>
-            <ActivityIndicator size="large" color={semanticColors.primary} />
-            <Text style={{ color: "#6b7280" }}>Buscando las mejores ofertas...</Text>
+        {dealsM.isPending ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Buscando las mejores ofertas...</Text>
           </View>
-        )}
+        ) : null}
 
         {/* Error */}
-        {dealsM.isError && (
-          <View style={{ backgroundColor: "#fee2e2", borderRadius: 10, padding: 12, marginTop: 16 }}>
-            <Text style={{ color: "#b91c1c", fontSize: 13 }}>
-              {getMobileErrorMessage(dealsM.error)}
-            </Text>
-          </View>
-        )}
+        {dealsM.isError ? (
+          <Card style={styles.errorCard}>
+            <CardContent><Text style={styles.errorText}>{getMobileErrorMessage(dealsM.error)}</Text></CardContent>
+          </Card>
+        ) : null}
 
         {/* Results */}
-        {!dealsM.isPending && clusters.length > 0 && (
-          <View style={{ marginTop: 16 }}>
-            {/* Cached indicator + refresh */}
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <Text style={{ color: "#6b7280", fontSize: 12 }}>
+        {!dealsM.isPending && clusters.length > 0 ? (
+          <View style={styles.resultsContainer}>
+            <View style={styles.resultsHeader}>
+              <Text style={styles.cacheLabel}>
                 {isCached ? "📦 Resultados en caché" : "🔄 Resultados frescos"}
               </Text>
-              <Pressable
+              <Button
+                variant="outline"
+                size="sm"
                 onPress={() => handleSearch(selectedCategory, true)}
-                style={{
-                  backgroundColor: "#f3f4f6",
-                  borderRadius: 8,
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
-                }}
               >
-                <Text style={{ fontSize: 12, color: "#374151" }}>Actualizar</Text>
-              </Pressable>
+                <RefreshCw size={14} color={colors.mutedForeground} />
+                Actualizar
+              </Button>
             </View>
 
-            {/* Recommendation */}
-            {recommendation && (
-              <View
-                style={{
-                  backgroundColor: "#eff6ff",
-                  borderRadius: 12,
-                  padding: 12,
-                  marginBottom: 14,
-                  borderLeftWidth: 3,
-                  borderLeftColor: semanticColors.primary,
-                }}
-              >
-                <Text style={{ fontSize: 13, color: "#1e40af" }}>💡 {recommendation}</Text>
-              </View>
-            )}
+            {recommendation ? (
+              <Card style={styles.recommendationCard}>
+                <CardContent>
+                  <Text style={styles.recommendationText}>💡 {recommendation}</Text>
+                </CardContent>
+              </Card>
+            ) : null}
 
             {clusters.map((cluster, i) => (
               <StoreCard key={cluster.storeName} cluster={cluster} rank={i} />
             ))}
 
-            {notFound.length > 0 && (
-              <View style={{ backgroundColor: "#fef9c3", borderRadius: 10, padding: 12 }}>
-                <Text style={{ color: "#854d0e", fontSize: 13, fontWeight: "600" }}>
-                  Sin resultados: {notFound.join(", ")}
-                </Text>
-              </View>
-            )}
+            {notFound.length > 0 ? (
+              <Card style={styles.notFoundCard}>
+                <CardContent>
+                  <Text style={styles.notFoundText}>Sin resultados: {notFound.join(", ")}</Text>
+                </CardContent>
+              </Card>
+            ) : null}
           </View>
-        )}
+        ) : null}
 
         {/* Empty state */}
-        {!dealsM.isPending && !dealsM.data && !dealsM.isError && (
-          <View style={{ marginTop: 40, alignItems: "center" }}>
-            <Text style={{ fontSize: 48, marginBottom: 12 }}>🏷</Text>
-            <Text style={{ color: "#6b7280", textAlign: "center", fontSize: 14 }}>
-              Elegí una categoría para ver{"\n"}las mejores ofertas del momento.
-            </Text>
-          </View>
-        )}
-
-        <View style={{ height: 40 }} />
+        {!dealsM.isPending && !dealsM.data && !dealsM.isError ? (
+          <EmptyState
+            icon={<Tag size={32} color={colors.mutedForeground} />}
+            title="Elegí una categoría"
+            subtitle="Selecioná una categoría para ver las mejores ofertas del momento."
+          />
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
+  backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
+  backTitle: { ...typography.cardTitle },
+  subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, marginTop: 2 },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.md },
+  categoryPills: { gap: spacing.sm, paddingBottom: 4, paddingHorizontal: 0 },
+  categoryPill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 20, backgroundColor: colors.muted },
+  categoryPillActive: { backgroundColor: colors.primary },
+  categoryEmoji: { fontFamily: fontFamily.sans, fontSize: 16 },
+  categoryLabel: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "600", color: colors.text },
+  categoryLabelActive: { color: "#ffffff" },
+  loadingContainer: { alignItems: "center", gap: spacing.sm, paddingTop: 40 },
+  loadingText: { color: colors.mutedForeground },
+  errorCard: { backgroundColor: colors.errorBg },
+  errorText: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 13 },
+  resultsContainer: { gap: spacing.sm },
+  resultsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  cacheLabel: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 12 },
+  recommendationCard: { backgroundColor: colors.primaryLight, borderLeftWidth: 3, borderLeftColor: colors.primary },
+  recommendationText: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.infoText },
+  topStoreCard: { borderWidth: 2, borderColor: colors.primary },
+  storeHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  storeHeaderLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  storeMedal: { fontFamily: fontFamily.sans, fontSize: 20 },
+  storeName: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 15 },
+  storeProductCount: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 12, marginTop: 2 },
+  storeHeaderRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  discountBadge: { backgroundColor: colors.successBg },
+  storeProducts: { marginTop: spacing.sm },
+  totalSavings: { fontFamily: fontFamily.sans, color: colors.successText, fontSize: 12, fontWeight: "600", marginTop: spacing.sm },
+  productRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+  productInfo: { flex: 1, marginRight: spacing.sm },
+  productName: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.text, fontWeight: "500" },
+  productDiscount: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.successText, marginTop: 2 },
+  productPrices: { alignItems: "flex-end" },
+  productPrice: { fontWeight: "700", color: colors.text },
+  productOriginalPrice: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground, textDecorationLine: "line-through" },
+  notFoundCard: { backgroundColor: colors.warningBg },
+  notFoundText: { fontFamily: fontFamily.sans, color: colors.warningText, fontSize: 13, fontWeight: "600" },
+});

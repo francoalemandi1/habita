@@ -1,108 +1,96 @@
 import { useState } from "react";
-import { Pressable, SafeAreaView, ScrollView, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { ArrowLeft, ArrowLeftRight } from "lucide-react-native";
 import { useRespondTransfer, useTransfers } from "@/hooks/use-transfers";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
-import { semanticColors } from "@habita/design-tokens";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SkeletonCard } from "@/components/ui/skeleton";
+import { TabBar } from "@/components/ui/tab-bar";
+import { colors, fontFamily, spacing, typography } from "@/theme";
 
 export default function TransfersScreen() {
   const [type, setType] = useState<"sent" | "received" | undefined>(undefined);
   const transfersQuery = useTransfers(type);
   const respondTransfer = useRespondTransfer();
-
   const transfers = transfersQuery.data?.transfers ?? [];
 
+  const tabIndex = type === undefined ? 0 : type === "received" ? 1 : 2;
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff", padding: 20 }}>
-      <Text style={{ fontSize: 20, fontWeight: "700" }}>Transferencias</Text>
-      <Text style={{ marginTop: 4, color: "#6b7280" }}>Gestioná solicitudes de tareas entre miembros.</Text>
-
-      <View style={{ marginTop: 10, flexDirection: "row", gap: 8 }}>
-        {[
-          { id: "all", label: "Todas" },
-          { id: "received", label: "Recibidas" },
-          { id: "sent", label: "Enviadas" },
-        ].map((option) => {
-          const isActive =
-            (option.id === "all" && !type) ||
-            (option.id === "received" && type === "received") ||
-            (option.id === "sent" && type === "sent");
-
-          return (
-            <Pressable
-              key={option.id}
-              onPress={() => {
-                if (option.id === "all") {
-                  setType(undefined);
-                  return;
-                }
-                setType(option.id as "sent" | "received");
-              }}
-              style={{
-                borderRadius: 999,
-                borderWidth: 1,
-                borderColor: isActive ? semanticColors.primary : "#d1d5db",
-                backgroundColor: isActive ? "#eff6ff" : "#ffffff",
-                paddingHorizontal: 12,
-                paddingVertical: 7,
-              }}
-            >
-              <Text style={{ fontWeight: "700", fontSize: 12 }}>{option.label}</Text>
-            </Pressable>
-          );
-        })}
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.header}>
+        <View style={styles.backRow}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+            <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
+          </Pressable>
+          <Text style={styles.backTitle}>Transferencias</Text>
+          <View style={styles.backBtn} />
+        </View>
+        <Text style={styles.subtitle}>Gestioná solicitudes de tareas entre miembros.</Text>
       </View>
-
-      {transfersQuery.isLoading ? (
-        <Text style={{ marginTop: 16, color: "#6b7280" }}>Cargando transferencias...</Text>
-      ) : null}
-      {transfersQuery.isError ? (
-        <Text style={{ marginTop: 16, color: "#b91c1c" }}>{getMobileErrorMessage(transfersQuery.error)}</Text>
-      ) : null}
-
-      <ScrollView style={{ marginTop: 12 }}>
-        {transfers.map((transfer) => (
-          <View
-            key={transfer.id}
-            style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 12, padding: 12, marginBottom: 10 }}
-          >
-            <Text style={{ fontWeight: "700" }}>{transfer.assignment.task.name}</Text>
-            <Text style={{ marginTop: 4, color: "#374151" }}>
-              {transfer.fromMember.name} → {transfer.toMember.name}
-            </Text>
-            <Text style={{ marginTop: 4, color: "#6b7280" }}>
-              Estado: {transfer.status} · {new Date(transfer.requestedAt).toLocaleDateString("es-AR")}
-            </Text>
-            {transfer.reason ? <Text style={{ marginTop: 4, color: "#6b7280" }}>“{transfer.reason}”</Text> : null}
-
-            {transfer.status === "PENDING" ? (
-              <View style={{ marginTop: 10, flexDirection: "row", gap: 8 }}>
-                <Pressable
-                  onPress={() =>
-                    respondTransfer.mutate({
-                      transferId: transfer.id,
-                      action: "ACCEPT",
-                    })
-                  }
-                  style={{ borderRadius: 8, backgroundColor: "#dcfce7", paddingHorizontal: 10, paddingVertical: 7 }}
-                >
-                  <Text style={{ color: "#166534", fontWeight: "700" }}>Aceptar</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() =>
-                    respondTransfer.mutate({
-                      transferId: transfer.id,
-                      action: "REJECT",
-                    })
-                  }
-                  style={{ borderRadius: 8, backgroundColor: "#fee2e2", paddingHorizontal: 10, paddingVertical: 7 }}
-                >
-                  <Text style={{ color: "#b91c1c", fontWeight: "700" }}>Rechazar</Text>
-                </Pressable>
-              </View>
-            ) : null}
-          </View>
-        ))}
+      <TabBar
+        tabs={[{ label: "Todas" }, { label: "Recibidas" }, { label: "Enviadas" }]}
+        activeIndex={tabIndex}
+        onTabPress={(i) => setType(i === 0 ? undefined : i === 1 ? "received" : "sent")}
+        style={styles.tabBar}
+      />
+      <ScrollView
+        bounces={false}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={transfersQuery.isRefetching} onRefresh={() => void transfersQuery.refetch()} tintColor={colors.primary} />}
+      >
+        {transfersQuery.isLoading ? (
+          <View style={styles.loadingList}><SkeletonCard /><SkeletonCard /></View>
+        ) : transfersQuery.isError ? (
+          <Card style={styles.errorCard}><CardContent><Text style={styles.errorText}>{getMobileErrorMessage(transfersQuery.error)}</Text></CardContent></Card>
+        ) : transfers.length === 0 ? (
+          <EmptyState icon={<ArrowLeftRight size={32} color={colors.mutedForeground} />} title="Sin transferencias" subtitle="Acá aparecerán las solicitudes de cambio de tarea" />
+        ) : (
+          transfers.map((transfer) => (
+            <Card key={transfer.id} style={styles.transferCard}>
+              <CardContent>
+                <Text style={styles.transferTaskName}>{transfer.assignment.task.name}</Text>
+                <Text style={styles.transferArrow}>{transfer.fromMember.name} \u2192 {transfer.toMember.name}</Text>
+                <Text style={styles.transferMeta}>Estado: {transfer.status} · {new Date(transfer.requestedAt).toLocaleDateString("es-AR")}</Text>
+                {transfer.reason ? <Text style={styles.transferReason}>"{transfer.reason}"</Text> : null}
+                {transfer.status === "PENDING" ? (
+                  <View style={styles.transferActions}>
+                    <Button variant="success" size="sm" onPress={() => respondTransfer.mutate({ transferId: transfer.id, action: "ACCEPT" })}>Aceptar</Button>
+                    <Button variant="destructive" size="sm" onPress={() => respondTransfer.mutate({ transferId: transfer.id, action: "REJECT" })}>Rechazar</Button>
+                  </View>
+                ) : null}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
+  backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
+  backTitle: { ...typography.cardTitle },
+  subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, marginTop: 2 },
+  tabBar: { marginHorizontal: spacing.lg, marginBottom: spacing.sm },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.sm },
+  loadingList: { gap: spacing.md },
+  errorCard: { backgroundColor: colors.errorBg },
+  errorText: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 14 },
+  transferCard: {},
+  transferTaskName: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 15, marginBottom: spacing.xs },
+  transferArrow: { fontFamily: fontFamily.sans, color: colors.text, fontSize: 13, marginBottom: spacing.xs },
+  transferMeta: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 12, marginBottom: spacing.xs },
+  transferReason: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 12, fontStyle: "italic", marginBottom: spacing.sm },
+  transferActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.xs },
+});

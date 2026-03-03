@@ -1,15 +1,31 @@
+import { headers } from "next/headers";
 import { auth, signIn } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { JoinForm } from "./join-form";
+import { MobileJoinRedirect } from "./mobile-join-redirect";
 
 interface JoinPageProps {
   params: Promise<{ code: string }>;
 }
 
+const IOS_APP_STORE_URL = "https://apps.apple.com/app/habita/id0000000000";
+const ANDROID_PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=casa.habita.app";
+
+function detectMobilePlatform(userAgent: string): "ios" | "android" | "web" {
+  const ua = userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua)) return "ios";
+  if (/android/.test(ua)) return "android";
+  return "web";
+}
+
 export default async function JoinPage({ params }: JoinPageProps) {
   const { code } = await params;
   const normalizedCode = code.trim().toUpperCase();
+
+  const headersList = await headers();
+  const userAgent = headersList.get("user-agent") ?? "";
+  const platform = detectMobilePlatform(userAgent);
 
   const household = await prisma.household.findUnique({
     where: { inviteCode: normalizedCode },
@@ -24,11 +40,25 @@ export default async function JoinPage({ params }: JoinPageProps) {
             ✕
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Código inválido</h1>
-          <p className="mt-2 text-muted-foreground">
+          <p className="mt-muted-foreground mt-2">
             El link de invitación no es válido o ya no está disponible.
           </p>
         </div>
       </div>
+    );
+  }
+
+  // Mobile: try to open the app via universal link, fallback to store
+  if (platform !== "web") {
+    const deepLink = `habita://join?code=${normalizedCode}`;
+    const storeUrl = platform === "ios" ? IOS_APP_STORE_URL : ANDROID_PLAY_STORE_URL;
+    return (
+      <MobileJoinRedirect
+        householdName={household.name}
+        deepLink={deepLink}
+        storeUrl={storeUrl}
+        platform={platform}
+      />
     );
   }
 

@@ -8,6 +8,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "casa.habita.app",
+      "associatedDomains": ["applinks:habita.casa"],
       "infoPlist": {
         "CFBundleURLTypes": [
           {
@@ -19,7 +20,21 @@
       }
     },
     "android": {
-      "package": "casa.habita.app"
+      "package": "casa.habita.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "habita.casa",
+              "pathPrefix": "/join"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "platforms": [
       "ios",

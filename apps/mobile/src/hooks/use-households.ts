@@ -1,8 +1,26 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 
 import type { CreateHouseholdInput, HouseholdResponse, JoinHouseholdInput, JoinHouseholdResponse } from "@habita/contracts";
+
+interface HouseholdDetailResponse {
+  household: {
+    id: string;
+    name: string;
+    inviteCode: string;
+    location: string | null;
+  } | null;
+}
+
+const HOUSEHOLD_QUERY_KEY = ["mobile", "household"] as const;
+
+export function useHouseholdDetail() {
+  return useQuery({
+    queryKey: HOUSEHOLD_QUERY_KEY,
+    queryFn: async () => mobileApi.get<HouseholdDetailResponse>("/api/households"),
+  });
+}
 
 export function useCreateHousehold() {
   const queryClient = useQueryClient();

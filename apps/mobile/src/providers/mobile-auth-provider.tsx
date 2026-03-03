@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { mobileApi } from "@/lib/api";
+import { Alert } from "react-native";
+import { mobileApi, scheduleProactiveRefresh, clearProactiveRefresh } from "@/lib/api";
 import {
   clearMobileSession,
   getMobileSessionSnapshot,
@@ -57,6 +58,7 @@ export function MobileAuthProvider({ children }: MobileAuthProviderProps) {
         await setActiveHousehold(fallbackHouseholdId);
         setActiveHouseholdIdState(fallbackHouseholdId);
       }
+      scheduleProactiveRefresh();
     } catch (error) {
       trackMobileEvent("warn", "Failed to hydrate mobile auth", {
         error: error instanceof Error ? error.message : "unknown",
@@ -77,8 +79,10 @@ export function MobileAuthProvider({ children }: MobileAuthProviderProps) {
         return;
       }
 
+      clearProactiveRefresh();
       setMe(null);
       setActiveHouseholdIdState(null);
+      Alert.alert("Sesión expirada", "Tu sesión expiró. Volvé a iniciar sesión.");
     });
   }, []);
 
@@ -131,6 +135,7 @@ export function MobileAuthProvider({ children }: MobileAuthProviderProps) {
   }, [hydrate]);
 
   const logout = useCallback(async () => {
+    clearProactiveRefresh();
     const session = await getMobileSessionSnapshot();
     if (session.refreshToken) {
       try {

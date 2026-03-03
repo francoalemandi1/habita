@@ -1,221 +1,145 @@
-import { RefreshControl, SafeAreaView, ScrollView, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { ArrowLeft, TrendingUp } from "lucide-react-native";
 import { useStats } from "@/hooks/use-stats";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
-import { semanticColors } from "@habita/design-tokens";
-
+import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SkeletonCard } from "@/components/ui/skeleton";
+import { colors, fontFamily, spacing, typography } from "@/theme";
 import type { StatsResponse } from "@habita/contracts";
 
-const MEMBER_TYPE_LABELS: Record<string, string> = {
-  ADULT: "Adulto",
-  TEEN: "Adolescente",
-  CHILD: "Niño/a",
-};
+const MEMBER_TYPE_LABELS: Record<string, string> = { ADULT: "Adulto", TEEN: "Adolescente", CHILD: "Niño/a" };
 
-function MedalEmoji(rank: number): string {
-  if (rank === 1) return "🥇";
-  if (rank === 2) return "🥈";
-  if (rank === 3) return "🥉";
-  return `#${rank}`;
+function medalEmoji(rank: number): string {
+  if (rank === 1) return "\uD83E\uDD47"; if (rank === 2) return "\uD83E\uDD48"; if (rank === 3) return "\uD83E\uDD49"; return `#${rank}`;
 }
 
 function MiniBar({ value, max }: { value: number; max: number }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   return (
-    <View
-      style={{
-        height: 6,
-        backgroundColor: "#e5e7eb",
-        borderRadius: 3,
-        marginTop: 4,
-        overflow: "hidden",
-      }}
-    >
-      <View
-        style={{
-          width: `${pct}%`,
-          height: "100%",
-          backgroundColor: semanticColors.primary,
-          borderRadius: 3,
-        }}
-      />
+    <View style={styles.barTrack}>
+      <View style={[styles.barFill, { width: `${pct}%` as `${number}%` }]} />
     </View>
   );
 }
 
 interface MemberCardProps {
   member: StatsResponse["memberStats"][number];
-  rank: number;
-  maxWeekly: number;
-  maxMonthly: number;
-  isMe: boolean;
+  rank: number; maxWeekly: number; maxMonthly: number; isMe: boolean;
 }
 
 function MemberCard({ member, rank, maxWeekly, maxMonthly, isMe }: MemberCardProps) {
   return (
-    <View
-      style={{
-        borderWidth: isMe ? 2 : 1,
-        borderColor: isMe ? semanticColors.primary : "#e5e7eb",
-        borderRadius: 12,
-        padding: 14,
-        backgroundColor: isMe ? "#eff6ff" : "#ffffff",
-        marginBottom: 10,
-      }}
-    >
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <Text style={{ fontSize: 20 }}>{MedalEmoji(rank)}</Text>
-          <View>
-            <Text style={{ fontWeight: "700", color: "#111111", fontSize: 15 }}>
-              {member.name}
-              {isMe ? "  (vos)" : ""}
-            </Text>
-            <Text style={{ color: "#9ca3af", fontSize: 12 }}>
-              {MEMBER_TYPE_LABELS[member.memberType] ?? member.memberType}
-            </Text>
+    <Card style={[styles.memberCard, isMe && styles.memberCardMe]}>
+      <CardContent>
+        <View style={styles.memberCardHeader}>
+          <View style={styles.memberCardLeft}>
+            <Text style={styles.memberMedal}>{medalEmoji(rank)}</Text>
+            <View>
+              <Text style={styles.memberName}>{member.name}{isMe ? "  (vos)" : ""}</Text>
+              <Text style={styles.memberType}>{MEMBER_TYPE_LABELS[member.memberType] ?? member.memberType}</Text>
+            </View>
           </View>
+          <Text style={styles.memberWeekly}>{member.weeklyTasks}</Text>
         </View>
-        <Text style={{ fontSize: 22, fontWeight: "700", color: "#111111" }}>
-          {member.weeklyTasks}
-        </Text>
-      </View>
-
-      <View style={{ marginTop: 10, gap: 6 }}>
-        <View>
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <Text style={{ fontSize: 12, color: "#6b7280" }}>Esta semana</Text>
-            <Text style={{ fontSize: 12, fontWeight: "600", color: "#111111" }}>
-              {member.weeklyTasks}
-            </Text>
+        <View style={styles.memberStats}>
+          <View style={styles.memberStatRow}>
+            <View style={styles.memberStatLabels}>
+              <Text style={styles.memberStatLabel}>Esta semana</Text>
+              <Text style={styles.memberStatValue}>{member.weeklyTasks}</Text>
+            </View>
+            <MiniBar value={member.weeklyTasks} max={maxWeekly} />
           </View>
-          <MiniBar value={member.weeklyTasks} max={maxWeekly} />
-        </View>
-
-        <View>
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <Text style={{ fontSize: 12, color: "#6b7280" }}>Este mes</Text>
-            <Text style={{ fontSize: 12, fontWeight: "600", color: "#111111" }}>
-              {member.monthlyTasks}
-            </Text>
+          <View style={styles.memberStatRow}>
+            <View style={styles.memberStatLabels}>
+              <Text style={styles.memberStatLabel}>Este mes</Text>
+              <Text style={styles.memberStatValue}>{member.monthlyTasks}</Text>
+            </View>
+            <MiniBar value={member.monthlyTasks} max={maxMonthly} />
           </View>
-          <MiniBar value={member.monthlyTasks} max={maxMonthly} />
+          <Text style={styles.memberTotal}>Total histórico: {member.totalTasks} tareas</Text>
         </View>
-
-        <Text style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
-          Total histórico: {member.totalTasks} tareas
-        </Text>
-      </View>
-    </View>
+      </CardContent>
+    </Card>
   );
 }
 
 export default function ProgressScreen() {
   const statsQuery = useStats();
   const { me, activeHouseholdId } = useMobileAuth();
-
   const myMemberId = me?.members.find((m) => m.householdId === activeHouseholdId)?.id;
-
-  const sorted = [...(statsQuery.data?.memberStats ?? [])].sort(
-    (a, b) => b.weeklyTasks - a.weeklyTasks,
-  );
-
+  const sorted = [...(statsQuery.data?.memberStats ?? [])].sort((a, b) => b.weeklyTasks - a.weeklyTasks);
   const maxWeekly = sorted[0]?.weeklyTasks ?? 1;
   const maxMonthly = Math.max(...sorted.map((m) => m.monthlyTasks), 1);
-
   const totals = statsQuery.data?.totals;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff", padding: 20 }}>
-      <ScrollView
-        refreshControl={
-          <RefreshControl
-            refreshing={statsQuery.isRefetching}
-            onRefresh={() => void statsQuery.refetch()}
-          />
-        }
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.backRow}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+          <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
+        </Pressable>
+        <Text style={styles.backTitle}>Progreso familiar</Text>
+        <View style={styles.backBtn} />
+      </View>
+      <ScrollView bounces={false} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={statsQuery.isRefetching} onRefresh={() => void statsQuery.refetch()} tintColor={colors.primary} />}
       >
-        <Text style={{ fontSize: 20, fontWeight: "700", color: "#111111" }}>Progreso familiar</Text>
-        <Text style={{ marginTop: 4, color: "#6b7280" }}>
-          Ranking semanal del hogar.
-        </Text>
-
-        {statsQuery.isLoading ? (
-          <Text style={{ marginTop: 24, color: "#6b7280" }}>Cargando estadísticas...</Text>
-        ) : null}
-
-        {statsQuery.isError ? (
-          <Text style={{ marginTop: 24, color: "#b91c1c" }}>
-            {getMobileErrorMessage(statsQuery.error)}
-          </Text>
-        ) : null}
-
+        <Text style={styles.subtitle}>Ranking semanal del hogar.</Text>
         {totals ? (
-          <View style={{ flexDirection: "row", gap: 8, marginTop: 16, marginBottom: 8 }}>
-            <View
-              style={{
-                flex: 1,
-                borderWidth: 1,
-                borderColor: "#e5e7eb",
-                borderRadius: 10,
-                padding: 10,
-              }}
-            >
-              <Text style={{ color: "#6b7280", fontSize: 12 }}>Completadas</Text>
-              <Text style={{ fontSize: 20, fontWeight: "700", color: "#111111" }}>
-                {totals.completed}
-              </Text>
-            </View>
-            <View
-              style={{
-                flex: 1,
-                borderWidth: 1,
-                borderColor: "#e5e7eb",
-                borderRadius: 10,
-                padding: 10,
-              }}
-            >
-              <Text style={{ color: "#6b7280", fontSize: 12 }}>Pendientes</Text>
-              <Text style={{ fontSize: 20, fontWeight: "700", color: "#f59e0b" }}>
-                {totals.pending}
-              </Text>
-            </View>
-            <View
-              style={{
-                flex: 1,
-                borderWidth: 1,
-                borderColor: "#e5e7eb",
-                borderRadius: 10,
-                padding: 10,
-              }}
-            >
-              <Text style={{ color: "#6b7280", fontSize: 12 }}>Miembros</Text>
-              <Text style={{ fontSize: 20, fontWeight: "700", color: "#111111" }}>
-                {totals.members}
-              </Text>
-            </View>
+          <View style={styles.statChips}>
+            <Card style={styles.statChip}><CardContent><Text style={styles.statChipLabel}>Completadas</Text><Text style={[styles.statChipValue, { color: colors.successText }]}>{totals.completed}</Text></CardContent></Card>
+            <Card style={styles.statChip}><CardContent><Text style={styles.statChipLabel}>Pendientes</Text><Text style={[styles.statChipValue, { color: colors.warningText }]}>{totals.pending}</Text></CardContent></Card>
+            <Card style={styles.statChip}><CardContent><Text style={styles.statChipLabel}>Miembros</Text><Text style={styles.statChipValue}>{totals.members}</Text></CardContent></Card>
           </View>
         ) : null}
-
-        <View style={{ marginTop: 8 }}>
-          {sorted.map((member, index) => (
-            <MemberCard
-              key={member.id}
-              member={member}
-              rank={index + 1}
-              maxWeekly={maxWeekly}
-              maxMonthly={maxMonthly}
-              isMe={member.id === myMemberId}
-            />
-          ))}
-        </View>
-
-        {!statsQuery.isLoading && sorted.length === 0 ? (
-          <Text style={{ marginTop: 24, color: "#6b7280" }}>
-            Aún no hay estadísticas para este hogar.
-          </Text>
-        ) : null}
+        {statsQuery.isLoading ? (
+          <View style={styles.loadingList}><SkeletonCard /><SkeletonCard /></View>
+        ) : statsQuery.isError ? (
+          <Card style={styles.errorCard}><CardContent><Text style={styles.errorText}>{getMobileErrorMessage(statsQuery.error)}</Text></CardContent></Card>
+        ) : sorted.length === 0 ? (
+          <EmptyState icon={<TrendingUp size={32} color={colors.mutedForeground} />} title="Sin estadísticas" subtitle="Completá tareas para ver el progreso del hogar" />
+        ) : (
+          sorted.map((member, index) => (
+            <MemberCard key={member.id} member={member} rank={index + 1} maxWeekly={maxWeekly} maxMonthly={maxMonthly} isMe={member.id === myMemberId} />
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
+  backTitle: { ...typography.cardTitle },
+  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24 },
+  subtitle: { fontFamily: fontFamily.sans, fontSize: 14, color: colors.mutedForeground, marginBottom: spacing.md },
+  statChips: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
+  statChip: { flex: 1 },
+  statChipLabel: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground },
+  statChipValue: { fontFamily: fontFamily.sans, fontSize: 20, fontWeight: "700", color: colors.text, marginTop: 2 },
+  loadingList: { gap: spacing.md },
+  errorCard: { backgroundColor: colors.errorBg },
+  errorText: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 14 },
+  memberCard: { marginBottom: spacing.md },
+  memberCardMe: { borderWidth: 2, borderColor: colors.primary },
+  memberCardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.sm },
+  memberCardLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  memberMedal: { fontFamily: fontFamily.sans, fontSize: 20 },
+  memberName: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 15 },
+  memberType: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 12 },
+  memberWeekly: { fontFamily: fontFamily.sans, fontSize: 22, fontWeight: "700", color: colors.text },
+  memberStats: { gap: spacing.sm },
+  memberStatRow: {},
+  memberStatLabels: { flexDirection: "row", justifyContent: "space-between", marginBottom: 2 },
+  memberStatLabel: { fontFamily: fontFamily.sans, fontSize: 12, color: colors.mutedForeground },
+  memberStatValue: { fontFamily: fontFamily.sans, fontSize: 12, fontWeight: "600", color: colors.text },
+  memberTotal: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground, marginTop: 4 },
+  barTrack: { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: "hidden" },
+  barFill: { height: "100%", backgroundColor: colors.primary, borderRadius: 3 },
+});

@@ -6,7 +6,10 @@ export function getMobileErrorMessage(error: unknown): string {
       return "Sin conexion. Revisa internet e intenta nuevamente.";
     }
     if (error.status === 401) {
-      return "Tu sesion expiro. Volve a iniciar sesion.";
+      return "Tu sesión expiró. Volvé a iniciar sesión.";
+    }
+    if (error.status === 403 && error.message.includes("miembro")) {
+      return "Tu sesión expiró. Volvé a iniciar sesión.";
     }
     if (error.message) {
       return error.message;

@@ -1,22 +1,21 @@
 import { useState } from "react";
-import { router } from "expo-router";
-import {
-  ActivityIndicator,
-  Pressable,
-  SafeAreaView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { ArrowLeft, Home, KeyRound, Users } from "lucide-react-native";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { useJoinHousehold } from "@/hooks/use-households";
-import { semanticColors } from "@habita/design-tokens";
+import { StyledTextInput } from "@/components/ui/text-input";
+import { Button } from "@/components/ui/button";
+import { colors, fontFamily, radius, spacing, typography } from "@/theme";
 
 export default function JoinHouseholdScreen() {
   const { hydrate } = useMobileAuth();
   const joinHousehold = useJoinHousehold();
 
-  const [inviteCode, setInviteCode] = useState("");
+  // Pre-fill code when arriving from a deep link (habita://join?code=XXXX)
+  const params = useLocalSearchParams<{ code?: string }>();
+  const [inviteCode, setInviteCode] = useState(params.code?.toUpperCase() ?? "");
   const [memberName, setMemberName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -37,93 +36,239 @@ export default function JoinHouseholdScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }}>
-      <View style={{ padding: 24, gap: 24 }}>
-        <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 24, fontWeight: "700", color: "#111111" }}>
-            Unirte a un hogar
-          </Text>
-          <Text style={{ fontSize: 15, color: "#6b7280" }}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+          <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
+        </Pressable>
+        <View style={styles.headerLogoRow}>
+          <Home size={16} color={colors.primary} />
+          <Text style={styles.headerBrand}>Habita</Text>
+        </View>
+        <View style={styles.backBtn} />
+      </View>
+
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Hero */}
+        <View style={styles.heroSection}>
+          <View style={styles.heroIcon}>
+            <Users size={24} color={colors.primary} />
+          </View>
+          <Text style={styles.heroTitle}>Unite a un hogar</Text>
+          <Text style={styles.heroSubtitle}>
             Ingresá el código que te compartió tu familia o compañeros de hogar.
           </Text>
         </View>
 
-        <View style={{ gap: 16 }}>
-          <View style={{ gap: 6 }}>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: "#374151" }}>
-              Código de invitación
-            </Text>
-            <TextInput
-              value={inviteCode}
-              onChangeText={(text) => setInviteCode(text.toUpperCase())}
-              placeholder="Ej: ABCD1234"
-              placeholderTextColor="#9ca3af"
-              autoCapitalize="characters"
-              style={{
-                borderWidth: 1,
-                borderColor: "#e5e7eb",
-                borderRadius: 10,
-                padding: 12,
-                fontSize: 18,
-                fontWeight: "700",
-                letterSpacing: 2,
-                color: "#111111",
-              }}
-            />
-          </View>
+        {/* Form */}
+        <View style={styles.formSection}>
+          <StyledTextInput
+            label="Código de invitación"
+            placeholder="Ej: ABCD1234"
+            value={inviteCode}
+            onChangeText={(text) => setInviteCode(text.toUpperCase())}
+            autoCapitalize="characters"
+            leftIcon={<KeyRound size={18} color={colors.mutedForeground} />}
+            maxLength={20}
+          />
 
-          <View style={{ gap: 6 }}>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: "#374151" }}>
-              Tu nombre
-            </Text>
-            <TextInput
+          <View style={styles.fieldGap}>
+            <StyledTextInput
+              label="Tu nombre"
+              placeholder="Ej: Franco"
               value={memberName}
               onChangeText={setMemberName}
-              placeholder="Ej: Franco"
-              placeholderTextColor="#9ca3af"
-              style={{
-                borderWidth: 1,
-                borderColor: "#e5e7eb",
-                borderRadius: 10,
-                padding: 12,
-                fontSize: 15,
-                color: "#111111",
-              }}
+              maxLength={50}
             />
           </View>
         </View>
 
+        {/* Error */}
         {error ? (
-          <Text style={{ color: "#b91c1c", fontSize: 14 }}>{error}</Text>
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
         ) : null}
 
-        <Pressable
+        {/* Info card */}
+        <View style={styles.infoCard}>
+          <Text style={styles.infoTitle}>¿Cómo funciona?</Text>
+          <View style={styles.infoList}>
+            {[
+              { step: "1", text: "Pedí el código de invitación al administrador del hogar" },
+              { step: "2", text: "Ingresalo arriba junto con tu nombre" },
+              { step: "3", text: "¡Listo! Ya podés colaborar con las tareas del hogar" },
+            ].map((item) => (
+              <View key={item.step} style={styles.infoItem}>
+                <View style={styles.infoStepBadge}>
+                  <Text style={styles.infoStepText}>{item.step}</Text>
+                </View>
+                <Text style={styles.infoItemText}>{item.text}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Submit */}
+        <Button
           onPress={() => void handleJoin()}
           disabled={!isValid || joinHousehold.isPending}
-          style={{
-            backgroundColor: semanticColors.primary,
-            borderRadius: 10,
-            paddingVertical: 14,
-            alignItems: "center",
-            opacity: !isValid || joinHousehold.isPending ? 0.6 : 1,
-          }}
+          loading={joinHousehold.isPending}
+          style={styles.submitBtn}
         >
-          {joinHousehold.isPending ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <Text style={{ color: "#ffffff", fontWeight: "700", fontSize: 16 }}>
-              Unirme al hogar
-            </Text>
-          )}
-        </Pressable>
+          {joinHousehold.isPending ? "Uniéndote..." : "Unirme al hogar"}
+        </Button>
 
-        <Pressable
-          onPress={() => router.back()}
-          style={{ alignItems: "center", paddingVertical: 4 }}
-        >
-          <Text style={{ color: "#6b7280", fontSize: 14 }}>Volver</Text>
+        {/* Back link */}
+        <Pressable onPress={() => router.back()} style={styles.backLink}>
+          <ArrowLeft size={14} color={colors.primary} />
+          <Text style={styles.backLinkText}>Volver a crear un hogar</Text>
         </Pressable>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.card,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerLogoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  headerBrand: {
+    fontFamily: fontFamily.sans,
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.primary,
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 60,
+  },
+  heroSection: {
+    alignItems: "center",
+    marginTop: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  heroIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  heroTitle: {
+    ...typography.displayMd,
+    textAlign: "center",
+  },
+  heroSubtitle: {
+    fontFamily: fontFamily.sans,
+    fontSize: 14,
+    color: colors.mutedForeground,
+    textAlign: "center",
+    marginTop: 6,
+    lineHeight: 20,
+    paddingHorizontal: spacing.md,
+  },
+  formSection: {
+    marginBottom: spacing.xl,
+  },
+  fieldGap: {
+    marginTop: spacing.lg,
+  },
+  errorBanner: {
+    backgroundColor: colors.errorBg,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  errorText: {
+    fontFamily: fontFamily.sans,
+    color: colors.errorText,
+    fontSize: 14,
+  },
+  infoCard: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  infoTitle: {
+    fontFamily: fontFamily.sans,
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.primary,
+    marginBottom: 12,
+  },
+  infoList: {
+    gap: 12,
+  },
+  infoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  infoStepBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  infoStepText: {
+    fontFamily: fontFamily.sans,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  infoItemText: {
+    fontFamily: fontFamily.sans,
+    fontSize: 13,
+    color: colors.text,
+    flex: 1,
+  },
+  submitBtn: {
+    marginBottom: spacing.md,
+  },
+  backLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: spacing.md,
+  },
+  backLinkText: {
+    fontFamily: fontFamily.sans,
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.primary,
+  },
+});

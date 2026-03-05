@@ -8,8 +8,8 @@ import type { ReactNode } from "react";
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const responseListener = useRef<Notifications.EventSubscription>();
-  const receivedListener = useRef<Notifications.EventSubscription>();
+  const responseListener = useRef<Notifications.Subscription | null>(null);
+  const receivedListener = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
     // Handle notification taps (app was in background or killed)
@@ -31,12 +31,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
-      }
-      if (receivedListener.current) {
-        Notifications.removeNotificationSubscription(receivedListener.current);
-      }
+      responseListener.current?.remove();
+      receivedListener.current?.remove();
     };
   }, [queryClient]);
 

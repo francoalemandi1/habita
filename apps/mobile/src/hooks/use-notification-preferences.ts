@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { mobileApi } from "@/lib/config";
+import { mobileApi } from "@/lib/api";
 
 interface NotificationPreference {
   category: string;

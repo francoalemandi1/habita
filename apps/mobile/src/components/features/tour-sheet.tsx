@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import {
   ChefHat,
@@ -11,6 +11,8 @@ import {
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { useThemeColors } from "@/hooks/use-theme";
+import { useHouseholdDetail } from "@/hooks/use-households";
+import { mobileConfig } from "@/lib/config";
 import { fontFamily, radius, spacing } from "@/theme";
 
 import type { LucideIcon } from "lucide-react-native";
@@ -210,11 +212,23 @@ export function TourSheet({
   const styles = useMemo(() => createStyles(colors), [colors]);
   const content = TOUR_CONTENT[section];
   const Icon = content.icon;
+  const householdQuery = useHouseholdDetail();
 
   const handleCta = useCallback(() => {
+    if (section === "invitar") {
+      const code = householdQuery.data?.household?.inviteCode;
+      const name = householdQuery.data?.household?.name ?? "mi hogar";
+      if (code) {
+        const baseUrl = mobileConfig.oauthBaseUrl;
+        const message = `Unite a "${name}" en Habita: ${baseUrl}/onboarding?mode=join\n\nCódigo: ${code}`;
+        void Share.share({ message });
+      }
+      onNavigate();
+      return;
+    }
     onNavigate();
     router.push(content.route as never);
-  }, [onNavigate, content.route]);
+  }, [onNavigate, content.route, section, householdQuery.data]);
 
   return (
     <BottomSheet visible={visible} onClose={onDismiss} scrollable={false}>

@@ -1,9 +1,12 @@
 import type { ReactNode } from "react";
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, fontFamily, radius, spacing } from "@/theme";
+import { useThemeColors } from "@/hooks/use-theme";
+import { fontFamily, radius, spacing } from "@/theme";
 
-type ToastVariant = "default" | "success" | "error" | "warning";
+import type { ThemeColors } from "@/theme";
+
+type ToastVariant = "default" | "success" | "error" | "warning" | "celebration";
 
 interface ToastMessage {
   id: string;
@@ -20,24 +23,30 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const variantStyles: Record<ToastVariant, { bg: string; text: string; border: string }> = {
-  default: { bg: colors.text, text: "#ffffff", border: "transparent" },
-  success: { bg: "#166534", text: "#ffffff", border: "transparent" },
-  error: { bg: colors.destructive, text: "#ffffff", border: "transparent" },
-  warning: { bg: "#92400e", text: "#ffffff", border: "transparent" },
-};
+function getVariantStyles(c: ThemeColors): Record<ToastVariant, { bg: string; text: string }> {
+  return {
+    default: { bg: c.text, text: c.background },
+    success: { bg: "#166534", text: "#ffffff" },
+    error: { bg: c.destructive, text: "#ffffff" },
+    warning: { bg: "#92400e", text: "#ffffff" },
+    celebration: { bg: c.primaryLight, text: c.primary },
+  };
+}
 
 function ToastItem({
   toast,
   onDismiss,
+  colors,
 }: {
   toast: ToastMessage;
   onDismiss: () => void;
+  colors: ThemeColors;
 }) {
-  const translateY = useRef(new Animated.Value(80)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useMemo(() => new Animated.Value(80), []);
+  const opacity = useMemo(() => new Animated.Value(0), []);
 
-  const v = variantStyles[toast.variant];
+  const variantMap = useMemo(() => getVariantStyles(colors), [colors]);
+  const v = variantMap[toast.variant];
 
   useEffect(() => {
     Animated.parallel([
@@ -74,6 +83,7 @@ function ToastItem({
 let toastIdCounter = 0;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const colors = useThemeColors();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const timersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -95,12 +105,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const value: ToastContextValue = {
-    show,
-    success: (msg) => show(msg, "success"),
-    error: (msg) => show(msg, "error"),
-    warning: (msg) => show(msg, "warning"),
-  };
+  const value: ToastContextValue = useMemo(
+    () => ({
+      show,
+      success: (msg: string) => show(msg, "success"),
+      error: (msg: string) => show(msg, "error"),
+      warning: (msg: string) => show(msg, "warning"),
+    }),
+    [show],
+  );
 
   return (
     <ToastContext.Provider value={value}>
@@ -111,6 +124,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={toast.id}
             toast={toast}
             onDismiss={() => dismiss(toast.id)}
+            colors={colors}
           />
         ))}
       </View>

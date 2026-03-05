@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import {
   Animated,
   Dimensions,
@@ -13,7 +13,10 @@ import {
   Text,
   View,
 } from "react-native";
-import { colors, radius, spacing } from "@/theme";
+import { useThemeColors } from "@/hooks/use-theme";
+import { radius, spacing } from "@/theme";
+
+import type { ThemeColors } from "@/theme";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
@@ -28,6 +31,42 @@ interface BottomSheetProps {
   scrollable?: boolean;
 }
 
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    backdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: c.overlay,
+    },
+    sheet: {
+      backgroundColor: c.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingBottom: spacing.xxl + (Platform.OS === "ios" ? 20 : 0),
+    },
+    dragIndicator: {
+      width: 36,
+      height: 4,
+      borderRadius: radius.full,
+      backgroundColor: c.border,
+      alignSelf: "center",
+      marginTop: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    header: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+      marginBottom: spacing.sm,
+    },
+    title: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: c.text,
+    },
+  });
+}
+
 export function BottomSheet({
   visible,
   onClose,
@@ -36,8 +75,11 @@ export function BottomSheet({
   maxHeightRatio = 0.85,
   scrollable = true,
 }: BottomSheetProps) {
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const translateY = useMemo(() => new Animated.Value(SCREEN_HEIGHT), []);
+  const backdropOpacity = useMemo(() => new Animated.Value(0), []);
 
   useEffect(() => {
     if (visible) {
@@ -86,7 +128,7 @@ export function BottomSheet({
       statusBarTranslucent
     >
       <KeyboardAvoidingView
-        style={styles.root}
+        style={staticStyles.root}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         {/* Backdrop */}
@@ -113,7 +155,7 @@ export function BottomSheet({
           ) : null}
 
           {/* Content */}
-          <ContentWrapper {...contentProps} style={styles.content}>
+          <ContentWrapper {...contentProps} style={staticStyles.content}>
             {children}
           </ContentWrapper>
         </Animated.View>
@@ -122,41 +164,10 @@ export function BottomSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const staticStyles = StyleSheet.create({
   root: {
     flex: 1,
     justifyContent: "flex-end",
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.overlay,
-  },
-  sheet: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: spacing.xxl + (Platform.OS === "ios" ? 20 : 0),
-  },
-  dragIndicator: {
-    width: 36,
-    height: 4,
-    borderRadius: radius.full,
-    backgroundColor: colors.border,
-    alignSelf: "center",
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    marginBottom: spacing.sm,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.text,
   },
   content: {
     paddingHorizontal: spacing.lg,

@@ -27,19 +27,20 @@ import {
 import {
   useApplyWeeklyPlan,
   useDiscardWeeklyPlan,
-  usePlanFeedback,
   usePreviewWeeklyPlan,
 } from "@/hooks/use-weekly-plan";
 import { useCreateTask, useDeleteTask, useTasks } from "@/hooks/use-task-management";
 import { useMembers } from "@/hooks/use-members";
+import { useThemeColors } from "@/hooks/use-theme";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StyledTextInput } from "@/components/ui/text-input";
 import { EmptyState } from "@/components/ui/empty-state";
-import { colors, fontFamily, spacing, typography } from "@/theme";
+import { fontFamily, spacing, typography } from "@/theme";
 
 import type { PlanAssignment, TaskFrequency } from "@habita/contracts";
+import type { ThemeColors } from "@/theme";
 
 // ─── constants ──────────────────────────────────────────────────────────────
 
@@ -79,78 +80,22 @@ function displayToIso(display: string): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null;
 }
 
-function balanceColor(score: number): string {
-  if (score >= 80) return colors.successText;
-  if (score >= 60) return "#d97706";
-  return colors.errorText;
+function balanceColor(score: number, c: ThemeColors): string {
+  if (score >= 80) return c.successText;
+  if (score >= 60) return c.warningText;
+  return c.errorText;
 }
 
 function assignmentKey(a: { taskName: string; memberId: string; dayOfWeek?: number }): string {
   return `${a.taskName}|${a.memberId}${a.dayOfWeek != null ? `|${a.dayOfWeek}` : ""}`;
 }
 
-// ─── sub-components ─────────────────────────────────────────────────────────
-
-interface FeedbackSectionProps { planId: string }
-
-function FeedbackSection({ planId }: FeedbackSectionProps) {
-  const feedbackMutation = usePlanFeedback();
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  if (sent) {
-    return (
-      <Card style={styles.successCard}>
-        <CardContent>
-          <Text style={styles.successText}>¡Gracias por tu feedback!</Text>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardContent>
-        <Text style={styles.sectionTitle}>¿Cómo fue el plan?</Text>
-        <View style={styles.starRow}>
-          {[1, 2, 3, 4, 5].map((star) => (
-            <Button key={star} variant="ghost" size="icon" onPress={() => setRating(star)}>
-              {star <= rating ? "⭐" : "☆"}
-            </Button>
-          ))}
-        </View>
-        <StyledTextInput
-          value={comment}
-          onChangeText={setComment}
-          placeholder="Comentario opcional..."
-          multiline
-          style={styles.commentInput}
-        />
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        <Button
-          loading={feedbackMutation.isPending}
-          disabled={!rating}
-          onPress={async () => {
-            if (!rating) { setError("Selecioná una calificación."); return; }
-            setError(null);
-            try {
-              await feedbackMutation.mutateAsync({ planId, rating, comment: comment.trim() || undefined });
-              setSent(true);
-            } catch (err) { setError(getMobileErrorMessage(err)); }
-          }}
-        >
-          Enviar feedback
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
 // ─── main screen ────────────────────────────────────────────────────────────
 
 export default function WeeklyPlanScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const defaults = useMemo(() => getDefaultRange(), []);
   const previewPlan = usePreviewWeeklyPlan();
   const applyPlan = useApplyWeeklyPlan();
@@ -181,7 +126,7 @@ export default function WeeklyPlanScreen() {
 
   const hasDayInfo = useMemo(() => plan?.assignments.some((a) => a.dayOfWeek), [plan]);
 
-  // Build day→assignments map
+  // Build day->assignments map
   const assignmentsByDay = useMemo(() => {
     const map = new Map<number, PlanAssignment[]>();
     if (!plan || !hasDayInfo) return map;
@@ -246,10 +191,12 @@ export default function WeeklyPlanScreen() {
       const assignmentsToApply = plan.assignments.filter((a) => selectedAssignments.has(assignmentKey(a)));
       const result = await applyPlan.mutateAsync({ planId: plan.id, assignments: assignmentsToApply });
       setAppliedPlanId(plan.id);
-      setSuccessMessage(
+      const msg =
         `Plan aplicado: ${result.assignmentsCreated} tareas creadas` +
-          (result.assignmentsCancelled ? `, ${result.assignmentsCancelled} canceladas` : ""),
-      );
+        (result.assignmentsCancelled ? `, ${result.assignmentsCancelled} canceladas` : "");
+      setSuccessMessage(msg);
+      // Navigate to the tasks tab so the user can see the assigned tasks
+      router.replace("/(app)/tasks");
     } catch (applyError) {
       setError(getMobileErrorMessage(applyError));
     }
@@ -276,7 +223,7 @@ export default function WeeklyPlanScreen() {
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
             <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
           </Pressable>
-          <Text style={styles.backTitle}>Plan semanal</Text>
+          <Text style={[styles.backTitle, { color: colors.text }]}>Plan semanal</Text>
           <View style={styles.backBtn} />
         </View>
         <Text style={styles.subtitle}>
@@ -293,7 +240,7 @@ export default function WeeklyPlanScreen() {
         showsVerticalScrollIndicator={false}
       >
 
-        {/* ── Error / Success banners ── */}
+        {/* -- Error / Success banners -- */}
         {error ? (
           <Card style={styles.errorCard}>
             <CardContent><Text style={styles.errorText}>{error}</Text></CardContent>
@@ -311,9 +258,8 @@ export default function WeeklyPlanScreen() {
           </Card>
         ) : null}
 
-        {appliedPlanId ? <FeedbackSection planId={appliedPlanId} /> : null}
 
-        {/* ── SETUP SCREEN (no plan yet) ── */}
+        {/* -- SETUP SCREEN (no plan yet) -- */}
         {!plan && !previewPlan.isPending && !appliedPlanId ? (
           <>
             {/* Date picker — first so the user sets the range before seeing the task count */}
@@ -343,7 +289,7 @@ export default function WeeklyPlanScreen() {
                     />
                   </View>
                   <View style={styles.dateSep}>
-                    <Text style={styles.dateSepText}>→</Text>
+                    <Text style={styles.dateSepText}>{"\u2192"}</Text>
                   </View>
                   <View style={styles.dateFieldWrap}>
                     <Text style={styles.dateFieldLabel}>Hasta</Text>
@@ -423,11 +369,11 @@ export default function WeeklyPlanScreen() {
               <CardContent>
                 <View style={styles.ctaRow}>
                   <View style={styles.ctaText}>
-                    <Text style={styles.ctaTitle}>¿Listo para distribuir?</Text>
+                    <Text style={styles.ctaTitle}>Listo para distribuir?</Text>
                     <Text style={styles.ctaSubtitle}>
                       {startDisplay && endDisplay
-                        ? `${startDisplay} → ${endDisplay}`
-                        : "Completá las fechas arriba"}
+                        ? `${startDisplay} \u2192 ${endDisplay}`
+                        : "Completa las fechas arriba"}
                     </Text>
                   </View>
                   <Button
@@ -444,7 +390,7 @@ export default function WeeklyPlanScreen() {
           </>
         ) : null}
 
-        {/* ── TASKS DETAIL MODAL ── */}
+        {/* -- TASKS DETAIL MODAL -- */}
         <Modal
           visible={showTasksModal}
           animationType="slide"
@@ -551,7 +497,7 @@ export default function WeeklyPlanScreen() {
           </SafeAreaView>
         </Modal>
 
-        {/* ── LOADING STATE ── */}
+        {/* -- LOADING STATE -- */}
         {previewPlan.isPending ? (
           <EmptyState
             pulsing
@@ -561,20 +507,20 @@ export default function WeeklyPlanScreen() {
           />
         ) : null}
 
-        {/* ── PLAN GENERATED ── */}
+        {/* -- PLAN GENERATED -- */}
         {plan && !appliedPlanId ? (
           <>
             {/* Balance score */}
             <Card>
               <CardContent>
                 <View style={styles.balanceHeader}>
-                  <Text style={styles.sectionTitle}>Equidad de distribución</Text>
-                  <Text style={[styles.balanceScore, { color: balanceColor(plan.balanceScore) }]}>
+                  <Text style={styles.sectionTitle}>Equidad de distribucion</Text>
+                  <Text style={[styles.balanceScore, { color: balanceColor(plan.balanceScore, colors) }]}>
                     {plan.balanceScore}%
                   </Text>
                 </View>
                 <Text style={styles.balanceHint}>
-                  Qué tan justa es la distribución entre los miembros
+                  Que tan justa es la distribucion entre los miembros
                 </Text>
                 <View style={styles.progressTrack}>
                   <View
@@ -582,14 +528,14 @@ export default function WeeklyPlanScreen() {
                       styles.progressFill,
                       {
                         width: `${Math.min(plan.balanceScore, 100)}%` as `${number}%`,
-                        backgroundColor: balanceColor(plan.balanceScore),
+                        backgroundColor: balanceColor(plan.balanceScore, colors),
                       },
                     ]}
                   />
                 </View>
                 {fairness && !fairness.isSymmetric ? (
                   <View style={styles.fairnessWarn}>
-                    <AlertTriangle size={13} color="#d97706" />
+                    <AlertTriangle size={13} color={colors.warningText} />
                     <Text style={styles.fairnessWarnText}>
                       Diferencia de {fairness.maxDifference} tareas entre adultos
                     </Text>
@@ -603,11 +549,11 @@ export default function WeeklyPlanScreen() {
               <Card style={styles.amberCard}>
                 <CardContent>
                   <View style={styles.bannerRow}>
-                    <AlertTriangle size={14} color="#d97706" />
+                    <AlertTriangle size={14} color={colors.warningText} />
                     <Text style={styles.amberTitle}>Tareas fuera de este plan</Text>
                   </View>
                   <Text style={styles.amberSubtitle}>
-                    Estas tareas se asignarán en un plan de mayor duración
+                    Estas tareas se asignaran en un plan de mayor duracion
                   </Text>
                   <View style={styles.excludedBadges}>
                     {plan.excludedTasks.map((t) => {
@@ -630,7 +576,7 @@ export default function WeeklyPlanScreen() {
                 <CardContent>
                   <Text style={styles.sectionTitle}>Notas del plan</Text>
                   {plan.notes.map((note) => (
-                    <Text key={note} style={styles.noteItem}>· {note}</Text>
+                    <Text key={note} style={styles.noteItem}>{"\u00B7"} {note}</Text>
                   ))}
                 </CardContent>
               </Card>
@@ -639,11 +585,11 @@ export default function WeeklyPlanScreen() {
             {/* Assignments section */}
             <View>
               <Text style={styles.assignmentsSectionTitle}>
-                {hasDayInfo ? "Distribución semanal" : "Asignaciones propuestas"}
+                {hasDayInfo ? "Distribucion semanal" : "Asignaciones propuestas"}
               </Text>
 
               {hasDayInfo ? (
-                /* ── Day-based view ── */
+                /* -- Day-based view -- */
                 <>
                   {/* Progress bar */}
                   <Card style={styles.progressCard}>
@@ -764,7 +710,7 @@ export default function WeeklyPlanScreen() {
                   })()}
                 </>
               ) : (
-                /* ── Member-based fallback view ── */
+                /* -- Member-based fallback view -- */
                 <>
                   {(() => {
                     const byMember = new Map<string, PlanAssignment[]>();
@@ -862,165 +808,162 @@ export default function WeeklyPlanScreen() {
 
 // ─── styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
-  backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
-  backTitle: { ...typography.cardTitle },
-  subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, marginTop: 2 },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 32, gap: spacing.sm },
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.background },
+    header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
+    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+    backTitle: { ...typography.cardTitle, color: c.text },
+    subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginTop: 2 },
+    scroll: { flex: 1 },
+    scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 32, gap: spacing.sm },
 
-  // Banners
-  errorCard: { backgroundColor: colors.errorBg },
-  errorText: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 13 },
-  successCard: { backgroundColor: colors.successBg },
-  bannerRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  successText: { fontFamily: fontFamily.sans, color: colors.successText, fontWeight: "600", fontSize: 13 },
+    // Banners
+    errorCard: { backgroundColor: c.errorBg },
+    errorText: { fontFamily: fontFamily.sans, color: c.errorText, fontSize: 13 },
+    successCard: { backgroundColor: c.successBg },
+    bannerRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+    successText: { fontFamily: fontFamily.sans, color: c.successText, fontWeight: "600", fontSize: 13 },
 
-  // Setup cards
-  setupCard: { borderColor: `${colors.primary}22`, backgroundColor: `${colors.primary}08` },
-  setupCardHeader: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, marginBottom: spacing.md },
-  setupIconBox: { width: 40, height: 40, borderRadius: 12, backgroundColor: `${colors.primary}18`, alignItems: "center", justifyContent: "center" },
-  setupCardText: { flex: 1 },
-  setupCardTitle: { fontFamily: fontFamily.sans, fontSize: 16, fontWeight: "600", color: colors.text },
-  setupCardSubtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, marginTop: 2 },
+    // Setup cards
+    setupCard: { borderColor: `${c.primary}22`, backgroundColor: `${c.primary}08` },
+    setupCardHeader: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, marginBottom: spacing.md },
+    setupIconBox: { width: 40, height: 40, borderRadius: 12, backgroundColor: `${c.primary}18`, alignItems: "center", justifyContent: "center" },
+    setupCardText: { flex: 1 },
+    setupCardTitle: { fontFamily: fontFamily.sans, fontSize: 16, fontWeight: "600", color: c.text },
+    setupCardSubtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginTop: 2 },
 
-  // Tasks summary detail button
-  detailBtn: { flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: `${colors.primary}10` },
-  detailBtnText: { fontFamily: fontFamily.sans, fontSize: 12, fontWeight: "600", color: colors.primary },
+    // Tasks summary detail button
+    detailBtn: { flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: `${c.primary}10` },
+    detailBtnText: { fontFamily: fontFamily.sans, fontSize: 12, fontWeight: "600", color: c.primary },
 
-  // Shared badge
-  badge: { backgroundColor: colors.muted, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: colors.border },
-  badgeTime: { flexDirection: "row", alignItems: "center", gap: 3 },
-  badgeText: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground },
+    // Shared badge
+    badge: { backgroundColor: c.muted, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: c.border },
+    badgeTime: { flexDirection: "row", alignItems: "center", gap: 3 },
+    badgeText: { fontFamily: fontFamily.sans, fontSize: 11, color: c.mutedForeground },
 
-  // Member chips — compact, first name only, wrapping row
-  memberChips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
-  memberChip: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.card, borderRadius: 20, paddingLeft: 4, paddingRight: 10, paddingVertical: 4, borderWidth: 1, borderColor: `${colors.primary}20` },
-  memberInitial: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  memberInitialText: { fontFamily: fontFamily.sans, fontSize: 11, fontWeight: "700", color: "#ffffff" },
-  memberChipName: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "500", color: colors.text },
+    // Member chips — compact, first name only, wrapping row
+    memberChips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
+    memberChip: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: c.card, borderRadius: 20, paddingLeft: 4, paddingRight: 10, paddingVertical: 4, borderWidth: 1, borderColor: `${c.primary}20` },
+    memberInitial: { width: 26, height: 26, borderRadius: 13, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },
+    memberInitialText: { fontFamily: fontFamily.sans, fontSize: 11, fontWeight: "700", color: "#ffffff" },
+    memberChipName: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "500", color: c.text },
 
-  // Tasks detail modal
-  modalContainer: { flex: 1, backgroundColor: colors.background },
-  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  modalTitle: { fontFamily: fontFamily.sans, fontSize: 17, fontWeight: "700", color: colors.text },
-  modalTitleCount: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "400", color: colors.mutedForeground },
-  modalCloseBtn: { paddingHorizontal: spacing.sm, paddingVertical: 6 },
-  modalCloseTxt: { fontFamily: fontFamily.sans, fontSize: 15, color: colors.primary, fontWeight: "600" },
-  // Add task button (idle state)
-  modalAddBtn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: `${colors.primary}06` },
-  modalAddBtnText: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "600", color: colors.primary },
-  // Add task inline form
-  modalAddRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: `${colors.primary}06` },
-  modalAddInput: { flex: 1, marginBottom: 0 },
-  modalAddConfirm: { paddingHorizontal: spacing.sm, paddingVertical: 8, borderRadius: 8, backgroundColor: colors.primary },
-  modalAddConfirmText: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "700", color: "#ffffff" },
-  modalAddCancel: { padding: 4 },
-  modalScroll: { flex: 1 },
-  modalScrollContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: 32, gap: 1 },
-  modalTaskRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: `${colors.border}60` },
-  modalTaskInfo: { flex: 1 },
-  modalTaskName: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "500", color: colors.text, marginBottom: 4 },
-  modalTaskBadges: { flexDirection: "row", alignItems: "center", gap: 4 },
-  modalDeleteBtn: { padding: 6, marginLeft: spacing.sm },
+    // Tasks detail modal
+    modalContainer: { flex: 1, backgroundColor: c.background },
+    modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: c.border },
+    modalTitle: { fontFamily: fontFamily.sans, fontSize: 17, fontWeight: "700", color: c.text },
+    modalTitleCount: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "400", color: c.mutedForeground },
+    modalCloseBtn: { paddingHorizontal: spacing.sm, paddingVertical: 6 },
+    modalCloseTxt: { fontFamily: fontFamily.sans, fontSize: 15, color: c.primary, fontWeight: "600" },
+    // Add task button (idle state)
+    modalAddBtn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: `${c.primary}06` },
+    modalAddBtnText: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "600", color: c.primary },
+    // Add task inline form
+    modalAddRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: `${c.primary}06` },
+    modalAddInput: { flex: 1, marginBottom: 0 },
+    modalAddConfirm: { paddingHorizontal: spacing.sm, paddingVertical: 8, borderRadius: 8, backgroundColor: c.primary },
+    modalAddConfirmText: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "700", color: "#ffffff" },
+    modalAddCancel: { padding: 4 },
+    modalScroll: { flex: 1 },
+    modalScrollContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: 32, gap: 1 },
+    modalTaskRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: `${c.border}60` },
+    modalTaskInfo: { flex: 1 },
+    modalTaskName: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "500", color: c.text, marginBottom: 4 },
+    modalTaskBadges: { flexDirection: "row", alignItems: "center", gap: 4 },
+    modalDeleteBtn: { padding: 6, marginLeft: spacing.sm },
 
-  // Date fields — side-by-side
-  dateRow: { flexDirection: "row", alignItems: "flex-end", gap: spacing.xs },
-  dateFieldWrap: { flex: 1 },
-  dateFieldLabel: { fontFamily: fontFamily.sans, fontSize: 11, fontWeight: "600", color: colors.primary, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
-  dateFieldInput: { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}30` },
-  dateSep: { paddingBottom: 12 },
-  dateSepText: { fontFamily: fontFamily.sans, fontSize: 16, color: colors.mutedForeground, fontWeight: "300" },
+    // Date fields — side-by-side
+    dateRow: { flexDirection: "row", alignItems: "flex-end", gap: spacing.xs },
+    dateFieldWrap: { flex: 1 },
+    dateFieldLabel: { fontFamily: fontFamily.sans, fontSize: 11, fontWeight: "600", color: c.primary, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
+    dateFieldInput: { backgroundColor: `${c.primary}08`, borderColor: `${c.primary}30` },
+    dateSep: { paddingBottom: 12 },
+    dateSepText: { fontFamily: fontFamily.sans, fontSize: 16, color: c.mutedForeground, fontWeight: "300" },
 
-  // CTA card
-  ctaCard: { borderColor: `${colors.primary}30`, backgroundColor: `${colors.primary}08` },
-  ctaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
-  ctaText: { flex: 1 },
-  ctaTitle: { fontFamily: fontFamily.sans, fontSize: 15, fontWeight: "600", color: colors.text },
-  ctaSubtitle: { fontFamily: fontFamily.sans, fontSize: 12, color: colors.mutedForeground, marginTop: 2 },
-  ctaButton: { flexShrink: 0 },
+    // CTA card
+    ctaCard: { borderColor: `${c.primary}30`, backgroundColor: `${c.primary}08` },
+    ctaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
+    ctaText: { flex: 1 },
+    ctaTitle: { fontFamily: fontFamily.sans, fontSize: 15, fontWeight: "600", color: c.text },
+    ctaSubtitle: { fontFamily: fontFamily.sans, fontSize: 12, color: c.mutedForeground, marginTop: 2 },
+    ctaButton: { flexShrink: 0 },
 
-  // Feedback
-  starRow: { flexDirection: "row", gap: spacing.xs, marginBottom: spacing.md },
-  commentInput: { marginBottom: spacing.sm, minHeight: 60 },
+    // Section title
+    sectionTitle: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "700", color: c.text, marginBottom: spacing.sm },
+    assignmentsSectionTitle: { fontFamily: fontFamily.sans, fontSize: 16, fontWeight: "700", color: c.text, marginBottom: spacing.sm, marginTop: spacing.xs },
 
-  // Section title
-  sectionTitle: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "700", color: colors.text, marginBottom: spacing.sm },
-  assignmentsSectionTitle: { fontFamily: fontFamily.sans, fontSize: 16, fontWeight: "700", color: colors.text, marginBottom: spacing.sm, marginTop: spacing.xs },
+    // Balance
+    balanceHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    balanceScore: { fontFamily: fontFamily.sans, fontSize: 28, fontWeight: "800" },
+    balanceHint: { fontFamily: fontFamily.sans, fontSize: 12, color: c.mutedForeground, marginBottom: spacing.sm },
+    progressTrack: { height: 10, backgroundColor: c.muted, borderRadius: 5, overflow: "hidden", marginBottom: spacing.xs },
+    progressFill: { height: 10, borderRadius: 5 },
+    fairnessWarn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.sm },
+    fairnessWarnText: { fontFamily: fontFamily.sans, fontSize: 12, color: c.warningText, flex: 1 },
 
-  // Balance
-  balanceHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  balanceScore: { fontFamily: fontFamily.sans, fontSize: 28, fontWeight: "800" },
-  balanceHint: { fontFamily: fontFamily.sans, fontSize: 12, color: colors.mutedForeground, marginBottom: spacing.sm },
-  progressTrack: { height: 10, backgroundColor: colors.muted, borderRadius: 5, overflow: "hidden", marginBottom: spacing.xs },
-  progressFill: { height: 10, borderRadius: 5 },
-  fairnessWarn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.sm },
-  fairnessWarnText: { fontFamily: fontFamily.sans, fontSize: 12, color: "#d97706", flex: 1 },
+    // Amber excluded
+    amberCard: { backgroundColor: c.warningBg },
+    amberTitle: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "700", color: c.warningText },
+    amberSubtitle: { fontFamily: fontFamily.sans, fontSize: 12, color: c.warningText, marginTop: 4, marginBottom: spacing.sm },
+    excludedBadges: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    excludedBadge: { backgroundColor: c.warningBg, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: c.warningText },
+    excludedBadgeText: { fontFamily: fontFamily.sans, fontSize: 12, color: c.warningText },
 
-  // Amber excluded
-  amberCard: { backgroundColor: "#fffbeb" },
-  amberTitle: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "700", color: "#92400e" },
-  amberSubtitle: { fontFamily: fontFamily.sans, fontSize: 12, color: "#d97706", marginTop: 4, marginBottom: spacing.sm },
-  excludedBadges: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  excludedBadge: { backgroundColor: "#fef3c7", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: "#fcd34d" },
-  excludedBadgeText: { fontFamily: fontFamily.sans, fontSize: 12, color: "#92400e" },
+    // Notes
+    noteItem: { fontFamily: fontFamily.sans, fontSize: 13, color: c.text, marginBottom: 4, lineHeight: 20 },
 
-  // Notes
-  noteItem: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.text, marginBottom: 4, lineHeight: 20 },
+    // Progress card
+    progressCard: { marginBottom: 0 },
+    progressHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.xs },
+    progressLabel: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground },
+    progressCount: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "700", color: c.text },
 
-  // Progress card
-  progressCard: { marginBottom: 0 },
-  progressHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.xs },
-  progressLabel: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground },
-  progressCount: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "700", color: colors.text },
+    // Day tabs
+    dayTabs: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: c.card, borderRadius: 16, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, marginBottom: spacing.sm, borderWidth: 1, borderColor: c.border },
+    dayTab: { flex: 1, alignItems: "center", paddingVertical: 4, borderRadius: 12, gap: 2 },
+    dayTabActive: { backgroundColor: `${c.primary}12` },
+    dayTabShort: { fontFamily: fontFamily.sans, fontSize: 9, fontWeight: "600", color: c.mutedForeground, textTransform: "uppercase", letterSpacing: 0.5 },
+    dayTabShortActive: { color: c.primary },
+    dayTabCircle: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+    dayTabCircleActive: { backgroundColor: `${c.primary}20` },
+    dayTabNum: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "500", color: c.mutedForeground },
+    dayTabNumActive: { color: c.primary, fontWeight: "700" },
+    dayTabDot: { height: 6, alignItems: "center", justifyContent: "center" },
+    dotFilled: { width: 5, height: 5, borderRadius: 3, backgroundColor: `${c.text}40` },
+    dotEmpty: { width: 5, height: 5 },
 
-  // Day tabs
-  dayTabs: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.card, borderRadius: 16, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border },
-  dayTab: { flex: 1, alignItems: "center", paddingVertical: 4, borderRadius: 12, gap: 2 },
-  dayTabActive: { backgroundColor: `${colors.primary}12` },
-  dayTabShort: { fontFamily: fontFamily.sans, fontSize: 9, fontWeight: "600", color: colors.mutedForeground, textTransform: "uppercase", letterSpacing: 0.5 },
-  dayTabShortActive: { color: colors.primary },
-  dayTabCircle: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  dayTabCircleActive: { backgroundColor: `${colors.primary}20` },
-  dayTabNum: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "500", color: colors.mutedForeground },
-  dayTabNumActive: { color: colors.primary, fontWeight: "700" },
-  dayTabDot: { height: 6, alignItems: "center", justifyContent: "center" },
-  dotFilled: { width: 5, height: 5, borderRadius: 3, backgroundColor: `${colors.text}40` },
-  dotEmpty: { width: 5, height: 5 },
+    // Day card
+    emptyDayText: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, textAlign: "center", paddingVertical: spacing.md },
+    dayCard: { overflow: "hidden" },
+    dayCardHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: `${c.primary}08`, paddingHorizontal: spacing.md, paddingVertical: 10 },
+    dayShortBadge: { width: 28, height: 28, borderRadius: 8, backgroundColor: `${c.primary}18`, alignItems: "center", justifyContent: "center" },
+    dayShortBadgeText: { fontFamily: fontFamily.sans, fontSize: 10, fontWeight: "700", color: c.primary },
+    dayCardTitle: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "600", color: c.text, flex: 1 },
+    taskCountBadge: { backgroundColor: c.muted, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+    taskCountText: { fontFamily: fontFamily.sans, fontSize: 11, color: c.mutedForeground },
 
-  // Day card
-  emptyDayText: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, textAlign: "center", paddingVertical: spacing.md },
-  dayCard: { overflow: "hidden" },
-  dayCardHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: `${colors.primary}08`, paddingHorizontal: spacing.md, paddingVertical: 10 },
-  dayShortBadge: { width: 28, height: 28, borderRadius: 8, backgroundColor: `${colors.primary}18`, alignItems: "center", justifyContent: "center" },
-  dayShortBadgeText: { fontFamily: fontFamily.sans, fontSize: 10, fontWeight: "700", color: colors.primary },
-  dayCardTitle: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "600", color: colors.text, flex: 1 },
-  taskCountBadge: { backgroundColor: colors.muted, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  taskCountText: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground },
+    // Assignment rows
+    assignmentRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 12 },
+    assignmentBorder: { borderTopWidth: 1, borderTopColor: `${c.border}80` },
+    assignmentDimmed: { opacity: 0.45 },
+    assignmentInfo: { flex: 1 },
+    assignmentTask: { fontFamily: fontFamily.sans, fontWeight: "600", color: c.text, fontSize: 13, flex: 1 },
+    assignmentMeta: { fontFamily: fontFamily.sans, fontSize: 12, color: c.mutedForeground },
+    memberRowInline: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
+    memberDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },
+    memberDotText: { fontFamily: fontFamily.sans, fontSize: 9, fontWeight: "700", color: "#ffffff" },
 
-  // Assignment rows
-  assignmentRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 12 },
-  assignmentBorder: { borderTopWidth: 1, borderTopColor: `${colors.border}80` },
-  assignmentDimmed: { opacity: 0.45 },
-  assignmentInfo: { flex: 1 },
-  assignmentTask: { fontFamily: fontFamily.sans, fontWeight: "600", color: colors.text, fontSize: 13, flex: 1 },
-  assignmentMeta: { fontFamily: fontFamily.sans, fontSize: 12, color: colors.mutedForeground },
-  memberRowInline: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
-  memberDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  memberDotText: { fontFamily: fontFamily.sans, fontSize: 9, fontWeight: "700", color: "#ffffff" },
+    // Member fallback card
+    memberCard: { overflow: "hidden" },
+    memberCardHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: `${c.muted}60`, paddingHorizontal: spacing.md, paddingVertical: 10 },
+    memberCardName: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "600", color: c.text, flex: 1 },
 
-  // Member fallback card
-  memberCard: { overflow: "hidden" },
-  memberCardHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: `${colors.muted}60`, paddingHorizontal: spacing.md, paddingVertical: 10 },
-  memberCardName: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "600", color: colors.text, flex: 1 },
-
-  // Action buttons
-  selectionCount: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, marginBottom: spacing.sm, textAlign: "center" },
-  applyActions: { flexDirection: "row", gap: spacing.sm },
-  applyButton: { flex: 2 },
-  discardButton: { flex: 1 },
-});
-
+    // Action buttons
+    selectionCount: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginBottom: spacing.sm, textAlign: "center" },
+    applyActions: { flexDirection: "row", gap: spacing.sm },
+    applyButton: { flex: 2 },
+    discardButton: { flex: 1 },
+  });
+}

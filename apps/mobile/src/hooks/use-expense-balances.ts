@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
+import { queryKeys } from "@habita/contracts";
 
 export interface MemberBalance {
   memberId: string;
@@ -20,11 +21,10 @@ interface BalancesData {
   transactions: DebtTransaction[];
 }
 
-const BALANCES_KEY = ["mobile", "expenses", "balances"] as const;
 
 export function useExpenseBalances() {
   return useQuery({
-    queryKey: BALANCES_KEY,
+    queryKey: queryKeys.expenses.balances(),
     queryFn: async () => mobileApi.get<BalancesData>("/api/expenses/balances"),
   });
 }
@@ -38,8 +38,8 @@ export function useSettleDebts() {
         input,
       ),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: BALANCES_KEY });
-      await queryClient.invalidateQueries({ queryKey: ["mobile", "expenses"] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.balances() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all() });
     },
   });
 }

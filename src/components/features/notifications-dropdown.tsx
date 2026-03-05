@@ -20,6 +20,9 @@ import {
   Clock,
   CalendarCheck,
   Gift,
+  Calendar,
+  BarChart3,
+  CheckSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { notificationStyles, notificationStyleDefault, spacing, iconSize } from "@/lib/design-tokens";
@@ -58,6 +61,12 @@ function getNotificationIcon(type: string) {
       return <CalendarCheck className={cn(iconSize.md, style.iconColor)} />;
     case "REWARD_REDEEMED":
       return <Gift className={cn(iconSize.md, style.iconColor)} />;
+    case "SERVICE_DUE_SOON":
+      return <Calendar className={cn(iconSize.md, style.iconColor)} />;
+    case "EXPENSE_WEEKLY_SUMMARY":
+      return <BarChart3 className={cn(iconSize.md, style.iconColor)} />;
+    case "TASK_REMINDER":
+      return <CheckSquare className={cn(iconSize.md, style.iconColor)} />;
     default:
       return <Bell className={iconSize.md} />;
   }

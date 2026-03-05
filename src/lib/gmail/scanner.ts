@@ -448,7 +448,7 @@ async function discoverUnknownServices(
   console.log(`[scan-gmail] Discovery query: ${query}`);
 
   // 1. Fetch message IDs
-  let allMessageIds: string[] = [];
+  const allMessageIds: string[] = [];
   let pageToken: string | undefined;
 
   while (allMessageIds.length < MAX_DISCOVERY_MESSAGES) {

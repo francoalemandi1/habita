@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
-import { Children, isValidElement, useRef } from "react";
+import { Children, isValidElement, useMemo } from "react";
 import { Animated, Pressable, Text, View, ActivityIndicator, StyleSheet } from "react-native";
-import { colors, fontFamily, radius, spacing } from "@/theme";
+import { useThemeColors } from "@/hooks/use-theme";
+import { fontFamily, radius, spacing } from "@/theme";
 
+import type { ThemeColors } from "@/theme";
 import type { PressableProps, ViewStyle } from "react-native";
 
 type ButtonVariant = "default" | "outline" | "ghost" | "destructive" | "success";
@@ -16,13 +18,15 @@ interface ButtonProps extends Omit<PressableProps, "children" | "style"> {
   style?: ViewStyle;
 }
 
-const variantStyles: Record<ButtonVariant, { bg: string; text: string; border?: string }> = {
-  default: { bg: colors.primary, text: "#ffffff" },
-  outline: { bg: "transparent", text: colors.text, border: colors.border },
-  ghost: { bg: "transparent", text: colors.text },
-  destructive: { bg: colors.destructive, text: "#ffffff" },
-  success: { bg: colors.success, text: "#ffffff" },
-};
+function getVariantStyles(c: ThemeColors): Record<ButtonVariant, { bg: string; text: string; border?: string }> {
+  return {
+    default: { bg: c.primary, text: "#ffffff" },
+    outline: { bg: "transparent", text: c.text, border: c.border },
+    ghost: { bg: "transparent", text: c.text },
+    destructive: { bg: c.destructive, text: "#ffffff" },
+    success: { bg: c.success, text: "#ffffff" },
+  };
+}
 
 const sizeStyles: Record<ButtonSize, { height: number; paddingHorizontal: number; fontSize: number }> = {
   default: { height: 44, paddingHorizontal: spacing.lg, fontSize: 14 },
@@ -36,7 +40,6 @@ function renderChildren(children: ReactNode, textColor: string, fontSize: number
   const childArray = Children.toArray(children);
   const hasElement = childArray.some((child) => isValidElement(child));
 
-  // Pure text — wrap in a single Text
   if (!hasElement) {
     return (
       <Text style={[styles.text, { color: textColor, fontSize }]}>
@@ -45,7 +48,6 @@ function renderChildren(children: ReactNode, textColor: string, fontSize: number
     );
   }
 
-  // Mixed or element-only — render each piece, wrapping strings in Text
   return (
     <>
       {childArray.map((child, i) => {
@@ -73,7 +75,8 @@ export function Button({
   style,
   ...props
 }: ButtonProps) {
-  const scale = useRef(new Animated.Value(1)).current;
+  const colors = useThemeColors();
+  const scale = useMemo(() => new Animated.Value(1), []);
 
   const handlePressIn = () => {
     Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 30 }).start();
@@ -83,7 +86,8 @@ export function Button({
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 30 }).start();
   };
 
-  const v = variantStyles[variant];
+  const variantMap = useMemo(() => getVariantStyles(colors), [colors]);
+  const v = variantMap[variant];
   const s = sizeStyles[size];
   const isDisabled = disabled ?? loading;
 

@@ -1,10 +1,11 @@
-import { useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { router } from "expo-router";
 import {
   Alert,
   Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -25,7 +26,12 @@ import {
   Receipt,
   TrendingDown,
   TrendingUp,
+  UserPlus,
+  X,
   Zap,
+  ArrowLeftRight,
+  BarChart3,
+  CreditCard,
   // Category icons
   ShoppingCart,
   Home,
@@ -45,8 +51,12 @@ import { useExpenseInsights } from "@/hooks/use-expense-insights";
 import { useExpenseBalances, useSettleDebts } from "@/hooks/use-expense-balances";
 import { useFund, useContributeToFund, useSetupFund } from "@/hooks/use-fund";
 import { useMembers } from "@/hooks/use-members";
+import { useHouseholdDetail } from "@/hooks/use-households";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
+import { mobileConfig } from "@/lib/config";
+import { useThemeColors } from "@/hooks/use-theme";
 
 import type { ExpenseInsightsResponse } from "@habita/contracts";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,8 +67,11 @@ import { StyledTextInput } from "@/components/ui/text-input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { ScreenHeader } from "@/components/features/screen-header";
-import { categoryColors, categoryColorFallback, colors, fontFamily, radius, spacing, typography } from "@/theme";
+import { categoryColors, categoryColorFallback, fontFamily, radius, spacing } from "@/theme";
+import { useFirstVisit } from "@/hooks/use-first-visit";
+import { SectionGuideCard } from "@/components/features/section-guide-card";
 
+import type { ThemeColors } from "@/theme";
 import type { SerializedExpense } from "@habita/contracts";
 import type { LucideIcon } from "lucide-react-native";
 
@@ -222,6 +235,9 @@ const STATUS_CONFIG: Record<MonthStatus, { iconColor: string; bg: string; headli
 };
 
 function TrendBadge({ trend, percent }: { trend: "up" | "down" | "flat"; percent: number }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (trend === "flat") {
     return (
       <View style={styles.trendBadge}>
@@ -231,7 +247,7 @@ function TrendBadge({ trend, percent }: { trend: "up" | "down" | "flat"; percent
     );
   }
   const isUp = trend === "up";
-  const trendColor = isUp ? "#dc2626" : "#16a34a";
+  const trendColor = isUp ? colors.errorText : colors.successText;
   return (
     <View style={styles.trendBadge}>
       {isUp ? <TrendingUp size={12} color={trendColor} /> : <TrendingDown size={12} color={trendColor} />}
@@ -243,6 +259,8 @@ function TrendBadge({ trend, percent }: { trend: "up" | "down" | "flat"; percent
 }
 
 function FinancialPulseCard({ data }: { data: InsightsData }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const heroState = resolveHeroState(data);
 
   if (heroState === "no_data_ever") {
@@ -259,14 +277,14 @@ function FinancialPulseCard({ data }: { data: InsightsData }) {
 
   if (heroState === "no_this_month") {
     return (
-      <View style={[styles.heroCard, { backgroundColor: "#fffbeb", borderColor: "#fde68a", borderWidth: 1 }]}>
+      <View style={[styles.heroCard, { backgroundColor: colors.warningBg, borderColor: "#fde68a", borderWidth: 1 }]}>
         <View style={styles.heroAlertRow}>
           <Info size={16} color="#b45309" style={{ marginTop: 2, flexShrink: 0 }} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.heroAlertTitle, { color: "#78350f" }]}>
               Este mes aún no registraste gastos
             </Text>
-            <Text style={[styles.heroAlertSubtitle, { color: "#92400e" }]}>
+            <Text style={[styles.heroAlertSubtitle, { color: colors.warningText }]}>
               No pasa nada: tu historial sigue disponible para comparar tendencias.
             </Text>
           </View>
@@ -335,6 +353,9 @@ interface FrequentExpense {
 }
 
 function QuickAddPills({ expenses, onQuickAdd }: { expenses: FrequentExpense[]; onQuickAdd: (e: FrequentExpense) => void }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (expenses.length === 0) return null;
 
   return (
@@ -356,12 +377,15 @@ function QuickAddPills({ expenses, onQuickAdd }: { expenses: FrequentExpense[]; 
 // ─── SpendingTips ────────────────────────────────────────────────────────────
 
 function SpendingTips({ tips }: { tips: Array<{ id: string; emoji: string; message: string; severity: string }> }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (tips.length === 0) return null;
 
   const severityStyles: Record<string, { bg: string; borderColor: string; labelColor: string }> = {
     info: { bg: `${colors.muted}4D`, borderColor: `${colors.border}66`, labelColor: colors.mutedForeground },
-    alerta: { bg: "#fffbeb", borderColor: "#fde68a", labelColor: "#92400e" },
-    critica: { bg: "#fef2f2", borderColor: "#fecaca", labelColor: "#991b1b" },
+    alerta: { bg: colors.warningBg, borderColor: "#fde68a", labelColor: colors.warningText },
+    critica: { bg: colors.errorBg, borderColor: "#fecaca", labelColor: "#991b1b" },
   };
 
   return (
@@ -389,6 +413,9 @@ function SpendingTips({ tips }: { tips: Array<{ id: string; emoji: string; messa
 // ─── UpcomingServicesNotice ──────────────────────────────────────────────────
 
 function UpcomingServicesNotice({ count, cost }: { count: number; cost: number }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (count === 0) return null;
   return (
     <View style={styles.servicesNotice}>
@@ -413,6 +440,9 @@ function SubcategoryFilters({
   active: string;
   onChange: (key: string) => void;
 }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const options = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const e of expenses) {
@@ -472,6 +502,8 @@ function ExpenseItem({
   isSolo: boolean;
   onPress: () => void;
 }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const IconComp = SUBCATEGORY_ICON_OVERRIDES[expense.subcategory] ?? CATEGORY_ICONS[expense.category as ExpenseCategory] ?? Receipt;
   const catStyle = getCategoryColor(expense.category);
   const isPayer = expense.paidBy.id === currentMemberId;
@@ -494,12 +526,12 @@ function ExpenseItem({
           {expense.subcategory !== "GENERAL" ? ` · ${SUBCATEGORY_LABELS[expense.subcategory] ?? ""}` : ""}
         </Text>
         {!isSolo && mySplit && !isPayer && myAmount > 0 && (
-          <Text style={[styles.expenseSplitInfo, allSettled ? styles.settledText : { color: "#dc2626" }]}>
+          <Text style={[styles.expenseSplitInfo, allSettled ? styles.settledText : { color: colors.errorText }]}>
             Te toca {formatAmountFull(myAmount)}
           </Text>
         )}
         {!isSolo && isPayer && !allSettled && expense.amount - myAmount > 0.01 && (
-          <Text style={[styles.expenseSplitInfo, { color: "#16a34a" }]}>
+          <Text style={[styles.expenseSplitInfo, { color: colors.successText }]}>
             Te deben {formatAmountFull(expense.amount - myAmount)}
           </Text>
         )}
@@ -508,6 +540,50 @@ function ExpenseItem({
       {/* Amount */}
       <Text style={styles.expenseAmount}>{formatAmountFull(expense.amount)}</Text>
     </Pressable>
+  );
+}
+
+// ─── ContextualInviteCard ────────────────────────────────────────────────────
+
+function ContextualInviteCard({ inviteCode, householdName, onDismiss }: {
+  inviteCode: string;
+  householdName: string;
+  onDismiss: () => void;
+}) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const handleInvite = async () => {
+    const baseUrl = mobileConfig.oauthBaseUrl;
+    const inviteUrl = `${baseUrl}/join/${inviteCode}`;
+    const message = `Te invito a unirte a mi hogar "${householdName}" en Habita 🏠\n\n${inviteUrl}`;
+    try {
+      await Share.share({ message });
+    } catch {
+      // user cancelled
+    }
+  };
+
+  return (
+    <View style={styles.inviteCard}>
+      <Pressable onPress={onDismiss} style={styles.inviteCardDismiss} hitSlop={8}>
+        <X size={14} color={colors.mutedForeground} />
+      </Pressable>
+      <View style={styles.inviteCardRow}>
+        <View style={styles.inviteCardIcon}>
+          <UserPlus size={18} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.inviteCardTitle}>¿Compartís el hogar?</Text>
+          <Text style={styles.inviteCardSubtitle}>
+            Invitá a alguien para dividir gastos automáticamente.
+          </Text>
+        </View>
+      </View>
+      <Pressable onPress={() => void handleInvite()} style={styles.inviteCardBtn}>
+        <Text style={styles.inviteCardBtnText}>Invitar</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -526,6 +602,9 @@ function ExpenseGroups({
   isSolo: boolean;
   onItemPress: (expense: SerializedExpense) => void;
 }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={{ gap: 16 }}>
       {groups.map((group) => (
@@ -560,6 +639,8 @@ interface EditSheetProps {
 }
 
 function EditSheet({ expense, onClose, onSave, onDelete, isSaving }: EditSheetProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [title, setTitle] = useState(expense.title);
   const [amount, setAmount] = useState(String(expense.amount));
 
@@ -608,6 +689,8 @@ function EditSheet({ expense, onClose, onSave, onDelete, isSaving }: EditSheetPr
 
 function FundTabContent() {
   const { me, activeHouseholdId } = useMobileAuth();
+  const colors = useThemeColors();
+  const fundStyles = useMemo(() => createFundStyles(colors), [colors]);
   const fundQuery = useFund();
   const contributeM = useContributeToFund();
   const setupM = useSetupFund();
@@ -784,14 +867,14 @@ function FundTabContent() {
 
       {/* Stats row */}
       <View style={fundStyles.statsRow}>
-        <View style={[fundStyles.statCard, { backgroundColor: "#f0fdf4" }]}>
+        <View style={[fundStyles.statCard, { backgroundColor: colors.successBg }]}>
           <View style={fundStyles.statHeader}>
             <TrendingUp size={14} color={colors.successText} />
             <Text style={fundStyles.statLabel}>Aportado</Text>
           </View>
           <Text style={[fundStyles.statValue, { color: colors.successText }]}>{fmtAmt(fund.contributedThisPeriod)}</Text>
         </View>
-        <View style={[fundStyles.statCard, { backgroundColor: "#fef2f2" }]}>
+        <View style={[fundStyles.statCard, { backgroundColor: colors.errorBg }]}>
           <View style={fundStyles.statHeader}>
             <TrendingDown size={14} color={colors.errorText} />
             <Text style={fundStyles.statLabel}>Gastado</Text>
@@ -802,7 +885,7 @@ function FundTabContent() {
 
       {/* My contribution CTA */}
       {myStatus ? (
-        <View style={[fundStyles.myCta, myStatus.pending > 0 ? { backgroundColor: "#fefce8", borderColor: "#fde68a" } : { backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" }]}>
+        <View style={[fundStyles.myCta, myStatus.pending > 0 ? { backgroundColor: colors.warningBg, borderColor: "#fde68a" } : { backgroundColor: colors.successBg, borderColor: "#bbf7d0" }]}>
           <View style={{ flex: 1 }}>
             <Text style={fundStyles.myCtaTitle}>Tu cuota este mes</Text>
             <Text style={fundStyles.myCtaSub}>
@@ -891,6 +974,8 @@ const FUND_CATEGORIES = [
 // ─── SaldosTab (inline) ──────────────────────────────────────────────────────
 
 function SaldosTabContent({ currentMemberId }: { currentMemberId: string }) {
+  const colors = useThemeColors();
+  const saldosStyles = useMemo(() => createSaldosStyles(colors), [colors]);
   const balancesQuery = useExpenseBalances();
   const insightsQuery = useExpenseInsights();
   const settleDebts = useSettleDebts();
@@ -933,8 +1018,8 @@ function SaldosTabContent({ currentMemberId }: { currentMemberId: string }) {
     <View style={saldosStyles.container}>
       {/* Hero balance banner */}
       <View style={[saldosStyles.heroBanner,
-        netBalance > 0.01 ? { backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" }
-        : netBalance < -0.01 ? { backgroundColor: "#fef2f2", borderColor: "#fecaca" }
+        netBalance > 0.01 ? { backgroundColor: colors.successBg, borderColor: "#bbf7d0" }
+        : netBalance < -0.01 ? { backgroundColor: colors.errorBg, borderColor: "#fecaca" }
         : { backgroundColor: `${colors.muted}66`, borderColor: colors.border }
       ]}>
         {Math.abs(netBalance) <= 0.01 ? (
@@ -944,9 +1029,9 @@ function SaldosTabContent({ currentMemberId }: { currentMemberId: string }) {
           </View>
         ) : (
           <View style={saldosStyles.heroContent}>
-            <DollarSign size={24} color={netBalance > 0 ? "#16a34a" : "#dc2626"} />
+            <DollarSign size={24} color={netBalance > 0 ? colors.successText : colors.errorText} />
             <View>
-              <Text style={[saldosStyles.heroAmount, { color: netBalance > 0 ? "#16a34a" : "#dc2626" }]}>
+              <Text style={[saldosStyles.heroAmount, { color: netBalance > 0 ? colors.successText : colors.errorText }]}>
                 {netBalance > 0
                   ? `Te deben ${fmtAmtFull(netBalance)}`
                   : `Debés ${fmtAmtFull(Math.abs(netBalance))}`}
@@ -974,7 +1059,7 @@ function SaldosTabContent({ currentMemberId }: { currentMemberId: string }) {
               return (
                 <View key={`${tx.fromMemberId}-${tx.toMemberId}`} style={[saldosStyles.debtRow, i < transactions.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
                   <View style={saldosStyles.debtInfo}>
-                    <HandCoins size={16} color={isMe ? "#dc2626" : "#16a34a"} />
+                    <HandCoins size={16} color={isMe ? colors.errorText : colors.successText} />
                     <View style={{ flex: 1 }}>
                       <Text style={saldosStyles.debtText}>
                         {isMe
@@ -983,7 +1068,7 @@ function SaldosTabContent({ currentMemberId }: { currentMemberId: string }) {
                       </Text>
                     </View>
                   </View>
-                  <Text style={[saldosStyles.debtAmount, { color: isMe ? "#dc2626" : "#16a34a" }]}>
+                  <Text style={[saldosStyles.debtAmount, { color: isMe ? colors.errorText : colors.successText }]}>
                     {fmtAmtFull(tx.amount)}
                   </Text>
                 </View>
@@ -1063,8 +1148,12 @@ function SaldosTabContent({ currentMemberId }: { currentMemberId: string }) {
 
 export default function ExpensesScreen() {
   const { me, activeHouseholdId } = useMobileAuth();
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { isFirstVisit, dismiss: dismissGuide } = useFirstVisit("gastos");
   const { data, isLoading, isError, error, refetch, isRefetching } = useExpenses();
   const insightsQuery = useExpenseInsights();
+  const householdQuery = useHouseholdDetail();
   const updateExpense = useUpdateExpense();
   const deleteExpense = useDeleteExpense();
 
@@ -1072,10 +1161,25 @@ export default function ExpensesScreen() {
   const [editTarget, setEditTarget] = useState<SerializedExpense | null>(null);
   const [showSettled, setShowSettled] = useState(false);
   const [subcategoryFilter, setSubcategoryFilter] = useState("ALL");
+  const [inviteDismissed, setInviteDismissed] = useState(false);
+
+  useEffect(() => {
+    void AsyncStorage.getItem("habita_expense_invite_dismissed").then((val) => {
+      if (val === "1") setInviteDismissed(true);
+    });
+  }, []);
+
+  const handleDismissInvite = () => {
+    setInviteDismissed(true);
+    void AsyncStorage.setItem("habita_expense_invite_dismissed", "1");
+  };
 
   const activeMembers = me?.members.filter((m) => m.householdId === activeHouseholdId) ?? [];
   const currentMemberId = activeMembers[0]?.id ?? "";
   const isSolo = activeMembers.length <= 1;
+
+  const inviteCode = householdQuery.data?.household?.inviteCode ?? null;
+  const householdName = householdQuery.data?.household?.name ?? "";
 
   const expenses = data?.expenses ?? [];
   const insightsData = insightsQuery.data as InsightsData | undefined;
@@ -1128,6 +1232,31 @@ export default function ExpensesScreen() {
         <TabBar items={TAB_ITEMS} activeKey={activeTab} onChange={handleTabChange} />
       </View>
 
+      {isFirstVisit ? (
+        <View style={{ paddingHorizontal: spacing.lg }}>
+          <SectionGuideCard
+            steps={[
+              {
+                icon: <CreditCard size={16} color={colors.primary} />,
+                title: "Registrá gastos",
+                description: "Anotá quién pagó qué y cuánto",
+              },
+              {
+                icon: <BarChart3 size={16} color={colors.primary} />,
+                title: "Vé quién gastó más",
+                description: "El resumen muestra balances por miembro",
+              },
+              {
+                icon: <ArrowLeftRight size={16} color={colors.primary} />,
+                title: "Liquidá deudas",
+                description: "Habita calcula las transferencias óptimas",
+              },
+            ]}
+            onDismiss={dismissGuide}
+          />
+        </View>
+      ) : null}
+
       {/* ── Gastos tab ── */}
       {activeTab === "gastos" ? (
         <>
@@ -1178,6 +1307,15 @@ export default function ExpensesScreen() {
                   <QuickAddPills expenses={insightsData.frequentExpenses as FrequentExpense[]} onQuickAdd={handleQuickAdd} />
                 </View>
               )}
+              {isSolo && !inviteDismissed && expenses.length >= 3 && inviteCode ? (
+                <View style={styles.section}>
+                  <ContextualInviteCard
+                    inviteCode={inviteCode}
+                    householdName={householdName}
+                    onDismiss={handleDismissInvite}
+                  />
+                </View>
+              ) : null}
               {expenses.length === 0 ? (
                 <EmptyState
                   icon={<Receipt size={48} color={colors.mutedForeground} />}
@@ -1185,6 +1323,11 @@ export default function ExpensesScreen() {
                   subtitle={isSolo
                     ? "Anotá tus gastos para llevar el control de tus finanzas."
                     : "Anotá los gastos compartidos y Habita calcula quién le debe a quién."}
+                  steps={[
+                    { label: "Registrá un gasto con el botón +" },
+                    { label: "Asigná quién pagó y quién participa" },
+                    { label: "Consultá balances y liquidá deudas" },
+                  ]}
                 />
               ) : (
                 <View style={{ gap: spacing.md }}>
@@ -1263,468 +1406,545 @@ export default function ExpensesScreen() {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  headerTitle: {
-    ...typography.pageTitle,
-  },
-  addBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: colors.primary,
-    borderRadius: 999,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-  },
-  addBtnText: {
-    fontFamily: fontFamily.sans,
-    color: "#ffffff",
-    fontWeight: "600",
-    fontSize: 13,
-  },
-  tabRow: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
-  },
-  tabScroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-  },
-  section: {
-    marginBottom: spacing.md,
-  },
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.sm,
+    },
+    headerTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 24,
+      fontWeight: "700",
+      letterSpacing: -0.3,
+      color: c.text,
+    },
+    addBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: c.primary,
+      borderRadius: 999,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 8,
+    },
+    addBtnText: {
+      fontFamily: fontFamily.sans,
+      color: "#ffffff",
+      fontWeight: "600",
+      fontSize: 13,
+    },
+    tabRow: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.sm,
+    },
+    tabScroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+    },
+    section: {
+      marginBottom: spacing.md,
+    },
 
-  // FinancialPulse hero
-  heroCard: {
-    borderRadius: radius.xl,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginBottom: spacing.md,
-  },
-  heroEmptyTitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.text,
-    textAlign: "center",
-    marginTop: 12,
-  },
-  heroEmptySubtitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-    textAlign: "center",
-    marginTop: 4,
-  },
-  heroAlertRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  heroAlertTitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  heroAlertSubtitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    marginTop: 2,
-    lineHeight: 16,
-  },
-  heroLabel: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    color: colors.mutedForeground,
-  },
-  heroStatusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 8,
-  },
-  heroStatusText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  heroAmountRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 8,
-    marginTop: 12,
-  },
-  heroAmountLg: {
-    fontFamily: fontFamily.sans,
-    fontSize: 24,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  heroAmountSuffix: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    color: colors.mutedForeground,
-  },
-  heroProjection: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-    marginTop: 4,
-  },
+    // FinancialPulse hero
+    heroCard: {
+      borderRadius: radius.xl,
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      marginBottom: spacing.md,
+    },
+    heroEmptyTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "500",
+      color: c.text,
+      textAlign: "center",
+      marginTop: 12,
+    },
+    heroEmptySubtitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      textAlign: "center",
+      marginTop: 4,
+    },
+    heroAlertRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 8,
+    },
+    heroAlertTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "500",
+    },
+    heroAlertSubtitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      marginTop: 2,
+      lineHeight: 16,
+    },
+    heroLabel: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      fontWeight: "600",
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      color: c.mutedForeground,
+    },
+    heroStatusRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginTop: 8,
+    },
+    heroStatusText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 16,
+      fontWeight: "600",
+      color: c.text,
+    },
+    heroAmountRow: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: 8,
+      marginTop: 12,
+    },
+    heroAmountLg: {
+      fontFamily: fontFamily.sans,
+      fontSize: 24,
+      fontWeight: "700",
+      color: c.text,
+    },
+    heroAmountSuffix: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      color: c.mutedForeground,
+    },
+    heroProjection: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      marginTop: 4,
+    },
 
-  // Trend badge
-  trendBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  trendTextFlat: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-  },
-  trendTextDirectional: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    fontWeight: "500",
-  },
+    // Trend badge
+    trendBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    trendTextFlat: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+    },
+    trendTextDirectional: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "500",
+    },
 
-  // Quick-add pills
-  pillsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingBottom: 4,
-  },
-  pillsLabel: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-    flexShrink: 0,
-  },
-  pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    flexShrink: 0,
-  },
-  pillText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    fontWeight: "500",
-    color: colors.text,
-  },
+    // Quick-add pills
+    pillsContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingBottom: 4,
+    },
+    pillsLabel: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      flexShrink: 0,
+    },
+    pill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: c.border,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      flexShrink: 0,
+    },
+    pillText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "500",
+      color: c.text,
+    },
 
-  // Spending tips
-  tipCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  tipSeverity: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  tipMessage: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-  },
+    // Spending tips
+    tipCard: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    tipSeverity: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      fontWeight: "600",
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      marginBottom: 4,
+    },
+    tipMessage: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      color: c.text,
+      lineHeight: 20,
+    },
 
-  // Upcoming services notice
-  servicesNotice: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    borderRadius: radius.lg,
-    backgroundColor: "#fef3c7",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  servicesNoticeText: {
-    fontFamily: fontFamily.sans,
-    flex: 1,
-    fontSize: 14,
-    color: "#92400e",
-    lineHeight: 20,
-  },
+    // Upcoming services notice
+    servicesNotice: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 8,
+      borderRadius: radius.lg,
+      backgroundColor: c.warningBg,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    servicesNoticeText: {
+      fontFamily: fontFamily.sans,
+      flex: 1,
+      fontSize: 14,
+      color: c.warningText,
+      lineHeight: 20,
+    },
 
-  // Subcategory filters
-  filterRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingBottom: 4,
-  },
-  filterPill: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    flexShrink: 0,
-  },
-  filterPillActive: {
-    borderColor: colors.primary,
-    backgroundColor: `${colors.primary}1A`,
-  },
-  filterPillText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    fontWeight: "500",
-    color: colors.mutedForeground,
-  },
-  filterPillTextActive: {
-    color: colors.primary,
-  },
+    // Subcategory filters
+    filterRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingBottom: 4,
+    },
+    filterPill: {
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: c.border,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      flexShrink: 0,
+    },
+    filterPillActive: {
+      borderColor: c.primary,
+      backgroundColor: `${c.primary}1A`,
+    },
+    filterPillText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "500",
+      color: c.mutedForeground,
+    },
+    filterPillTextActive: {
+      color: c.primary,
+    },
 
-  // Section label
-  sectionLabel: {
-    ...typography.label,
-    marginBottom: 4,
-  },
+    // Section label
+    sectionLabel: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      fontWeight: "600",
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      color: c.mutedForeground,
+      marginBottom: 4,
+    },
 
-  // No results
-  noResultsText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    color: colors.mutedForeground,
-    textAlign: "center",
-    paddingVertical: 16,
-  },
+    // No results
+    noResultsText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      color: c.mutedForeground,
+      textAlign: "center",
+      paddingVertical: 16,
+    },
 
-  // Expense item (matches web ExpenseItem)
-  expenseItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    borderRadius: radius.lg,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  expenseIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-    marginTop: 2,
-  },
-  expenseContent: {
-    flex: 1,
-    minWidth: 0,
-  },
-  expenseTitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.text,
-  },
-  expenseMeta: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-    marginTop: 2,
-  },
-  expenseSplitInfo: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    fontWeight: "500",
-    marginTop: 2,
-  },
-  settledText: {
-    color: colors.mutedForeground,
-    textDecorationLine: "line-through",
-  },
-  expenseAmount: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.text,
-    flexShrink: 0,
-  },
+    // Expense item (matches web ExpenseItem)
+    expenseItem: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+      borderRadius: radius.lg,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+    },
+    expenseIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: radius.lg,
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+      marginTop: 2,
+    },
+    expenseContent: {
+      flex: 1,
+      minWidth: 0,
+    },
+    expenseTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "500",
+      color: c.text,
+    },
+    expenseMeta: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      marginTop: 2,
+    },
+    expenseSplitInfo: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "500",
+      marginTop: 2,
+    },
+    settledText: {
+      color: c.mutedForeground,
+      textDecorationLine: "line-through",
+    },
+    expenseAmount: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "600",
+      color: c.text,
+      flexShrink: 0,
+    },
 
-  // Date group label
-  dateGroupLabel: {
-    ...typography.label,
-    marginBottom: 8,
-  },
+    // Date group label
+    dateGroupLabel: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      fontWeight: "600",
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      color: c.mutedForeground,
+      marginBottom: 8,
+    },
 
-  // Toggle settled
-  toggleSettled: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 8,
-  },
-  toggleSettledText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    fontWeight: "500",
-    color: colors.mutedForeground,
-  },
+    // Toggle settled
+    toggleSettled: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: 8,
+    },
+    toggleSettledText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "500",
+      color: c.mutedForeground,
+    },
 
-  // Edit sheet
-  sheetBody: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
-    gap: spacing.md,
-  },
-  sheetActions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
+    // Edit sheet
+    sheetBody: {
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.lg,
+      gap: spacing.md,
+    },
+    sheetActions: {
+      flexDirection: "row",
+      gap: spacing.sm,
+      marginTop: spacing.sm,
+    },
 
-  // Bottom padding
-  bottomPadding: {
-    height: 120,
-  },
-});
+    // Bottom padding
+    bottomPadding: {
+      height: 120,
+    },
+
+    // Contextual invite card
+    inviteCard: {
+      backgroundColor: c.primaryLight,
+      borderRadius: radius.xl,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: `${c.primary}30`,
+      gap: spacing.sm,
+    },
+    inviteCardDismiss: {
+      position: "absolute",
+      top: spacing.sm,
+      right: spacing.sm,
+      zIndex: 1,
+      padding: 4,
+    },
+    inviteCardRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.sm,
+      paddingRight: spacing.lg,
+    },
+    inviteCardIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: `${c.primary}20`,
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+    },
+    inviteCardTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "600" as const,
+      color: c.text,
+    },
+    inviteCardSubtitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      marginTop: 2,
+    },
+    inviteCardBtn: {
+      backgroundColor: c.primary,
+      borderRadius: radius.md,
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.md,
+      alignSelf: "flex-start",
+    },
+    inviteCardBtnText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "600" as const,
+      color: "#ffffff",
+    },
+  });
+}
 
 // ─── Fund tab styles ──────────────────────────────────────────────────────────
 
-const fundStyles = StyleSheet.create({
-  container: { gap: spacing.sm },
-  balanceCard: {
-    borderRadius: radius.xl,
-    backgroundColor: colors.card,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  balanceNegative: { backgroundColor: "#fff1f2", borderColor: "#fca5a5" },
-  balanceLabel: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground },
-  balanceAmount: { fontFamily: fontFamily.sans, fontSize: 32, fontWeight: "800", marginTop: 4 },
-  progressWrap: { marginTop: spacing.sm },
-  progressTrack: { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: "hidden" },
-  progressFill: { height: "100%", backgroundColor: colors.primary, borderRadius: 3 },
-  progressLabel: { fontFamily: fontFamily.sans, fontSize: 12, color: colors.mutedForeground, marginTop: 4 },
-  statsRow: { flexDirection: "row", gap: spacing.sm },
-  statCard: { flex: 1, borderRadius: radius.xl, padding: spacing.md },
-  statHeader: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 },
-  statLabel: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground },
-  statValue: { fontFamily: fontFamily.sans, fontSize: 18, fontWeight: "700" },
-  myCta: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  myCtaTitle: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 14 },
-  myCtaSub: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 12, marginTop: 2 },
-  contributeBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-  },
-  contributeBtnText: { fontFamily: fontFamily.sans, color: "#fff", fontWeight: "600", fontSize: 13 },
-  paidBadge: { backgroundColor: colors.successBg, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
-  paidBadgeText: { fontFamily: fontFamily.sans, color: colors.successText, fontWeight: "700", fontSize: 13 },
-  sectionTitle: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "700", color: colors.text, marginBottom: spacing.sm },
-  memberRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-  memberName: { fontFamily: fontFamily.sans, color: colors.text, fontWeight: "500", fontSize: 14 },
-  memberContributed: { fontFamily: fontFamily.sans, color: colors.text, fontWeight: "600", fontSize: 13 },
-  memberPending: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 11, marginTop: 2 },
-  txRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-  txTitle: { fontFamily: fontFamily.sans, color: colors.text, fontWeight: "500", fontSize: 14 },
-  txDate: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 12, marginTop: 2 },
-  txNeg: { fontFamily: fontFamily.sans, color: colors.errorText, fontWeight: "600", fontSize: 14 },
-  sheetTitle: { fontFamily: fontFamily.sans, fontSize: 18, fontWeight: "700", color: colors.text, marginBottom: spacing.md },
-  fieldLabel: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, marginBottom: spacing.xs },
-  fieldInput: { marginBottom: spacing.md },
-  actionBtn: { marginBottom: spacing.sm },
-  chipGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.md },
-  chip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
-  chipActive: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
-  chipLabel: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "500", color: colors.mutedForeground },
-  chipLabelActive: { fontWeight: "700", color: colors.primary },
-  allocationRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm, gap: spacing.md },
-  allocationName: { flex: 1, fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "500", color: colors.text },
-  allocationInput: { width: 100, marginBottom: 0 },
-  sheetSubtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, marginBottom: spacing.md, lineHeight: 18 },
-  fieldHint: { fontFamily: fontFamily.sans, fontSize: 12, color: colors.mutedForeground, marginBottom: spacing.sm },
-  allocationSummary: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "600", color: colors.mutedForeground, marginTop: spacing.xs, marginBottom: spacing.sm },
-});
+function createFundStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: { gap: spacing.sm },
+    balanceCard: {
+      borderRadius: radius.xl,
+      backgroundColor: c.card,
+      padding: spacing.lg,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    balanceNegative: { backgroundColor: c.errorBg, borderColor: "#fca5a5" },
+    balanceLabel: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground },
+    balanceAmount: { fontFamily: fontFamily.sans, fontSize: 32, fontWeight: "800", marginTop: 4 },
+    progressWrap: { marginTop: spacing.sm },
+    progressTrack: { height: 6, backgroundColor: c.border, borderRadius: 3, overflow: "hidden" },
+    progressFill: { height: "100%", backgroundColor: c.primary, borderRadius: 3 },
+    progressLabel: { fontFamily: fontFamily.sans, fontSize: 12, color: c.mutedForeground, marginTop: 4 },
+    statsRow: { flexDirection: "row", gap: spacing.sm },
+    statCard: { flex: 1, borderRadius: radius.xl, padding: spacing.md },
+    statHeader: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 },
+    statLabel: { fontFamily: fontFamily.sans, fontSize: 11, color: c.mutedForeground },
+    statValue: { fontFamily: fontFamily.sans, fontSize: 18, fontWeight: "700" },
+    myCta: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      padding: spacing.md,
+      gap: spacing.sm,
+    },
+    myCtaTitle: { fontFamily: fontFamily.sans, fontWeight: "700", color: c.text, fontSize: 14 },
+    myCtaSub: { fontFamily: fontFamily.sans, color: c.mutedForeground, fontSize: 12, marginTop: 2 },
+    contributeBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: c.primary,
+      borderRadius: radius.full,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 8,
+    },
+    contributeBtnText: { fontFamily: fontFamily.sans, color: "#fff", fontWeight: "600", fontSize: 13 },
+    paidBadge: { backgroundColor: c.successBg, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
+    paidBadgeText: { fontFamily: fontFamily.sans, color: c.successText, fontWeight: "700", fontSize: 13 },
+    sectionTitle: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "700", color: c.text, marginBottom: spacing.sm },
+    memberRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border },
+    memberName: { fontFamily: fontFamily.sans, color: c.text, fontWeight: "500", fontSize: 14 },
+    memberContributed: { fontFamily: fontFamily.sans, color: c.text, fontWeight: "600", fontSize: 13 },
+    memberPending: { fontFamily: fontFamily.sans, color: c.errorText, fontSize: 11, marginTop: 2 },
+    txRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border },
+    txTitle: { fontFamily: fontFamily.sans, color: c.text, fontWeight: "500", fontSize: 14 },
+    txDate: { fontFamily: fontFamily.sans, color: c.mutedForeground, fontSize: 12, marginTop: 2 },
+    txNeg: { fontFamily: fontFamily.sans, color: c.errorText, fontWeight: "600", fontSize: 14 },
+    sheetTitle: { fontFamily: fontFamily.sans, fontSize: 18, fontWeight: "700", color: c.text, marginBottom: spacing.md },
+    fieldLabel: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginBottom: spacing.xs },
+    fieldInput: { marginBottom: spacing.md },
+    actionBtn: { marginBottom: spacing.sm },
+    chipGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.md },
+    chip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.lg, borderWidth: 1.5, borderColor: c.border, backgroundColor: c.card },
+    chipActive: { borderColor: c.primary, backgroundColor: c.primaryLight },
+    chipLabel: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "500", color: c.mutedForeground },
+    chipLabelActive: { fontWeight: "700", color: c.primary },
+    allocationRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm, gap: spacing.md },
+    allocationName: { flex: 1, fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "500", color: c.text },
+    allocationInput: { width: 100, marginBottom: 0 },
+    sheetSubtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginBottom: spacing.md, lineHeight: 18 },
+    fieldHint: { fontFamily: fontFamily.sans, fontSize: 12, color: c.mutedForeground, marginBottom: spacing.sm },
+    allocationSummary: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "600", color: c.mutedForeground, marginTop: spacing.xs, marginBottom: spacing.sm },
+  });
+}
 
 // ─── Saldos tab styles ────────────────────────────────────────────────────────
 
-const saldosStyles = StyleSheet.create({
-  container: { gap: spacing.sm },
-  heroBanner: {
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  heroContent: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  heroEven: { fontFamily: fontFamily.sans, fontSize: 16, fontWeight: "600", color: colors.mutedForeground },
-  heroAmount: { fontFamily: fontFamily.sans, fontSize: 20, fontWeight: "700" },
-  heroSub: { fontFamily: fontFamily.sans, fontSize: 12, color: colors.mutedForeground, marginTop: 2 },
-  settleBtn: {
-    alignSelf: "flex-start",
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    backgroundColor: colors.card,
-  },
-  settleBtnText: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "500", color: colors.text },
-  sectionTitle: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "700", color: colors.text, marginBottom: spacing.sm },
-  debtRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.sm },
-  debtInfo: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flex: 1 },
-  debtText: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "500", color: colors.text },
-  debtAmount: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "700" },
-  categoryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8 },
-  categoryLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  categoryDot: { width: 8, height: 8, borderRadius: 4 },
-  categoryName: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "500", color: colors.text },
-  categoryAmount: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "600", color: colors.text },
-  insightRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
-  insightLabel: { fontFamily: fontFamily.sans, fontSize: 14, color: colors.mutedForeground },
-  insightValue: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "600", color: colors.text },
-  tipCard: { borderRadius: radius.lg, padding: spacing.sm, marginBottom: spacing.xs },
-  tipText: { fontFamily: fontFamily.sans, fontWeight: "600", fontSize: 13, color: colors.text },
-});
+function createSaldosStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: { gap: spacing.sm },
+    heroBanner: {
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      padding: spacing.lg,
+      gap: spacing.md,
+    },
+    heroContent: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+    heroEven: { fontFamily: fontFamily.sans, fontSize: 16, fontWeight: "600", color: c.mutedForeground },
+    heroAmount: { fontFamily: fontFamily.sans, fontSize: 20, fontWeight: "700" },
+    heroSub: { fontFamily: fontFamily.sans, fontSize: 12, color: c.mutedForeground, marginTop: 2 },
+    settleBtn: {
+      alignSelf: "flex-start",
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: c.border,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 8,
+      backgroundColor: c.card,
+    },
+    settleBtnText: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "500", color: c.text },
+    sectionTitle: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "700", color: c.text, marginBottom: spacing.sm },
+    debtRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.sm },
+    debtInfo: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flex: 1 },
+    debtText: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "500", color: c.text },
+    debtAmount: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "700" },
+    categoryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8 },
+    categoryLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    categoryDot: { width: 8, height: 8, borderRadius: 4 },
+    categoryName: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "500", color: c.text },
+    categoryAmount: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "600", color: c.text },
+    insightRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
+    insightLabel: { fontFamily: fontFamily.sans, fontSize: 14, color: c.mutedForeground },
+    insightValue: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "600", color: c.text },
+    tipCard: { borderRadius: radius.lg, padding: spacing.sm, marginBottom: spacing.xs },
+    tipText: { fontFamily: fontFamily.sans, fontWeight: "600", fontSize: 13, color: c.text },
+  });
+}

@@ -8,6 +8,17 @@ export const semanticColors = {
   warning: "#fd7c52",
 } as const;
 
+/** Dark mode semantic colors — aligned with web `.dark` CSS variables. */
+export const darkSemanticColors = {
+  primary: "#7b86fe",     // hsl(234 99% 72%) — lighter for dark bg
+  primaryLight: "#8a94fe",
+  text: "#ede5d8",        // hsl(39 30% 93%) — warm light text
+  background: "#191a1e",  // hsl(220 13% 10%)
+  card: "#202125",        // hsl(220 13% 13%)
+  success: "#4ade80",     // hsl(142 71% 40%)
+  warning: "#fd9a7a",
+} as const;
+
 export const spacingScale = {
   xs: 4,
   sm: 8,

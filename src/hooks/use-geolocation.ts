@@ -29,19 +29,24 @@ const ADMIN_DIVISION_PATTERN = /^(departamento|partido)\b/i;
  * Always captures timezone via Intl API even if geolocation is denied.
  */
 export function useGeolocation() {
-  const [location, setLocation] = useState<GeolocationResult | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const hasGeolocation = typeof navigator !== "undefined" && !!navigator.geolocation;
+  const browserTimezone =
+    typeof Intl !== "undefined"
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone
+      : "America/Argentina/Buenos_Aires";
+
+  const [location, setLocation] = useState<GeolocationResult | null>(() =>
+    !hasGeolocation
+      ? { latitude: 0, longitude: 0, timezone: browserTimezone, country: "", city: "" }
+      : null,
+  );
+  const [isLoading, setIsLoading] = useState(hasGeolocation);
+  const [error, setError] = useState<string | null>(() =>
+    !hasGeolocation ? "geolocation_unavailable" : null,
+  );
 
   useEffect(() => {
-    const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-    if (!navigator.geolocation) {
-      setLocation({ latitude: 0, longitude: 0, timezone: browserTimezone, country: "", city: "" });
-      setError("geolocation_unavailable");
-      setIsLoading(false);
-      return;
-    }
+    if (!hasGeolocation) return;
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -76,7 +81,7 @@ export function useGeolocation() {
       },
       { timeout: 10000, maximumAge: 60000 }
     );
-  }, []);
+  }, [hasGeolocation, browserTimezone]);
 
   return { location, isLoading, error };
 }

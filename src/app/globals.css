@@ -640,6 +640,17 @@ body {
   display: none;
 }
 
+/* Pulse-ring highlight for guided tour feature highlights */
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4); }
+  70% { box-shadow: 0 0 0 8px hsl(var(--primary) / 0); }
+  100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0); }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 2s ease-in-out infinite;
+}
+
 /* Accessibility: respect user motion preferences */
 @media (prefers-reduced-motion: reduce) {
   *,

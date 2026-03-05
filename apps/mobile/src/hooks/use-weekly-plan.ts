@@ -1,6 +1,7 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 
+import { queryKeys } from "@habita/contracts";
 import type {
   ApplyPlanResponse,
   PlanAssignment,
@@ -25,9 +26,13 @@ export function usePreviewWeeklyPlan() {
 }
 
 export function useApplyWeeklyPlan() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: ApplyInput) =>
       mobileApi.post<ApplyPlanResponse>("/api/ai/apply-plan", input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.assignments.my() });
+    },
   });
 }
 

@@ -129,53 +129,60 @@ export function RouletteWheel({
           .join(", ")
       : "#e5e7eb 0deg 360deg";
 
-  // Pointer animation + sound/haptics
-  const animatePointer = useCallback(() => {
-    if (!wheelRef.current || !flexRef.current || segmentCount < 2) {
-      rafRef.current = requestAnimationFrame(animatePointer);
-      return;
-    }
+  // Pointer animation + sound/haptics — use a ref to hold the latest
+  // callback so the rAF loop never references a variable before declaration.
+  const animatePointerRef = useRef<(() => void) | null>(null);
 
-    const style = window.getComputedStyle(wheelRef.current);
-    const transform = style.transform;
+  useEffect(() => {
+    const tick = () => {
+      if (!wheelRef.current || !flexRef.current || segmentCount < 2) {
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
 
-    if (transform && transform !== "none") {
-      const match = transform.match(/matrix\(([^)]+)\)/);
-      if (match?.[1]) {
-        const values = match[1].split(",").map(Number);
-        const a = values[0] ?? 0;
-        const b = values[1] ?? 0;
-        const angleDeg = Math.atan2(b, a) * (180 / Math.PI);
-        const normalizedAngle = ((angleDeg % 360) + 360) % 360;
+      const style = window.getComputedStyle(wheelRef.current);
+      const transform = style.transform;
 
-        // Speed
-        let delta = normalizedAngle - prevAngleRef.current;
-        if (delta > 180) delta -= 360;
-        if (delta < -180) delta += 360;
-        prevAngleRef.current = normalizedAngle;
+      if (transform && transform !== "none") {
+        const match = transform.match(/matrix\(([^)]+)\)/);
+        if (match?.[1]) {
+          const values = match[1].split(",").map(Number);
+          const a = values[0] ?? 0;
+          const b = values[1] ?? 0;
+          const angleDeg = Math.atan2(b, a) * (180 / Math.PI);
+          const normalizedAngle = ((angleDeg % 360) + 360) % 360;
 
-        const absDelta = Math.abs(delta);
-        const speedFactor = Math.min(absDelta / 6, 1);
+          // Speed
+          let delta = normalizedAngle - prevAngleRef.current;
+          if (delta > 180) delta -= 360;
+          if (delta < -180) delta += 360;
+          prevAngleRef.current = normalizedAngle;
 
-        // Position within current segment
-        const posInSegment = (normalizedAngle % segmentAngle) / segmentAngle;
-        const flex = computePointerFlex(posInSegment);
-        const rotateDeg = flex * MAX_POINTER_FLEX * speedFactor;
+          const absDelta = Math.abs(delta);
+          const speedFactor = Math.min(absDelta / 6, 1);
 
-        flexRef.current.style.transform = `rotate(${rotateDeg}deg)`;
+          // Position within current segment
+          const posInSegment = (normalizedAngle % segmentAngle) / segmentAngle;
+          const flex = computePointerFlex(posInSegment);
+          const rotateDeg = flex * MAX_POINTER_FLEX * speedFactor;
 
-        // Tick sound on peg crossing
-        const pegAngle = 360 / pegCount;
-        const currentPegIndex = Math.floor(normalizedAngle / pegAngle);
-        if (currentPegIndex !== lastPegIndexRef.current && absDelta > 0.5) {
-          lastPegIndexRef.current = currentPegIndex;
-          playTick(speedFactor);
-          if (speedFactor > 0.3) triggerHaptic();
+          flexRef.current.style.transform = `rotate(${rotateDeg}deg)`;
+
+          // Tick sound on peg crossing
+          const pegAngle = 360 / pegCount;
+          const currentPegIndex = Math.floor(normalizedAngle / pegAngle);
+          if (currentPegIndex !== lastPegIndexRef.current && absDelta > 0.5) {
+            lastPegIndexRef.current = currentPegIndex;
+            playTick(speedFactor);
+            if (speedFactor > 0.3) triggerHaptic();
+          }
         }
       }
-    }
 
-    rafRef.current = requestAnimationFrame(animatePointer);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    animatePointerRef.current = tick;
   }, [segmentCount, segmentAngle, pegCount]);
 
   // Start/stop pointer animation loop
@@ -183,7 +190,9 @@ export function RouletteWheel({
     if (isAnimating && segmentCount >= 2) {
       prevAngleRef.current = 0;
       lastPegIndexRef.current = -1;
-      rafRef.current = requestAnimationFrame(animatePointer);
+      if (animatePointerRef.current) {
+        rafRef.current = requestAnimationFrame(animatePointerRef.current);
+      }
     } else {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       if (flexRef.current) {
@@ -198,28 +207,32 @@ export function RouletteWheel({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [isAnimating, segmentCount, animatePointer]);
+  }, [isAnimating, segmentCount]);
 
-  // Reset rotation when not spinning
-  useEffect(() => {
+  // Reset rotation when not spinning (derived state)
+  const [prevSpinning, setPrevSpinning] = useState(isSpinning);
+  if (prevSpinning !== isSpinning) {
+    setPrevSpinning(isSpinning);
     if (!isSpinning && !isAnimating) {
       setRotation(0);
     }
-  }, [isSpinning, isAnimating]);
+  }
 
-  // Trigger spin
+  // Trigger spin — uses requestAnimationFrame to avoid synchronous setState in effect
   useEffect(() => {
     if (!isSpinning || winnerIndex < 0 || segmentCount === 0) return;
 
-    const padding = segmentAngle * 0.1;
-    const randomOffsetInSegment =
-      padding + Math.random() * (segmentAngle - padding * 2);
-    const winnerLandAngle = winnerIndex * segmentAngle + randomOffsetInSegment;
-    const extraRotations = MIN_ROTATIONS + Math.floor(Math.random() * 5);
-    const targetAngle = extraRotations * 360 + (360 - winnerLandAngle);
+    const rafId = requestAnimationFrame(() => {
+      const padding = segmentAngle * 0.1;
+      const randomOffsetInSegment =
+        padding + Math.random() * (segmentAngle - padding * 2);
+      const winnerLandAngle = winnerIndex * segmentAngle + randomOffsetInSegment;
+      const extraRotations = MIN_ROTATIONS + Math.floor(Math.random() * 5);
+      const targetAngle = extraRotations * 360 + (360 - winnerLandAngle);
 
-    setIsAnimating(true);
-    setRotation(targetAngle);
+      setIsAnimating(true);
+      setRotation(targetAngle);
+    });
 
     timerRef.current = setTimeout(() => {
       setIsAnimating(false);
@@ -227,6 +240,7 @@ export function RouletteWheel({
     }, SPIN_DURATION_MS);
 
     return () => {
+      cancelAnimationFrame(rafId);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [isSpinning, winnerIndex, segmentCount, segmentAngle, onSpinComplete]);

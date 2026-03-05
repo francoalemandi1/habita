@@ -17,12 +17,56 @@ const eslintConfig = defineConfig([
               message: "Shared packages cannot import app-local alias @/*",
             },
             {
-              group: ["next/*"],
+              group: ["next/*", "next"],
               message: "Shared packages cannot depend on Next.js runtime imports",
             },
             {
-              group: ["react-native"],
+              group: ["react-native", "react-native/*"],
               message: "Shared packages must remain platform-agnostic",
+            },
+            {
+              group: ["expo", "expo-*", "expo/*"],
+              message: "Shared packages must remain platform-agnostic",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Prevent mobile from importing web-only modules
+  {
+    files: ["apps/mobile/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["next/*", "next"],
+              message: "Mobile cannot import Next.js modules",
+            },
+          ],
+        },
+      ],
+      // React Native requires require() for static assets (images, fonts)
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+  // Prevent web from importing mobile-only modules
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["react-native", "react-native/*"],
+              message: "Web cannot import React Native modules",
+            },
+            {
+              group: ["expo", "expo-*", "expo/*"],
+              message: "Web cannot import Expo modules",
             },
           ],
         },

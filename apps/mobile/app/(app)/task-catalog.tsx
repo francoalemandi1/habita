@@ -11,8 +11,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { StyledTextInput } from "@/components/ui/text-input";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { EmptyState } from "@/components/ui/empty-state";
-import { colors, fontFamily, spacing, typography } from "@/theme";
+import { useThemeColors } from "@/hooks/use-theme";
+import { fontFamily, spacing, typography } from "@/theme";
 
+import type { ThemeColors } from "@/theme";
 import type { CatalogTask } from "@/hooks/use-task-management";
 
 function todayIsoDate(): string {
@@ -31,6 +33,9 @@ interface AssignSheetProps {
 }
 
 function AssignSheet({ task, onClose }: AssignSheetProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const membersQuery = useMembers();
   const createTask = useCreateTask();
   const createAssignment = useCreateAssignment();
@@ -44,9 +49,9 @@ function AssignSheet({ task, onClose }: AssignSheetProps) {
 
   const handleAssign = async () => {
     setError(null);
-    if (!selectedMemberId) { setError("Selecioná un miembro."); return; }
+    if (!selectedMemberId) { setError("Seleccion\u00E1 un miembro."); return; }
     const dueDateIso = dueDateToIso(dueDate);
-    if (!dueDateIso) { setError("Fecha inválida."); return; }
+    if (!dueDateIso) { setError("Fecha inv\u00E1lida."); return; }
 
     try {
       const created = await createTask.mutateAsync({
@@ -74,7 +79,7 @@ function AssignSheet({ task, onClose }: AssignSheetProps) {
       {task.estimatedMinutes ? (
         <View style={styles.taskMeta}>
           <Clock size={14} color={colors.mutedForeground} />
-          <Text style={styles.taskMetaText}>~{task.estimatedMinutes} min · Peso {task.defaultWeight}</Text>
+          <Text style={styles.taskMetaText}>~{task.estimatedMinutes} min \u00B7 Peso {task.defaultWeight}</Text>
         </View>
       ) : null}
 
@@ -124,6 +129,9 @@ function AssignSheet({ task, onClose }: AssignSheetProps) {
 }
 
 export default function TaskCatalogScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const { data, isLoading, isError, error } = useTaskCatalog();
   const [search, setSearch] = useState("");
   const [selectedTask, setSelectedTask] = useState<CatalogTask | null>(null);
@@ -155,7 +163,7 @@ export default function TaskCatalogScreen() {
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
             <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
           </Pressable>
-          <Text style={styles.backTitle}>Catálogo de tareas</Text>
+          <Text style={[styles.backTitle, { color: colors.text }]}>Cat\u00E1logo de tareas</Text>
           <View style={styles.backBtn} />
         </View>
         <StyledTextInput
@@ -242,38 +250,40 @@ export default function TaskCatalogScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-  backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
-  backTitle: { ...typography.cardTitle },
-  searchInput: { marginBottom: 0 },
-  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.xs },
-  errorCard: { backgroundColor: colors.errorBg, margin: spacing.lg },
-  errorText: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 13 },
-  categoryContainer: { gap: spacing.xs },
-  categoryHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  categoryLabel: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 14 },
-  categoryRight: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  categoryCount: { fontFamily: fontFamily.sans, fontSize: 12, color: colors.mutedForeground },
-  taskListCard: { marginTop: 2 },
-  taskRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm },
-  taskBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
-  taskInfo: { flex: 1, marginRight: spacing.sm },
-  taskName: { fontFamily: fontFamily.sans, color: colors.text, fontWeight: "500", fontSize: 14 },
-  taskMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
-  taskMetaText: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground },
-  taskMetaSmall: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground },
-  loading: { marginVertical: spacing.lg },
-  memberList: { gap: spacing.xs, marginBottom: spacing.md },
-  memberButton: { justifyContent: "flex-start" },
-  sheetTitle: { fontFamily: fontFamily.sans, fontSize: 17, fontWeight: "700", color: colors.text, marginBottom: spacing.xs },
-  fieldLabel: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "600", color: colors.text, marginBottom: spacing.xs, marginTop: spacing.sm },
-  dateInput: { marginBottom: spacing.sm },
-  sheetActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
-  cancelButton: { flex: 1 },
-  assignButton: { flex: 2 },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.background },
+    header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
+    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+    backTitle: { ...typography.cardTitle },
+    searchInput: { marginBottom: 0 },
+    loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
+    scroll: { flex: 1 },
+    scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.xs },
+    errorCard: { backgroundColor: c.errorBg, margin: spacing.lg },
+    errorText: { fontFamily: fontFamily.sans, color: c.errorText, fontSize: 13 },
+    categoryContainer: { gap: spacing.xs },
+    categoryHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    categoryLabel: { fontFamily: fontFamily.sans, fontWeight: "700", color: c.text, fontSize: 14 },
+    categoryRight: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+    categoryCount: { fontFamily: fontFamily.sans, fontSize: 12, color: c.mutedForeground },
+    taskListCard: { marginTop: 2 },
+    taskRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm },
+    taskBorder: { borderBottomWidth: 1, borderBottomColor: c.border },
+    taskInfo: { flex: 1, marginRight: spacing.sm },
+    taskName: { fontFamily: fontFamily.sans, color: c.text, fontWeight: "500", fontSize: 14 },
+    taskMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+    taskMetaText: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground },
+    taskMetaSmall: { fontFamily: fontFamily.sans, fontSize: 11, color: c.mutedForeground },
+    loading: { marginVertical: spacing.lg },
+    memberList: { gap: spacing.xs, marginBottom: spacing.md },
+    memberButton: { justifyContent: "flex-start" },
+    sheetTitle: { fontFamily: fontFamily.sans, fontSize: 17, fontWeight: "700", color: c.text, marginBottom: spacing.xs },
+    fieldLabel: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "600", color: c.text, marginBottom: spacing.xs, marginTop: spacing.sm },
+    dateInput: { marginBottom: spacing.sm },
+    sheetActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
+    cancelButton: { flex: 1 },
+    assignButton: { flex: 2 },
+  });
+}

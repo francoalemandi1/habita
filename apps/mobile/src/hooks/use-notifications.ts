@@ -1,13 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 
+import { queryKeys } from "@habita/contracts";
 import type { MarkNotificationsResponse, NotificationsResponse } from "@habita/contracts";
-
-const NOTIFICATIONS_KEY = ["mobile", "notifications"] as const;
 
 export function useNotifications(unreadOnly = false) {
   return useQuery({
-    queryKey: [...NOTIFICATIONS_KEY, unreadOnly] as const,
+    queryKey: queryKeys.notifications.list(unreadOnly),
     queryFn: async () =>
       mobileApi.get<NotificationsResponse>(
         `/api/notifications?limit=30&unreadOnly=${unreadOnly ? "true" : "false"}`,
@@ -24,7 +23,7 @@ export function useMarkAllNotificationsRead() {
         all: true,
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all() });
     },
   });
 }

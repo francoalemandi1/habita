@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useProductSelection } from "@/hooks/use-product-selection";
 import { normalizeProductTerm } from "@/components/features/product-search-input";
 import {
@@ -77,27 +77,42 @@ export function CatalogSheet({
   );
   const [pendingTerms, setPendingTerms] = useState<string[]>([]);
 
-  // Reset search when dialog closes
-  useEffect(() => {
+  // Track previous prop values to reset when dialog opens/closes
+  const [prevOpen, setPrevOpen] = useState(open);
+  const [prevSelectedTerms, setPrevSelectedTerms] = useState(selectedTerms);
+  const [prevInitialCategory, setPrevInitialCategory] = useState(initialCategory);
+
+  if (prevOpen !== open) {
+    setPrevOpen(open);
+    setPrevSelectedTerms(selectedTerms);
+    setPrevInitialCategory(initialCategory);
     if (!open) {
       setSearchQuery("");
       setCustomTerm("");
+    } else {
+      setPendingTerms(selectedTerms);
+      if (initialCategory) {
+        setExpandedCategories(new Set([initialCategory]));
+      } else {
+        setExpandedCategories(new Set(CATEGORY_ORDER));
+      }
     }
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    setPendingTerms(selectedTerms);
-  }, [open, selectedTerms]);
-
-  // When opening with a category filter, collapse all others
-  useEffect(() => {
-    if (open && initialCategory) {
-      setExpandedCategories(new Set([initialCategory]));
-    } else if (open && !initialCategory) {
-      setExpandedCategories(new Set(CATEGORY_ORDER));
+  } else if (open) {
+    // Sync pendingTerms if selectedTerms changed while open
+    if (prevSelectedTerms !== selectedTerms) {
+      setPrevSelectedTerms(selectedTerms);
+      setPendingTerms(selectedTerms);
     }
-  }, [open, initialCategory]);
+    // Sync expandedCategories if initialCategory changed while open
+    if (prevInitialCategory !== initialCategory) {
+      setPrevInitialCategory(initialCategory);
+      if (initialCategory) {
+        setExpandedCategories(new Set([initialCategory]));
+      } else {
+        setExpandedCategories(new Set(CATEGORY_ORDER));
+      }
+    }
+  }
 
   const selectedSet = useMemo(() => {
     return new Set(pendingTerms.map((term) => normalizeProductTerm(term)));

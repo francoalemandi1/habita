@@ -57,8 +57,9 @@ const recipeSchema = z.object({
     missingIngredients: z.array(z.string()),
     steps: z.array(z.string()),
     tip: z.string().optional(),
-  })).min(3).max(5),
+  })).max(5),
   summary: z.string(),
+  rejected: z.boolean().optional(),
 });
 
 // ============================================
@@ -113,6 +114,15 @@ export async function generateRecipeSuggestions(
       schema: recipeSchema,
       messages,
     });
+
+    // If the LLM rejected the input as non-food-related, return empty with message
+    if (generated.object.rejected) {
+      return {
+        summary: generated.object.summary,
+        recipes: [],
+      };
+    }
+
     // Map optional tip to nullable for consistent downstream handling
     return {
       summary: generated.object.summary,
@@ -174,6 +184,16 @@ El usuario te cuenta que ingredientes tiene y vos le sugeris recetas concretas.
 ## Input del usuario
 
 ${inputDescription}
+
+## Validacion de input
+
+PRIMERO evalua si el texto del usuario esta relacionado con cocina, ingredientes o comida.
+Si el input NO tiene NADA que ver con cocina (ej: preguntas sobre deportes, personas, opiniones, temas no culinarios), responde con:
+- "rejected": true
+- "recipes": [] (array vacio)
+- "summary": un mensaje breve y amigable explicando que solo podes ayudar con recetas. Ejemplo: "Solo puedo ayudarte con recetas y cocina. Conta que ingredientes tenes y te sugiero que preparar."
+
+Solo procede con las recetas si el input esta relacionado con comida/ingredientes/cocina.
 
 ## Reglas estrictas
 

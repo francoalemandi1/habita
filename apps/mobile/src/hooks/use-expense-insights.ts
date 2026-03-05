@@ -1,13 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 
+import { queryKeys } from "@habita/contracts";
 import type { ExpenseInsightsResponse } from "@habita/contracts";
-
-const EXPENSE_INSIGHTS_KEY = ["mobile", "expenses", "insights"] as const;
 
 export function useExpenseInsights() {
   return useQuery({
-    queryKey: EXPENSE_INSIGHTS_KEY,
+    queryKey: queryKeys.expenses.insights(),
     queryFn: async () =>
       mobileApi.get<ExpenseInsightsResponse>("/api/expenses/insights"),
   });

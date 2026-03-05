@@ -1,11 +1,11 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback } from "react";
-import { X, CheckCircle, AlertTriangle, Info, AlertCircle } from "lucide-react";
+import { X, CheckCircle, AlertTriangle, Info, AlertCircle, PartyPopper } from "lucide-react";
 
 import type { ReactNode } from "react";
 
-type ToastType = "success" | "error" | "warning" | "info";
+type ToastType = "success" | "error" | "warning" | "info" | "celebration";
 
 interface Toast {
   id: string;
@@ -116,6 +116,7 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
     error: <AlertCircle className="h-5 w-5 text-red-500" />,
     warning: <AlertTriangle className="h-5 w-5 text-yellow-500" />,
     info: <Info className="h-5 w-5 text-blue-500" />,
+    celebration: <PartyPopper className="h-5 w-5 text-primary" />,
   };
 
   const backgrounds: Record<ToastType, string> = {
@@ -123,6 +124,7 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
     error: "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950",
     warning: "border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950",
     info: "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950",
+    celebration: "border-primary/20 bg-primary/5 dark:border-primary/30 dark:bg-primary/10",
   };
 
   return (

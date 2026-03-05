@@ -19,8 +19,10 @@ import {
 } from "lucide-react-native";
 import * as WebBrowser from "expo-web-browser";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
+import { mobileApi } from "@/lib/api";
 import { mobileConfig } from "@/lib/config";
 import { colors, fontFamily, radius, spacing } from "@/theme";
+import type { AuthMeResponse } from "@habita/contracts";
 
 import type { LucideIcon } from "lucide-react-native";
 
@@ -215,7 +217,17 @@ export default function LoginScreen() {
       }
 
       await exchangeTokens({ accessToken, refreshToken });
-      router.replace("/(app)/dashboard");
+      // Check if this is a new user (no households) → welcome + onboarding flow
+      try {
+        const me = await mobileApi.get<AuthMeResponse>("/api/auth/me");
+        if (me.households.length === 0) {
+          router.replace("/(auth)/welcome");
+        } else {
+          router.replace("/(app)/dashboard");
+        }
+      } catch {
+        router.replace("/(app)/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo iniciar sesión");
     } finally {

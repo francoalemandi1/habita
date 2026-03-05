@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
+import { queryKeys } from "@habita/contracts";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -31,15 +32,11 @@ export interface PreferencesResponse {
   };
 }
 
-// ── Query key ──────────────────────────────────────────────────────────────
-
-const PREFS_KEY = ["mobile", "preferences"] as const;
-
 // ── Hooks ──────────────────────────────────────────────────────────────────
 
 export function usePreferences() {
   return useQuery({
-    queryKey: PREFS_KEY,
+    queryKey: queryKeys.preferences.all(),
     queryFn: async () => mobileApi.get<PreferencesResponse>("/api/preferences"),
   });
 }
@@ -50,7 +47,7 @@ export function useSetPreference() {
     mutationFn: async (payload: { taskId: string; preference: PreferenceValue }) =>
       mobileApi.post("/api/preferences", payload),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: PREFS_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.preferences.all() });
     },
   });
 }
@@ -61,7 +58,7 @@ export function useRemovePreference() {
     mutationFn: async (taskId: string) =>
       mobileApi.delete(`/api/preferences?taskId=${taskId}`),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: PREFS_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.preferences.all() });
     },
   });
 }

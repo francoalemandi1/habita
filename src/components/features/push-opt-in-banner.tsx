@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
@@ -12,11 +12,12 @@ const STORAGE_KEY = "push-opt-in-dismissed";
 export function PushOptInBanner() {
   const push = usePushNotifications();
   const toast = useToast();
-  const [dismissed, setDismissed] = useState(true); // default hidden until we check
+  const [dismissed, setDismissed] = useState(true); // start hidden to match SSR
 
+  // Hydrate from localStorage after mount to avoid SSR mismatch
   useEffect(() => {
-    const wasDismissed = localStorage.getItem(STORAGE_KEY);
-    setDismissed(wasDismissed === "true");
+    setDismissed(localStorage.getItem(STORAGE_KEY) === "true");
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   }, []);
 
   // Don't show if not supported, already subscribed, already dismissed, or still loading

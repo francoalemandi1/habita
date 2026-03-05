@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 
@@ -98,7 +98,9 @@ export function useRelaxSuggestions({
   const isEnabled = isLocationReady && externalEnabled;
 
   const locationRef = useRef(location);
-  locationRef.current = location;
+  useEffect(() => {
+    locationRef.current = location;
+  }, [location]);
 
   const forceRefreshRef = getForceRefreshRef(section);
 

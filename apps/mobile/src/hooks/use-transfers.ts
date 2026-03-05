@@ -1,19 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 
+import { queryKeys } from "@habita/contracts";
 import type {
   TransferAction,
   TransferResponse,
   TransfersResponse,
 } from "@habita/contracts";
 
-const TRANSFERS_KEY = ["mobile", "transfers"] as const;
-
 export function useTransfers(type?: "sent" | "received") {
   const typeQuery = type ? `?type=${type}` : "";
 
   return useQuery({
-    queryKey: [...TRANSFERS_KEY, type ?? "all"] as const,
+    queryKey: queryKeys.transfers.list(type),
     queryFn: async () => mobileApi.get<TransfersResponse>(`/api/transfers${typeQuery}`),
   });
 }
@@ -31,7 +30,7 @@ export function useCreateTransfer() {
     mutationFn: async (input: CreateTransferInput) =>
       mobileApi.post<TransferResponse>("/api/transfers", input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: TRANSFERS_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all() });
     },
   });
 }
@@ -45,7 +44,7 @@ export function useRespondTransfer() {
         action: input.action,
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: TRANSFERS_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all() });
     },
   });
 }

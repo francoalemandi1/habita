@@ -8,6 +8,15 @@ export interface BriefingContext {
   pendingByMember: Array<{ name: string; pending: number }>;
   weeklyCompletedCount: number;
   weeklyTopContributors: Array<{ name: string; count: number }>;
+  // New optional fields
+  monthlyExpenseTotal?: number;
+  monthlyExpenseDelta?: number;       // % change vs last month (positive = spent more)
+  fundMonthlyTarget?: number;
+  fundCurrentBalance?: number;
+  upcomingServiceTitle?: string;
+  upcomingServiceDays?: number;       // 0 = today, 1 = tomorrow, etc.
+  hasDailyDeal?: boolean;
+  dealCategory?: string;
 }
 
 export interface BriefingResponse {
@@ -92,10 +101,52 @@ function buildHighlights(context: BriefingContext): string[] {
     }
   }
 
+  // Upcoming service due soon
+  if (context.upcomingServiceTitle !== undefined && context.upcomingServiceDays !== undefined) {
+    if (context.upcomingServiceDays === 0) {
+      highlights.push(`Vence ${context.upcomingServiceTitle} hoy`);
+    } else {
+      highlights.push(`Vence ${context.upcomingServiceTitle} en ${context.upcomingServiceDays} día${context.upcomingServiceDays > 1 ? "s" : ""}`);
+    }
+  }
+
+  // Monthly expense delta (only if significant change >= 10%)
+  if (
+    context.monthlyExpenseTotal !== undefined &&
+    context.monthlyExpenseDelta !== undefined &&
+    Math.abs(context.monthlyExpenseDelta) >= 10
+  ) {
+    const sign = context.monthlyExpenseDelta > 0 ? "+" : "";
+    highlights.push(
+      `Gastos este mes: $${context.monthlyExpenseTotal.toLocaleString("es-AR")} (${sign}${context.monthlyExpenseDelta.toFixed(0)}% vs mes pasado)`
+    );
+  }
+
+  // Underfunded shared fund
+  if (
+    context.fundCurrentBalance !== undefined &&
+    context.fundMonthlyTarget !== undefined &&
+    context.fundCurrentBalance < context.fundMonthlyTarget * 0.5
+  ) {
+    highlights.push(
+      `Fondo: $${context.fundCurrentBalance.toLocaleString("es-AR")} de $${context.fundMonthlyTarget.toLocaleString("es-AR")} este mes`
+    );
+  }
+
   return highlights.slice(0, 4);
 }
 
 function buildSuggestion(context: BriefingContext): string {
+  // Urgent service due today or tomorrow — highest priority
+  if (
+    context.upcomingServiceTitle !== undefined &&
+    context.upcomingServiceDays !== undefined &&
+    context.upcomingServiceDays <= 1
+  ) {
+    const when = context.upcomingServiceDays === 0 ? "hoy" : "mañana";
+    return `Revisá ${context.upcomingServiceTitle} — vence ${when}. Registralo en la sección de servicios.`;
+  }
+
   // Workload imbalance suggestion
   if (context.pendingByMember.length >= 2) {
     const sorted = [...context.pendingByMember].sort((a, b) => b.pending - a.pending);
@@ -119,6 +170,11 @@ function buildSuggestion(context: BriefingContext): string {
         ? `Llevás ${top.count} tareas esta semana. ¡Buen ritmo!`
         : `${top.name} lleva ${top.count} tareas esta semana. ¡Buen ritmo!`;
     }
+  }
+
+  // Daily deals fallback
+  if (context.hasDailyDeal && context.dealCategory) {
+    return `Hay ofertas de ${context.dealCategory} hoy. Revisalas en Ahorrá.`;
   }
 
   return "Buen ritmo esta semana, ¡seguí así!";

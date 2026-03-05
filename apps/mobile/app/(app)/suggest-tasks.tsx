@@ -1,22 +1,27 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import { useSuggestTasks } from "@/hooks/use-suggest-tasks";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
+import { useThemeColors } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StyledTextInput } from "@/components/ui/text-input";
-import { colors, fontFamily, spacing, typography } from "@/theme";
-import type { SuggestedTask, TaskCategory } from "@/hooks/use-suggest-tasks";
+import { fontFamily, spacing, typography } from "@/theme";
+
+import type { ThemeColors } from "@/theme";
+import type { SuggestedTask, TaskCategoryGroup } from "@/hooks/use-suggest-tasks";
 
 const FREQ_LABELS: Record<SuggestedTask["frequency"], string> = {
-  DAILY: "Diaria", WEEKLY: "Semanal", BIWEEKLY: "Quincenal", MONTHLY: "Mensual",
+  DAILY: "Diaria", WEEKLY: "Semanal", BIWEEKLY: "Quincenal", MONTHLY: "Mensual", ONCE: "Única",
 };
 
-function CategorySection({ category }: { category: TaskCategory }) {
+function CategorySection({ category }: { category: TaskCategoryGroup }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [expanded, setExpanded] = useState(true);
   return (
     <View style={styles.categorySection}>
@@ -39,7 +44,7 @@ function CategorySection({ category }: { category: TaskCategory }) {
                   <Text style={styles.taskMetaText}>{FREQ_LABELS[task.frequency]}</Text>
                   <Text style={styles.taskMetaText}>~{task.estimatedMinutes} min · Peso {task.weight}</Text>
                 </View>
-                {task.reason ? <Text style={styles.taskReason}>\u2728 {task.reason}</Text> : null}
+                {task.reason ? <Text style={styles.taskReason}>{"\u2728"} {task.reason}</Text> : null}
               </View>
             </View>
           ))}
@@ -50,6 +55,8 @@ function CategorySection({ category }: { category: TaskCategory }) {
 }
 
 export default function SuggestTasksScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [hasChildren, setHasChildren] = useState(false);
   const [hasPets, setHasPets] = useState(false);
   const [location, setLocation] = useState("");
@@ -70,7 +77,7 @@ export default function SuggestTasksScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
           <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
         </Pressable>
-        <Text style={styles.backTitle}>Sugerencias de tareas</Text>
+        <Text style={[styles.backTitle, { color: colors.text }]}>Sugerencias de tareas</Text>
         <View style={styles.backBtn} />
       </View>
       <ScrollView bounces={false} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -97,7 +104,7 @@ export default function SuggestTasksScreen() {
           <Card style={styles.errorCard}><CardContent><Text style={styles.errorText}>{getMobileErrorMessage(suggestM.error)}</Text></CardContent></Card>
         ) : null}
         {insights.length > 0 ? (
-          <Card style={styles.insightsCard}><CardContent>{insights.map((insight, i) => <Text key={i} style={styles.insightText}>\u2728 {insight}</Text>)}</CardContent></Card>
+          <Card style={styles.insightsCard}><CardContent>{insights.map((insight, i) => <Text key={i} style={styles.insightText}>{"\u2728"} {insight}</Text>)}</CardContent></Card>
         ) : null}
         {categories.length > 0 ? (
           <View style={styles.results}>
@@ -106,7 +113,7 @@ export default function SuggestTasksScreen() {
           </View>
         ) : null}
         {!suggestM.isPending && !suggestM.data && !suggestM.isError ? (
-          <EmptyState icon={<Text style={{ fontSize: 48 }}>\uD83C\uDFE0</Text>} title="Tu catálogo personalizado" subtitle={"Configurá tu hogar y generamos\nun catálogo de tareas personalizado."} />
+          <EmptyState icon={<Text style={{ fontSize: 48 }}>{"\uD83C\uDFE0"}</Text>} title="Tu catálogo personalizado" subtitle={"Configurá tu hogar y generamos\nun catálogo de tareas personalizado."} />
         ) : null}
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -114,41 +121,43 @@ export default function SuggestTasksScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
-  backTitle: { ...typography.cardTitle },
-  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24 },
-  subtitle: { fontFamily: fontFamily.sans, fontSize: 14, color: colors.mutedForeground, marginBottom: spacing.md },
-  formCard: { marginBottom: spacing.md },
-  toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.sm },
-  toggleRowBorder: { borderTopWidth: 1, borderTopColor: colors.border },
-  toggleLabel: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  toggleEmoji: { fontFamily: fontFamily.sans, fontSize: 18 },
-  toggleText: { fontFamily: fontFamily.sans, fontSize: 14, color: colors.text },
-  field: { marginBottom: spacing.md },
-  generateButton: { marginBottom: spacing.md, width: "100%" },
-  errorCard: { backgroundColor: colors.errorBg, marginBottom: spacing.md },
-  errorText: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 13 },
-  insightsCard: { backgroundColor: "#f5f3ff", borderLeftWidth: 3, borderLeftColor: "#7c3aed", marginBottom: spacing.md },
-  insightText: { fontFamily: fontFamily.sans, color: "#5b21b6", fontSize: 13, marginBottom: 4 },
-  results: { marginBottom: spacing.xl },
-  resultsTitle: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 16, marginBottom: spacing.md },
-  categorySection: { marginBottom: spacing.md },
-  categoryHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm },
-  categoryHeaderLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  categoryIcon: { fontFamily: fontFamily.sans, fontSize: 20 },
-  categoryLabel: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 15 },
-  categoryCount: { backgroundColor: colors.muted, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
-  categoryCountText: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground },
-  categoryChevron: { color: colors.mutedForeground },
-  taskList: { gap: spacing.sm },
-  taskItem: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, backgroundColor: colors.muted, borderRadius: 10, padding: 12 },
-  taskIcon: { fontFamily: fontFamily.sans, fontSize: 18, marginTop: 1 },
-  taskInfo: { flex: 1 },
-  taskName: { fontFamily: fontFamily.sans, fontWeight: "600", color: colors.text, fontSize: 14 },
-  taskMeta: { flexDirection: "row", gap: spacing.sm, marginTop: 4 },
-  taskMetaText: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground },
-  taskReason: { fontFamily: fontFamily.sans, fontSize: 11, color: "#7c3aed", marginTop: 3 },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.background },
+    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
+    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+    backTitle: { ...typography.cardTitle },
+    scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24 },
+    subtitle: { fontFamily: fontFamily.sans, fontSize: 14, color: c.mutedForeground, marginBottom: spacing.md },
+    formCard: { marginBottom: spacing.md },
+    toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.sm },
+    toggleRowBorder: { borderTopWidth: 1, borderTopColor: c.border },
+    toggleLabel: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    toggleEmoji: { fontFamily: fontFamily.sans, fontSize: 18 },
+    toggleText: { fontFamily: fontFamily.sans, fontSize: 14, color: c.text },
+    field: { marginBottom: spacing.md },
+    generateButton: { marginBottom: spacing.md, width: "100%" },
+    errorCard: { backgroundColor: c.errorBg, marginBottom: spacing.md },
+    errorText: { fontFamily: fontFamily.sans, color: c.errorText, fontSize: 13 },
+    insightsCard: { backgroundColor: "#f5f3ff", borderLeftWidth: 3, borderLeftColor: "#7c3aed", marginBottom: spacing.md },
+    insightText: { fontFamily: fontFamily.sans, color: "#5b21b6", fontSize: 13, marginBottom: 4 },
+    results: { marginBottom: spacing.xl },
+    resultsTitle: { fontFamily: fontFamily.sans, fontWeight: "700", color: c.text, fontSize: 16, marginBottom: spacing.md },
+    categorySection: { marginBottom: spacing.md },
+    categoryHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm },
+    categoryHeaderLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    categoryIcon: { fontFamily: fontFamily.sans, fontSize: 20 },
+    categoryLabel: { fontFamily: fontFamily.sans, fontWeight: "700", color: c.text, fontSize: 15 },
+    categoryCount: { backgroundColor: c.muted, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
+    categoryCountText: { fontFamily: fontFamily.sans, fontSize: 11, color: c.mutedForeground },
+    categoryChevron: { color: c.mutedForeground },
+    taskList: { gap: spacing.sm },
+    taskItem: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, backgroundColor: c.muted, borderRadius: 10, padding: 12 },
+    taskIcon: { fontFamily: fontFamily.sans, fontSize: 18, marginTop: 1 },
+    taskInfo: { flex: 1 },
+    taskName: { fontFamily: fontFamily.sans, fontWeight: "600", color: c.text, fontSize: 14 },
+    taskMeta: { flexDirection: "row", gap: spacing.sm, marginTop: 4 },
+    taskMetaText: { fontFamily: fontFamily.sans, fontSize: 11, color: c.mutedForeground },
+    taskReason: { fontFamily: fontFamily.sans, fontSize: 11, color: "#7c3aed", marginTop: 3 },
+  });
+}

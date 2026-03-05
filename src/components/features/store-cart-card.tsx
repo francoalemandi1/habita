@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { StoreLogo } from "@/components/ui/store-logo";
 import { SaveButton } from "@/components/ui/save-button";
-import { ChevronDown, ChevronUp, Trophy, ExternalLink, X, Undo2, AlertCircle, ArrowDownRight, ClipboardCopy, Check, Package, Tag, Search, CircleCheck, TriangleAlert, Minus, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, Trophy, ExternalLink, X, Undo2, AlertCircle, ArrowDownRight, ClipboardCopy, Check, Package, Tag, Search, CircleCheck, TriangleAlert, Minus, Plus, Receipt, Share2 } from "lucide-react";
 
 import type { AlternativeProduct, ProductUnitInfo } from "@/lib/supermarket-search";
 import type { AdjustedStoreCart, AdjustedCartProduct } from "@/components/features/grocery-advisor";
@@ -80,10 +80,11 @@ interface StoreCartCardProps {
   isSaved?: boolean;
   isSavePending?: boolean;
   onToggleSave?: () => void;
+  onRegisterAsExpense?: (storeName: string, totalPrice: number) => void;
   promos?: BankPromo[];
 }
 
-export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlternatives, onSetQuantity, onToggleAdded, onToggleOutOfStock, onRemoveProduct, onRestoreProduct, outOfStockRecommendation, isSaved, isSavePending, onToggleSave, promos }: StoreCartCardProps) {
+export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlternatives, onSetQuantity, onToggleAdded, onToggleOutOfStock, onRemoveProduct, onRestoreProduct, outOfStockRecommendation, isSaved, isSavePending, onToggleSave, onRegisterAsExpense, promos }: StoreCartCardProps) {
   const isBest = rank === 0;
   const activeProducts = cart.products.filter((p) => !p.isRemoved && !p.isOutOfStock);
   const activeCount = activeProducts.length;
@@ -101,6 +102,40 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
   const discountedPrice = selectedPromo
     ? calcDiscountedPrice(cart.totalPrice, selectedPromo.discountPercent, selectedPromo.capAmount)
     : null;
+
+  const [shareLabel, setShareLabel] = useState<string | null>(null);
+
+  const handleShare = useCallback(async () => {
+    const activeProducts = cart.products.filter((p) => !p.isRemoved && !p.isOutOfStock);
+    const productLines = activeProducts
+      .slice(0, 5)
+      .map((p) => `• ${p.productName}: $${p.price.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`);
+    const extraCount = activeProducts.length - 5;
+    const lines = [
+      `Comparé precios en ${cart.storeName} con Habita:`,
+      "",
+      ...productLines,
+      ...(extraCount > 0 ? [`... y ${extraCount} más`] : []),
+      "",
+      `Total: $${cart.totalPrice.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`,
+      ...(cart.cheapestCount > 0 ? ["", `💰 ${cart.cheapestCount} producto${cart.cheapestCount !== 1 ? "s" : ""} más barato${cart.cheapestCount !== 1 ? "s" : ""} que en otros supers`] : []),
+      "",
+      "Comparador de precios en Habita 🏠",
+    ];
+    const text = lines.join("\n");
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title: `${cart.storeName} - Habita`, text });
+        setShareLabel("¡Compartido!");
+      } else {
+        await navigator.clipboard.writeText(text);
+        setShareLabel("¡Copiado!");
+      }
+    } catch {
+      return;
+    }
+    setTimeout(() => setShareLabel(null), 2000);
+  }, [cart]);
 
   return (
     <div
@@ -187,6 +222,16 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
               </>
             )}
           </div>
+          {onRegisterAsExpense && (
+            <button
+              type="button"
+              onClick={() => onRegisterAsExpense(cart.storeName, discountedPrice ?? cart.totalPrice)}
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+            >
+              <Receipt className="h-3.5 w-3.5" />
+              Registrar gasto
+            </button>
+          )}
           {onToggleSave && (
             <SaveButton
               isSaved={isSaved ?? false}
@@ -195,6 +240,19 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
               size="md"
             />
           )}
+          <button
+            type="button"
+            onClick={() => { void handleShare(); }}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={shareLabel ?? "Compartir comparación"}
+            title={shareLabel ?? "Compartir comparación"}
+          >
+            {shareLabel ? (
+              <span className="text-[10px] font-semibold text-primary leading-none whitespace-nowrap">{shareLabel}</span>
+            ) : (
+              <Share2 className="h-4 w-4" />
+            )}
+          </button>
         </div>
       </div>
 

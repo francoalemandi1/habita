@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { X } from "lucide-react";
 
+const CONFETTI_EMOJIS = ["🎉", "✨", "🌟", "💫", "🎊"];
+
 interface WeeklyCelebrationProps {
   weeklyCompleted: number;
   totalCompleted: number;
@@ -18,6 +20,17 @@ export function WeeklyCelebration({
 }: WeeklyCelebrationProps) {
   const [showConfetti, setShowConfetti] = useState(true);
 
+  // Pre-compute random confetti positions (useState lazy init is allowed to be impure)
+  const [confettiItems] = useState(() =>
+    Array.from({ length: 20 }, () => ({
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      animationDelay: `${Math.random() * 0.5}s`,
+      animationDuration: `${0.5 + Math.random() * 0.5}s`,
+      emoji: CONFETTI_EMOJIS[Math.floor(Math.random() * CONFETTI_EMOJIS.length)]!,
+    })),
+  );
+
   useEffect(() => {
     const timer = setTimeout(() => setShowConfetti(false), 3000);
     return () => clearTimeout(timer);
@@ -28,18 +41,18 @@ export function WeeklyCelebration({
       {/* Confetti effect */}
       {showConfetti && (
         <div className="pointer-events-none absolute inset-0">
-          {[...Array(20)].map((_, i) => (
+          {confettiItems.map((item, i) => (
             <div
               key={i}
               className="absolute animate-bounce text-2xl"
               style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 0.5}s`,
-                animationDuration: `${0.5 + Math.random() * 0.5}s`,
+                left: item.left,
+                top: item.top,
+                animationDelay: item.animationDelay,
+                animationDuration: item.animationDuration,
               }}
             >
-              {["🎉", "✨", "🌟", "💫", "🎊"][Math.floor(Math.random() * 5)]}
+              {item.emoji}
             </div>
           ))}
         </div>

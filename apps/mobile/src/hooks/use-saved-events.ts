@@ -2,55 +2,15 @@ import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 
-/** Input shape for saving an event (mirrors web SaveEventInput). */
-interface SaveEventInput {
-  culturalEventId?: string;
-  title: string;
-  description?: string;
-  category: string;
-  startDate?: string | null;
-  venueName?: string | null;
-  address?: string | null;
-  priceRange: string;
-  sourceUrl?: string | null;
-  imageUrl?: string | null;
-  artists?: string[];
-  tags?: string[];
-  culturalCategory?: string | null;
-  highlightReason?: string | null;
-  ticketUrl?: string | null;
-  bookingUrl?: string | null;
-  dateInfo?: string | null;
-}
+import { queryKeys } from "@habita/contracts";
+import type { SaveEventInput, SavedEvent } from "@habita/contracts";
 
-/** Shape returned by the API (mirrors Prisma SavedEvent). */
-interface SavedEvent {
-  id: string;
-  culturalEventId: string | null;
-  title: string;
-  description: string | null;
-  category: string;
-  startDate: string | null;
-  venueName: string | null;
-  address: string | null;
-  priceRange: string;
-  sourceUrl: string | null;
-  imageUrl: string | null;
-  artists: string[];
-  tags: string[];
-  culturalCategory: string | null;
-  highlightReason: string | null;
-  ticketUrl: string | null;
-  bookingUrl: string | null;
-  dateInfo: string | null;
-  savedAt: string;
-}
+export type { SaveEventInput, SavedEvent };
 
-const SAVED_EVENTS_KEY = ["mobile", "saved-events"] as const;
 
 export function useSavedEvents() {
   return useQuery({
-    queryKey: SAVED_EVENTS_KEY,
+    queryKey: queryKeys.saved.events(),
     queryFn: async () => mobileApi.get<SavedEvent[]>("/api/saved-items/events"),
     staleTime: 60_000,
   });
@@ -63,7 +23,7 @@ export function useToggleSaveEvent() {
     mutationFn: async (input: SaveEventInput) =>
       mobileApi.post<SavedEvent>("/api/saved-items/events", input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: SAVED_EVENTS_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.saved.events() });
     },
   });
 
@@ -71,7 +31,7 @@ export function useToggleSaveEvent() {
     mutationFn: async (savedEventId: string) =>
       mobileApi.delete<void>(`/api/saved-items/events?id=${savedEventId}`),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: SAVED_EVENTS_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.saved.events() });
     },
   });
 
@@ -101,5 +61,3 @@ export function isEventSaved(
   if (!savedEvents || !culturalEventId) return undefined;
   return savedEvents.find((e) => e.culturalEventId === culturalEventId);
 }
-
-export type { SavedEvent, SaveEventInput };

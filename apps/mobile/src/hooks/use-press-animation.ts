@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo } from "react";
 import { Animated } from "react-native";
 
 /**
@@ -6,7 +6,7 @@ import { Animated } from "react-native";
  * Use with Animated.View transform: [{ scale }]
  */
 export function usePressAnimation(toValue = 0.97) {
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useMemo(() => new Animated.Value(1), []);
 
   const onPressIn = () => {
     Animated.spring(scale, { toValue, useNativeDriver: true, speed: 30 }).start();

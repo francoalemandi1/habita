@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -7,14 +7,16 @@ import { useFund, useContributeToFund, useSetupFund } from "@/hooks/use-fund";
 import { useMembers } from "@/hooks/use-members";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
+import { useThemeColors } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StyledTextInput } from "@/components/ui/text-input";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonCard } from "@/components/ui/skeleton";
-import { colors, fontFamily, radius, spacing, typography } from "@/theme";
+import { fontFamily, radius, spacing, typography } from "@/theme";
 
+import type { ThemeColors } from "@/theme";
 import type { MemberContributionStatus, CreateFundPayload } from "@/hooks/use-fund";
 
 function formatAmount(amount: number): string {
@@ -33,13 +35,25 @@ interface ContributeSheetProps {
 }
 
 function ContributeSheet({ myStatus, onClose, onSubmit, isLoading }: ContributeSheetProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [amount, setAmount] = useState(String(myStatus?.pending ?? ""));
   const [notes, setNotes] = useState("");
+
+  const handleAmountChange = (text: string) => {
+    const cleaned = text.replace(/[^0-9.,]/g, "").slice(0, 12);
+    setAmount(cleaned);
+  };
 
   const handleSubmit = () => {
     const parsed = parseFloat(amount.replace(",", "."));
     if (!parsed || parsed <= 0) {
-      Alert.alert("Monto inválido", "Ingresá un monto mayor a 0.");
+      Alert.alert("Monto invalido", "Ingresa un monto mayor a 0.");
+      return;
+    }
+    if (parsed > 99_999_999) {
+      Alert.alert("Monto invalido", "El monto maximo es $99.999.999.");
       return;
     }
     onSubmit(parsed, notes);
@@ -48,6 +62,7 @@ function ContributeSheet({ myStatus, onClose, onSubmit, isLoading }: ContributeS
   return (
     <BottomSheet visible onClose={onClose}>
       <Text style={styles.sheetTitle}>Registrar aporte</Text>
+      <Text style={styles.sheetHint}>Registra cuanto aportaste al fondo comun este mes. El monto se suma a tu contribucion del periodo actual.</Text>
       {myStatus ? (
         <Card style={styles.statusCard}>
           <CardContent>
@@ -60,9 +75,10 @@ function ContributeSheet({ myStatus, onClose, onSubmit, isLoading }: ContributeS
       <Text style={styles.fieldLabel}>Monto</Text>
       <StyledTextInput
         value={amount}
-        onChangeText={setAmount}
+        onChangeText={handleAmountChange}
         keyboardType="numeric"
         placeholder="0"
+        maxLength={12}
         style={styles.amountInput}
       />
       <Text style={styles.fieldLabel}>Notas (opcional)</Text>
@@ -90,7 +106,7 @@ const EXPENSE_CATEGORIES = [
   { value: "FOOD", label: "Comida" },
   { value: "HEALTH", label: "Salud" },
   { value: "ENTERTAINMENT", label: "Entretenimiento" },
-  { value: "EDUCATION", label: "Educación" },
+  { value: "EDUCATION", label: "Educacion" },
   { value: "TRANSPORT", label: "Transporte" },
   { value: "OTHER", label: "Otros" },
 ] as const;
@@ -106,26 +122,33 @@ interface SetupSheetProps {
 }
 
 function SetupSheet({ onClose, onSubmit, isLoading }: SetupSheetProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const { data: membersData } = useMembers();
   const members = membersData?.members ?? [];
 
-  const [name, setName] = useState("Fondo Común");
+  const [name, setName] = useState("Fondo Comun");
   const [target, setTarget] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [allocations, setAllocations] = useState<Record<string, string>>({});
 
   // Auto-split monthly target equally among members when target changes
-  useEffect(() => {
-    const parsed = parseFloat(target.replace(",", "."));
-    if (!parsed || parsed <= 0 || members.length === 0) return;
+  const handleTargetChange = useCallback(
+    (value: string) => {
+      setTarget(value);
+      const parsed = parseFloat(value.replace(",", "."));
+      if (!parsed || parsed <= 0 || members.length === 0) return;
 
-    const equalShare = Math.round(parsed / members.length);
-    const newAllocations: Record<string, string> = {};
-    for (const member of members) {
-      newAllocations[member.id] = String(equalShare);
-    }
-    setAllocations(newAllocations);
-  }, [target, members.length]); // eslint-disable-line react-hooks/exhaustive-deps
+      const equalShare = Math.round(parsed / members.length);
+      const newAllocations: Record<string, string> = {};
+      for (const member of members) {
+        newAllocations[member.id] = String(equalShare);
+      }
+      setAllocations(newAllocations);
+    },
+    [members],
+  );
 
   const toggleCategory = (categoryValue: string) => {
     setSelectedCategories((prev) =>
@@ -135,18 +158,23 @@ function SetupSheet({ onClose, onSubmit, isLoading }: SetupSheetProps) {
     );
   };
 
-  const updateMemberAllocation = (memberId: string, amount: string) => {
-    setAllocations((prev) => ({ ...prev, [memberId]: amount }));
+  const updateMemberAllocation = (memberId: string, value: string) => {
+    const cleaned = value.replace(/[^0-9.,]/g, "").slice(0, 12);
+    setAllocations((prev) => ({ ...prev, [memberId]: cleaned }));
   };
 
   const handleSubmit = () => {
     const parsedTarget = parseFloat(target.replace(",", "."));
     if (!parsedTarget || parsedTarget <= 0) {
-      Alert.alert("Objetivo inválido", "Ingresá un objetivo mensual mayor a 0.");
+      Alert.alert("Objetivo invalido", "Ingresa un objetivo mensual mayor a 0.");
+      return;
+    }
+    if (parsedTarget > 99_999_999) {
+      Alert.alert("Objetivo invalido", "El monto maximo es $99.999.999.");
       return;
     }
     if (selectedCategories.length === 0) {
-      Alert.alert("Sin categorías", "Seleccioná al menos una categoría para el fondo.");
+      Alert.alert("Sin categorias", "Selecciona al menos una categoria para el fondo.");
       return;
     }
 
@@ -158,33 +186,40 @@ function SetupSheet({ onClose, onSubmit, isLoading }: SetupSheetProps) {
       .filter((allocation) => allocation.amount > 0);
 
     onSubmit({
-      name: name || "Fondo Común",
+      name: name || "Fondo Comun",
       monthlyTarget: parsedTarget,
       fundCategories: selectedCategories,
       allocations: memberAllocations.length > 0 ? memberAllocations : undefined,
     });
   };
 
+  const handleTargetInput = (text: string) => {
+    const cleaned = text.replace(/[^0-9.,]/g, "").slice(0, 12);
+    handleTargetChange(cleaned);
+  };
+
   return (
     <BottomSheet visible onClose={onClose}>
       <Text style={styles.sheetTitle}>Configurar fondo</Text>
+      <Text style={styles.sheetHint}>El fondo comun permite compartir gastos del hogar. Defini un objetivo mensual, las categorias que cubre, y cuanto aporta cada miembro.</Text>
 
       {/* Fund name */}
       <Text style={styles.fieldLabel}>Nombre del fondo</Text>
-      <StyledTextInput value={name} onChangeText={setName} placeholder="Fondo Común" style={styles.notesInput} />
+      <StyledTextInput value={name} onChangeText={setName} placeholder="Fondo Comun" style={styles.notesInput} />
 
       {/* Monthly target */}
       <Text style={styles.fieldLabel}>Objetivo mensual ($)</Text>
       <StyledTextInput
         value={target}
-        onChangeText={setTarget}
+        onChangeText={handleTargetInput}
         keyboardType="numeric"
         placeholder="ej: 50000"
+        maxLength={12}
         style={styles.notesInput}
       />
 
       {/* Category multi-select */}
-      <Text style={styles.fieldLabel}>Categorías del fondo</Text>
+      <Text style={styles.fieldLabel}>Categorias del fondo</Text>
       <View style={styles.categoryGrid}>
         {EXPENSE_CATEGORIES.map((category) => {
           const isActive = selectedCategories.includes(category.value);
@@ -234,6 +269,9 @@ function SetupSheet({ onClose, onSubmit, isLoading }: SetupSheetProps) {
 }
 
 export default function FundScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const { me, activeHouseholdId } = useMobileAuth();
   const fundQuery = useFund();
   const contributeM = useContributeToFund();
@@ -252,7 +290,7 @@ export default function FundScreen() {
       {
         onSuccess: () => {
           setShowContribute(false);
-          Alert.alert("¡Listo!", "Tu aporte quedó registrado.");
+          Alert.alert("Listo!", "Tu aporte quedo registrado.");
         },
         onError: (error) => {
           Alert.alert("Error", getMobileErrorMessage(error));
@@ -275,14 +313,14 @@ export default function FundScreen() {
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
             <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
           </Pressable>
-          <Text style={styles.backTitle}>Fondo Común</Text>
+          <Text style={[typography.cardTitle, { color: colors.text }]}>Fondo Comun</Text>
           <View style={styles.backBtn} />
         </View>
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.title}>{fund?.name ?? "Fondo Común"}</Text>
+            <Text style={styles.title}>{fund?.name ?? "Fondo Comun"}</Text>
             <Text style={styles.subtitle}>
-              {fund ? `Período ${fund.currentPeriod}` : "Sin fondo configurado"}
+              {fund ? `Periodo ${fund.currentPeriod}` : "Sin fondo configurado"}
             </Text>
           </View>
           {!fund && !fundQuery.isLoading ? (
@@ -379,7 +417,7 @@ export default function FundScreen() {
                       </Button>
                     ) : (
                       <View style={styles.paidBadge}>
-                        <Text style={styles.paidBadgeText}>✓ Al día</Text>
+                        <Text style={styles.paidBadgeText}>Al dia</Text>
                       </View>
                     )}
                   </View>
@@ -391,7 +429,7 @@ export default function FundScreen() {
             {fund.memberStatuses.length > 0 ? (
               <Card>
                 <CardContent>
-                  <Text style={styles.sectionTitle}>Cuotas del período</Text>
+                  <Text style={styles.sectionTitle}>Cuotas del periodo</Text>
                   {fund.memberStatuses.map((ms) => (
                     <View key={ms.memberId} style={styles.memberRow}>
                       <Text style={[styles.memberName, ms.memberId === myMemberId && styles.memberNameMe]}>
@@ -453,7 +491,7 @@ export default function FundScreen() {
           <EmptyState
             icon={<Landmark size={32} color={colors.mutedForeground} />}
             title="Sin fondo configurado"
-            subtitle="Un fondo común permite que el hogar comparta gastos de forma transparente."
+            subtitle="El fondo comun centraliza los gastos compartidos del hogar. Cada miembro aporta una cuota mensual y los gastos de categorias seleccionadas se descuentan automaticamente."
             actionLabel="Crear fondo"
             onAction={() => setShowSetup(true)}
           />
@@ -480,120 +518,122 @@ export default function FundScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
-  backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
-  backTitle: { ...typography.cardTitle },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  title: { ...typography.displayMd, color: colors.text },
-  subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, marginTop: 2 },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.sm },
-  errorCard: { backgroundColor: colors.errorBg },
-  errorText: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 13 },
-  negativeCard: { backgroundColor: "#fff1f2", borderColor: "#fca5a5" },
-  balanceLabel: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground },
-  balanceAmount: { fontFamily: fontFamily.sans, fontSize: 32, fontWeight: "800", marginTop: 4 },
-  progressContainer: { marginTop: spacing.sm },
-  progressTrack: { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: "hidden" },
-  progressFill: { height: "100%", backgroundColor: colors.primary, borderRadius: 3 },
-  progressLabel: { fontFamily: fontFamily.sans, fontSize: 12, color: colors.mutedForeground, marginTop: 4 },
-  statRow: { flexDirection: "row", gap: spacing.sm },
-  statCard: { flex: 1 },
-  statHeader: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 },
-  statLabel: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground },
-  statValue: { fontFamily: fontFamily.sans, fontSize: 18, fontWeight: "700" },
-  pendingCard: { backgroundColor: "#fefce8", borderColor: "#fde68a" },
-  paidCard: { backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" },
-  myStatusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  myStatusTitle: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 14 },
-  myStatusSub: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 12, marginTop: 2 },
-  paidBadge: { backgroundColor: colors.successBg, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
-  paidBadgeText: { fontFamily: fontFamily.sans, color: colors.successText, fontWeight: "700", fontSize: 13 },
-  sectionTitle: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "700", color: colors.text, marginBottom: spacing.sm },
-  memberRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-  memberName: { fontFamily: fontFamily.sans, color: colors.text, fontWeight: "500", fontSize: 14 },
-  memberNameMe: { fontWeight: "700" },
-  memberAmounts: { alignItems: "flex-end" },
-  memberContributed: { fontFamily: fontFamily.sans, color: colors.text, fontWeight: "600", fontSize: 13 },
-  memberPending: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 11, marginTop: 2 },
-  txRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-  txTitle: { color: colors.text, fontWeight: "500" },
-  txDate: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 12, marginTop: 2 },
-  txNegative: { color: colors.errorText, fontWeight: "600" },
-  txPositive: { color: colors.successText, fontWeight: "600" },
-  sheetTitle: { fontFamily: fontFamily.sans, fontSize: 18, fontWeight: "700", color: colors.text, marginBottom: spacing.md },
-  statusCard: { backgroundColor: colors.successBg, marginBottom: spacing.md },
-  statusText: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.successText },
-  fieldLabel: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, marginBottom: spacing.xs },
-  amountInput: { marginBottom: spacing.md },
-  notesInput: { marginBottom: spacing.md },
-  submitButton: { marginBottom: spacing.sm },
-  // Category chips
-  categoryGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  categoryChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-  },
-  categoryChipActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryLight,
-  },
-  categoryChipLabel: {
-    fontFamily: fontFamily.sans,
-    fontSize: 13,
-    fontWeight: "500",
-    color: colors.mutedForeground,
-  },
-  categoryChipLabelActive: {
-    fontWeight: "700",
-    color: colors.primary,
-  },
-  // Member allocations
-  allocationHint: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-    marginBottom: spacing.sm,
-  },
-  allocationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: spacing.sm,
-    gap: spacing.md,
-  },
-  allocationName: {
-    flex: 1,
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.text,
-  },
-  allocationInputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  allocationCurrency: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.mutedForeground,
-  },
-  allocationInput: {
-    width: 100,
-    marginBottom: 0,
-  },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.background },
+    header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
+    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+    headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+    title: { fontFamily: fontFamily.sans, fontSize: 22, fontWeight: "700", color: c.text },
+    subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginTop: 2 },
+    scroll: { flex: 1 },
+    scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.sm },
+    errorCard: { backgroundColor: c.errorBg },
+    errorText: { fontFamily: fontFamily.sans, color: c.errorText, fontSize: 13 },
+    negativeCard: { backgroundColor: c.errorBg, borderColor: c.errorText },
+    balanceLabel: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground },
+    balanceAmount: { fontFamily: fontFamily.sans, fontSize: 32, fontWeight: "800", marginTop: 4 },
+    progressContainer: { marginTop: spacing.sm },
+    progressTrack: { height: 6, backgroundColor: c.border, borderRadius: 3, overflow: "hidden" },
+    progressFill: { height: "100%", backgroundColor: c.primary, borderRadius: 3 },
+    progressLabel: { fontFamily: fontFamily.sans, fontSize: 12, color: c.mutedForeground, marginTop: 4 },
+    statRow: { flexDirection: "row", gap: spacing.sm },
+    statCard: { flex: 1 },
+    statHeader: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 },
+    statLabel: { fontFamily: fontFamily.sans, fontSize: 11, color: c.mutedForeground },
+    statValue: { fontFamily: fontFamily.sans, fontSize: 18, fontWeight: "700" },
+    pendingCard: { backgroundColor: c.warningBg, borderColor: c.warningText },
+    paidCard: { backgroundColor: c.successBg, borderColor: c.successText },
+    myStatusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    myStatusTitle: { fontFamily: fontFamily.sans, fontWeight: "700", color: c.text, fontSize: 14 },
+    myStatusSub: { fontFamily: fontFamily.sans, color: c.mutedForeground, fontSize: 12, marginTop: 2 },
+    paidBadge: { backgroundColor: c.successBg, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
+    paidBadgeText: { fontFamily: fontFamily.sans, color: c.successText, fontWeight: "700", fontSize: 13 },
+    sectionTitle: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "700", color: c.text, marginBottom: spacing.sm },
+    memberRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border },
+    memberName: { fontFamily: fontFamily.sans, color: c.text, fontWeight: "500", fontSize: 14 },
+    memberNameMe: { fontWeight: "700" },
+    memberAmounts: { alignItems: "flex-end" },
+    memberContributed: { fontFamily: fontFamily.sans, color: c.text, fontWeight: "600", fontSize: 13 },
+    memberPending: { fontFamily: fontFamily.sans, color: c.errorText, fontSize: 11, marginTop: 2 },
+    txRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border },
+    txTitle: { color: c.text, fontWeight: "500" },
+    txDate: { fontFamily: fontFamily.sans, color: c.mutedForeground, fontSize: 12, marginTop: 2 },
+    txNegative: { color: c.errorText, fontWeight: "600" },
+    txPositive: { color: c.successText, fontWeight: "600" },
+    sheetTitle: { fontFamily: fontFamily.sans, fontSize: 18, fontWeight: "700", color: c.text, marginBottom: spacing.xs },
+    sheetHint: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, lineHeight: 18, marginBottom: spacing.md },
+    statusCard: { backgroundColor: c.successBg, marginBottom: spacing.md },
+    statusText: { fontFamily: fontFamily.sans, fontSize: 13, color: c.successText },
+    fieldLabel: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginBottom: spacing.xs },
+    amountInput: { marginBottom: spacing.md },
+    notesInput: { marginBottom: spacing.md },
+    submitButton: { marginBottom: spacing.sm },
+    // Category chips
+    categoryGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    categoryChip: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.lg,
+      borderWidth: 1.5,
+      borderColor: c.border,
+      backgroundColor: c.card,
+    },
+    categoryChipActive: {
+      borderColor: c.primary,
+      backgroundColor: c.primaryLight,
+    },
+    categoryChipLabel: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "500",
+      color: c.mutedForeground,
+    },
+    categoryChipLabelActive: {
+      fontWeight: "700",
+      color: c.primary,
+    },
+    // Member allocations
+    allocationHint: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      marginBottom: spacing.sm,
+    },
+    allocationRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: spacing.sm,
+      gap: spacing.md,
+    },
+    allocationName: {
+      flex: 1,
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "500",
+      color: c.text,
+    },
+    allocationInputContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.xs,
+    },
+    allocationCurrency: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "600",
+      color: c.mutedForeground,
+    },
+    allocationInput: {
+      width: 100,
+      marginBottom: 0,
+    },
+  });
+}

@@ -1,17 +1,23 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useShoppingPlan } from "@/hooks/use-shopping-plan";
+import { useProductSelection } from "@/hooks/use-product-selection";
 import { useSavedCarts, useToggleSaveCart, isCartSaved } from "@/hooks/use-saved-items";
 import { usePromos, useRefreshPromos, usePromoPipelineStatus, getStorePromos } from "@/hooks/use-promos";
 import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
+import { SectionGuideCard } from "@/components/features/section-guide-card";
+import { useMilestone } from "@/hooks/use-milestone";
+import { useCelebration } from "@/hooks/use-celebration";
+import { wasSectionToured } from "@/hooks/use-guided-tour";
 import { ProductSearchInput, normalizeProductTerm } from "@/components/features/product-search-input";
 import { CatalogSheet } from "@/components/features/catalog-sheet";
 import { StoreCartCard } from "@/components/features/store-cart-card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useFirstVisit } from "@/hooks/use-first-visit";
 import { iconSize, storeColors } from "@/lib/design-tokens";
 import { StoreLogo } from "@/components/ui/store-logo";
 import {
@@ -35,8 +41,12 @@ import {
   Undo2,
 } from "lucide-react";
 
+import { AddExpenseDialog } from "@/components/features/add-expense-dialog";
 import type { AlternativeProduct, CartProduct, SearchItem, ShoppingPlanResult, StoreCart } from "@/lib/supermarket-search";
-import type { BankPromo, GroceryCategory, SavedCart } from "@prisma/client";
+import type { BankPromo, ExpenseCategory, GroceryCategory, SavedCart } from "@prisma/client";
+import type { MemberOption } from "@/types/expense";
+import type { QuickAddDefaults } from "@/components/features/add-expense-dialog";
+import type { CreateExpensePayload } from "@/components/features/expenses-view";
 import type { LucideIcon } from "lucide-react";
 import type { SaveCartInput } from "@/lib/validations/saved-items";
 
@@ -335,6 +345,9 @@ interface ShoppingPlanProps {
 }
 
 export function ShoppingPlanView(props: ShoppingPlanProps) {
+  const { isFirstVisit: isFirstVisitAhorra, dismiss: dismissAhorra } = useFirstVisit("ahorra");
+  const searchMilestone = useMilestone("first-search");
+  const { celebrate } = useCelebration();
   const [searchItems, setSearchItems] = useState<SearchItem[]>([]);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [catalogInitialCategory, setCatalogInitialCategory] = useState<GroceryCategory | null>(null);
@@ -343,6 +356,49 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
   const [showComparison, setShowComparison] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
   const [showPromos, setShowPromos] = useState(false);
+
+  // Register as expense
+  const [expenseDefaults, setExpenseDefaults] = useState<QuickAddDefaults | null>(null);
+
+  const { data: membersData } = useQuery({
+    queryKey: ["members"],
+    queryFn: async () => {
+      const res = await apiFetch<{ members: Array<{ id: string; name: string; userId: string | null }> }>("/api/members");
+      return res;
+    },
+  });
+  const { data: meData } = useQuery({
+    queryKey: ["members", "me"],
+    queryFn: async () => {
+      const res = await apiFetch<{ member: { id: string } | null }>("/api/members/me");
+      return res;
+    },
+  });
+  const members: MemberOption[] = (membersData?.members ?? []).map((m) => ({ id: m.id, name: m.name }));
+  const currentMemberId = meData?.member?.id ?? "";
+
+  const handleRegisterAsExpense = useCallback((storeName: string, totalPrice: number) => {
+    setExpenseDefaults({
+      title: storeName,
+      amount: Math.round(totalPrice),
+      category: "GROCERIES" as ExpenseCategory,
+    });
+  }, []);
+
+  const handleExpenseCreated = useCallback(async (payload: CreateExpensePayload) => {
+    await apiFetch("/api/expenses", {
+      method: "POST",
+      body: {
+        title: payload.title,
+        amount: payload.amount,
+        category: payload.category,
+        paidById: payload.paidById,
+        splitType: payload.splitType,
+        splits: payload.splits,
+        notes: payload.notes,
+      },
+    });
+  }, []);
 
   // Load saved terms after hydration to avoid SSR mismatch
   useEffect(() => {
@@ -358,6 +414,9 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
   const searchTerms = useMemo(() => searchItems.map((item) => item.term), [searchItems]);
 
   // Saved carts
+  // Product catalog for autocomplete
+  const { data: catalogData } = useProductSelection();
+
   const { data: savedCarts } = useSavedCarts();
   const { toggle: toggleSaveCart, isPending: isSavePending } = useToggleSaveCart();
 
@@ -507,7 +566,11 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
   const handleSearch = useCallback(() => {
     if (searchItems.length === 0) return;
     search(searchItems);
-  }, [searchItems, search]);
+    if (searchMilestone.complete()) celebrate("first-search");
+    if (typeof window !== "undefined") {
+      localStorage.setItem("habita:shopping-first-search", "1");
+    }
+  }, [searchItems, search, searchMilestone, celebrate]);
 
   const handleNewSearch = useCallback(() => {
     if (data) {
@@ -604,6 +667,17 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
     });
 
     return (
+      <>
+        {members.length > 0 && currentMemberId && (
+          <AddExpenseDialog
+            members={members}
+            currentMemberId={currentMemberId}
+            onExpenseCreated={(payload) => void handleExpenseCreated(payload)}
+            externalOpen={expenseDefaults !== null}
+            onExternalOpenChange={(open) => { if (!open) setExpenseDefaults(null); }}
+            defaultValues={expenseDefaults ?? undefined}
+          />
+        )}
       <div className="space-y-3">
         {/* Header tabs */}
         <SectionTabs
@@ -647,6 +721,7 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
             toggleSaveCart={toggleSaveCart}
             isSavePending={isSavePending}
             promos={promos}
+            onRegisterAsExpense={handleRegisterAsExpense}
           />
         )}
 
@@ -767,6 +842,7 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
                     isSaved={!!isCartSaved(savedCarts, cart.storeName)}
                     isSavePending={isSavePending}
                     onToggleSave={() => handleToggleSaveCart(cart)}
+                    onRegisterAsExpense={handleRegisterAsExpense}
                     promos={getStorePromos(promos, cart.storeName)}
                   />
                 ))}
@@ -782,6 +858,7 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
           </>
         )}
       </div>
+      </>
     );
   }
 
@@ -834,6 +911,17 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
 
   // ── Input state (default) ──
   return (
+    <>
+      {members.length > 0 && currentMemberId && (
+        <AddExpenseDialog
+          members={members}
+          currentMemberId={currentMemberId}
+          onExpenseCreated={(payload) => void handleExpenseCreated(payload)}
+          externalOpen={expenseDefaults !== null}
+          onExternalOpenChange={(open) => { if (!open) setExpenseDefaults(null); }}
+          defaultValues={expenseDefaults ?? undefined}
+        />
+      )}
     <div className="space-y-4">
       {/* Section tabs (visible when there are saved carts or promos) */}
       {((savedCarts && savedCarts.length > 0) || (promos && promos.length > 0)) && (
@@ -866,6 +954,7 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
           toggleSaveCart={toggleSaveCart}
           isSavePending={isSavePending}
           promos={promos}
+          onRegisterAsExpense={handleRegisterAsExpense}
         />
       ) : (
         <>
@@ -907,11 +996,23 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
             </div>
           )}
 
+          {isFirstVisitAhorra && !wasSectionToured("ahorra") && (
+            <SectionGuideCard
+              steps={[
+                { icon: <ShoppingCart className="h-4 w-4" />, title: "Agregá productos", description: "Escribí lo que necesitás o elegí del catálogo" },
+                { icon: <Search className="h-4 w-4" />, title: "Buscamos en 11 supers", description: "Comparamos precios en tiempo real" },
+                { icon: <Trophy className="h-4 w-4" />, title: "Compará y ahorrá", description: "Te mostramos dónde te conviene comprar" },
+              ]}
+              onDismiss={dismissAhorra}
+            />
+          )}
+
           <ProductSearchInput
             searchItems={searchItems}
             onAdd={addTerm}
             onRemove={removeTerm}
             onSetQuantity={setTermQuantity}
+            products={catalogData?.products}
           />
 
       {/* Category quick-start pills */}
@@ -939,6 +1040,26 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
         })}
       </div>
 
+      {/* Catalog banner */}
+      <button
+        type="button"
+        onClick={() => setCatalogOpen(true)}
+        className="flex w-full items-center gap-3 rounded-xl bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10"
+      >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+          <ListPlus className="h-4 w-4 text-primary" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">Ver catálogo de productos</p>
+          {(catalogData?.products?.length ?? 0) > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {catalogData?.products?.length} productos disponibles
+            </p>
+          )}
+        </div>
+        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+      </button>
+
       <div className="flex items-center gap-2">
         <Button
           onClick={handleSearch}
@@ -947,15 +1068,6 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
         >
           <Search className="h-4 w-4" />
           Buscar precios
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setCatalogOpen(true)}
-          className="gap-1.5 text-xs text-muted-foreground"
-        >
-          <ListPlus className="h-3.5 w-3.5" />
-          Ver catalogo
         </Button>
         {searchItems.length > 0 && (
           <Button
@@ -992,6 +1104,7 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
         </>
       )}
     </div>
+    </>
   );
 }
 
@@ -1377,6 +1490,7 @@ interface SavedCartsViewProps {
   toggleSaveCart: (params: { savedCartId?: string; input?: SaveCartInput }) => void;
   isSavePending: boolean;
   promos?: BankPromo[];
+  onRegisterAsExpense?: (storeName: string, totalPrice: number) => void;
 }
 
 function toAdjustedSavedCart(savedCart: SavedCart): AdjustedStoreCart {
@@ -1433,7 +1547,7 @@ function toAdjustedSavedCart(savedCart: SavedCart): AdjustedStoreCart {
   };
 }
 
-function SavedCartsView({ savedCarts, toggleSaveCart, isSavePending, promos }: SavedCartsViewProps) {
+function SavedCartsView({ savedCarts, toggleSaveCart, isSavePending, promos, onRegisterAsExpense }: SavedCartsViewProps) {
   const queryClient = useQueryClient();
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
@@ -1496,6 +1610,7 @@ function SavedCartsView({ savedCarts, toggleSaveCart, isSavePending, promos }: S
                 isSaved
                 isSavePending={isSavePending}
                 onToggleSave={() => toggleSaveCart({ savedCartId: savedCart.id })}
+                onRegisterAsExpense={onRegisterAsExpense}
                 promos={getStorePromos(promos, adjusted.storeName)}
               />
             </div>

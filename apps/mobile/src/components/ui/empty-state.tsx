@@ -1,13 +1,16 @@
 import type { ReactNode } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { Animated, Easing, StyleSheet, Text, View, ViewStyle } from "react-native";
-import { colors, fontFamily, spacing } from "@/theme";
+import { useThemeColors } from "@/hooks/use-theme";
+import { fontFamily, spacing } from "@/theme";
 import { Button } from "./button";
 
 interface EmptyStateProps {
   icon?: ReactNode;
   title: string;
   subtitle?: string;
+  /** Numbered hint steps shown below the subtitle */
+  steps?: Array<{ label: string }>;
   actionLabel?: string;
   onAction?: () => void;
   style?: ViewStyle;
@@ -19,19 +22,22 @@ export function EmptyState({
   icon,
   title,
   subtitle,
+  steps,
   actionLabel,
   onAction,
   style,
   pulsing = false,
 }: EmptyStateProps) {
+  const colors = useThemeColors();
+
   // Spring entrance for the whole container
-  const scale = useRef(new Animated.Value(0.8)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(16)).current;
+  const scale = useMemo(() => new Animated.Value(0.8), []);
+  const opacity = useMemo(() => new Animated.Value(0), []);
+  const translateY = useMemo(() => new Animated.Value(16), []);
 
   // Pulse loop for the icon
-  const pulseScale = useRef(new Animated.Value(1)).current;
-  const pulseOpacity = useRef(new Animated.Value(0.45)).current;
+  const pulseScale = useMemo(() => new Animated.Value(1), []);
+  const pulseOpacity = useMemo(() => new Animated.Value(0.45), []);
 
   useEffect(() => {
     Animated.parallel([
@@ -123,8 +129,20 @@ export function EmptyState({
           {icon}
         </Animated.View>
       ) : null}
-      <Text style={styles.title}>{title}</Text>
-      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+      {subtitle ? <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{subtitle}</Text> : null}
+      {steps && steps.length > 0 ? (
+        <View style={styles.stepsContainer}>
+          {steps.map((step, index) => (
+            <View key={step.label} style={styles.stepRow}>
+              <View style={[styles.stepNumber, { backgroundColor: `${colors.primary}15` }]}>
+                <Text style={[styles.stepNumberText, { color: colors.primary }]}>{index + 1}</Text>
+              </View>
+              <Text style={[styles.stepLabel, { color: colors.mutedForeground }]}>{step.label}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
       {actionLabel && onAction ? (
         <Button variant="outline" onPress={onAction} style={styles.button}>
           {actionLabel}
@@ -149,15 +167,41 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.sans,
     fontSize: 16,
     fontWeight: "600",
-    color: colors.text,
     textAlign: "center",
   },
   subtitle: {
     fontFamily: fontFamily.sans,
     fontSize: 14,
-    color: colors.mutedForeground,
     textAlign: "center",
     lineHeight: 20,
+  },
+  stepsContainer: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+    alignSelf: "stretch",
+    paddingHorizontal: spacing.md,
+  },
+  stepRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  stepNumber: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepNumberText: {
+    fontFamily: fontFamily.sans,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  stepLabel: {
+    fontFamily: fontFamily.sans,
+    fontSize: 13,
+    flex: 1,
   },
   button: {
     marginTop: spacing.md,

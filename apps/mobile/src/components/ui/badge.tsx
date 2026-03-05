@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { colors, fontFamily, radius } from "@/theme";
+import { useThemeColors } from "@/hooks/use-theme";
+import { fontFamily, radius } from "@/theme";
 
+import type { ThemeColors } from "@/theme";
 import type { ViewStyle } from "react-native";
 
 type BadgeVariant = "default" | "secondary" | "destructive" | "outline" | "success" | "warning";
@@ -15,14 +18,16 @@ interface BadgeProps {
   style?: ViewStyle;
 }
 
-const variantStyles: Record<BadgeVariant, { bg: string; text: string; border?: string }> = {
-  default: { bg: colors.primary, text: "#ffffff" },
-  secondary: { bg: colors.muted, text: colors.mutedForeground },
-  destructive: { bg: colors.destructive, text: "#ffffff" },
-  outline: { bg: "transparent", text: colors.text, border: colors.border },
-  success: { bg: colors.success, text: "#ffffff" },
-  warning: { bg: colors.warning, text: "#ffffff" },
-};
+function getVariantStyles(c: ThemeColors): Record<BadgeVariant, { bg: string; text: string; border?: string }> {
+  return {
+    default: { bg: c.primary, text: "#ffffff" },
+    secondary: { bg: c.muted, text: c.mutedForeground },
+    destructive: { bg: c.destructive, text: "#ffffff" },
+    outline: { bg: "transparent", text: c.text, border: c.border },
+    success: { bg: c.success, text: "#ffffff" },
+    warning: { bg: c.warning, text: "#ffffff" },
+  };
+}
 
 export function Badge({
   children,
@@ -32,7 +37,9 @@ export function Badge({
   size = "default",
   style: styleProp,
 }: BadgeProps) {
-  const v = variantStyles[variant];
+  const colors = useThemeColors();
+  const variantMap = useMemo(() => getVariantStyles(colors), [colors]);
+  const v = variantMap[variant];
   const bg = bgColor ?? v.bg;
   const text = textColor ?? v.text;
 

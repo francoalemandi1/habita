@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 
 /**
  * useState backed by sessionStorage — survives client-side navigation
@@ -13,7 +13,7 @@ export function useSessionStorageState<T>(
   key: string,
   initialValue: T,
 ): [T, (value: T | ((prev: T) => T)) => void] {
-  const keyRef = useRef(key);
+  const [prevKey, setPrevKey] = useState(key);
 
   const [storedValue, setStoredValue] = useState<T>(() => {
     if (typeof window === "undefined") return initialValue;
@@ -25,9 +25,9 @@ export function useSessionStorageState<T>(
     }
   });
 
-  // Re-read from sessionStorage when key changes
-  if (keyRef.current !== key) {
-    keyRef.current = key;
+  // Re-read from sessionStorage when key changes (derived state pattern)
+  if (prevKey !== key) {
+    setPrevKey(key);
     try {
       const item = sessionStorage.getItem(key);
       const parsed = item ? (JSON.parse(item) as T) : initialValue;

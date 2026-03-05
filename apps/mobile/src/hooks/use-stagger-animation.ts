@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { Animated } from "react-native";
 
 /**
@@ -6,7 +6,7 @@ import { Animated } from "react-native";
  * Each item fades in after index * staggerMs delay.
  */
 export function useStaggerItem(index: number, staggerMs = 60) {
-  const opacity = useRef(new Animated.Value(0)).current;
+  const opacity = useMemo(() => new Animated.Value(0), []);
 
   useEffect(() => {
     Animated.timing(opacity, {

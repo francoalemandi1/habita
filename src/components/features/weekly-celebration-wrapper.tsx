@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { WeeklyCelebration } from "./weekly-celebration";
 
 interface WeeklyCelebrationWrapperProps {
@@ -10,29 +10,27 @@ interface WeeklyCelebrationWrapperProps {
 
 const CELEBRATION_STORAGE_KEY = "habita-celebration-dismissed";
 
+function wasDismissedThisWeek(): boolean {
+  const storedDate = localStorage.getItem(CELEBRATION_STORAGE_KEY);
+  if (!storedDate) return false;
+  const dismissedDate = new Date(storedDate);
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+  return dismissedDate >= startOfWeek;
+}
+
 export function WeeklyCelebrationWrapper({
   weeklyCompleted,
   totalCompleted,
 }: WeeklyCelebrationWrapperProps) {
-  const [dismissed, setDismissed] = useState(true); // Start dismissed to avoid flash
+  const [dismissed, setDismissed] = useState(true); // start hidden to match SSR
 
+  // Hydrate from localStorage after mount to avoid SSR mismatch
   useEffect(() => {
-    // Check if dismissed this week
-    const storedDate = localStorage.getItem(CELEBRATION_STORAGE_KEY);
-    if (storedDate) {
-      const dismissedDate = new Date(storedDate);
-      const now = new Date();
-      // Reset on Sunday (start of new week)
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay());
-      startOfWeek.setHours(0, 0, 0, 0);
-
-      if (dismissedDate >= startOfWeek) {
-        setDismissed(true);
-        return;
-      }
-    }
-    setDismissed(false);
+    setDismissed(wasDismissedThisWeek());
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   }, []);
 
   const handleDismiss = () => {

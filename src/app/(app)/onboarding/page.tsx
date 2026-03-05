@@ -13,7 +13,6 @@ import {
   ChefHat,
   MapPin,
   Receipt,
-  StickyNote,
   Package,
   Sun,
   Loader2,
@@ -22,7 +21,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
-type StepId = "welcome" | "householdType" | "setup" | "features" | "creating" | "invite" | "join";
+type StepId = "features" | "householdType" | "setup" | "creating" | "invite" | "join";
 
 const LOADING_MESSAGES_SOLO = [
   "Preparando tu hogar...",
@@ -57,7 +56,7 @@ function OnboardingContent() {
   const searchParams = useSearchParams();
   const { location: geoLocation, isLoading: geoLoading } = useGeolocation();
 
-  const [step, setStep] = useState<StepId>("welcome");
+  const [step, setStep] = useState<StepId>("features");
   const [stepDirection, setStepDirection] = useState<"forward" | "back">("forward");
 
   const goToStep = (nextStep: StepId, direction: "forward" | "back" = "forward") => {
@@ -170,7 +169,7 @@ function OnboardingContent() {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al crear el hogar");
-      goToStep("features", "back");
+      goToStep("setup", "back");
     } finally {
       clearInterval(messageInterval);
       setCreateLoading(false);
@@ -219,58 +218,12 @@ function OnboardingContent() {
 
   const stepAnimationClass = stepDirection === "forward" ? "animate-step-enter" : "animate-step-enter-reverse";
 
-  /* ─── Step: welcome ─── */
-  if (step === "welcome") {
-    return (
-      <div key="welcome" className={stepAnimationClass}>
-        <div className="flex min-h-screen w-full flex-col items-center bg-brand-primary-light px-6">
-          {/* Logo — centrado verticalmente */}
-          <div className="flex flex-1 flex-col items-center justify-center">
-            <h1 className="text-[98px] font-bold leading-none tracking-tighter text-brand-lime">
-              Hábita
-            </h1>
-            <p className="mt-3 flex items-center gap-1.5 text-lg text-background">
-              Tu asistente inteligente para el hogar
-              <Sparkles className="size-4 text-brand-lime" />
-            </p>
-          </div>
-
-          {/* Botones — empujados al fondo */}
-          <div className="w-full max-w-xs pb-12 sm:max-w-sm">
-            <button
-              type="button"
-              onClick={() => {
-                setError(null);
-                setHasInviteCode(false);
-                goToStep("householdType", "forward");
-              }}
-              className="w-full rounded-full bg-white py-4 text-base font-bold text-primary transition-all duration-200 active:scale-[0.98]"
-            >
-              Crear hogar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setError(null);
-                setHasInviteCode(true);
-                goToStep("join", "forward");
-              }}
-              className="mt-4 w-full rounded-full border-2 border-white bg-transparent py-4 text-base font-bold text-white transition-all duration-200 active:scale-[0.98]"
-            >
-              Tengo un código de invitación
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   /* ─── Step: householdType (solo vs shared) ─── */
   if (step === "householdType") {
     return (
       <div key="householdType" className={stepAnimationClass}>
         <OnboardingLayout
-          onBack={() => { setError(null); goToStep("welcome", "back"); }}
+          onBack={() => { setError(null); goToStep("features", "back"); }}
           showContinue={false}
         >
           <div className="space-y-6">
@@ -320,8 +273,9 @@ function OnboardingContent() {
       <div key="setup" className={stepAnimationClass}>
         <OnboardingLayout
           onBack={() => { setError(null); goToStep("householdType", "back"); }}
-          onContinue={() => { setError(null); goToStep("features", "forward"); }}
-          continueLabel="Continuar"
+          onContinue={handleCreateHousehold}
+          continueLabel="Crear mi hogar"
+          continueLoading={createLoading}
         >
           <div className="space-y-6">
             <StepHeader
@@ -380,100 +334,73 @@ function OnboardingContent() {
     );
   }
 
-  /* ─── Step: features (showcase) ─── */
+  /* ─── Step: features (intro splash) ─── */
   if (step === "features") {
-    const featureCards = [
-      {
-        icon: <ClipboardList className="size-6" />,
-        secondIcon: <Sparkles className="size-4 text-brand-lime" />,
-        title: "Tareas + Plan IA",
-        description: "Organizamos tus tareas de la semana con inteligencia artificial",
-        bg: "bg-brand-lavender-light/50",
-        iconBg: "bg-brand-lavender",
-      },
-      {
-        icon: <ChefHat className="size-6" />,
-        title: "Recetas",
-        description: "Decinos qué tenés y te sugerimos qué cocinar",
-        bg: "bg-brand-cream/60",
-        iconBg: "bg-brand-tan",
-      },
-      {
-        icon: <MapPin className="size-6" />,
-        title: "Eventos y salidas",
-        description: "Descubrí actividades y planes cerca tuyo",
-        bg: "bg-brand-lavender-light/40",
-        iconBg: "bg-brand-lavender-light",
-      },
-      {
-        icon: <Receipt className="size-6" />,
-        title: "Gastos",
-        description: isSoloMode
-          ? "Llevá el control de tus gastos del hogar"
-          : "Registrá gastos y dividí entre los miembros",
-        bg: "bg-brand-lime/40",
-        iconBg: "bg-brand-lime",
-      },
-      {
-        icon: <StickyNote className="size-5" />,
-        secondIcon: <Package className="size-5" />,
-        title: "Notas e Inventario",
-        description: isSoloMode
-          ? "Notas rápidas y control de lo que tenés en casa"
-          : "Notas compartidas y control de lo que tienen en casa",
-        bg: "bg-brand-cream/40",
-        iconBg: "bg-brand-tan",
-      },
-      {
-        icon: <Sun className="size-6" />,
-        title: "Briefing diario",
-        description: "Cada mañana, un resumen personalizado de tu día",
-        bg: "bg-brand-lime/50",
-        iconBg: "bg-brand-lime",
-      },
+    const FEATURES = [
+      { icon: <ClipboardList className="size-4" />, label: "Tareas con IA" },
+      { icon: <Receipt className="size-4" />, label: "Gastos compartidos" },
+      { icon: <ChefHat className="size-4" />, label: "Recetas personalizadas" },
+      { icon: <MapPin className="size-4" />, label: "Eventos y salidas" },
+      { icon: <Sun className="size-4" />, label: "Briefing diario" },
+      { icon: <Package className="size-4" />, label: "Inventario inteligente" },
     ];
 
     return (
       <div key="features" className={stepAnimationClass}>
-        <OnboardingLayout
-          onBack={() => { setError(null); goToStep("setup", "back"); }}
-          onContinue={handleCreateHousehold}
-          continueLabel="Crear hogar"
-          continueLoading={createLoading}
-        >
-          <div className="space-y-5">
-            <StepHeader
-              title="Todo lo que Habita puede hacer"
-              subtitle="Tu hogar, organizado de punta a punta"
-            />
+        <div className="flex min-h-screen w-full flex-col items-center bg-brand-primary-light px-6">
+          {/* Content — centrado verticalmente */}
+          <div className="flex flex-1 flex-col items-center justify-center gap-8 py-12">
+            {/* Brand */}
+            <div className="text-center">
+              <h1 className="text-[80px] font-bold leading-none tracking-tighter text-brand-lime sm:text-[98px]">
+                Hábita
+              </h1>
+              <p className="mt-3 flex items-center justify-center gap-1.5 text-base text-background/90 sm:text-lg">
+                Tu hogar, organizado de punta a punta
+                <Sparkles className="size-4 text-brand-lime" />
+              </p>
+            </div>
 
-            <div className="space-y-3">
-              {featureCards.map((card) => (
+            {/* Feature pills */}
+            <div className="flex flex-wrap justify-center gap-2">
+              {FEATURES.map((f) => (
                 <div
-                  key={card.title}
-                  className={`rounded-2xl p-4 ${card.bg}`}
+                  key={f.label}
+                  className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-sm font-medium text-white"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${card.iconBg}`}>
-                      {card.icon}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <p className="font-semibold text-foreground">{card.title}</p>
-                        {card.secondIcon}
-                      </div>
-                      <p className="mt-0.5 text-sm text-muted-foreground">
-                        {card.description}
-                      </p>
-                    </div>
-                  </div>
+                  {f.icon}
+                  {f.label}
                 </div>
               ))}
             </div>
-
-            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
-        </OnboardingLayout>
+
+          {/* CTAs — pegados al fondo */}
+          <div className="w-full max-w-xs pb-12 sm:max-w-sm">
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setHasInviteCode(false);
+                goToStep("householdType", "forward");
+              }}
+              className="w-full rounded-full bg-white py-4 text-base font-bold text-primary transition-all duration-200 active:scale-[0.98]"
+            >
+              Comenzar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setHasInviteCode(true);
+                goToStep("join", "forward");
+              }}
+              className="mt-4 w-full rounded-full border-2 border-white bg-transparent py-4 text-base font-bold text-white transition-all duration-200 active:scale-[0.98]"
+            >
+              Tengo un código de invitación
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -488,7 +415,7 @@ function OnboardingContent() {
     return (
       <div key="join" className={stepAnimationClass}>
         <OnboardingLayout
-          onBack={() => { setError(null); setHasInviteCode(false); goToStep("welcome", "back"); }}
+          onBack={() => { setError(null); setHasInviteCode(false); goToStep("features", "back"); }}
           showContinue={false}
         >
           <div className="space-y-4">

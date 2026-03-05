@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
+import { queryKeys } from "@habita/contracts";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -24,8 +25,8 @@ export function useUpdateMember() {
     mutationFn: async ({ memberId, payload }: { memberId: string; payload: UpdateMemberPayload }) =>
       mobileApi.patch<{ member: MemberDetail }>(`/api/members/${memberId}`, payload),
     onSuccess: async () => {
-      // Invalidate auth me to reflect name change everywhere
-      await queryClient.invalidateQueries({ queryKey: ["mobile"] });
+      // Invalidate all queries to reflect name change everywhere
+      await queryClient.invalidateQueries();
     },
   });
 }

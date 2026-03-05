@@ -1,19 +1,24 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { ArrowLeft, Bell, CheckCheck } from "lucide-react-native";
 import { useMarkAllNotificationsRead, useNotifications } from "@/hooks/use-notifications";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
+import { useThemeColors } from "@/hooks/use-theme";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { TabBar } from "@/components/ui/tab-bar";
-import { colors, fontFamily, spacing, typography } from "@/theme";
+import { fontFamily, spacing, typography } from "@/theme";
+
+import type { ThemeColors } from "@/theme";
 
 export default function NotificationsScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [unreadOnly, setUnreadOnly] = useState(false);
   const notificationsQuery = useNotifications(unreadOnly);
   const markAllRead = useMarkAllNotificationsRead();
@@ -28,7 +33,7 @@ export default function NotificationsScreen() {
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
             <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
           </Pressable>
-          <Text style={styles.backTitle}>Notificaciones</Text>
+          <Text style={[styles.backTitle, { color: colors.text }]}>Notificaciones</Text>
           <View style={styles.backBtn} />
         </View>
         <View style={styles.header}>
@@ -116,24 +121,26 @@ export default function NotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  headerOuter: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-  backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
-  backTitle: { ...typography.cardTitle },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, marginTop: 2 },
-  tabBar: { marginHorizontal: spacing.lg, marginBottom: spacing.sm },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.sm },
-  loadingList: { gap: spacing.md },
-  errorCard: { backgroundColor: colors.errorBg },
-  errorText: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 14 },
-  notifCard: { marginBottom: 0 },
-  notifCardUnread: { borderLeftWidth: 3, borderLeftColor: colors.primary },
-  notifHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.xs },
-  notifTitle: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 14, flex: 1, marginRight: spacing.sm },
-  notifMessage: { fontFamily: fontFamily.sans, color: colors.text, fontSize: 13, opacity: 0.8, marginBottom: spacing.xs },
-  notifDate: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 11 },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.background },
+    headerOuter: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
+    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+    backTitle: { ...typography.cardTitle },
+    header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginTop: 2 },
+    tabBar: { marginHorizontal: spacing.lg, marginBottom: spacing.sm },
+    scroll: { flex: 1 },
+    scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.sm },
+    loadingList: { gap: spacing.md },
+    errorCard: { backgroundColor: c.errorBg },
+    errorText: { fontFamily: fontFamily.sans, color: c.errorText, fontSize: 14 },
+    notifCard: { marginBottom: 0 },
+    notifCardUnread: { borderLeftWidth: 3, borderLeftColor: c.primary },
+    notifHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.xs },
+    notifTitle: { fontFamily: fontFamily.sans, fontWeight: "700", color: c.text, fontSize: 14, flex: 1, marginRight: spacing.sm },
+    notifMessage: { fontFamily: fontFamily.sans, color: c.text, fontSize: 13, opacity: 0.8, marginBottom: spacing.xs },
+    notifDate: { fontFamily: fontFamily.sans, color: c.mutedForeground, fontSize: 11 },
+  });
+}

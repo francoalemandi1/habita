@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
-import { ClipboardList, Dices } from "lucide-react";
+import { ClipboardList, Dices, Sparkles, Star } from "lucide-react";
+import { SectionGuideCard } from "@/components/features/section-guide-card";
+import { useFirstVisit } from "@/hooks/use-first-visit";
+import { EmptyState } from "@/components/features/error-states";
 import { apiFetch } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
@@ -32,28 +35,45 @@ const WEIGHT_LABELS: Record<number, string> = {
 };
 
 export function TaskList({ tasks }: TaskListProps) {
+  const { isFirstVisit: isFirstVisitTareas, dismiss: dismissTareas } = useFirstVisit("tareas");
+
   if (tasks.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center py-12 text-center">
-          <ClipboardList className="mb-4 h-12 w-12 text-muted-foreground" />
-          <h2 className="mb-2 text-lg font-semibold">Configurá las tareas del hogar</h2>
-          <p className="max-w-md text-sm text-muted-foreground">
-            Elegí tareas del catálogo o creá las tuyas. Después Habita las reparte automáticamente entre los miembros.
-          </p>
-          <p className="mt-4 text-sm text-muted-foreground">
+      <EmptyState
+        icon={<ClipboardList className="h-12 w-12 text-muted-foreground" />}
+        title="Configurá las tareas del hogar"
+        message="Elegí tareas del catálogo o creá las tuyas. Después Habita las reparte automáticamente."
+        steps={[
+          { label: "Elegí o creá tareas para tu hogar" },
+          { label: "La IA las distribuye entre los miembros" },
+          { label: "Completá tareas y ganá XP" },
+        ]}
+        action={
+          <p className="text-sm text-muted-foreground">
             Usá el botón <span className="font-medium text-foreground">Agregar tareas</span> de arriba para empezar
           </p>
-        </CardContent>
-      </Card>
+        }
+      />
     );
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {tasks.map((task) => (
-        <TaskCard key={task.id} task={task} />
-      ))}
+    <div className="space-y-4">
+      {isFirstVisitTareas && (
+        <SectionGuideCard
+          steps={[
+            { icon: <ClipboardList className="h-4 w-4" />, title: "Habita sugiere tareas", description: "Elegí del catálogo o creá las tuyas" },
+            { icon: <Sparkles className="h-4 w-4" />, title: "La IA las distribuye", description: "Se reparten según disponibilidad y preferencias" },
+            { icon: <Star className="h-4 w-4" />, title: "Completá y ganá XP", description: "Subí de nivel completando tareas" },
+          ]}
+          onDismiss={dismissTareas}
+        />
+      )}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {tasks.map((task) => (
+          <TaskCard key={task.id} task={task} />
+        ))}
+      </div>
     </div>
   );
 }

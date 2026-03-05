@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 
+import { queryKeys } from "@habita/contracts";
 import type {
   CreateExpenseInput,
   ExpensesListResponse,
@@ -8,14 +9,9 @@ import type {
   UpdateExpenseInput,
 } from "@habita/contracts";
 
-const mobileExpenseKeys = {
-  all: ["mobile-expenses"] as const,
-  list: () => [...mobileExpenseKeys.all, "list"] as const,
-};
-
 export function useExpenses() {
   return useQuery({
-    queryKey: mobileExpenseKeys.list(),
+    queryKey: queryKeys.expenses.list(),
     queryFn: () => mobileApi.get<ExpensesListResponse>("/api/expenses?limit=50&offset=0"),
   });
 }
@@ -27,7 +23,7 @@ export function useCreateExpense() {
     mutationFn: (payload: CreateExpenseInput) =>
       mobileApi.post<SerializedExpense>("/api/expenses", payload),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: mobileExpenseKeys.list() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.expenses.list() });
     },
   });
 }
@@ -39,7 +35,7 @@ export function useUpdateExpense() {
     mutationFn: (input: { expenseId: string; payload: UpdateExpenseInput }) =>
       mobileApi.patch<SerializedExpense>(`/api/expenses/${input.expenseId}`, input.payload),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: mobileExpenseKeys.list() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.expenses.list() });
     },
   });
 }
@@ -51,7 +47,7 @@ export function useDeleteExpense() {
     mutationFn: (expenseId: string) =>
       mobileApi.delete<{ success: boolean }>(`/api/expenses/${expenseId}`),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: mobileExpenseKeys.list() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.expenses.list() });
     },
   });
 }

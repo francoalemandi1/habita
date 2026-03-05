@@ -1,29 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 
-// ── Types ──────────────────────────────────────────────────────────────────
+import { queryKeys } from "@habita/contracts";
+import type { RouletteAssignInput, RouletteAssignResult } from "@habita/contracts";
 
-export interface RouletteAssignInput {
-  memberId: string;
-  taskId?: string;
-  customTaskName?: string;
-  customTaskWeight?: number;
-  customTaskFrequency?: string;
-  customTaskEstimatedMinutes?: number;
-}
-
-export interface RouletteAssignResult {
-  assignment: {
-    id: string;
-    taskId: string;
-    memberId: string;
-    status: string;
-    dueDate: string;
-    task: { id: string; name: string; weight: number; frequency: string };
-    member: { id: string; name: string; memberType: string };
-  };
-  taskName: string;
-}
+export type { RouletteAssignInput, RouletteAssignResult };
 
 // ── Hook ───────────────────────────────────────────────────────────────────
 
@@ -33,7 +14,7 @@ export function useRouletteAssign() {
     mutationFn: async (input: RouletteAssignInput) =>
       mobileApi.post<RouletteAssignResult>("/api/roulette/assign", input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["mobile", "assignments"] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all() });
     },
   });
 }

@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 
+import { queryKeys } from "@habita/contracts";
 import type { SavedCart, SaveCartInput } from "@habita/contracts";
 
-const SAVED_CARTS_KEY = ["mobile", "saved-carts"] as const;
 
 export function useSavedCarts() {
   return useQuery({
-    queryKey: SAVED_CARTS_KEY,
+    queryKey: queryKeys.saved.carts(),
     queryFn: async () => mobileApi.get<SavedCart[]>("/api/saved-items/deals"),
   });
 }
@@ -19,7 +19,7 @@ export function useSaveCart() {
     mutationFn: async (input: SaveCartInput) =>
       mobileApi.post<SavedCart>("/api/saved-items/deals", input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: SAVED_CARTS_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.saved.carts() });
     },
   });
 }
@@ -31,7 +31,7 @@ export function useDeleteSavedCart() {
     mutationFn: async (savedCartId: string) =>
       mobileApi.delete<void>(`/api/saved-items/deals?id=${savedCartId}`),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: SAVED_CARTS_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.saved.carts() });
     },
   });
 }
@@ -43,7 +43,7 @@ export function useRefreshSavedCart() {
     mutationFn: async (savedCartId: string) =>
       mobileApi.post<SavedCart>("/api/saved-items/deals/refresh", { savedCartId }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: SAVED_CARTS_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.saved.carts() });
     },
   });
 }

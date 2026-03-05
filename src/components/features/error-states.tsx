@@ -81,11 +81,13 @@ export function EmptyState({
   icon,
   title,
   message,
+  steps,
   action,
 }: {
   icon?: React.ReactNode;
   title: string;
   message: string;
+  steps?: Array<{ label: string }>;
   action?: React.ReactNode;
 }) {
   return (
@@ -94,6 +96,18 @@ export function EmptyState({
         {icon && <div className="mb-4">{icon}</div>}
         <h2 className="mb-2 text-lg font-semibold">{title}</h2>
         <p className="mb-6 max-w-md text-muted-foreground">{message}</p>
+        {steps && steps.length > 0 && (
+          <div className="mb-6 mt-2 w-full max-w-sm space-y-2 text-left">
+            {steps.map((step, index) => (
+              <div key={step.label} className="flex items-center gap-2.5">
+                <div className="flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+                  {index + 1}
+                </div>
+                <span className="text-[13px] text-muted-foreground">{step.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
         {action}
       </CardContent>
     </Card>

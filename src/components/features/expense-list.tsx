@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { CATEGORY_ICONS, CATEGORY_COLORS, SUBCATEGORY_LABELS } from "@/lib/expense-constants";
 import { frequencyLabel } from "@/lib/service-utils";
 import {
@@ -15,7 +15,11 @@ import {
   Bike,
   Store,
   ShoppingCart,
+  BarChart3,
+  ArrowLeftRight,
 } from "lucide-react";
+import { SectionGuideCard } from "@/components/features/section-guide-card";
+import { useFirstVisit } from "@/hooks/use-first-visit";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/features/error-states";
@@ -347,16 +351,22 @@ function SwipeableExpenseItem({
     isDraggingRef.current = false;
   }, [isRevealed, expenseId, onReveal]);
 
-  // When another item gets revealed, snap this one back
-  const prevRevealedRef = useRef(revealedId);
-  if (prevRevealedRef.current !== revealedId) {
-    prevRevealedRef.current = revealedId;
-    if (!isRevealed && contentRef.current) {
-      contentRef.current.style.transition = "transform 200ms ease-out";
-      contentRef.current.style.transform = "translateX(0)";
+  // Reset confirmDelete when item is no longer revealed
+  const [prevIsRevealed, setPrevIsRevealed] = useState(isRevealed);
+  if (prevIsRevealed !== isRevealed) {
+    setPrevIsRevealed(isRevealed);
+    if (!isRevealed) {
       setConfirmDelete(false);
     }
   }
+
+  // When another item gets revealed, snap this one back (DOM manipulation)
+  useEffect(() => {
+    if (!isRevealed && contentRef.current) {
+      contentRef.current.style.transition = "transform 200ms ease-out";
+      contentRef.current.style.transform = "translateX(0)";
+    }
+  }, [revealedId, isRevealed]);
 
   function handleDeleteAction() {
     if (!confirmDelete) {
@@ -603,6 +613,7 @@ export function ExpenseList({
   onCreateService,
   isSolo,
 }: ExpenseListProps) {
+  const { isFirstVisit: isFirstVisitGastos, dismiss: dismissGastos } = useFirstVisit("gastos");
   const [editingExpense, setEditingExpense] = useState<SerializedExpense | null>(null);
   const [showSettled, setShowSettled] = useState(false);
   const [showAllServices, setShowAllServices] = useState(false);
@@ -653,6 +664,11 @@ export function ExpenseList({
         message={isSolo
           ? "Anotá tus gastos para llevar el control de tus finanzas."
           : "Anotá los gastos compartidos y Habita calcula quién le debe a quién."}
+        steps={[
+          { label: "Registrá lo que pagaste" },
+          { label: "Habita calcula los balances" },
+          { label: "Liquidá deudas entre miembros" },
+        ]}
         action={
           <p className="text-sm text-muted-foreground">
             Usá el botón <span className="font-medium text-foreground">Nuevo gasto</span> de arriba para empezar
@@ -669,6 +685,17 @@ export function ExpenseList({
 
   return (
     <div className="mt-4">
+      {isFirstVisitGastos && (
+        <SectionGuideCard
+          steps={[
+            { icon: <Receipt className="h-4 w-4" />, title: "Registrá gastos", description: "Anotá lo que pagaste y entre quiénes se divide" },
+            { icon: <BarChart3 className="h-4 w-4" />, title: "Vé quién gastó más", description: "Habita calcula los balances automáticamente" },
+            { icon: <ArrowLeftRight className="h-4 w-4" />, title: "Liquidá deudas", description: "Transferí y marcá como saldado" },
+          ]}
+          onDismiss={dismissGastos}
+        />
+      )}
+
       {SHOW_SERVICES_SECTION && (
         <Card className="mb-4">
           <CardContent className="py-4">

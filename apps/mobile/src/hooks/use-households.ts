@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 
+import { queryKeys } from "@habita/contracts";
 import type { CreateHouseholdInput, HouseholdResponse, JoinHouseholdInput, JoinHouseholdResponse } from "@habita/contracts";
 
 interface HouseholdDetailResponse {
@@ -13,11 +14,9 @@ interface HouseholdDetailResponse {
   } | null;
 }
 
-const HOUSEHOLD_QUERY_KEY = ["mobile", "household"] as const;
-
 export function useHouseholdDetail() {
   return useQuery({
-    queryKey: HOUSEHOLD_QUERY_KEY,
+    queryKey: queryKeys.households.all(),
     queryFn: async () => mobileApi.get<HouseholdDetailResponse>("/api/households"),
   });
 }
@@ -30,7 +29,7 @@ export function useCreateHousehold() {
       return mobileApi.post<HouseholdResponse>("/api/households/onboarding", input);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["mobile"] });
+      void queryClient.invalidateQueries();
     },
     onError: (error: unknown) => {
       throw new Error(getMobileErrorMessage(error));
@@ -46,7 +45,7 @@ export function useJoinHousehold() {
       return mobileApi.post<JoinHouseholdResponse>("/api/households/join", input);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["mobile"] });
+      void queryClient.invalidateQueries();
     },
     onError: (error: unknown) => {
       throw new Error(getMobileErrorMessage(error));

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   Linking,
   Pressable,
@@ -24,13 +24,22 @@ import { useEvents } from "@/hooks/use-events";
 import { mobileApi } from "@/lib/api";
 import { useSavedEvents, useToggleSaveEvent, isEventSaved } from "@/hooks/use-saved-events";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
+import { useMilestone } from "@/hooks/use-milestone";
+import { useCelebration } from "@/hooks/use-celebration";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { ScreenHeader } from "@/components/features/screen-header";
-import { colors, fontFamily, radius, spacing, typography } from "@/theme";
+import { useThemeColors } from "@/hooks/use-theme";
+import { fontFamily, radius, spacing, typography } from "@/theme";
+import { useFirstVisit } from "@/hooks/use-first-visit";
+import { useUnlockedTabs } from "@/hooks/use-unlocked-tabs";
+import { SectionGuideCard } from "@/components/features/section-guide-card";
+import { useSectionToured } from "@/hooks/use-guided-tour";
+import { Filter } from "lucide-react-native";
 
+import type { ThemeColors } from "@/theme";
 import type { EventItem, EventCategory } from "@/hooks/use-events";
 import type { SaveEventInput } from "@/hooks/use-saved-events";
 
@@ -236,6 +245,9 @@ function FilterPill({
   isActive: boolean;
   onPress: () => void;
 }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <Pressable
       onPress={onPress}
@@ -261,6 +273,9 @@ function EventCard({
   savePending: boolean;
   wide?: boolean;
 }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const catConfig = CATEGORY_CONFIG[event.category];
   const priceLabel = formatPrice(event.priceMin, event.priceMax);
   const dateInfo = getDateProximityLabel(event.startDate);
@@ -346,8 +361,8 @@ function EventCard({
             ) : null}
             {priceLabel ? (
               <Badge
-                bgColor={priceLabel === "Gratis" ? "#dcfce7" : "#f0f9ff"}
-                textColor={priceLabel === "Gratis" ? "#16a34a" : "#0369a1"}
+                bgColor={priceLabel === "Gratis" ? colors.successBg : "#f0f9ff"}
+                textColor={priceLabel === "Gratis" ? colors.successText : "#0369a1"}
               >
                 {priceLabel}
               </Badge>
@@ -411,6 +426,9 @@ function RecommendedSection({
   onToggleSave: (event: EventItem) => void;
   savePending: boolean;
 }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (events.length === 0) return null;
 
   return (
@@ -453,6 +471,9 @@ function CategorySection({
   onToggleSave: (event: EventItem) => void;
   savePending: boolean;
 }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.categorySection}>
       <View style={styles.sectionHeaderRow}>
@@ -485,6 +506,11 @@ function CategorySection({
 // ─── Events content ─────────────────────────────────────────────────────────
 
 function EventsTab() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const eventSaveMilestone = useMilestone("first-event-saved");
+  const { celebrate: celebrateEvent } = useCelebration();
+
   const [activeCategory, setActiveCategory] = useState<EventCategory | undefined>();
   const [activeTimeFilter, setActiveTimeFilter] = useState<TimeFilter>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("all");
@@ -523,9 +549,12 @@ function EventsTab() {
         void toggleSave({ savedEventId: saved.id });
       } else {
         void toggleSave({ input: eventToSaveInput(event) });
+        void eventSaveMilestone.complete().then((wasFirst) => {
+          if (wasFirst) celebrateEvent("first-event-saved");
+        });
       }
     },
-    [savedEvents, toggleSave],
+    [savedEvents, toggleSave, eventSaveMilestone, celebrateEvent],
   );
 
   return (
@@ -649,6 +678,11 @@ function EventsTab() {
               icon={<Text style={{ fontSize: 36 }}>📭</Text>}
               title="Sin eventos"
               subtitle="Probá con otra fecha o categoría"
+              steps={[
+                { label: "Buscá eventos culturales en tu ciudad" },
+                { label: "Filtrá por categoría o fecha" },
+                { label: "Guardá tus favoritos con el corazón" },
+              ]}
             />
           ) : activeCategory ? (
             /* When filtering by category, show flat list */
@@ -695,6 +729,15 @@ function EventsTab() {
 // ─── main screen ────────────────────────────────────────────────────────────
 
 export default function DiscoverScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { isFirstVisit, dismiss: dismissGuide } = useFirstVisit("descubrir");
+  const descubriWasToured = useSectionToured("descubri");
+  const { unlock } = useUnlockedTabs();
+  useEffect(() => {
+    void unlock("discover");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const eventsQuery = useEvents({ limit: 50 });
   const [refreshing, setRefreshing] = useState(false);
 
@@ -730,7 +773,7 @@ export default function DiscoverScreen() {
         {/* Title */}
         <View style={styles.titleRow}>
           <Compass size={22} color={colors.primary} strokeWidth={2} />
-          <Text style={styles.title}>Descubrí</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Descubrí</Text>
         </View>
         <View style={styles.subtitleRow}>
           <Text style={styles.subtitle}>Eventos y actividades cerca tuyo</Text>
@@ -746,6 +789,29 @@ export default function DiscoverScreen() {
           </Pressable>
         </View>
 
+        {isFirstVisit && !descubriWasToured ? (
+          <SectionGuideCard
+            steps={[
+              {
+                icon: <MapPin size={16} color={colors.primary} />,
+                title: "Eventos cerca tuyo",
+                description: "Encontrá actividades culturales en tu ciudad",
+              },
+              {
+                icon: <Filter size={16} color={colors.primary} />,
+                title: "Filtrá por categoría",
+                description: "Teatro, música, exposiciones y más",
+              },
+              {
+                icon: <Bookmark size={16} color={colors.primary} />,
+                title: "Guardá favoritos",
+                description: "Marcá eventos para no perdértelos",
+              },
+            ]}
+            onDismiss={dismissGuide}
+          />
+        ) : null}
+
         <EventsTab />
 
         <View style={styles.bottomPadding} />
@@ -758,287 +824,289 @@ export default function DiscoverScreen() {
 
 const WIDE_CARD_WIDTH = 280;
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: 24,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
-  },
-  title: {
-    ...typography.pageTitle,
-  },
-  subtitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: spacing.md,
-  },
-  subtitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    color: colors.mutedForeground,
-  },
-  refreshButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radius.full,
-    backgroundColor: `${colors.primary}12`,
-  },
-  refreshButtonText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.primary,
-  },
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: 24,
+    },
+    titleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      marginTop: spacing.md,
+      marginBottom: spacing.xs,
+    },
+    title: {
+      ...typography.pageTitle,
+    },
+    subtitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: spacing.md,
+    },
+    subtitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      color: c.mutedForeground,
+    },
+    refreshButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: radius.full,
+      backgroundColor: `${c.primary}12`,
+    },
+    refreshButtonText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "600",
+      color: c.primary,
+    },
 
-  // Filter pills
-  filterScroll: {
-    marginBottom: spacing.md,
-  },
-  filterScrollContent: {
-    gap: spacing.xs,
-    paddingVertical: 2,
-  },
-  filterPill: {
-    backgroundColor: `${colors.muted}99`,
-    borderRadius: radius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  filterPillActive: {
-    backgroundColor: colors.primary,
-  },
-  filterPillText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    fontWeight: "500",
-    color: colors.mutedForeground,
-  },
-  filterPillTextActive: {
-    color: "#ffffff",
-    fontWeight: "600",
-  },
-  filterDivider: {
-    width: 1,
-    height: 20,
-    backgroundColor: colors.border,
-    alignSelf: "center",
-    marginHorizontal: 4,
-  },
+    // Filter pills
+    filterScroll: {
+      marginBottom: spacing.md,
+    },
+    filterScrollContent: {
+      gap: spacing.xs,
+      paddingVertical: 2,
+    },
+    filterPill: {
+      backgroundColor: `${c.muted}99`,
+      borderRadius: radius.full,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    filterPillActive: {
+      backgroundColor: c.primary,
+    },
+    filterPillText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "500",
+      color: c.mutedForeground,
+    },
+    filterPillTextActive: {
+      color: "#ffffff",
+      fontWeight: "600",
+    },
+    filterDivider: {
+      width: 1,
+      height: 20,
+      backgroundColor: c.border,
+      alignSelf: "center",
+      marginHorizontal: 4,
+    },
 
-  // View mode row
-  viewModeRow: {
-    flexDirection: "row",
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
+    // View mode row
+    viewModeRow: {
+      flexDirection: "row",
+      gap: spacing.xs,
+      marginBottom: spacing.md,
+    },
 
-  // Result count
-  resultCount: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-    marginBottom: spacing.sm,
-  },
+    // Result count
+    resultCount: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      marginBottom: spacing.sm,
+    },
 
-  // Loading / error
-  loadingList: {
-    gap: spacing.md,
-  },
-  errorCard: {
-    backgroundColor: "#fee2e2",
-  },
-  errorText: {
-    fontFamily: fontFamily.sans,
-    color: "#b91c1c",
-    fontSize: 14,
-  },
+    // Loading / error
+    loadingList: {
+      gap: spacing.md,
+    },
+    errorCard: {
+      backgroundColor: c.errorBg,
+    },
+    errorText: {
+      fontFamily: fontFamily.sans,
+      color: c.errorText,
+      fontSize: 14,
+    },
 
-  // Events — vertical list
-  eventList: {
-    gap: spacing.sm,
-  },
+    // Events — vertical list
+    eventList: {
+      gap: spacing.sm,
+    },
 
-  // Event card
-  eventCard: {
-    marginBottom: 0,
-  },
-  wideEventCardWrapper: {
-    width: WIDE_CARD_WIDTH,
-    height: 220,
-  },
-  wideEventCardInner: {
-    flex: 1,
-  },
+    // Event card
+    eventCard: {
+      marginBottom: 0,
+    },
+    wideEventCardWrapper: {
+      width: WIDE_CARD_WIDTH,
+      height: 220,
+    },
+    wideEventCardInner: {
+      flex: 1,
+    },
 
-  // Event header row: chip + date + save
-  eventHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 6,
-    flexWrap: "wrap",
-  },
-  categoryChip: {
-    borderRadius: radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  categoryChipText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  headerSpacer: {
-    flex: 1,
-  },
-  saveIconButton: {
-    padding: 4,
-  },
+    // Event header row: chip + date + save
+    eventHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginBottom: 6,
+      flexWrap: "wrap",
+    },
+    categoryChip: {
+      borderRadius: radius.full,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    categoryChipText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      fontWeight: "600",
+    },
+    headerSpacer: {
+      flex: 1,
+    },
+    saveIconButton: {
+      padding: 4,
+    },
 
-  // Event content
-  eventTitle: {
-    fontFamily: fontFamily.sans,
-    fontWeight: "600",
-    color: colors.text,
-    fontSize: 14,
-    lineHeight: 18,
-    marginBottom: 2,
-  },
-  eventArtists: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-    fontStyle: "italic",
-    marginBottom: 2,
-  },
-  eventHighlight: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    lineHeight: 16,
-    color: "#92400e",
-    fontStyle: "italic",
-    marginTop: 2,
-    marginBottom: 2,
-  },
-  eventDesc: {
-    fontFamily: fontFamily.sans,
-    color: colors.mutedForeground,
-    fontSize: 12,
-    lineHeight: 16,
-    marginTop: 2,
-    marginBottom: 2,
-  },
-  eventMeta: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: 4,
-    flexWrap: "wrap",
-    alignItems: "center",
-  },
-  eventMetaChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  eventMetaText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    color: colors.mutedForeground,
-  },
+    // Event content
+    eventTitle: {
+      fontFamily: fontFamily.sans,
+      fontWeight: "600",
+      color: c.text,
+      fontSize: 14,
+      lineHeight: 18,
+      marginBottom: 2,
+    },
+    eventArtists: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      fontStyle: "italic",
+      marginBottom: 2,
+    },
+    eventHighlight: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      lineHeight: 16,
+      color: c.warningText,
+      fontStyle: "italic",
+      marginTop: 2,
+      marginBottom: 2,
+    },
+    eventDesc: {
+      fontFamily: fontFamily.sans,
+      color: c.mutedForeground,
+      fontSize: 12,
+      lineHeight: 16,
+      marginTop: 2,
+      marginBottom: 2,
+    },
+    eventMeta: {
+      flexDirection: "row",
+      gap: spacing.sm,
+      marginTop: 4,
+      flexWrap: "wrap",
+      alignItems: "center",
+    },
+    eventMetaChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    eventMetaText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: c.mutedForeground,
+    },
 
-  // CTAs
-  eventCtas: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-    flexWrap: "wrap",
-  },
-  ctaButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: `${colors.primary}15`,
-    borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  ctaButtonText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.primary,
-  },
-  ctaButtonSecondary: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: `${colors.muted}80`,
-    borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  ctaButtonSecondaryText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    fontWeight: "500",
-    color: colors.mutedForeground,
-  },
+    // CTAs
+    eventCtas: {
+      flexDirection: "row",
+      gap: spacing.sm,
+      marginTop: spacing.sm,
+      flexWrap: "wrap",
+    },
+    ctaButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: `${c.primary}15`,
+      borderRadius: radius.full,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    ctaButtonText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "600",
+      color: c.primary,
+    },
+    ctaButtonSecondary: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: `${c.muted}80`,
+      borderRadius: radius.full,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    ctaButtonSecondaryText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "500",
+      color: c.mutedForeground,
+    },
 
-  // Sections
-  sectionsContainer: {
-    gap: spacing.lg,
-  },
-  recommendedSection: {
-    gap: spacing.sm,
-  },
-  categorySection: {
-    gap: spacing.sm,
-  },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  sectionEmoji: {
-    fontSize: 16,
-  },
-  sectionTitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  sectionCount: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-    marginLeft: 2,
-  },
+    // Sections
+    sectionsContainer: {
+      gap: spacing.lg,
+    },
+    recommendedSection: {
+      gap: spacing.sm,
+    },
+    categorySection: {
+      gap: spacing.sm,
+    },
+    sectionHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    sectionEmoji: {
+      fontSize: 16,
+    },
+    sectionTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 15,
+      fontWeight: "700",
+      color: c.text,
+    },
+    sectionCount: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      marginLeft: 2,
+    },
 
-  // Horizontal scroll
-  horizontalList: {
-    gap: spacing.sm,
-    paddingRight: spacing.lg,
-  },
+    // Horizontal scroll
+    horizontalList: {
+      gap: spacing.sm,
+      paddingRight: spacing.lg,
+    },
 
-  bottomPadding: {
-    height: 20,
-  },
-});
+    bottomPadding: {
+      height: 20,
+    },
+  });
+}

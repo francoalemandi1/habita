@@ -15,9 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Check, X, Users, UserPlus, MapPin, CalendarClock, Loader2, Bell, BellOff, ChevronRight, Settings, ListTodo, RefreshCw } from "lucide-react";
+import { Pencil, Check, X, Users, UserPlus, MapPin, CalendarClock, Loader2, Bell, BellOff, ChevronRight, Settings, ListTodo, RefreshCw, Palette, HelpCircle } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { resetAllGuides } from "@/hooks/use-first-visit";
 
 import type { MemberType } from "@prisma/client";
 
@@ -236,6 +238,11 @@ export function ProfileSettings({
     } finally {
       setIsSavingPlanningDay(false);
     }
+  };
+
+  const handleResetGuides = () => {
+    resetAllGuides();
+    toast.success("Guías reiniciadas", "La próxima vez que entres a cada sección vas a ver las guías de nuevo");
   };
 
   const currentLocationLabel = savedLocation?.city || savedLocation?.country
@@ -490,6 +497,18 @@ export function ProfileSettings({
             </div>
           )}
 
+          {/* Appearance */}
+          <div className="border-t pt-4">
+            <p className="text-sm text-muted-foreground mb-2">Apariencia</p>
+            <div className="flex items-center justify-between rounded-xl px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <Palette className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Tema</span>
+              </div>
+              <ThemeToggle />
+            </div>
+          </div>
+
           {/* Config links */}
           <div className="border-t pt-4">
             <p className="text-sm text-muted-foreground mb-2">Configuración</p>
@@ -524,6 +543,20 @@ export function ProfileSettings({
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </Link>
+              <button
+                type="button"
+                onClick={handleResetGuides}
+                className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-2">
+                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                  <div className="text-left">
+                    <span className="text-sm font-medium">¿Cómo funciona Habita?</span>
+                    <p className="text-xs text-muted-foreground">Volvé a ver las guías de cada sección</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
             </div>
           </div>
 

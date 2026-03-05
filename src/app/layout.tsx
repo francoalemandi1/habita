@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Nunito, Indie_Flower } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
@@ -74,9 +75,11 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="es" suppressHydrationWarning>
       <body className={`${nunito.variable} ${indieFlower.variable} font-sans antialiased min-h-screen`}>
-        <QueryProvider>
-          <ToastProvider>{children}</ToastProvider>
-        </QueryProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <QueryProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </QueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

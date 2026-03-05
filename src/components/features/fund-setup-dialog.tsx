@@ -68,7 +68,7 @@ export function FundSetupDialog({
     existingFund?.monthlyTarget != null ? String(existingFund.monthlyTarget) : "",
   );
   const [selectedCategories, setSelectedCategories] = useState<ExpenseCategory[]>(
-    existingFund?.fundCategories ?? ["RENT", "UTILITIES", "GROCERIES", "HOME"],
+    (existingFund?.fundCategories as ExpenseCategory[] | undefined) ?? ["RENT", "UTILITIES", "GROCERIES", "HOME"],
   );
   const [allocations, setAllocations] = useState<Record<string, string>>(
     () => {
@@ -89,7 +89,7 @@ export function FundSetupDialog({
         existingFund?.monthlyTarget != null ? String(existingFund.monthlyTarget) : "",
       );
       setSelectedCategories(
-        existingFund?.fundCategories ?? ["RENT", "UTILITIES", "GROCERIES", "HOME"],
+        (existingFund?.fundCategories as ExpenseCategory[] | undefined) ?? ["RENT", "UTILITIES", "GROCERIES", "HOME"],
       );
       const initial: Record<string, string> = {};
       for (const m of allMembers) {

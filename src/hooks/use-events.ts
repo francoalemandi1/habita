@@ -4,50 +4,8 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 
-import type { EventCategory } from "@prisma/client";
+import type { EventItem, EventsResponse, WeekendEventsResponse, EventCategory } from "@habita/contracts";
 import type { RelaxEvent } from "@/lib/events/types";
-
-// ============================================
-// Types
-// ============================================
-
-/** API response shape from /api/events and /api/events/weekend */
-interface EventsApiRow {
-  id: string;
-  title: string;
-  description: string | null;
-  slug: string;
-  startDate: string | null;
-  endDate: string | null;
-  venueName: string | null;
-  address: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  cityId: string | null;
-  province: string | null;
-  category: EventCategory;
-  tags: string[];
-  artists: string[];
-  priceMin: number | null;
-  priceMax: number | null;
-  currency: string | null;
-  sourceUrl: string | null;
-  imageUrl: string | null;
-  status: string;
-  cityName?: string | null;
-  cityProvince?: string | null;
-}
-
-interface EventsListResponse {
-  events: EventsApiRow[];
-  total: number;
-  pagination: { limit: number; offset: number; hasMore: boolean };
-}
-
-interface WeekendEventsResponse {
-  events: EventsApiRow[];
-  cityId: string | null;
-}
 
 export interface EventsQueryResult {
   events: RelaxEvent[];
@@ -59,7 +17,7 @@ export interface EventsQueryResult {
 // Category enum → lowercase map (matches RelaxClient category keys)
 // ============================================
 
-/** Fallback: Prisma EventCategory enum → UI slug. Kept in sync with event-mapper.ts. */
+/** EventCategory → UI slug. Kept in sync with event-mapper.ts. */
 const CATEGORY_TO_RELAX: Record<EventCategory, string> = {
   CINE: "cine",
   TEATRO: "teatro",
@@ -129,7 +87,7 @@ function formatPrice(priceMin: number | null, priceMax: number | null, currency:
   return `${cur} ${price.toLocaleString("es-AR")}`;
 }
 
-function buildVenueLabel(row: EventsApiRow): string {
+function buildVenueLabel(row: EventItem): string {
   const parts: string[] = [];
   if (row.venueName) parts.push(row.venueName);
   if (row.address) parts.push(row.address);
@@ -138,7 +96,7 @@ function buildVenueLabel(row: EventsApiRow): string {
   return "Consultar";
 }
 
-function buildMapsUrl(row: EventsApiRow): string | null {
+function buildMapsUrl(row: EventItem): string | null {
   if (row.latitude && row.longitude) {
     return `https://www.google.com/maps/dir/?api=1&destination=${row.latitude},${row.longitude}`;
   }
@@ -152,7 +110,7 @@ function buildMapsUrl(row: EventsApiRow): string | null {
 }
 
 /** Convert an API event row to the RelaxEvent shape used by EventCard. */
-export function eventRowToRelaxEvent(row: EventsApiRow): RelaxEvent {
+export function eventRowToRelaxEvent(row: EventItem): RelaxEvent {
   return {
     id: row.id,
     title: row.title,
@@ -199,14 +157,14 @@ interface UseEventsOptions {
  */
 export function useEvents({ city, enabled = true }: UseEventsOptions) {
   return useQuery<EventsQueryResult>({
-    queryKey: queryKeys.events.list(city),
+    queryKey: queryKeys.events.list(city ? { city } : undefined),
     queryFn: async () => {
       const params = new URLSearchParams();
       if (city) params.set("city", city);
       params.set("limit", "30");
 
       const url = `/api/events${params.toString() ? `?${params.toString()}` : ""}`;
-      const data = await apiFetch<EventsListResponse>(url);
+      const data = await apiFetch<EventsResponse>(url);
 
       return {
         events: data.events.map(eventRowToRelaxEvent),

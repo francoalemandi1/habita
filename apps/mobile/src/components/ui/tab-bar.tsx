@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo } from "react";
 import {
   Animated,
   Pressable,
@@ -7,15 +7,17 @@ import {
   Text,
   View,
 } from "react-native";
-import { colors, fontFamily, radius, spacing } from "@/theme";
+import { useThemeColors } from "@/hooks/use-theme";
+import { fontFamily, radius, spacing } from "@/theme";
+
+import type { ThemeColors } from "@/theme";
+import type { ViewStyle } from "react-native";
 
 interface TabBarItem {
   key: string;
   label: string;
   badge?: number;
 }
-
-import type { ViewStyle } from "react-native";
 
 interface TabBarBaseProps {
   /** Scroll horizontally when there are many tabs */
@@ -47,12 +49,14 @@ function TabItem({
   item,
   isActive,
   onPress,
+  colors,
 }: {
   item: TabBarItem;
   isActive: boolean;
   onPress: () => void;
+  colors: ThemeColors;
 }) {
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useMemo(() => new Animated.Value(1), []);
 
   const handlePressIn = () => {
     Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 50 }).start();
@@ -66,21 +70,34 @@ function TabItem({
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={styles.tabPressable}
+      style={staticStyles.tabPressable}
     >
       <Animated.View
         style={[
-          styles.tabInner,
-          isActive && styles.tabActive,
+          staticStyles.tabInner,
+          isActive && {
+            backgroundColor: colors.card,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.08,
+            shadowRadius: 2,
+            elevation: 1,
+          },
           { transform: [{ scale }] },
         ]}
       >
-        <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+        <Text
+          style={[
+            staticStyles.tabLabel,
+            { color: isActive ? colors.text : colors.mutedForeground },
+            isActive && staticStyles.tabLabelActive,
+          ]}
+        >
           {item.label}
         </Text>
         {item.badge != null && item.badge > 0 ? (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>
+          <View style={[staticStyles.badge, { backgroundColor: colors.primary }]}>
+            <Text style={staticStyles.badgeText}>
               {item.badge > 99 ? "99+" : item.badge}
             </Text>
           </View>
@@ -92,6 +109,12 @@ function TabItem({
 
 export function TabBar(props: TabBarProps) {
   const { scrollable = false, style } = props;
+  const colors = useThemeColors();
+
+  const wrapperStyle = useMemo(
+    () => ({ backgroundColor: `${colors.muted}99`, borderRadius: radius.lg, padding: 4 as const }),
+    [colors.muted],
+  );
 
   // Normalize both APIs into the keyed format
   let resolvedItems: TabBarItem[];
@@ -113,12 +136,12 @@ export function TabBar(props: TabBarProps) {
     ? {
         horizontal: true,
         showsHorizontalScrollIndicator: false,
-        contentContainerStyle: styles.scrollContent,
+        contentContainerStyle: staticStyles.scrollContent,
       }
-    : { style: styles.fixedContent };
+    : { style: staticStyles.fixedContent };
 
   return (
-    <View style={[styles.wrapper, style]}>
+    <View style={[wrapperStyle, style]}>
       <Container {...containerProps}>
         {resolvedItems.map((item) => (
           <TabItem
@@ -126,6 +149,7 @@ export function TabBar(props: TabBarProps) {
             item={item}
             isActive={item.key === resolvedActiveKey}
             onPress={() => resolvedOnChange(item.key)}
+            colors={colors}
           />
         ))}
       </Container>
@@ -133,12 +157,7 @@ export function TabBar(props: TabBarProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    backgroundColor: `${colors.muted}99`,
-    borderRadius: radius.lg,
-    padding: 4,
-  },
+const staticStyles = StyleSheet.create({
   fixedContent: {
     flexDirection: "row",
   },
@@ -158,26 +177,15 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm - 2,
     borderRadius: radius.md,
   },
-  tabActive: {
-    backgroundColor: colors.card,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
-  },
   tabLabel: {
     fontFamily: fontFamily.sans,
     fontSize: 13,
     fontWeight: "500",
-    color: colors.mutedForeground,
   },
   tabLabelActive: {
-    color: colors.text,
     fontWeight: "600",
   },
   badge: {
-    backgroundColor: colors.primary,
     borderRadius: radius.full,
     minWidth: 16,
     height: 16,

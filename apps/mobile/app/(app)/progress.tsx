@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -8,16 +9,22 @@ import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonCard } from "@/components/ui/skeleton";
-import { colors, fontFamily, spacing, typography } from "@/theme";
+import { useThemeColors } from "@/hooks/use-theme";
+import { fontFamily, spacing, typography } from "@/theme";
+
+import type { ThemeColors } from "@/theme";
 import type { StatsResponse } from "@habita/contracts";
 
-const MEMBER_TYPE_LABELS: Record<string, string> = { ADULT: "Adulto", TEEN: "Adolescente", CHILD: "Niño/a" };
+const MEMBER_TYPE_LABELS: Record<string, string> = { ADULT: "Adulto", TEEN: "Adolescente", CHILD: "Ni\u00F1o/a" };
 
 function medalEmoji(rank: number): string {
   if (rank === 1) return "\uD83E\uDD47"; if (rank === 2) return "\uD83E\uDD48"; if (rank === 3) return "\uD83E\uDD49"; return `#${rank}`;
 }
 
 function MiniBar({ value, max }: { value: number; max: number }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   return (
     <View style={styles.barTrack}>
@@ -32,6 +39,9 @@ interface MemberCardProps {
 }
 
 function MemberCard({ member, rank, maxWeekly, maxMonthly, isMe }: MemberCardProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <Card style={[styles.memberCard, isMe && styles.memberCardMe]}>
       <CardContent>
@@ -60,7 +70,7 @@ function MemberCard({ member, rank, maxWeekly, maxMonthly, isMe }: MemberCardPro
             </View>
             <MiniBar value={member.monthlyTasks} max={maxMonthly} />
           </View>
-          <Text style={styles.memberTotal}>Total histórico: {member.totalTasks} tareas</Text>
+          <Text style={styles.memberTotal}>Total hist\u00F3rico: {member.totalTasks} tareas</Text>
         </View>
       </CardContent>
     </Card>
@@ -68,6 +78,9 @@ function MemberCard({ member, rank, maxWeekly, maxMonthly, isMe }: MemberCardPro
 }
 
 export default function ProgressScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const statsQuery = useStats();
   const { me, activeHouseholdId } = useMobileAuth();
   const myMemberId = me?.members.find((m) => m.householdId === activeHouseholdId)?.id;
@@ -82,7 +95,7 @@ export default function ProgressScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
           <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
         </Pressable>
-        <Text style={styles.backTitle}>Progreso familiar</Text>
+        <Text style={[styles.backTitle, { color: colors.text }]}>Progreso familiar</Text>
         <View style={styles.backBtn} />
       </View>
       <ScrollView bounces={false} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
@@ -101,7 +114,7 @@ export default function ProgressScreen() {
         ) : statsQuery.isError ? (
           <Card style={styles.errorCard}><CardContent><Text style={styles.errorText}>{getMobileErrorMessage(statsQuery.error)}</Text></CardContent></Card>
         ) : sorted.length === 0 ? (
-          <EmptyState icon={<TrendingUp size={32} color={colors.mutedForeground} />} title="Sin estadísticas" subtitle="Completá tareas para ver el progreso del hogar" />
+          <EmptyState icon={<TrendingUp size={32} color={colors.mutedForeground} />} title="Sin estad\u00EDsticas" subtitle="Complet\u00E1 tareas para ver el progreso del hogar" />
         ) : (
           sorted.map((member, index) => (
             <MemberCard key={member.id} member={member} rank={index + 1} maxWeekly={maxWeekly} maxMonthly={maxMonthly} isMe={member.id === myMemberId} />
@@ -112,34 +125,36 @@ export default function ProgressScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
-  backTitle: { ...typography.cardTitle },
-  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24 },
-  subtitle: { fontFamily: fontFamily.sans, fontSize: 14, color: colors.mutedForeground, marginBottom: spacing.md },
-  statChips: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
-  statChip: { flex: 1 },
-  statChipLabel: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground },
-  statChipValue: { fontFamily: fontFamily.sans, fontSize: 20, fontWeight: "700", color: colors.text, marginTop: 2 },
-  loadingList: { gap: spacing.md },
-  errorCard: { backgroundColor: colors.errorBg },
-  errorText: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 14 },
-  memberCard: { marginBottom: spacing.md },
-  memberCardMe: { borderWidth: 2, borderColor: colors.primary },
-  memberCardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.sm },
-  memberCardLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  memberMedal: { fontFamily: fontFamily.sans, fontSize: 20 },
-  memberName: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 15 },
-  memberType: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 12 },
-  memberWeekly: { fontFamily: fontFamily.sans, fontSize: 22, fontWeight: "700", color: colors.text },
-  memberStats: { gap: spacing.sm },
-  memberStatRow: {},
-  memberStatLabels: { flexDirection: "row", justifyContent: "space-between", marginBottom: 2 },
-  memberStatLabel: { fontFamily: fontFamily.sans, fontSize: 12, color: colors.mutedForeground },
-  memberStatValue: { fontFamily: fontFamily.sans, fontSize: 12, fontWeight: "600", color: colors.text },
-  memberTotal: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground, marginTop: 4 },
-  barTrack: { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: "hidden" },
-  barFill: { height: "100%", backgroundColor: colors.primary, borderRadius: 3 },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.background },
+    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
+    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+    backTitle: { ...typography.cardTitle },
+    scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24 },
+    subtitle: { fontFamily: fontFamily.sans, fontSize: 14, color: c.mutedForeground, marginBottom: spacing.md },
+    statChips: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
+    statChip: { flex: 1 },
+    statChipLabel: { fontFamily: fontFamily.sans, fontSize: 11, color: c.mutedForeground },
+    statChipValue: { fontFamily: fontFamily.sans, fontSize: 20, fontWeight: "700", color: c.text, marginTop: 2 },
+    loadingList: { gap: spacing.md },
+    errorCard: { backgroundColor: c.errorBg },
+    errorText: { fontFamily: fontFamily.sans, color: c.errorText, fontSize: 14 },
+    memberCard: { marginBottom: spacing.md },
+    memberCardMe: { borderWidth: 2, borderColor: c.primary },
+    memberCardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.sm },
+    memberCardLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    memberMedal: { fontFamily: fontFamily.sans, fontSize: 20 },
+    memberName: { fontFamily: fontFamily.sans, fontWeight: "700", color: c.text, fontSize: 15 },
+    memberType: { fontFamily: fontFamily.sans, color: c.mutedForeground, fontSize: 12 },
+    memberWeekly: { fontFamily: fontFamily.sans, fontSize: 22, fontWeight: "700", color: c.text },
+    memberStats: { gap: spacing.sm },
+    memberStatRow: {},
+    memberStatLabels: { flexDirection: "row", justifyContent: "space-between", marginBottom: 2 },
+    memberStatLabel: { fontFamily: fontFamily.sans, fontSize: 12, color: c.mutedForeground },
+    memberStatValue: { fontFamily: fontFamily.sans, fontSize: 12, fontWeight: "600", color: c.text },
+    memberTotal: { fontFamily: fontFamily.sans, fontSize: 11, color: c.mutedForeground, marginTop: 4 },
+    barTrack: { height: 6, backgroundColor: c.border, borderRadius: 3, overflow: "hidden" },
+    barFill: { height: "100%", backgroundColor: c.primary, borderRadius: 3 },
+  });
+}

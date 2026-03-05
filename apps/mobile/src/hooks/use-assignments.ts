@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { mobileApi } from "@/lib/api";
 
+import { queryKeys } from "@habita/contracts";
 import type {
   CompleteAssignmentResponse,
   MyAssignmentsResponse,
@@ -19,12 +20,12 @@ interface VerifyAssignmentResponse {
   status: string;
 }
 
-const ASSIGNMENTS_QUERY_KEY = ["mobile", "assignments", "my"] as const;
 
 export function useMyAssignments() {
   return useQuery({
-    queryKey: ASSIGNMENTS_QUERY_KEY,
+    queryKey: queryKeys.assignments.my(),
     queryFn: async () => mobileApi.get<MyAssignmentsResponse>("/api/assignments/my"),
+    staleTime: 0,
   });
 }
 
@@ -38,7 +39,7 @@ export function useCompleteAssignment() {
         {},
       ),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.assignments.my() });
     },
   });
 }
@@ -53,7 +54,7 @@ export function useUncompleteAssignment() {
         {},
       ),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.assignments.my() });
     },
   });
 }
@@ -68,7 +69,7 @@ export function useVerifyAssignment() {
         { approved, feedback },
       ),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.assignments.my() });
     },
   });
 }

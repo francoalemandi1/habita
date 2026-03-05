@@ -68,7 +68,26 @@ export async function GET() {
     // Fetch data in parallel
     const sevenDaysAgo = new Date(startOfToday.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const [yesterdayCompleted, todayPending, weeklyCompleted] = await Promise.all([
+    // Month boundaries for expense queries
+    const now = new Date();
+    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+    // 3 days from now for upcoming services
+    const threeDaysFromNow = new Date(startOfToday.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+    const [
+      yesterdayCompleted,
+      todayPending,
+      weeklyCompleted,
+      thisMonthExpenses,
+      lastMonthExpenses,
+      activeService,
+      sharedFund,
+      dailyDeals,
+    ] = await Promise.all([
       prisma.assignment.findMany({
         where: {
           householdId: member.householdId,
@@ -109,7 +128,78 @@ export async function GET() {
         },
         take: 200,
       }),
+      // Current month expense total
+      prisma.expense.aggregate({
+        where: {
+          householdId: member.householdId,
+          date: { gte: startOfThisMonth, lte: endOfThisMonth },
+        },
+        _sum: { amount: true },
+      }),
+      // Last month expense total (for delta calculation)
+      prisma.expense.aggregate({
+        where: {
+          householdId: member.householdId,
+          date: { gte: startOfLastMonth, lte: endOfLastMonth },
+        },
+        _sum: { amount: true },
+      }),
+      // Upcoming service due within 3 days
+      prisma.service.findFirst({
+        where: {
+          householdId: member.householdId,
+          isActive: true,
+          nextDueDate: { lte: threeDaysFromNow },
+        },
+        orderBy: { nextDueDate: "asc" },
+        select: { title: true, nextDueDate: true },
+      }),
+      // Shared fund (target + compute balance)
+      prisma.sharedFund.findFirst({
+        where: { householdId: member.householdId },
+        select: {
+          id: true,
+          monthlyTarget: true,
+        },
+      }),
+      // Daily deals count scoped to household
+      prisma.dealCache.count({
+        where: {
+          householdId: member.householdId,
+          expiresAt: { gte: now },
+        },
+      }),
     ]);
+
+    // Fund balance: contributions this month minus expenses this month
+    let fundCurrentBalance: number | undefined;
+    let fundMonthlyTarget: number | undefined;
+
+    if (sharedFund) {
+      const currentMonthPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+      const [fundContributions, fundExpenses] = await Promise.all([
+        prisma.fundContribution.aggregate({
+          where: { fundId: sharedFund.id, period: currentMonthPeriod },
+          _sum: { amount: true },
+        }),
+        prisma.fundExpense.aggregate({
+          where: {
+            fundId: sharedFund.id,
+            date: { gte: startOfThisMonth, lte: endOfThisMonth },
+          },
+          _sum: { amount: true },
+        }),
+      ]);
+
+      const contribTotal = fundContributions._sum.amount?.toNumber() ?? 0;
+      const expensesTotal = fundExpenses._sum.amount?.toNumber() ?? 0;
+      fundCurrentBalance = contribTotal - expensesTotal;
+
+      if (sharedFund.monthlyTarget !== null && sharedFund.monthlyTarget !== undefined) {
+        fundMonthlyTarget = sharedFund.monthlyTarget.toNumber();
+      }
+    }
 
     // My pending tasks
     const myPending = todayPending.filter((a) => a.memberId === member.id);
@@ -135,6 +225,38 @@ export async function GET() {
       .sort((a, b) => b.count - a.count)
       .slice(0, 3);
 
+    // Expense totals and delta
+    const thisMonthTotal = thisMonthExpenses._sum.amount?.toNumber() ?? 0;
+    const lastMonthTotal = lastMonthExpenses._sum.amount?.toNumber() ?? 0;
+
+    let monthlyExpenseTotal: number | undefined;
+    let monthlyExpenseDelta: number | undefined;
+
+    if (thisMonthTotal > 0) {
+      monthlyExpenseTotal = thisMonthTotal;
+      if (lastMonthTotal > 0) {
+        monthlyExpenseDelta = ((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100;
+      }
+    }
+
+    // Upcoming service
+    let upcomingServiceTitle: string | undefined;
+    let upcomingServiceDays: number | undefined;
+
+    if (activeService) {
+      const dueDate = new Date(activeService.nextDueDate);
+      const diffMs = dueDate.getTime() - startOfToday.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      // Only include if it's within 3 days (including today, possibly past due)
+      if (diffDays <= 3) {
+        upcomingServiceTitle = activeService.title;
+        upcomingServiceDays = Math.max(0, diffDays);
+      }
+    }
+
+    // Daily deals
+    const hasDailyDeal = dailyDeals > 0;
+
     const briefingContext: BriefingContext = {
       currentMember: member.name,
       timeOfDay: regionalContext.timeOfDay,
@@ -145,6 +267,14 @@ export async function GET() {
       pendingByMember: Array.from(pendingByMemberMap.values()),
       weeklyCompletedCount: weeklyCompleted.length,
       weeklyTopContributors,
+      monthlyExpenseTotal,
+      monthlyExpenseDelta,
+      fundMonthlyTarget,
+      fundCurrentBalance,
+      upcomingServiceTitle,
+      upcomingServiceDays,
+      hasDailyDeal,
+      dealCategory: undefined,
     };
 
     const briefing = generateBriefing(briefingContext);
@@ -166,4 +296,3 @@ export async function GET() {
     );
   }
 }
-

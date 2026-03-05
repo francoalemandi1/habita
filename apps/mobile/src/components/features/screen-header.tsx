@@ -1,14 +1,20 @@
+import { useMemo } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Bell } from "lucide-react-native";
-import { colors, fontFamily, spacing } from "@/theme";
+import { useThemeColors } from "@/hooks/use-theme";
+import { fontFamily, spacing } from "@/theme";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
+
+import type { ThemeColors } from "@/theme";
 
 interface ScreenHeaderProps {
   notificationCount?: number;
 }
 
 export function ScreenHeader({ notificationCount = 0 }: ScreenHeaderProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { me, activeHouseholdId } = useMobileAuth();
   const activeHousehold = me?.households.find((h) => h.id === activeHouseholdId);
   const initials = me?.name
@@ -50,64 +56,66 @@ export function ScreenHeader({ notificationCount = 0 }: ScreenHeaderProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.background,
-  },
-  logoIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.card,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: `${colors.primary}20`,
-    borderWidth: 1.5,
-    borderColor: `${colors.primary}50`,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.primary,
-    lineHeight: 13,
-  },
-  badge: {
-    position: "absolute",
-    top: -2,
-    right: -2,
-    backgroundColor: colors.destructive,
-    borderRadius: 999,
-    minWidth: 14,
-    height: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 3,
-  },
-  badgeText: {
-    fontSize: 8,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      backgroundColor: c.background,
+    },
+    logoIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+    },
+    actions: {
+      flexDirection: "row",
+      gap: spacing.sm,
+    },
+    iconButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: c.card,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    avatarButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: `${c.primary}20`,
+      borderWidth: 1.5,
+      borderColor: `${c.primary}50`,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    avatarText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      fontWeight: "700",
+      color: c.primary,
+      lineHeight: 13,
+    },
+    badge: {
+      position: "absolute",
+      top: -2,
+      right: -2,
+      backgroundColor: c.destructive,
+      borderRadius: 999,
+      minWidth: 14,
+      height: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 3,
+    },
+    badgeText: {
+      fontSize: 8,
+      fontWeight: "700",
+      color: "#ffffff",
+    },
+  });
+}

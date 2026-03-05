@@ -20,6 +20,7 @@ import { formatAmount } from "@/components/features/expense-shared";
 import { FundSetupDialog } from "@/components/features/fund-setup-dialog";
 import { FundContributeDialog } from "@/components/features/fund-contribute-dialog";
 
+import type { ExpenseCategory } from "@prisma/client";
 import type { FundState, MemberContributionStatus, SerializedFundExpense } from "@/types/fund";
 import type { MemberOption } from "@/types/expense";
 import type { UseFundResult } from "@/hooks/use-fund";
@@ -155,7 +156,8 @@ function MemberRow({ status }: { status: MemberContributionStatus }) {
 // ============================================
 
 function FundExpenseRow({ expense }: { expense: SerializedFundExpense }) {
-  const Icon = CATEGORY_ICONS[expense.category];
+  const cat = expense.category as ExpenseCategory;
+  const Icon = CATEGORY_ICONS[cat];
   const date = new Date(expense.date);
   const dayLabel = date.toLocaleDateString("es-AR", { day: "numeric", month: "short" });
 
@@ -167,7 +169,7 @@ function FundExpenseRow({ expense }: { expense: SerializedFundExpense }) {
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm text-foreground">{expense.title}</p>
         <p className="text-[11px] text-muted-foreground">
-          {CATEGORY_LABELS[expense.category]} · {dayLabel}
+          {CATEGORY_LABELS[cat]} · {dayLabel}
         </p>
       </div>
       <span className="shrink-0 text-sm font-medium text-foreground">

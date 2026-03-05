@@ -4,7 +4,13 @@ export const createHouseholdInputSchema = z.object({
   householdName: z.string().min(1).max(100),
   memberName: z.string().min(1).max(100),
   memberType: z.enum(["ADULT", "TEEN", "CHILD"]).default("ADULT"),
-  location: z.string().optional(),
+  location: z.object({
+    city: z.string().max(100).optional(),
+    latitude: z.number().optional(),
+    longitude: z.number().optional(),
+    timezone: z.string().max(100).optional(),
+    country: z.string().max(10).optional(),
+  }).optional(),
 });
 
 export const joinHouseholdInputSchema = z.object({

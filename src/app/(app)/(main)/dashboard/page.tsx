@@ -9,9 +9,11 @@ import { PendingTransfers } from "@/components/features/pending-transfers";
 import { FridgeCalendarView } from "@/components/features/fridge-calendar-view";
 import { DailyBriefingWrapper } from "@/components/features/daily-briefing-wrapper";
 import { PushOptInBanner } from "@/components/features/push-opt-in-banner";
+import { OnboardingChecklist } from "@/components/features/onboarding-checklist";
 import { InviteHomeCard } from "@/components/features/invite-home-card";
+import { DashboardTour } from "@/components/features/dashboard-tour";
 import { getWeekMonday, getWeekSunday } from "@/lib/calendar-utils";
-import { ChevronRight, Dices, CalendarDays, Wallet, Sparkles, ChefHat } from "lucide-react";
+import { ChevronRight, CheckCircle2, Dices, CalendarDays, Wallet, Sparkles, ChefHat } from "lucide-react";
 import { spacing, iconSize } from "@/lib/design-tokens";
 import { isSoloHousehold, getHouseholdCopy } from "@/lib/household-mode";
 
@@ -53,7 +55,7 @@ export default async function DashboardPage() {
   const sunday = getWeekSunday(monday);
   const aiEnabled = isAIEnabled();
 
-  const [members, activePlan, transfers, calendarAssignments] =
+  const [members, activePlan, transfers, calendarAssignments, firstExpense, firstCompletedTask] =
     await Promise.all([
       prisma.member.findMany({
         where: { householdId, isActive: true },
@@ -103,7 +105,21 @@ export default async function DashboardPage() {
         },
         orderBy: { dueDate: "asc" },
       }),
+      prisma.expense.findFirst({
+        where: { householdId },
+        select: { id: true },
+      }),
+      prisma.assignment.findFirst({
+        where: {
+          householdId,
+          status: { in: ["COMPLETED", "VERIFIED"] },
+        },
+        select: { id: true },
+      }),
     ]);
+
+  const hasExpense = firstExpense !== null;
+  const hasCompletedTask = firstCompletedTask !== null;
 
   // Expense balance
   const [othersOweMeAgg, iOweOthersAgg] = await Promise.all([
@@ -163,6 +179,10 @@ export default async function DashboardPage() {
   const hasAppliedPlan = activePlan?.status === "APPLIED";
   const calendarData = hasAppliedPlan ? calendarAssignments : [];
 
+  const weeklyCompletedCount = calendarAssignments.filter(
+    (a) => a.status === "COMPLETED" || a.status === "VERIFIED",
+  ).length;
+
   // Serialize dates for client components
   const serializedAssignments = calendarData.map((a) => ({
     ...a,
@@ -182,6 +202,25 @@ export default async function DashboardPage() {
           {getGreeting()}, {member.name}
         </h1>
         <p className="mt-0.5 text-sm capitalize text-muted-foreground">{formatTodayDate()}</p>
+      </div>
+
+      {/* Weekly completed stat */}
+      {weeklyCompletedCount > 0 && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4 -mt-2">
+          <CheckCircle2 className="h-4 w-4 text-green-500" />
+          <span>
+            <strong className="text-foreground">{weeklyCompletedCount}</strong>{" "}
+            {weeklyCompletedCount === 1 ? "tarea completada" : "tareas completadas"} esta semana
+          </span>
+        </div>
+      )}
+
+      {/* Guided tour */}
+      <DashboardTour isSharedHousehold={!isSolo} />
+
+      {/* Onboarding checklist */}
+      <div className="mb-6">
+        <OnboardingChecklist hasExpense={hasExpense} hasCompletedTask={hasCompletedTask} />
       </div>
 
       {/* Push opt-in */}

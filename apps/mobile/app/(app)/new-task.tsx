@@ -6,10 +6,13 @@ import { ArrowLeft } from "lucide-react-native";
 import { useMembers } from "@/hooks/use-members";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { useCreateAssignment, useCreateTask } from "@/hooks/use-task-management";
+import { useThemeColors } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StyledTextInput } from "@/components/ui/text-input";
-import { colors, fontFamily, spacing, typography } from "@/theme";
+import { fontFamily, spacing, typography } from "@/theme";
+
+import type { ThemeColors } from "@/theme";
 import type { TaskFrequency } from "@habita/contracts";
 
 const FREQUENCY_OPTIONS: Array<{ label: string; value: TaskFrequency }> = [
@@ -26,6 +29,8 @@ function dueDateToIsoStartOfDay(dateValue: string): string | null {
 }
 
 export default function NewTaskScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const membersQuery = useMembers();
   const createTask = useCreateTask();
   const createAssignment = useCreateAssignment();
@@ -62,7 +67,7 @@ export default function NewTaskScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
           <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
         </Pressable>
-        <Text style={styles.backTitle}>Nueva tarea</Text>
+        <Text style={[styles.backTitle, { color: colors.text }]}>Nueva tarea</Text>
         <View style={styles.backBtn} />
       </View>
       <ScrollView bounces={false} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -97,26 +102,28 @@ export default function NewTaskScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
-  backTitle: { ...typography.cardTitle },
-  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24 },
-  subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, marginBottom: spacing.md },
-  card: { marginBottom: spacing.md },
-  field: { marginBottom: spacing.md },
-  sectionLabel: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "600", color: colors.text, marginBottom: spacing.sm },
-  freqRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  freqChip: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
-  freqChipActive: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
-  freqText: { fontFamily: fontFamily.sans, color: colors.text, fontWeight: "500", fontSize: 12 },
-  freqTextActive: { color: colors.primary, fontWeight: "700" },
-  memberRow: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, marginBottom: spacing.sm, backgroundColor: colors.card },
-  memberRowActive: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
-  memberName: { color: colors.text, fontWeight: "500" },
-  memberNameActive: { color: colors.primary, fontWeight: "700" },
-  loadingText: { color: colors.mutedForeground, marginBottom: spacing.sm },
-  errorCard: { backgroundColor: colors.errorBg, marginBottom: spacing.md },
-  errorText: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 14 },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.background },
+    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
+    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+    backTitle: { ...typography.cardTitle },
+    scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24 },
+    subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginBottom: spacing.md },
+    card: { marginBottom: spacing.md },
+    field: { marginBottom: spacing.md },
+    sectionLabel: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "600", color: c.text, marginBottom: spacing.sm },
+    freqRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+    freqChip: { borderWidth: 1, borderColor: c.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
+    freqChipActive: { borderColor: c.primary, backgroundColor: c.primaryLight },
+    freqText: { fontFamily: fontFamily.sans, color: c.text, fontWeight: "500", fontSize: 12 },
+    freqTextActive: { color: c.primary, fontWeight: "700" },
+    memberRow: { borderWidth: 1, borderColor: c.border, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, marginBottom: spacing.sm, backgroundColor: c.card },
+    memberRowActive: { borderColor: c.primary, backgroundColor: c.primaryLight },
+    memberName: { color: c.text, fontWeight: "500" },
+    memberNameActive: { color: c.primary, fontWeight: "700" },
+    loadingText: { color: c.mutedForeground, marginBottom: spacing.sm },
+    errorCard: { backgroundColor: c.errorBg, marginBottom: spacing.md },
+    errorText: { fontFamily: fontFamily.sans, color: c.errorText, fontSize: 14 },
+  });
+}

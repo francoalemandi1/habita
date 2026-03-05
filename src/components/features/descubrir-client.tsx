@@ -33,6 +33,12 @@ import {
   GraduationCap,
   Footprints,
 } from "lucide-react";
+import { Filter } from "lucide-react";
+import { SectionGuideCard } from "@/components/features/section-guide-card";
+import { useFirstVisit } from "@/hooks/use-first-visit";
+import { useMilestone } from "@/hooks/use-milestone";
+import { useCelebration } from "@/hooks/use-celebration";
+import { wasSectionToured } from "@/hooks/use-guided-tour";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useRelaxSuggestions, useRefreshRelaxSection } from "@/hooks/use-relax-suggestions";
 import { usePipelineStatus } from "@/hooks/use-pipeline-status";
@@ -430,6 +436,7 @@ export function DescubrirClient({
   householdCity,
   initialEvents,
 }: DescubrirClientProps) {
+  const { isFirstVisit: isFirstVisitDescubrir, dismiss: dismissDescubrir } = useFirstVisit("descubrir");
   const { location, isLoading: isGeoLoading } = useGeolocation();
   const [activeTimeFilter, setActiveTimeFilter] = useState<TimeFilter>("all");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -437,14 +444,19 @@ export function DescubrirClient({
   const { isRunning: isPipelineRunning, refetchStatus } = usePipelineStatus();
   const { data: savedEvents } = useSavedEvents();
 
-  const initialData = useMemo(() => {
+  // useState lazy initializer is allowed to call impure functions (Date.now, etc.)
+  const [initialData] = useState(() => {
     if (initialEvents.length === 0) return undefined;
     return {
       events: initialEvents,
       summary: "",
       generatedAt: new Date().toISOString(),
     };
-  }, [initialEvents]);
+  });
+
+  const [initialDataTimestamp] = useState(() =>
+    initialEvents.length > 0 ? Date.now() : undefined,
+  );
 
   const locationLabel = useMemo(() => {
     if (location?.city) return location.city;
@@ -457,7 +469,7 @@ export function DescubrirClient({
     section: "activities",
     enabled: true,
     initialData,
-    initialDataUpdatedAt: initialEvents.length > 0 ? Date.now() : undefined,
+    initialDataUpdatedAt: initialDataTimestamp,
     location,
     isGeoLoading,
     hasHouseholdLocation,
@@ -554,6 +566,17 @@ export function DescubrirClient({
 
   return (
     <div className={spacing.contentStack}>
+      {isFirstVisitDescubrir && !wasSectionToured("descubri") && (
+        <SectionGuideCard
+          steps={[
+            { icon: <MapPin className="h-4 w-4" />, title: "Eventos cerca tuyo", description: "Cultura, gastronomía y actividades en tu ciudad" },
+            { icon: <Filter className="h-4 w-4" />, title: "Filtrá por categoría", description: "Cine, teatro, música, restaurantes y más" },
+            { icon: <Bookmark className="h-4 w-4" />, title: "Guardá favoritos", description: "Marcá los eventos que te interesan" },
+          ]}
+          onDismiss={dismissDescubrir}
+        />
+      )}
+
       {/* Location + refresh header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -759,13 +782,17 @@ function HighlightedEventCard({
   const matchedSaved = isEventSaved(savedEvents, event.id ?? undefined);
   const isSaved = !!matchedSaved;
 
+  const eventSaveMilestone = useMilestone("first-event-saved");
+  const { celebrate: celebrateEvent } = useCelebration();
+
   const handleToggleSave = useCallback(() => {
     if (matchedSaved) {
       toggle({ savedEventId: matchedSaved.id });
     } else {
       toggle({ input: buildSaveEventInput(event) });
+      if (eventSaveMilestone.complete()) celebrateEvent("first-event-saved");
     }
-  }, [matchedSaved, toggle, event]);
+  }, [matchedSaved, toggle, event, eventSaveMilestone, celebrateEvent]);
 
   const primaryCta = event.ticketUrl
     ? { href: event.ticketUrl, label: "Entradas", icon: Ticket }
@@ -946,6 +973,8 @@ function EventCard({ event, savedEvents }: { event: RelaxEvent; savedEvents?: Sa
   const calendarUrl = buildCalendarUrl(event);
   const dateProximity = getDateProximityLabel(event.startDate);
   const { toggle, isPending: isSaveToggling } = useToggleSaveEvent();
+  const eventSaveMilestone = useMilestone("first-event-saved");
+  const { celebrate: celebrateEvent } = useCelebration();
 
   const matchedSaved = isEventSaved(savedEvents, event.id ?? undefined);
   const isSaved = !!matchedSaved;
@@ -955,8 +984,9 @@ function EventCard({ event, savedEvents }: { event: RelaxEvent; savedEvents?: Sa
       toggle({ savedEventId: matchedSaved.id });
     } else {
       toggle({ input: buildSaveEventInput(event) });
+      if (eventSaveMilestone.complete()) celebrateEvent("first-event-saved");
     }
-  }, [matchedSaved, toggle, event]);
+  }, [matchedSaved, toggle, event, eventSaveMilestone, celebrateEvent]);
 
   // Determine primary CTA
   const primaryCta = event.ticketUrl

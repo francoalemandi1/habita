@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -10,8 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonCard } from "@/components/ui/skeleton";
-import { colors, fontFamily, spacing, typography } from "@/theme";
+import { useThemeColors } from "@/hooks/use-theme";
+import { fontFamily, spacing, typography } from "@/theme";
 
+import type { ThemeColors } from "@/theme";
 import type { SerializedService } from "@/hooks/use-services";
 
 const FREQUENCY_LABELS: Record<string, string> = {
@@ -23,7 +25,7 @@ const FREQUENCY_LABELS: Record<string, string> = {
 };
 
 function formatAmount(amount: number | null): string {
-  if (amount === null) return "—";
+  if (amount === null) return "\u2014";
   return `$${amount.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
 }
 
@@ -44,6 +46,9 @@ interface ServiceCardProps {
 }
 
 function ServiceCard({ service, onGenerate, onDelete, isGenerating }: ServiceCardProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const days = daysUntil(service.nextDueDate);
   const isOverdue = days < 0;
   const isDueSoon = days >= 0 && days <= 7;
@@ -73,7 +78,7 @@ function ServiceCard({ service, onGenerate, onDelete, isGenerating }: ServiceCar
           <View>
             <Text style={[styles.serviceDueDate, { color: dueDateColor, fontWeight: dueDateWeight }]}>
               {isOverdue
-                ? `Venció hace ${Math.abs(days)} día${Math.abs(days) !== 1 ? "s" : ""}`
+                ? `Venci\u00F3 hace ${Math.abs(days)} d\u00EDa${Math.abs(days) !== 1 ? "s" : ""}`
                 : days === 0
                 ? "Vence hoy"
                 : `Vence ${formatDate(service.nextDueDate)}`}
@@ -102,6 +107,9 @@ function ServiceCard({ service, onGenerate, onDelete, isGenerating }: ServiceCar
 }
 
 export default function ServicesScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const servicesQuery = useServices();
   const generateM = useGenerateServiceExpense();
   const deleteM = useDeleteService();
@@ -113,12 +121,12 @@ export default function ServicesScreen() {
 
   const handleGenerate = (service: SerializedService) => {
     if (!service.lastAmount) {
-      Alert.alert("Sin monto", "Este servicio no tiene monto configurado. Editálo primero.");
+      Alert.alert("Sin monto", "Este servicio no tiene monto configurado. Edit\u00E1lo primero.");
       return;
     }
     Alert.alert(
       "Generar gasto",
-      `¿Registrar ${service.title} por ${formatAmount(service.lastAmount)}?`,
+      `\u00BFRegistrar ${service.title} por ${formatAmount(service.lastAmount)}?`,
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -128,7 +136,7 @@ export default function ServicesScreen() {
             generateM.mutate(service.id, {
               onSuccess: () => {
                 setGeneratingId(null);
-                Alert.alert("¡Listo!", "El gasto fue registrado correctamente.");
+                Alert.alert("\u00A1Listo!", "El gasto fue registrado correctamente.");
               },
               onError: (error) => {
                 setGeneratingId(null);
@@ -144,7 +152,7 @@ export default function ServicesScreen() {
   const handleDelete = (service: SerializedService) => {
     Alert.alert(
       "Eliminar servicio",
-      `¿Eliminar "${service.title}"? Esta acción no se puede deshacer.`,
+      `\u00BFEliminar "${service.title}"? Esta acci\u00F3n no se puede deshacer.`,
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -167,7 +175,7 @@ export default function ServicesScreen() {
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
             <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
           </Pressable>
-          <Text style={styles.backTitle}>Servicios</Text>
+          <Text style={[styles.backTitle, { color: colors.text }]}>Servicios</Text>
           <View style={styles.backBtn} />
         </View>
         <Text style={styles.subtitle}>Suscripciones y gastos recurrentes del hogar</Text>
@@ -208,7 +216,7 @@ export default function ServicesScreen() {
                       {overdue.length} servicio{overdue.length !== 1 ? "s" : ""} vencido{overdue.length !== 1 ? "s" : ""}
                     </Text>
                     <Text style={styles.overdueBannerSub}>
-                      Generá el gasto para mantener el historial al día.
+                      Gener\u00E1 el gasto para mantener el historial al d\u00EDa.
                     </Text>
                   </View>
                 </View>
@@ -249,7 +257,7 @@ export default function ServicesScreen() {
           <EmptyState
             icon={<Layers size={32} color={colors.mutedForeground} />}
             title="Sin servicios configurados"
-            subtitle="Agregá servicios desde la versión web para gestionar los gastos recurrentes del hogar."
+            subtitle="Agreg\u00E1 servicios desde la versi\u00F3n web para gestionar los gastos recurrentes del hogar."
           />
         ) : null}
       </ScrollView>
@@ -257,38 +265,40 @@ export default function ServicesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
-  backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
-  backTitle: { ...typography.cardTitle },
-  subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, marginTop: 2 },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.sm },
-  loadingList: { gap: spacing.md },
-  errorCard: { backgroundColor: colors.errorBg },
-  errorText: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 13 },
-  overdueCard: { backgroundColor: colors.destructiveForeground, borderColor: colors.destructive },
-  overdueBanner: { backgroundColor: colors.destructiveForeground, borderColor: colors.destructive },
-  overdueBannerRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
-  overdueBannerTitle: { fontFamily: fontFamily.sans, color: colors.errorText, fontWeight: "700", fontSize: 13 },
-  overdueBannerSub: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 12, marginTop: 2 },
-  serviceTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: spacing.sm },
-  serviceInfo: { flex: 1 },
-  serviceTitle: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 15 },
-  serviceProvider: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 12, marginTop: 2 },
-  serviceAmountCol: { alignItems: "flex-end" },
-  serviceAmount: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 16 },
-  serviceFrequency: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 11, marginTop: 2 },
-  serviceBottomRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  serviceDueDate: { fontFamily: fontFamily.sans, fontSize: 12 },
-  servicePaidBy: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground, marginTop: 2 },
-  serviceActions: { flexDirection: "row", gap: spacing.xs },
-  inactiveSection: { gap: spacing.xs },
-  inactiveBadge: { alignSelf: "flex-start" },
-  inactiveCard: { opacity: 0.6 },
-  inactiveRow: { flexDirection: "row", justifyContent: "space-between" },
-  inactiveTitle: { fontWeight: "600", color: colors.mutedForeground },
-  inactiveAmount: { color: colors.mutedForeground },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.background },
+    header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
+    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+    backTitle: { ...typography.cardTitle },
+    subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginTop: 2 },
+    scroll: { flex: 1 },
+    scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.sm },
+    loadingList: { gap: spacing.md },
+    errorCard: { backgroundColor: c.errorBg },
+    errorText: { fontFamily: fontFamily.sans, color: c.errorText, fontSize: 13 },
+    overdueCard: { backgroundColor: c.destructiveForeground, borderColor: c.destructive },
+    overdueBanner: { backgroundColor: c.destructiveForeground, borderColor: c.destructive },
+    overdueBannerRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+    overdueBannerTitle: { fontFamily: fontFamily.sans, color: c.errorText, fontWeight: "700", fontSize: 13 },
+    overdueBannerSub: { fontFamily: fontFamily.sans, color: c.errorText, fontSize: 12, marginTop: 2 },
+    serviceTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: spacing.sm },
+    serviceInfo: { flex: 1 },
+    serviceTitle: { fontFamily: fontFamily.sans, fontWeight: "700", color: c.text, fontSize: 15 },
+    serviceProvider: { fontFamily: fontFamily.sans, color: c.mutedForeground, fontSize: 12, marginTop: 2 },
+    serviceAmountCol: { alignItems: "flex-end" },
+    serviceAmount: { fontFamily: fontFamily.sans, fontWeight: "700", color: c.text, fontSize: 16 },
+    serviceFrequency: { fontFamily: fontFamily.sans, color: c.mutedForeground, fontSize: 11, marginTop: 2 },
+    serviceBottomRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    serviceDueDate: { fontFamily: fontFamily.sans, fontSize: 12 },
+    servicePaidBy: { fontFamily: fontFamily.sans, fontSize: 11, color: c.mutedForeground, marginTop: 2 },
+    serviceActions: { flexDirection: "row", gap: spacing.xs },
+    inactiveSection: { gap: spacing.xs },
+    inactiveBadge: { alignSelf: "flex-start" },
+    inactiveCard: { opacity: 0.6 },
+    inactiveRow: { flexDirection: "row", justifyContent: "space-between" },
+    inactiveTitle: { fontWeight: "600", color: c.mutedForeground },
+    inactiveAmount: { color: c.mutedForeground },
+  });
+}

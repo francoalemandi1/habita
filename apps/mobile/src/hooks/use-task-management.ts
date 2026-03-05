@@ -1,7 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 
-import type { CreateTaskInput, TaskSummary, TasksListResponse } from "@habita/contracts";
+import { queryKeys } from "@habita/contracts";
+import type {
+  CreateTaskInput,
+  TaskSummary,
+  TasksListResponse,
+  CatalogTask,
+  CatalogCategory,
+  CatalogResponse,
+} from "@habita/contracts";
+
+export type { CatalogTask, CatalogCategory, CatalogResponse };
 
 interface CreateTaskResponse {
   task: TaskSummary;
@@ -20,40 +30,17 @@ interface CreateAssignmentInput {
   notes?: string;
 }
 
-export interface CatalogTask {
-  name: string;
-  icon: string;
-  defaultFrequency: string;
-  defaultWeight: number;
-  estimatedMinutes: number | null;
-  minAge: number | null;
-}
-
-export interface CatalogCategory {
-  category: string;
-  label: string;
-  icon: string;
-  tasks: CatalogTask[];
-}
-
-interface CatalogResponse {
-  categories: CatalogCategory[];
-}
-
-const TASKS_QUERY_KEY = ["mobile", "tasks"] as const;
-const CATALOG_QUERY_KEY = ["mobile", "tasks", "catalog"] as const;
-const ASSIGNMENTS_QUERY_KEY = ["mobile", "assignments", "my"] as const;
 
 export function useTasks() {
   return useQuery({
-    queryKey: TASKS_QUERY_KEY,
+    queryKey: queryKeys.tasks.all(),
     queryFn: async () => mobileApi.get<TasksListResponse>("/api/tasks?limit=100&offset=0"),
   });
 }
 
 export function useTaskCatalog() {
   return useQuery({
-    queryKey: CATALOG_QUERY_KEY,
+    queryKey: queryKeys.tasks.catalog(),
     queryFn: async () => mobileApi.get<CatalogResponse>("/api/tasks/catalog"),
     staleTime: 10 * 60 * 1000, // catalog changes rarely
   });
@@ -66,7 +53,7 @@ export function useCreateTask() {
     mutationFn: async (input: CreateTaskInput) =>
       mobileApi.post<CreateTaskResponse>("/api/tasks", input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all() });
     },
   });
 }
@@ -78,7 +65,7 @@ export function useDeleteTask() {
     mutationFn: async (taskId: string) =>
       mobileApi.delete<{ success: boolean }>(`/api/tasks/${taskId}`),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: TASKS_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all() });
     },
   });
 }
@@ -90,7 +77,7 @@ export function useCreateAssignment() {
     mutationFn: async (input: CreateAssignmentInput) =>
       mobileApi.post<CreateAssignmentResponse>("/api/assignments", input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.assignments.my() });
     },
   });
 }

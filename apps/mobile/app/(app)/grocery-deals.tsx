@@ -1,16 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, ChevronDown, ChevronUp, RefreshCw, Tag } from "lucide-react-native";
 import { useGroceryDeals } from "@/hooks/use-grocery-deals";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
+import { useThemeColors } from "@/hooks/use-theme";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { colors, fontFamily, spacing, typography } from "@/theme";
+import { fontFamily, spacing, typography } from "@/theme";
 
+import type { ThemeColors } from "@/theme";
 import type { GroceryCategory, StoreCluster, ProductPrice } from "@/hooks/use-grocery-deals";
 
 const CATEGORIES: { value: GroceryCategory; label: string; emoji: string }[] = [
@@ -25,6 +27,9 @@ const CATEGORIES: { value: GroceryCategory; label: string; emoji: string }[] = [
 ];
 
 function ProductRow({ product }: { product: ProductPrice }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const handlePress = () => {
     if (product.sourceUrl) void Linking.openURL(product.sourceUrl);
   };
@@ -51,6 +56,8 @@ function ProductRow({ product }: { product: ProductPrice }) {
 }
 
 function StoreCard({ cluster, rank }: { cluster: StoreCluster; rank: number }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [expanded, setExpanded] = useState(rank === 0);
 
   const medals = ["🥇", "🥈", "🥉"];
@@ -97,6 +104,8 @@ function StoreCard({ cluster, rank }: { cluster: StoreCluster; rank: number }) {
 }
 
 export default function GroceryDealsScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const params = useLocalSearchParams<{ category?: string }>();
   const initialCategory = (params.category as GroceryCategory | undefined) ?? "almacen";
 
@@ -128,7 +137,7 @@ export default function GroceryDealsScreen() {
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
             <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
           </Pressable>
-          <Text style={styles.backTitle}>Ofertas del super</Text>
+          <Text style={[styles.backTitle, { color: colors.text }]}>Ofertas del super</Text>
           <View style={styles.backBtn} />
         </View>
         <Text style={styles.subtitle}>Mejores precios por categoría en supermercados cercanos</Text>
@@ -230,47 +239,49 @@ export default function GroceryDealsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
-  backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
-  backTitle: { ...typography.cardTitle },
-  subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.mutedForeground, marginTop: 2 },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.md },
-  categoryPills: { gap: spacing.sm, paddingBottom: 4, paddingHorizontal: 0 },
-  categoryPill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 20, backgroundColor: colors.muted },
-  categoryPillActive: { backgroundColor: colors.primary },
-  categoryEmoji: { fontFamily: fontFamily.sans, fontSize: 16 },
-  categoryLabel: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "600", color: colors.text },
-  categoryLabelActive: { color: "#ffffff" },
-  loadingContainer: { alignItems: "center", gap: spacing.sm, paddingTop: 40 },
-  loadingText: { color: colors.mutedForeground },
-  errorCard: { backgroundColor: colors.errorBg },
-  errorText: { fontFamily: fontFamily.sans, color: colors.errorText, fontSize: 13 },
-  resultsContainer: { gap: spacing.sm },
-  resultsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  cacheLabel: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 12 },
-  recommendationCard: { backgroundColor: colors.primaryLight, borderLeftWidth: 3, borderLeftColor: colors.primary },
-  recommendationText: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.infoText },
-  topStoreCard: { borderWidth: 2, borderColor: colors.primary },
-  storeHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  storeHeaderLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  storeMedal: { fontFamily: fontFamily.sans, fontSize: 20 },
-  storeName: { fontFamily: fontFamily.sans, fontWeight: "700", color: colors.text, fontSize: 15 },
-  storeProductCount: { fontFamily: fontFamily.sans, color: colors.mutedForeground, fontSize: 12, marginTop: 2 },
-  storeHeaderRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  discountBadge: { backgroundColor: colors.successBg },
-  storeProducts: { marginTop: spacing.sm },
-  totalSavings: { fontFamily: fontFamily.sans, color: colors.successText, fontSize: 12, fontWeight: "600", marginTop: spacing.sm },
-  productRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-  productInfo: { flex: 1, marginRight: spacing.sm },
-  productName: { fontFamily: fontFamily.sans, fontSize: 13, color: colors.text, fontWeight: "500" },
-  productDiscount: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.successText, marginTop: 2 },
-  productPrices: { alignItems: "flex-end" },
-  productPrice: { fontWeight: "700", color: colors.text },
-  productOriginalPrice: { fontFamily: fontFamily.sans, fontSize: 11, color: colors.mutedForeground, textDecorationLine: "line-through" },
-  notFoundCard: { backgroundColor: colors.warningBg },
-  notFoundText: { fontFamily: fontFamily.sans, color: colors.warningText, fontSize: 13, fontWeight: "600" },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.background },
+    header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
+    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+    backTitle: { ...typography.cardTitle },
+    subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginTop: 2 },
+    scroll: { flex: 1 },
+    scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.md },
+    categoryPills: { gap: spacing.sm, paddingBottom: 4, paddingHorizontal: 0 },
+    categoryPill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 20, backgroundColor: c.muted },
+    categoryPillActive: { backgroundColor: c.primary },
+    categoryEmoji: { fontFamily: fontFamily.sans, fontSize: 16 },
+    categoryLabel: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "600", color: c.text },
+    categoryLabelActive: { color: "#ffffff" },
+    loadingContainer: { alignItems: "center", gap: spacing.sm, paddingTop: 40 },
+    loadingText: { color: c.mutedForeground },
+    errorCard: { backgroundColor: c.errorBg },
+    errorText: { fontFamily: fontFamily.sans, color: c.errorText, fontSize: 13 },
+    resultsContainer: { gap: spacing.sm },
+    resultsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    cacheLabel: { fontFamily: fontFamily.sans, color: c.mutedForeground, fontSize: 12 },
+    recommendationCard: { backgroundColor: c.primaryLight, borderLeftWidth: 3, borderLeftColor: c.primary },
+    recommendationText: { fontFamily: fontFamily.sans, fontSize: 13, color: c.infoText },
+    topStoreCard: { borderWidth: 2, borderColor: c.primary },
+    storeHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    storeHeaderLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    storeMedal: { fontFamily: fontFamily.sans, fontSize: 20 },
+    storeName: { fontFamily: fontFamily.sans, fontWeight: "700", color: c.text, fontSize: 15 },
+    storeProductCount: { fontFamily: fontFamily.sans, color: c.mutedForeground, fontSize: 12, marginTop: 2 },
+    storeHeaderRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    discountBadge: { backgroundColor: c.successBg },
+    storeProducts: { marginTop: spacing.sm },
+    totalSavings: { fontFamily: fontFamily.sans, color: c.successText, fontSize: 12, fontWeight: "600", marginTop: spacing.sm },
+    productRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border },
+    productInfo: { flex: 1, marginRight: spacing.sm },
+    productName: { fontFamily: fontFamily.sans, fontSize: 13, color: c.text, fontWeight: "500" },
+    productDiscount: { fontFamily: fontFamily.sans, fontSize: 11, color: c.successText, marginTop: 2 },
+    productPrices: { alignItems: "flex-end" },
+    productPrice: { fontWeight: "700", color: c.text },
+    productOriginalPrice: { fontFamily: fontFamily.sans, fontSize: 11, color: c.mutedForeground, textDecorationLine: "line-through" },
+    notFoundCard: { backgroundColor: c.warningBg },
+    notFoundText: { fontFamily: fontFamily.sans, color: c.warningText, fontSize: 13, fontWeight: "600" },
+  });
+}

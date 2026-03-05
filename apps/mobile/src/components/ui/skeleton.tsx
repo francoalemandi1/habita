@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { Animated, StyleSheet, View, ViewStyle } from "react-native";
-import { colors, radius } from "@/theme";
+import { useThemeColors } from "@/hooks/use-theme";
+import { radius } from "@/theme";
 
 interface SkeletonProps {
   width?: number | `${number}%`;
@@ -10,7 +11,8 @@ interface SkeletonProps {
 }
 
 export function Skeleton({ width, height = 16, borderRadius, style }: SkeletonProps) {
-  const opacity = useRef(new Animated.Value(0.4)).current;
+  const colors = useThemeColors();
+  const opacity = useMemo(() => new Animated.Value(0.4), []);
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -34,8 +36,8 @@ export function Skeleton({ width, height = 16, borderRadius, style }: SkeletonPr
   return (
     <Animated.View
       style={[
-        styles.base,
         {
+          backgroundColor: colors.muted,
           width,
           height,
           borderRadius: borderRadius ?? radius.sm,
@@ -53,8 +55,24 @@ interface SkeletonCardProps {
 }
 
 export function SkeletonCard({ lines = 3, style }: SkeletonCardProps) {
+  const colors = useThemeColors();
+
   return (
-    <View style={[styles.card, style]}>
+    <View
+      style={[
+        {
+          backgroundColor: colors.card,
+          borderRadius: radius.xl,
+          padding: 16,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.05,
+          shadowRadius: 3,
+          elevation: 1,
+        },
+        style,
+      ]}
+    >
       <Skeleton width="60%" height={18} style={{ marginBottom: 12 }} />
       {Array.from({ length: lines }).map((_, i) => (
         <Skeleton
@@ -67,19 +85,3 @@ export function SkeletonCard({ lines = 3, style }: SkeletonCardProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    backgroundColor: colors.muted,
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.xl,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-});

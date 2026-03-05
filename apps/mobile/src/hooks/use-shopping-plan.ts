@@ -1,11 +1,23 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
-
+import { queryKeys } from "@habita/contracts";
 import type {
   SearchItem,
   ShoppingPlanAlternativesResponse,
   ShoppingPlanResult,
 } from "@habita/contracts";
+
+export interface ProductCatalogItem {
+  id: string;
+  name: string;
+  category: string;
+  isEssential: boolean;
+}
+
+interface ProductCatalogResponse {
+  products: ProductCatalogItem[];
+  excludedProductNames: string[];
+}
 
 interface ShoppingPlanInput {
   searchItems: SearchItem[];
@@ -31,5 +43,13 @@ export function useShoppingAlternatives() {
         "/api/ai/shopping-plan/alternatives",
         input,
       ),
+  });
+}
+
+export function useProductCatalog() {
+  return useQuery({
+    queryKey: queryKeys.grocery.productSelection(),
+    queryFn: async () => mobileApi.get<ProductCatalogResponse>("/api/shopping-plan/products"),
+    staleTime: 10 * 60 * 1000,
   });
 }

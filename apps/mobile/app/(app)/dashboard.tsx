@@ -16,6 +16,7 @@ import {
   Calendar,
   CalendarDays,
   ChefHat,
+  CheckCircle2,
   ChevronRight,
   Compass,
   Dices,
@@ -28,6 +29,7 @@ import {
 } from "lucide-react-native";
 import { useBriefing } from "@/hooks/use-stats";
 import { useMyAssignments } from "@/hooks/use-assignments";
+import { useExpenses } from "@/hooks/use-expenses";
 import { useExpenseBalances } from "@/hooks/use-expense-balances";
 import { useTransfers } from "@/hooks/use-transfers";
 import { useEvents } from "@/hooks/use-events";
@@ -35,13 +37,19 @@ import { useHouseholdDetail } from "@/hooks/use-households";
 import { useMembers } from "@/hooks/use-members";
 import { getTodayCategory, useDailyDeal } from "@/hooks/use-grocery-deals";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
+import { useThemeColors } from "@/hooks/use-theme";
 import { mobileConfig } from "@/lib/config";
 import { Card, CardContent } from "@/components/ui/card";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { ScreenHeader } from "@/components/features/screen-header";
-import { colors, fontFamily, radius, spacing, typography, shadows } from "@/theme";
+import { OnboardingChecklist } from "@/components/features/onboarding-checklist";
+import { TourSheet } from "@/components/features/tour-sheet";
+import { useGuidedTour } from "@/hooks/use-guided-tour";
+import { useCelebration } from "@/hooks/use-celebration";
+import { fontFamily, radius, spacing, typography, shadows } from "@/theme";
 
 import type { ReactNode } from "react";
+import type { ThemeColors } from "@/theme";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -69,6 +77,28 @@ function getMealLabel(): string {
   return "cena";
 }
 
+// ─── Weekly Streak Card ────────────────────────────────────────────────────
+
+function WeeklyStreakCard({ completedCount, activeToday }: { completedCount: number; activeToday: boolean }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  return (
+    <View style={styles.streakCard}>
+      <CheckCircle2 size={20} color={colors.successText} />
+      <View style={styles.streakTextWrap}>
+        <Text style={styles.streakCount}>
+          <Text style={{ color: colors.successText }}>{completedCount}</Text>
+          {" esta semana"}
+        </Text>
+        <Text style={styles.streakLabel}>
+          {activeToday ? "Tareas completadas · Activo hoy" : "Tareas completadas"}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 // ─── Invite Banner ─────────────────────────────────────────────────────────
 
 function InviteBanner({ inviteCode, householdName, onDismiss }: {
@@ -76,6 +106,9 @@ function InviteBanner({ inviteCode, householdName, onDismiss }: {
   householdName: string;
   onDismiss: () => void;
 }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const handleShare = async () => {
     const baseUrl = mobileConfig.oauthBaseUrl;
     // Universal link — opens the app directly if installed, otherwise prompts to download
@@ -125,6 +158,9 @@ interface FeatureLinkCardProps {
 }
 
 function FeatureLinkCard({ icon, iconBg, title, subtitle, cardBg, cardBorder, onPress }: FeatureLinkCardProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <Pressable onPress={onPress}>
       <View style={[styles.featureCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
@@ -144,6 +180,9 @@ function FeatureLinkCard({ icon, iconBg, title, subtitle, cardBg, cardBorder, on
 // ─── main screen ────────────────────────────────────────────────────────────
 
 export default function DashboardScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const { me, activeHouseholdId } = useMobileAuth();
   const briefingQuery = useBriefing();
   const assignmentsQuery = useMyAssignments();
@@ -154,6 +193,7 @@ export default function DashboardScreen() {
   const membersQuery = useMembers();
   const dailyDealQuery = useDailyDeal();
 
+  const expensesQuery = useExpenses();
   const [inviteDismissed, setInviteDismissed] = useState(false);
 
   useEffect(() => {
@@ -169,6 +209,10 @@ export default function DashboardScreen() {
 
   const activeMembers = me?.members.filter((m) => m.householdId === activeHouseholdId) ?? [];
   const isSolo = (membersQuery.data?.members?.length ?? activeMembers.length) <= 1;
+
+  // Guided tour
+  const tour = useGuidedTour(!isSolo);
+  const { celebrate } = useCelebration();
 
   // My net balance: positive = others owe me, negative = I owe others
   const myMemberId = useMemo(() => {
@@ -197,6 +241,43 @@ export default function DashboardScreen() {
     const now = new Date();
     return due.toDateString() === now.toDateString();
   });
+
+  const assignmentsData = assignmentsQuery.data;
+  const hasAnyAssignments = (assignmentsData?.assignments?.length ?? 0) > 0;
+  const hasPendingAssignments = (assignmentsData?.pending?.length ?? 0) > 0;
+
+  const hasExpense = (expensesQuery.data?.expenses?.length ?? 0) > 0;
+  const hasCompletedTask = (assignmentsData?.completed?.length ?? 0) > 0;
+
+  const weeklyCompletedCount = assignmentsData?.completed?.length ?? 0;
+  const activeTodayStreak = (assignmentsData?.completed ?? []).some((a) => {
+    const completedAt = a.completedAt ? new Date(a.completedAt) : null;
+    if (!completedAt) return false;
+    const now = new Date();
+    return completedAt.toDateString() === now.toDateString();
+  });
+
+  const planCardTitle = (() => {
+    if (!hasAnyAssignments) {
+      return isSolo ? "Plan semanal" : "Plan de distribución";
+    }
+    if (hasPendingAssignments) {
+      return isSolo ? "Plan semanal en curso" : "Plan de distribución en curso";
+    }
+    return "Plan completado";
+  })();
+
+  const planCardSubtitle = (() => {
+    if (!hasAnyAssignments) {
+      return isSolo
+        ? "Organizá tus tareas de la semana"
+        : "Distribuí las tareas equitativamente entre los miembros";
+    }
+    if (hasPendingAssignments) {
+      return "Tenés tareas asignadas para esta semana.";
+    }
+    return "Completaste todas las tareas de tu último plan.";
+  })();
 
   const recommendedEvent = useMemo(() => {
     const events = eventsQuery.data?.events ?? [];
@@ -234,11 +315,27 @@ export default function DashboardScreen() {
       >
         {/* ── Greeting ── */}
         <View style={styles.greetingSection}>
-          <Text style={styles.greetingTitle}>
+          <Text style={[styles.greetingTitle, { color: colors.text }]}>
             {getGreeting()}{firstName ? `, ${firstName}` : ""}
           </Text>
           <Text style={styles.greetingDate}>{formatTodayDate()}</Text>
         </View>
+
+        {/* ── Guided tour ── */}
+        {tour.shouldShowTour && tour.activeTourSection ? (
+          <TourSheet
+            section={tour.activeTourSection}
+            stepNumber={tour.getTourStepNumber(tour.activeTourSection)}
+            totalSteps={tour.totalSteps}
+            visible={tour.shouldShowTour}
+            onDismiss={() => tour.advanceToNext()}
+            onSkipTour={() => { tour.skipTour(); celebrate("tour-complete"); }}
+            onNavigate={() => { if (tour.activeTourSection) tour.markSectionToured(tour.activeTourSection); }}
+          />
+        ) : null}
+
+        {/* ── Onboarding checklist ── */}
+        <OnboardingChecklist hasExpense={hasExpense} hasCompletedTask={hasCompletedTask} />
 
         {/* ── Invite banner ── */}
         {inviteCode && !inviteDismissed ? (
@@ -275,12 +372,19 @@ export default function DashboardScreen() {
               ) : null}
               {briefing.suggestion ? (
                 <View style={styles.briefingSuggestion}>
-                  <Lightbulb size={16} color="#f59e0b" style={{ flexShrink: 0, marginTop: 1 }} />
+                  <Lightbulb size={16} color={colors.warningText} style={{ flexShrink: 0, marginTop: 1 }} />
                   <Text style={styles.briefingSuggestionText}>{briefing.suggestion}</Text>
                 </View>
               ) : null}
             </CardContent>
           </Card>
+        ) : null}
+
+        {/* ── Weekly streak summary ── */}
+        {weeklyCompletedCount > 0 ? (
+          <View style={styles.section}>
+            <WeeklyStreakCard completedCount={weeklyCompletedCount} activeToday={activeTodayStreak} />
+          </View>
         ) : null}
 
         {/* ── Today's tasks summary ── */}
@@ -320,7 +424,7 @@ export default function DashboardScreen() {
                         weekday: "short", day: "numeric", month: "short",
                       }) + (recommendedEvent.venueName ? ` · ${recommendedEvent.venueName}` : "")
                     : (recommendedEvent.venueName ?? "Eventos cerca tuyo"))
-                : "Eventos, cultura y planes cerca tuyo"
+                : "Explorá eventos y salidas cerca tuyo →"
             }
             onPress={() => router.push("/(app)/discover")}
           />
@@ -330,7 +434,7 @@ export default function DashboardScreen() {
             cardBg="#fff7ed"
             cardBorder="rgba(251, 146, 60, 0.35)"
             title="Cociná"
-            subtitle={`Ideas para el ${mealLabel} de hoy`}
+            subtitle="Recetas con lo que tenés en casa →"
             onPress={() => router.push("/(app)/cocina")}
           />
           {/* Ahorrá — shows best live deal when loaded, skeleton while loading */}
@@ -390,7 +494,7 @@ export default function DashboardScreen() {
           <Pressable onPress={() => router.push("/(app)/transfers")} style={styles.section}>
             <View style={styles.transfersCard}>
               <View style={styles.transfersIconWrap}>
-                <ArrowRightLeft size={18} color="#d97706" />
+                <ArrowRightLeft size={18} color={colors.warningText} />
               </View>
               <View style={styles.transfersText}>
                 <Text style={styles.transfersTitle}>
@@ -416,10 +520,8 @@ export default function DashboardScreen() {
               <CalendarDays size={18} color={colors.primary} />
             </View>
             <View style={styles.planText}>
-              <Text style={styles.planTitle}>Plan de distribución</Text>
-              <Text style={styles.planSubtitle}>
-                Distribuí las tareas equitativamente entre los miembros
-              </Text>
+            <Text style={styles.planTitle}>{planCardTitle}</Text>
+            <Text style={styles.planSubtitle}>{planCardSubtitle}</Text>
             </View>
             <ChevronRight size={16} color={colors.mutedForeground} />
           </View>
@@ -435,7 +537,7 @@ export default function DashboardScreen() {
               : isOwing
                 ? styles.balanceCardRed
                 : styles.balanceCardNeutral;
-            const iconColor = isOwed ? "#16a34a" : isOwing ? colors.errorText : colors.mutedForeground;
+            const iconColor = isOwed ? colors.successText : isOwing ? colors.errorText : colors.mutedForeground;
             const mainText = isOwed
               ? `Te deben $${myBalance.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`
               : isOwing
@@ -447,7 +549,7 @@ export default function DashboardScreen() {
                   <Wallet size={18} color={iconColor} />
                 </View>
                 <View style={styles.balanceText}>
-                  <Text style={[styles.balanceMain, { color: isOwed ? "#16a34a" : isOwing ? colors.errorText : colors.text }]}>
+                  <Text style={[styles.balanceMain, { color: isOwed ? colors.successText : isOwing ? colors.errorText : colors.text }]}>
                     {mainText}
                   </Text>
                   <Text style={styles.balanceSub}>Ver gastos del hogar</Text>
@@ -484,404 +586,434 @@ export default function DashboardScreen() {
 
 // ─── styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: 24,
-  },
-  section: {
-    marginBottom: spacing.lg,
-  },
-  greetingSection: {
-    marginBottom: spacing.lg,
-    gap: 2,
-  },
-  greetingTitle: {
-    ...typography.pageTitle,
-  },
-  greetingDate: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    color: colors.mutedForeground,
-    textTransform: "capitalize",
-  },
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    scrollContent: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: 24,
+    },
+    section: {
+      marginBottom: spacing.lg,
+    },
+    greetingSection: {
+      marginBottom: spacing.lg,
+      gap: 2,
+    },
+    greetingTitle: {
+      ...typography.pageTitle,
+    },
+    greetingDate: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      color: c.mutedForeground,
+      textTransform: "capitalize",
+    },
 
-  // ── Invite banner ──
-  inviteBanner: {
-    backgroundColor: `${colors.primary}08`,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: `${colors.primary}20`,
-    padding: spacing.lg,
-  },
-  inviteDismiss: {
-    position: "absolute",
-    top: spacing.md,
-    right: spacing.md,
-    zIndex: 1,
-  },
-  inviteRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    marginBottom: spacing.md,
-    paddingRight: spacing.lg,
-  },
-  inviteIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.primaryLight,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  inviteTextWrap: {
-    flex: 1,
-    gap: 2,
-  },
-  inviteTitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  inviteSubtitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-  },
-  inviteShareBtn: {
-    alignItems: "center",
-    backgroundColor: colors.primary,
-    borderRadius: radius.lg,
-    paddingVertical: 10,
-  },
-  inviteShareText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#ffffff",
-  },
+    // ── Invite banner ──
+    inviteBanner: {
+      backgroundColor: `${c.primary}08`,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: `${c.primary}20`,
+      padding: spacing.lg,
+    },
+    inviteDismiss: {
+      position: "absolute",
+      top: spacing.md,
+      right: spacing.md,
+      zIndex: 1,
+    },
+    inviteRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      marginBottom: spacing.md,
+      paddingRight: spacing.lg,
+    },
+    inviteIconWrap: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: c.primaryLight,
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+    },
+    inviteTextWrap: {
+      flex: 1,
+      gap: 2,
+    },
+    inviteTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "600",
+      color: c.text,
+    },
+    inviteSubtitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+    },
+    inviteShareBtn: {
+      alignItems: "center",
+      backgroundColor: c.primary,
+      borderRadius: radius.lg,
+      paddingVertical: 10,
+    },
+    inviteShareText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#ffffff",
+    },
 
-  // ── Tasks summary ──
-  tasksSummaryCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: `${colors.primary}25`,
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  tasksSummaryIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: `${colors.primary}15`,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  tasksSummaryText: {
-    flex: 1,
-    gap: 2,
-  },
-  tasksSummaryTitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  tasksSummarySubtitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-  },
+    // ── Weekly streak ──
+    streakCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: `${c.successText}30`,
+      backgroundColor: c.successBg,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+    },
+    streakTextWrap: {
+      flex: 1,
+      gap: 2,
+    },
+    streakCount: {
+      fontFamily: fontFamily.sans,
+      fontSize: 15,
+      fontWeight: "700" as const,
+      color: c.text,
+    },
+    streakLabel: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+    },
 
-  // ── Daily deal skeleton ──
-  dealSkeletonTitle: {
-    height: 13,
-    borderRadius: 6,
-    backgroundColor: `${colors.muted}CC`,
-    width: "70%",
-    marginBottom: 6,
-  },
-  dealSkeletonSub: {
-    height: 11,
-    borderRadius: 5,
-    backgroundColor: `${colors.muted}99`,
-    width: "50%",
-  },
+    // ── Tasks summary ──
+    tasksSummaryCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: `${c.primary}25`,
+      backgroundColor: c.primaryLight,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+    },
+    tasksSummaryIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: `${c.primary}15`,
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+    },
+    tasksSummaryText: {
+      flex: 1,
+      gap: 2,
+    },
+    tasksSummaryTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "600",
+      color: c.text,
+    },
+    tasksSummarySubtitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+    },
 
-  // Briefing
-  briefingGreeting: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.text,
-    marginBottom: 4,
-  },
-  briefingSummary: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    color: colors.mutedForeground,
-    lineHeight: 20,
-  },
-  briefingHighlights: {
-    marginTop: spacing.md,
-    gap: 6,
-  },
-  briefingLine: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  briefingBullet: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: `${colors.text}66`,
-    marginTop: 7,
-    flexShrink: 0,
-  },
-  briefingLineText: {
-    fontFamily: fontFamily.sans,
-    flex: 1,
-    fontSize: 14,
-    color: colors.mutedForeground,
-    lineHeight: 20,
-  },
-  briefingSuggestion: {
-    marginTop: spacing.md,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    backgroundColor: "#fffbeb",
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  briefingSuggestionText: {
-    fontFamily: fontFamily.sans,
-    flex: 1,
-    fontSize: 14,
-    color: "#92400e",
-    lineHeight: 20,
-  },
+    // ── Daily deal skeleton ──
+    dealSkeletonTitle: {
+      height: 13,
+      borderRadius: 6,
+      backgroundColor: `${c.muted}CC`,
+      width: "70%",
+      marginBottom: 6,
+    },
+    dealSkeletonSub: {
+      height: 11,
+      borderRadius: 5,
+      backgroundColor: `${c.muted}99`,
+      width: "50%",
+    },
 
-  // Feature link cards
-  featureRow: {
-    gap: spacing.sm,
-  },
-  featureCard: {
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    ...shadows.card,
-  },
-  featureCardContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-  },
-  featureIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  featureTextContainer: {
-    flex: 1,
-    gap: 2,
-  },
-  featureTitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  featureSubtitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-    lineHeight: 16,
-  },
+    // Briefing
+    briefingGreeting: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "600",
+      color: c.text,
+      marginBottom: 4,
+    },
+    briefingSummary: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      color: c.mutedForeground,
+      lineHeight: 20,
+    },
+    briefingHighlights: {
+      marginTop: spacing.md,
+      gap: 6,
+    },
+    briefingLine: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 8,
+    },
+    briefingBullet: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: `${c.text}66`,
+      marginTop: 7,
+      flexShrink: 0,
+    },
+    briefingLineText: {
+      fontFamily: fontFamily.sans,
+      flex: 1,
+      fontSize: 14,
+      color: c.mutedForeground,
+      lineHeight: 20,
+    },
+    briefingSuggestion: {
+      marginTop: spacing.md,
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 8,
+      backgroundColor: c.warningBg,
+      borderRadius: radius.lg,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    briefingSuggestionText: {
+      fontFamily: fontFamily.sans,
+      flex: 1,
+      fontSize: 14,
+      color: c.warningText,
+      lineHeight: 20,
+    },
 
-  // Balance card
-  balanceCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: `${colors.muted}4D`,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    ...shadows.card,
-  },
-  balanceIconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.muted,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  balanceText: {
-    flex: 1,
-    gap: 2,
-  },
-  balanceMain: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.text,
-  },
-  balanceSub: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-  },
-  balanceCardGreen: {
-    borderColor: "#bbf7d0",
-    backgroundColor: "#f0fdf4",
-  },
-  balanceCardRed: {
-    borderColor: "#fecaca",
-    backgroundColor: "#fef2f2",
-  },
-  balanceCardNeutral: {
-    borderColor: colors.border,
-    backgroundColor: `${colors.muted}4D`,
-  },
+    // Feature link cards
+    featureRow: {
+      gap: spacing.sm,
+    },
+    featureCard: {
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      ...shadows.card,
+    },
+    featureCardContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.lg,
+    },
+    featureIconContainer: {
+      width: 40,
+      height: 40,
+      borderRadius: radius.lg,
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+    },
+    featureTextContainer: {
+      flex: 1,
+      gap: 2,
+    },
+    featureTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "600",
+      color: c.text,
+    },
+    featureSubtitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      lineHeight: 16,
+    },
 
-  // Transfers card
-  transfersCard: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: spacing.md,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: "#fde68a",
-    backgroundColor: "#fffbeb",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    ...shadows.card,
-  },
-  transfersIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "#fef3c7",
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-    flexShrink: 0,
-  },
-  transfersText: {
-    flex: 1,
-    gap: 2,
-  },
-  transfersTitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "600" as const,
-    color: "#92400e",
-  },
-  transfersSubtitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: "#d97706",
-  },
+    // Balance card
+    balanceCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: `${c.muted}4D`,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      ...shadows.card,
+    },
+    balanceIconWrapper: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: c.muted,
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+    },
+    balanceText: {
+      flex: 1,
+      gap: 2,
+    },
+    balanceMain: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "500",
+      color: c.text,
+    },
+    balanceSub: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+    },
+    balanceCardGreen: {
+      borderColor: c.successBg,
+      backgroundColor: c.successBg,
+    },
+    balanceCardRed: {
+      borderColor: c.errorBg,
+      backgroundColor: c.errorBg,
+    },
+    balanceCardNeutral: {
+      borderColor: c.border,
+      backgroundColor: `${c.muted}4D`,
+    },
 
-  // Plan card
-  planCard: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: spacing.md,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: `${colors.primary}25`,
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    ...shadows.card,
-  },
-  planIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: `${colors.primary}15`,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-    flexShrink: 0,
-  },
-  planText: {
-    flex: 1,
-    gap: 2,
-  },
-  planTitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "600" as const,
-    color: colors.text,
-  },
-  planSubtitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-  },
+    // Transfers card
+    transfersCard: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.md,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: c.warningBg,
+      backgroundColor: c.warningBg,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      ...shadows.card,
+    },
+    transfersIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: c.warningBg,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      flexShrink: 0,
+    },
+    transfersText: {
+      flex: 1,
+      gap: 2,
+    },
+    transfersTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "600" as const,
+      color: c.warningText,
+    },
+    transfersSubtitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.warningText,
+    },
 
-  // Roulette CTA
-  rouletteCard: {
-    borderWidth: 1,
-    borderColor: "rgba(196, 181, 253, 0.25)",
-    backgroundColor: "#faf5ff",
-  },
-  rouletteContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  rouletteIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.xl,
-    backgroundColor: "#ede9fe",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  rouletteTextContainer: {
-    flex: 1,
-    gap: 2,
-  },
-  rouletteTitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  rouletteSubtitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-  },
+    // Plan card
+    planCard: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.md,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: `${c.primary}25`,
+      backgroundColor: c.primaryLight,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      ...shadows.card,
+    },
+    planIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: `${c.primary}15`,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      flexShrink: 0,
+    },
+    planText: {
+      flex: 1,
+      gap: 2,
+    },
+    planTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "600" as const,
+      color: c.text,
+    },
+    planSubtitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+    },
 
-  bottomPadding: {
-    height: 20,
-  },
-});
+    // Roulette CTA
+    rouletteCard: {
+      borderWidth: 1,
+      borderColor: "rgba(196, 181, 253, 0.25)",
+      backgroundColor: "#faf5ff",
+    },
+    rouletteContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    rouletteIconContainer: {
+      width: 44,
+      height: 44,
+      borderRadius: radius.xl,
+      backgroundColor: "#ede9fe",
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+    },
+    rouletteTextContainer: {
+      flex: 1,
+      gap: 2,
+    },
+    rouletteTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 15,
+      fontWeight: "600",
+      color: c.text,
+    },
+    rouletteSubtitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+    },
+
+    bottomPadding: {
+      height: 20,
+    },
+  });
+}

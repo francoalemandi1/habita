@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       mealType,
     });
 
-    if (!result || result.recipes.length === 0) {
+    if (!result) {
       return NextResponse.json(
         { error: "No se pudieron generar recetas. Intenta de nuevo." },
         { status: 500 }

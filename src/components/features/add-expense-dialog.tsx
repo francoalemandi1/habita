@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,6 +13,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
+import { useMilestone } from "@/hooks/use-milestone";
+import { useCelebration } from "@/hooks/use-celebration";
 import { getMemberColor, getInitial } from "@/lib/member-utils";
 import {
   CATEGORY_OPTIONS,
@@ -123,6 +126,8 @@ export function AddExpenseDialog({
   defaultValues,
   fund,
 }: AddExpenseDialogProps) {
+  const expenseMilestone = useMilestone("first-expense");
+  const { celebrate } = useCelebration();
   const [internalOpen, setInternalOpen] = useState(false);
   const isExternallyControlled = externalOpen !== undefined;
   const open = isExternallyControlled ? externalOpen : internalOpen;
@@ -234,14 +239,16 @@ export function AddExpenseDialog({
   }
 
   // Pre-fill form when opened with defaultValues (quick-add)
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
     if (open && defaultValues) {
       setTitle(defaultValues.title);
       setAmount(defaultValues.amount.toString());
       setCategory(defaultValues.category);
       setCategoryAutoSet(false);
     }
-  }, [open, defaultValues]);
+  }
 
   // Auto-focus amount field when dialog opens
   useEffect(() => {
@@ -304,6 +311,7 @@ export function AddExpenseDialog({
     });
 
     toast.success("Gasto registrado");
+    if (expenseMilestone.complete()) celebrate("first-expense");
     handleOpenChange(false);
   }
 
@@ -619,6 +627,13 @@ export function AddExpenseDialog({
               </div>
             )}
           </div>
+
+          {isSolo && (
+            <p className="text-xs text-muted-foreground text-center mt-1">
+              <Link href="/profile" className="underline underline-offset-2">Invitá a alguien</Link>{" "}
+              para dividir gastos automáticamente
+            </p>
+          )}
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => handleOpenChange(false)}>

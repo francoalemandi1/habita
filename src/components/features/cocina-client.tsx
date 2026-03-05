@@ -16,7 +16,14 @@ import {
   ChevronUp,
   AlertTriangle,
   Info,
+  Sparkles,
+  Share2,
 } from "lucide-react";
+import { SectionGuideCard } from "@/components/features/section-guide-card";
+import { useFirstVisit } from "@/hooks/use-first-visit";
+import { useMilestone } from "@/hooks/use-milestone";
+import { useCelebration } from "@/hooks/use-celebration";
+import { wasSectionToured } from "@/hooks/use-guided-tour";
 import { useMutationState } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { radius, spacing, iconSize } from "@/lib/design-tokens";
@@ -124,6 +131,10 @@ function isSpeechRecognitionAvailable(): boolean {
 // ============================================
 
 export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
+  const { isFirstVisit: isFirstVisitCocina, dismiss: dismissCocina } = useFirstVisit("cocina");
+  const recipeMilestone = useMilestone("first-recipe");
+  const { celebrate } = useCelebration();
+
   // Persisted across navigation via sessionStorage
   const [textInput, setTextInput] = useSessionStorageState("cocina-text", "");
   const [images, setImages] = useSessionStorageState<string[]>("cocina-images", []);
@@ -147,17 +158,16 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
   // Transient UI state (not worth persisting)
   const [isRecording, setIsRecording] = useState(false);
   const [hasSpeechApi, setHasSpeechApi] = useState(false);
+  useEffect(() => {
+    setHasSpeechApi(isSpeechRecognitionAvailable());
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  }, []);
   const [imageError, setImageError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
-
-  // Detect Speech API on client only to avoid hydration mismatch
-  useEffect(() => {
-    setHasSpeechApi(isSpeechRecognitionAvailable());
-  }, []);
 
   const canSubmit = useMemo(
     () => (textInput.trim().length > 0 || images.length > 0) && !isGenerating,
@@ -171,7 +181,9 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
     prevDataRef.current = mutation.data;
     if (isNewResult && resultsRef.current) {
       resultsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (recipeMilestone.complete()) celebrate("first-recipe");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mutation.data]);
 
   // ---- Image handling ----
@@ -262,6 +274,17 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
 
   return (
     <div className={spacing.contentStack}>
+      {isFirstVisitCocina && !wasSectionToured("cocina") && (
+        <SectionGuideCard
+          steps={[
+            { icon: <Camera className="h-4 w-4" />, title: "Sacá una foto", description: "Fotografiá tu heladera o alacena" },
+            { icon: <Sparkles className="h-4 w-4" />, title: "La IA sugiere recetas", description: "Recetas personalizadas con lo que tenés" },
+            { icon: <ChefHat className="h-4 w-4" />, title: "Cociná y compartí", description: "Seguí los pasos y disfrutá" },
+          ]}
+          onDismiss={dismissCocina}
+        />
+      )}
+
       {/* Guardados chip */}
       <div className="flex gap-2">
         <button
@@ -454,6 +477,13 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
         </div>
       )}
 
+      {/* Rejection message (non-food input) */}
+      {mutation.data?.recipes && mutation.data.recipes.length === 0 && mutation.data.summary && (
+        <div className="rounded-lg border border-border bg-muted/50 p-4 text-center">
+          <p className="text-sm text-muted-foreground">{mutation.data.summary}</p>
+        </div>
+      )}
+
       {/* Results */}
       {mutation.data?.recipes && mutation.data.recipes.length > 0 && (
         <div ref={resultsRef} className={spacing.contentStack}>
@@ -494,6 +524,7 @@ function RecipeCard({ recipe, savedRecipes, savedRecipeId }: RecipeCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAllIngredients, setShowAllIngredients] = useState(false);
   const [contentHash, setContentHash] = useState<string | null>(null);
+  const [shareLabel, setShareLabel] = useState<string | null>(null);
   const { toggle, isPending: isSaveToggling } = useToggleSaveRecipe();
   const difficultyConfig = DIFFICULTY_CONFIG[recipe.difficulty] ?? { label: "Facil", color: "bg-emerald-100 text-emerald-700" };
   const speedBadge = getSpeedBadge(recipe.prepTimeMinutes);
@@ -530,6 +561,39 @@ function RecipeCard({ recipe, savedRecipes, savedRecipeId }: RecipeCardProps) {
     }
   }, [matchedSaved, toggle, recipe]);
 
+  const handleShareRecipe = useCallback(async () => {
+    const difficultyLabel = DIFFICULTY_CONFIG[recipe.difficulty]?.label ?? recipe.difficulty;
+    const lines = [
+      recipe.title,
+      "",
+      `🧑‍🍳 ${difficultyLabel} · ⏱ ${recipe.prepTimeMinutes} min · 🍽 ${recipe.servings} porciones`,
+      "",
+      "Ingredientes:",
+      ...recipe.ingredients.map((i) => `• ${i}`),
+      "",
+      "Preparación:",
+      ...recipe.steps.map((s, idx) => `${idx + 1}. ${s}`),
+      ...(recipe.tip ? ["", `💡 ${recipe.tip}`] : []),
+      "",
+      "Organizado con Habita 🏠",
+    ];
+    const text = lines.join("\n");
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title: recipe.title, text });
+        setShareLabel("¡Compartido!");
+      } else {
+        await navigator.clipboard.writeText(text);
+        setShareLabel("¡Copiado!");
+      }
+    } catch {
+      // user cancelled or clipboard failed
+      return;
+    }
+    setTimeout(() => setShareLabel(null), 2000);
+  }, [recipe]);
+
   const visibleIngredients = showAllIngredients
     ? recipe.ingredients
     : recipe.ingredients.slice(0, INGREDIENTS_COLLAPSED_LIMIT);
@@ -550,6 +614,19 @@ function RecipeCard({ recipe, savedRecipes, savedRecipeId }: RecipeCardProps) {
               isPending={isSaveToggling}
               onToggle={handleToggleSave}
             />
+            <button
+              type="button"
+              onClick={() => { void handleShareRecipe(); }}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={shareLabel ?? "Compartir receta"}
+              title={shareLabel ?? "Compartir receta"}
+            >
+              {shareLabel ? (
+                <span className="text-[10px] font-semibold text-primary leading-none">{shareLabel}</span>
+              ) : (
+                <Share2 className="h-4 w-4" />
+              )}
+            </button>
           </div>
         </div>
 

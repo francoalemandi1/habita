@@ -1,33 +1,50 @@
-import { useCallback, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { router } from "expo-router";
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Bookmark,
   BookmarkCheck,
   Check,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   CreditCard,
   ExternalLink,
+  List,
   Minus,
   Plus,
+  Receipt,
   RefreshCw,
+  Search,
   ShoppingCart,
   Trash2,
   Trophy,
+  X,
   XCircle,
+  Share2,
 } from "lucide-react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import { useDeleteSavedCart, useRefreshSavedCart, useSaveCart, useSavedCarts } from "@/hooks/use-saved-carts";
-import { useShoppingAlternatives, useShoppingPlan } from "@/hooks/use-shopping-plan";
-import { usePromos, parseJsonArray } from "@/hooks/use-promos";
+import { useProductCatalog, useShoppingAlternatives, useShoppingPlan } from "@/hooks/use-shopping-plan";
+import { usePromos, usePromoPipelineStatus, useRefreshPromos, parseJsonArray } from "@/hooks/use-promos";
+import { TabBar } from "@/components/ui/tab-bar";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
+import { useMilestone } from "@/hooks/use-milestone";
+import { useCelebration } from "@/hooks/use-celebration";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StyledTextInput } from "@/components/ui/text-input";
+import { ProductAutocomplete } from "@/components/features/product-autocomplete";
 import { ScreenHeader } from "@/components/features/screen-header";
-import { colors, fontFamily, radius, spacing, storeColorFallback, storeColors, typography } from "@/theme";
+import { fontFamily, radius, spacing, storeColorFallback, storeColors, typography } from "@/theme";
+import { useThemeColors } from "@/hooks/use-theme";
+import { useFirstVisit } from "@/hooks/use-first-visit";
+import { SectionGuideCard } from "@/components/features/section-guide-card";
+import { useSectionToured } from "@/hooks/use-guided-tour";
 
 import type {
   AlternativeProduct,
@@ -37,6 +54,7 @@ import type {
   StoreCart,
 } from "@habita/contracts";
 import type { BankPromo } from "@/hooks/use-promos";
+import type { ThemeColors } from "@/theme";
 
 function formatAmount(amount: number): string {
   return `$${amount.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
@@ -108,6 +126,8 @@ function StoreAvatar({ storeName, size = 40 }: StoreAvatarProps) {
   const color = getStoreColor(storeName);
   const [faviconError, setFaviconError] = useState(false);
   const faviconUrl = getStoreFaviconUrl(storeName);
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View
@@ -131,33 +151,135 @@ function StoreAvatar({ storeName, size = 40 }: StoreAvatarProps) {
   );
 }
 
-interface ProductChipProps {
+interface SimpleItemChipProps {
   item: SearchItem;
-  onIncrement: () => void;
-  onDecrement: () => void;
   onRemove: () => void;
 }
 
-function ProductChip({ item, onIncrement, onDecrement, onRemove }: ProductChipProps) {
+function SimpleItemChip({ item, onRemove }: SimpleItemChipProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.productChip}>
-      <View style={styles.productChipLeft}>
-        <ShoppingCart size={14} color={colors.primary} />
-        <Text style={styles.productChipTerm} numberOfLines={1}>{item.term}</Text>
-      </View>
-      <View style={styles.productChipActions}>
-        <Pressable onPress={onDecrement} style={styles.chipQtyBtn} hitSlop={6}>
-          <Minus size={12} color={colors.text} />
-        </Pressable>
-        <Text style={styles.productChipQty}>{item.quantity}</Text>
-        <Pressable onPress={onIncrement} style={styles.chipQtyBtn} hitSlop={6}>
-          <Plus size={12} color={colors.text} />
-        </Pressable>
-        <Pressable onPress={onRemove} style={styles.chipRemoveBtn} hitSlop={6}>
-          <Trash2 size={12} color={colors.destructive} />
-        </Pressable>
-      </View>
+      <Text style={styles.productChipTerm} numberOfLines={1}>{item.term}</Text>
+      <Pressable onPress={onRemove} hitSlop={6}>
+        <X size={13} color={colors.mutedForeground} />
+      </Pressable>
     </View>
+  );
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  almacen: "Almacén",
+  frutas_verduras: "Frutas y Verduras",
+  carnes: "Carnes",
+  lacteos: "Lácteos",
+  panaderia_dulces: "Panadería y Dulces",
+  bebidas: "Bebidas",
+  limpieza: "Limpieza",
+  perfumeria: "Perfumería",
+};
+
+interface CatalogModalProps {
+  visible: boolean;
+  addedTerms: Set<string>;
+  onClose: () => void;
+  onToggleItem: (name: string) => void;
+}
+
+function CatalogModal({ visible, addedTerms, onClose, onToggleItem }: CatalogModalProps) {
+  const catalog = useProductCatalog();
+  const [search, setSearch] = useState("");
+  const products = catalog.data?.products ?? [];
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const filteredGroups = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const groups = new Map<string, typeof products>();
+    for (const product of products) {
+      if (query && !product.name.toLowerCase().includes(query)) continue;
+      const list = groups.get(product.category);
+      if (list) {
+        list.push(product);
+      } else {
+        groups.set(product.category, [product]);
+      }
+    }
+    return groups;
+  }, [products, search]);
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <SafeAreaView style={styles.catalogModalContainer}>
+        <View style={styles.catalogModalHeader}>
+          <Text style={styles.catalogModalTitle}>Catálogo</Text>
+          <Pressable onPress={onClose} hitSlop={8} style={styles.catalogConfirmBtn}>
+            <Text style={styles.catalogConfirmText}>Confirmar</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.catalogSearchRow}>
+          <StyledTextInput
+            placeholder="Buscar producto..."
+            value={search}
+            onChangeText={setSearch}
+            containerStyle={styles.catalogSearchInput}
+          />
+        </View>
+
+        {catalog.isPending ? (
+          <View style={styles.catalogModalLoading}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.catalogModalScroll}
+            contentContainerStyle={styles.catalogModalContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {[...filteredGroups.entries()].map(([category, items]) => (
+              <View key={category} style={styles.catalogCategory}>
+                <Text style={styles.catalogCategoryLabel}>
+                  {CATEGORY_LABELS[category] ?? category}
+                </Text>
+                <View style={styles.catalogChipRow}>
+                  {items.map((product) => {
+                    const isAdded = addedTerms.has(product.name.toLowerCase());
+                    return (
+                      <Pressable
+                        key={product.id}
+                        onPress={() => onToggleItem(product.name)}
+                        style={[styles.catalogChip, isAdded && styles.catalogChipAdded]}
+                      >
+                        {isAdded ? (
+                          <Check size={11} color={colors.primary} />
+                        ) : (
+                          <Plus size={11} color={colors.mutedForeground} />
+                        )}
+                        <Text
+                          style={[styles.catalogChipText, isAdded && styles.catalogChipTextAdded]}
+                          numberOfLines={1}
+                        >
+                          {product.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+      </SafeAreaView>
+    </Modal>
   );
 }
 
@@ -234,6 +356,9 @@ function ProductRow({
   onReplaceQueryChange,
   onRunAlternatives,
 }: ProductRowProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const key = overrideKey(storeName, product.searchTerm);
   const showReplace = replaceKey === key;
   const replacementChoices = replaceOptions[key] ?? [];
@@ -435,7 +560,48 @@ function ProductRow({
   );
 }
 
-/** Collapsible promo banner for a store (C1). */
+// ── Promo scoring helpers (mirrors src/lib/promos/scoring.ts) ───────────────
+
+const DAY_INDEX_TO_NAME: Record<number, string> = {
+  0: "Domingo", 1: "Lunes", 2: "Martes", 3: "Miércoles",
+  4: "Jueves", 5: "Viernes", 6: "Sábado",
+};
+const DAY_SHORT: Record<string, string> = {
+  Lunes: "Lun", Martes: "Mar", "Miércoles": "Mié",
+  Jueves: "Jue", Viernes: "Vie", Sábado: "Sáb", Domingo: "Dom",
+};
+
+function getTodayDayName(): string {
+  return DAY_INDEX_TO_NAME[new Date().getDay()] ?? "Lunes";
+}
+
+function scorePromo(promo: BankPromo, todayName: string): number {
+  let score = promo.discountPercent;
+  if (!promo.capAmount) score += 5;
+  const days = parseJsonArray(promo.daysOfWeek);
+  if (days.length === 0 || days.includes(todayName)) score += 10;
+  return score;
+}
+
+function formatDaysShort(daysOfWeekJson: string): string {
+  const days = parseJsonArray(daysOfWeekJson);
+  if (days.length === 0 || days.length === 7) return "Todos los días";
+  return days.map((d) => DAY_SHORT[d] ?? d).join(", ");
+}
+
+/** Best promo per bank sorted by score. */
+function getBestPromosByBank(promos: BankPromo[], todayName: string): BankPromo[] {
+  const bankMap = new Map<string, BankPromo>();
+  for (const promo of promos) {
+    const existing = bankMap.get(promo.bankSlug);
+    if (!existing || scorePromo(promo, todayName) > scorePromo(existing, todayName)) {
+      bankMap.set(promo.bankSlug, promo);
+    }
+  }
+  return [...bankMap.values()].sort((a, b) => scorePromo(b, todayName) - scorePromo(a, todayName));
+}
+
+/** Collapsible promo banner for a store card (C1). */
 function StorePromoBanner({
   promos,
   onSelectPromo,
@@ -446,62 +612,97 @@ function StorePromoBanner({
   selectedPromoId: string | null;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   if (promos.length === 0) return null;
 
-  // Show best promo per bank
-  const bestByBank = new Map<string, BankPromo>();
-  for (const promo of promos) {
-    const existing = bestByBank.get(promo.bankSlug);
-    if (!existing || promo.discountPercent > existing.discountPercent) {
-      bestByBank.set(promo.bankSlug, promo);
-    }
-  }
-  const bankPromos = [...bestByBank.values()].sort((a, b) => b.discountPercent - a.discountPercent);
+  const todayName = getTodayDayName();
+  const bestPerBank = getBestPromosByBank(promos, todayName);
+  const best = bestPerBank[0]!;
+  const extraCount = promos.length - bestPerBank.length;
+
+  // All promos sorted by score (shown when expanded)
+  const allSorted = [...promos].sort((a, b) => scorePromo(b, todayName) - scorePromo(a, todayName));
+  const visiblePromos = expanded ? allSorted : bestPerBank;
+
+  const selectedPromo = selectedPromoId ? promos.find((p) => p.id === selectedPromoId) : null;
+  const hasSelection = !!selectedPromo;
+
+  const summaryText = selectedPromo
+    ? `${selectedPromo.discountPercent}% ${selectedPromo.bankDisplayName} aplicado`
+    : bestPerBank.length === 1
+      ? `${best.discountPercent}% ${best.bankDisplayName} · ${formatDaysShort(best.daysOfWeek)}`
+      : `Hasta ${best.discountPercent}% dto · ${bestPerBank.length} bancos`;
 
   return (
     <View style={styles.promoBanner}>
-      <Pressable onPress={() => setExpanded(!expanded)} style={styles.promoBannerToggle}>
-        <CreditCard size={14} color={colors.primary} />
-        <Text style={styles.promoBannerTitle}>
-          {bankPromos.length} promo{bankPromos.length !== 1 ? "s" : ""} bancaria{bankPromos.length !== 1 ? "s" : ""}
+      {/* Summary toggle row */}
+      <Pressable
+        onPress={() => setExpanded(!expanded)}
+        style={[styles.promoBannerToggle, hasSelection && styles.promoBannerToggleActive]}
+      >
+        <CreditCard size={13} color={hasSelection ? colors.primary : colors.mutedForeground} />
+        <Text style={[styles.promoBannerTitle, hasSelection && styles.promoBannerTitleActive]}>
+          {summaryText}
         </Text>
-        {expanded ? (
-          <ChevronUp size={14} color={colors.primary} />
-        ) : (
-          <ChevronDown size={14} color={colors.primary} />
-        )}
+        {expanded
+          ? <ChevronUp size={13} color={hasSelection ? colors.primary : colors.mutedForeground} />
+          : <ChevronDown size={13} color={hasSelection ? colors.primary : colors.mutedForeground} />
+        }
       </Pressable>
+
+      {/* Expanded promo list */}
       {expanded ? (
         <View style={styles.promoList}>
-          {bankPromos.map((promo) => {
+          {visiblePromos.map((promo) => {
             const isSelected = selectedPromoId === promo.id;
             const days = parseJsonArray(promo.daysOfWeek);
+            const methods = parseJsonArray(promo.paymentMethods);
+            const daysLabel = days.length > 0 ? days.map((d) => DAY_SHORT[d] ?? d).join(", ") : "Todos los días";
             return (
               <Pressable
                 key={promo.id}
                 onPress={() => onSelectPromo(isSelected ? null : promo)}
                 style={[styles.promoItem, isSelected && styles.promoItemSelected]}
               >
-                <View style={styles.promoItemHeader}>
-                  <Text style={styles.promoBank}>{promo.bankDisplayName}</Text>
-                  <Badge bgColor="#dcfce7" textColor="#166534">
-                    -{promo.discountPercent}%
-                  </Badge>
+                <View style={styles.promoItemRow}>
+                  <View style={[styles.promoDiscountBadge, isSelected && styles.promoDiscountBadgeActive]}>
+                    <Text style={[styles.promoDiscountText, isSelected && styles.promoDiscountTextActive]}>
+                      {promo.discountPercent}%
+                    </Text>
+                  </View>
+                  <View style={styles.promoItemBody}>
+                    <Text style={[styles.promoBank, isSelected && styles.promoBankActive]}>
+                      {promo.bankDisplayName}
+                    </Text>
+                    <View style={styles.promoMeta}>
+                      <Text style={styles.promoDays}>{daysLabel}</Text>
+                      {methods[0] ? (
+                        <Text style={styles.promoDays}> · {methods[0]}</Text>
+                      ) : null}
+                      {promo.capAmount ? (
+                        <Text style={styles.promoDays}> · tope {formatAmount(promo.capAmount)}</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                  {isSelected ? (
+                    <Check size={14} color={colors.primary} />
+                  ) : null}
                 </View>
-                {days.length > 0 ? (
-                  <Text style={styles.promoDays}>{days.join(", ")}</Text>
-                ) : null}
-                {promo.capAmount ? (
-                  <Text style={styles.promoCap}>Tope: {formatAmount(promo.capAmount)}</Text>
-                ) : null}
-                {isSelected ? (
-                  <Text style={styles.promoApplied}>Descuento aplicado al total</Text>
-                ) : null}
               </Pressable>
             );
           })}
         </View>
+      ) : null}
+
+      {/* "N promos más" hint when collapsed */}
+      {!expanded && extraCount > 0 ? (
+        <Pressable onPress={() => setExpanded(true)} style={styles.promoExtraHint}>
+          <Text style={styles.promoExtraHintText}>
+            +{extraCount} promo{extraCount !== 1 ? "s" : ""} más de estos bancos
+          </Text>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -546,6 +747,9 @@ function StoreCartCard({
   onReplaceQueryChange,
   onRunAlternatives,
 }: StoreCartCardProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [selectedPromo, setSelectedPromo] = useState<BankPromo | null>(null);
   const isWinner = rank === 0;
 
@@ -653,8 +857,204 @@ function StoreCartCard({
   );
 }
 
+// ── Promos Section ────────────────────────────────────────────────────────────
+
+interface PromosSectionProps {
+  promos: BankPromo[];
+  isLoading: boolean;
+  isRunning: boolean;
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}
+
+/** Group promos by storeName, then within each store pick the best per bank. */
+function groupPromosByStore(promos: BankPromo[], todayName: string) {
+  const storeMap = new Map<string, BankPromo[]>();
+  for (const promo of promos) {
+    const list = storeMap.get(promo.storeName);
+    if (list) {
+      list.push(promo);
+    } else {
+      storeMap.set(promo.storeName, [promo]);
+    }
+  }
+
+  const groups = [...storeMap.entries()].map(([storeName, storePromos]) => {
+    const bestPerBank = getBestPromosByBank(storePromos, todayName);
+    const bestScore = bestPerBank[0] ? scorePromo(bestPerBank[0], todayName) : 0;
+    const bankCount = new Set(storePromos.map((p) => p.bankSlug)).size;
+    return { storeName, promos: storePromos, bestPerBank, bestScore, bankCount };
+  });
+
+  // Sort by best score descending
+  return groups.sort((a, b) => b.bestScore - a.bestScore);
+}
+
+function PromosSection({ promos, isLoading, isRunning, onRefresh, isRefreshing }: PromosSectionProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const promoSty = useMemo(() => createPromoStyles(colors), [colors]);
+
+  const [promoSearch, setPromoSearch] = useState("");
+  const [expandedStore, setExpandedStore] = useState<string | null>(null);
+  const todayName = getTodayDayName();
+
+  const filteredPromos = useMemo(() => {
+    if (!promoSearch.trim()) return promos;
+    const query = promoSearch.trim().toLowerCase();
+    return promos.filter(
+      (promo) =>
+        promo.bankDisplayName.toLowerCase().includes(query) ||
+        promo.storeName.toLowerCase().includes(query),
+    );
+  }, [promos, promoSearch]);
+
+  const storeGroups = useMemo(
+    () => groupPromosByStore(filteredPromos, todayName),
+    [filteredPromos, todayName],
+  );
+
+  if (isLoading) {
+    return (
+      <View style={promoSty.loadingContainer}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={promoSty.container}>
+      {/* Header row */}
+      <View style={promoSty.headerRow}>
+        <Text style={styles.sectionTitle}>Promociones bancarias</Text>
+        <Button
+          variant="outline"
+          size="sm"
+          onPress={onRefresh}
+          disabled={isRunning || isRefreshing}
+          loading={isRunning || isRefreshing}
+        >
+          <RefreshCw size={13} color={colors.text} />
+          Actualizar
+        </Button>
+      </View>
+
+      {/* Pipeline running indicator */}
+      {isRunning ? (
+        <View style={promoSty.pipelineBanner}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={promoSty.pipelineText}>Buscando promociones bancarias...</Text>
+        </View>
+      ) : null}
+
+      {/* Search filter */}
+      {promos.length > 0 ? (
+        <View style={promoSty.searchRow}>
+          <Search size={14} color={colors.mutedForeground} />
+          <StyledTextInput
+            placeholder="Filtrar por banco o supermercado..."
+            value={promoSearch}
+            onChangeText={setPromoSearch}
+            containerStyle={promoSty.searchInput}
+          />
+        </View>
+      ) : null}
+
+      {/* Promo list grouped by store */}
+      {storeGroups.length > 0 ? (
+        storeGroups.map((group) => {
+          const isExpanded = expandedStore === group.storeName;
+          const best = group.bestPerBank[0];
+          return (
+            <Card key={group.storeName} style={promoSty.storeCard}>
+              <Pressable
+                onPress={() => setExpandedStore(isExpanded ? null : group.storeName)}
+                style={promoSty.storeHeader}
+              >
+                <StoreAvatar storeName={group.storeName} size={36} />
+                <View style={promoSty.storeMeta}>
+                  <Text style={promoSty.storeName}>{group.storeName}</Text>
+                  <Text style={promoSty.storeSub}>
+                    {group.promos.length} promo{group.promos.length !== 1 ? "s" : ""} de {group.bankCount} banco{group.bankCount !== 1 ? "s" : ""}
+                  </Text>
+                </View>
+                {best ? (
+                  <View style={promoSty.bestBadge}>
+                    <Text style={promoSty.bestBadgeText}>{best.discountPercent}%</Text>
+                  </View>
+                ) : null}
+                {isExpanded
+                  ? <ChevronUp size={16} color={colors.mutedForeground} />
+                  : <ChevronDown size={16} color={colors.mutedForeground} />
+                }
+              </Pressable>
+
+              {isExpanded ? (
+                <View style={promoSty.promoList}>
+                  {group.bestPerBank.map((promo) => {
+                    const days = parseJsonArray(promo.daysOfWeek);
+                    const methods = parseJsonArray(promo.paymentMethods);
+                    const daysLabel = days.length > 0
+                      ? days.map((d) => DAY_SHORT[d] ?? d).join(", ")
+                      : "Todos los días";
+                    const isToday = days.length === 0 || days.includes(todayName);
+                    return (
+                      <View key={promo.id} style={promoSty.promoRow}>
+                        <View style={[promoSty.discountBadge, isToday && promoSty.discountBadgeActive]}>
+                          <Text style={[promoSty.discountText, isToday && promoSty.discountTextActive]}>
+                            {promo.discountPercent}%
+                          </Text>
+                        </View>
+                        <View style={promoSty.promoBody}>
+                          <Text style={promoSty.promoBank}>{promo.bankDisplayName}</Text>
+                          <View style={promoSty.promoMetaRow}>
+                            <Text style={promoSty.promoMetaText}>{daysLabel}</Text>
+                            {methods[0] ? (
+                              <Text style={promoSty.promoMetaText}> · {methods[0]}</Text>
+                            ) : null}
+                            {promo.capAmount ? (
+                              <Text style={promoSty.promoMetaText}> · tope {formatAmount(promo.capAmount)}</Text>
+                            ) : null}
+                          </View>
+                        </View>
+                        {isToday ? (
+                          <Badge variant="success" size="sm">Hoy</Badge>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+
+                  {/* Show hint if there are more promos than best-per-bank */}
+                  {group.promos.length > group.bestPerBank.length ? (
+                    <Text style={promoSty.extraHint}>
+                      +{group.promos.length - group.bestPerBank.length} promo{group.promos.length - group.bestPerBank.length !== 1 ? "s" : ""} más
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+            </Card>
+          );
+        })
+      ) : (
+        <EmptyState
+          icon={<CreditCard size={32} color={colors.mutedForeground} />}
+          title="No hay promos cargadas"
+          subtitle={promoSearch ? "No hay promos que coincidan con tu búsqueda" : "Tocá Actualizar para buscar promociones bancarias"}
+        />
+      )}
+    </View>
+  );
+}
+
 export default function ShoppingPlanScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const searchMilestone = useMilestone("first-search");
+  const { celebrate } = useCelebration();
+  const ahorraWasToured = useSectionToured("ahorra");
   const shoppingPlan = useShoppingPlan();
+  const catalog = useProductCatalog();
   const alternativesSearch = useShoppingAlternatives();
   const savedCartsQuery = useSavedCarts();
   const saveCart = useSaveCart();
@@ -662,7 +1062,13 @@ export default function ShoppingPlanScreen() {
   const refreshSavedCart = useRefreshSavedCart();
   const promosQuery = usePromos();
   const allPromos = promosQuery.data ?? [];
+  const pipelineStatus = usePromoPipelineStatus();
+  const refreshPromos = useRefreshPromos();
+  const queryClient = useQueryClient();
 
+  const { isFirstVisit, dismiss: dismissGuide } = useFirstVisit("ahorra");
+
+  const [activeSection, setActiveSection] = useState<"search" | "promos" | "saved">("search");
   const [termInput, setTermInput] = useState("");
   const [items, setItems] = useState<SearchItem[]>([]);
   const [overrides, setOverrides] = useState<Map<string, ProductOverride>>(new Map());
@@ -670,6 +1076,31 @@ export default function ShoppingPlanScreen() {
   const [replaceQuery, setReplaceQuery] = useState("");
   const [replaceOptions, setReplaceOptions] = useState<Record<string, AlternativeProduct[]>>({});
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showCatalog, setShowCatalog] = useState(false);
+
+  // Auto-trigger promo refresh when no promos exist
+  const hasAutoTriggered = useRef(false);
+  useEffect(() => {
+    if (
+      !promosQuery.isPending &&
+      allPromos.length === 0 &&
+      !pipelineStatus.data?.isRunning &&
+      !hasAutoTriggered.current
+    ) {
+      hasAutoTriggered.current = true;
+      refreshPromos.mutate();
+    }
+  }, [promosQuery.isPending, allPromos.length, pipelineStatus.data?.isRunning, refreshPromos]);
+
+  // Auto-invalidate promos when pipeline transitions from running → done
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    const isRunning = pipelineStatus.data?.isRunning ?? false;
+    if (wasRunning.current && !isRunning) {
+      void queryClient.invalidateQueries({ queryKey: ["mobile", "promos"] });
+    }
+    wasRunning.current = isRunning;
+  }, [pipelineStatus.data?.isRunning, queryClient]);
 
   const canSearch = items.length > 0 && !shoppingPlan.isPending;
 
@@ -677,6 +1108,21 @@ export default function ShoppingPlanScreen() {
     () => new Map(items.map((item) => [item.term.toLowerCase(), item.quantity])),
     [items],
   );
+
+  const addedTerms = useMemo(
+    () => new Set(items.map((item) => item.term.toLowerCase())),
+    [items],
+  );
+
+  const toggleItemFromCatalog = (name: string) => {
+    setItems((previous) => {
+      const exists = previous.some((item) => item.term.toLowerCase() === name.toLowerCase());
+      if (exists) {
+        return previous.filter((item) => item.term.toLowerCase() !== name.toLowerCase());
+      }
+      return [...previous, { term: name, quantity: 1 }];
+    });
+  };
 
   const adjustedCarts = useMemo<AdjustedStoreCart[]>(() => {
     const source = shoppingPlan.data?.storeCarts ?? [];
@@ -766,8 +1212,8 @@ export default function ShoppingPlanScreen() {
     return recommendation;
   }, [adjustedCarts]);
 
-  const addItem = () => {
-    const cleanTerm = termInput.trim();
+  const addItem = (overrideTerm?: string) => {
+    const cleanTerm = (overrideTerm ?? termInput).trim();
     if (cleanTerm.length < 2) {
       return;
     }
@@ -807,6 +1253,9 @@ export default function ShoppingPlanScreen() {
     setLocalError(null);
     try {
       await shoppingPlan.mutateAsync({ searchItems: items });
+      void AsyncStorage.setItem("habita_shopping_first_search", "1");
+      const wasFirst = await searchMilestone.complete();
+      if (wasFirst) celebrate("first-search");
       setOverrides(new Map());
       setReplaceOptions({});
       setReplaceKey(null);
@@ -891,18 +1340,57 @@ export default function ShoppingPlanScreen() {
         </View>
         <Text style={styles.subtitle}>Compará precios entre supermercados</Text>
 
+        <TabBar
+          items={[
+            { key: "search", label: "Buscar" },
+            { key: "promos", label: "Promos", badge: allPromos.length || undefined },
+            { key: "saved", label: "Guardados", badge: savedCarts.length || undefined },
+          ]}
+          activeKey={activeSection}
+          onChange={(key) => setActiveSection(key as "search" | "promos" | "saved")}
+          style={styles.sectionTabs}
+        />
+
+        {activeSection === "search" ? (
+          <>
+        {isFirstVisit && !ahorraWasToured ? (
+          <SectionGuideCard
+            steps={[
+              {
+                icon: <ShoppingCart size={16} color={colors.primary} />,
+                title: "Agregá productos",
+                description: "Escribí lo que necesitás o elegí del catálogo",
+              },
+              {
+                icon: <Search size={16} color={colors.primary} />,
+                title: "Buscamos en 11 supers",
+                description: "Comparamos precios en tiempo real para vos",
+              },
+              {
+                icon: <Trophy size={16} color={colors.primary} />,
+                title: "Compará y ahorrá",
+                description: "Te armamos el carrito más barato",
+              },
+            ]}
+            onDismiss={dismissGuide}
+          />
+        ) : null}
         <Card style={styles.searchCard}>
           <CardContent>
             <View style={styles.searchRow}>
-              <StyledTextInput
-                placeholder="Ej: leche entera 1L"
-                value={termInput}
-                onChangeText={setTermInput}
-                onSubmitEditing={addItem}
-                returnKeyType="done"
-                containerStyle={styles.searchInput}
-              />
-              <Button variant="outline" size="default" onPress={addItem}>
+              <View style={styles.searchInput}>
+                <ProductAutocomplete
+                  placeholder="Ej: leche entera 1L"
+                  value={termInput}
+                  onChangeText={setTermInput}
+                  onSelectProduct={(name) => {
+                    addItem(name);
+                  }}
+                  onSubmitEditing={() => addItem()}
+                  products={catalog.data?.products ?? []}
+                />
+              </View>
+              <Button variant="outline" size="default" onPress={() => addItem()}>
                 Agregar
               </Button>
             </View>
@@ -910,16 +1398,32 @@ export default function ShoppingPlanScreen() {
             {items.length > 0 ? (
               <View style={styles.itemsList}>
                 {items.map((item) => (
-                  <ProductChip
+                  <SimpleItemChip
                     key={item.term}
                     item={item}
-                    onIncrement={() => updateQuantity(item.term, 1)}
-                    onDecrement={() => updateQuantity(item.term, -1)}
                     onRemove={() => removeItem(item.term)}
                   />
                 ))}
               </View>
             ) : null}
+
+            <Pressable
+              onPress={() => setShowCatalog(true)}
+              style={styles.catalogBanner}
+            >
+              <View style={styles.catalogBannerIcon}>
+                <List size={16} color={colors.primary} />
+              </View>
+              <View style={styles.catalogBannerContent}>
+                <Text style={styles.catalogBannerTitle}>Ver catálogo de productos</Text>
+                {(catalog.data?.products?.length ?? 0) > 0 ? (
+                  <Text style={styles.catalogBannerCount}>
+                    {catalog.data?.products?.length} productos disponibles
+                  </Text>
+                ) : null}
+              </View>
+              <ChevronRight size={16} color={colors.mutedForeground} />
+            </Pressable>
 
             <Button
               onPress={() => void runSearch()}
@@ -927,10 +1431,17 @@ export default function ShoppingPlanScreen() {
               loading={shoppingPlan.isPending}
               style={styles.searchButton}
             >
-              Comparar precios
+              Buscar precios
             </Button>
           </CardContent>
         </Card>
+
+        <CatalogModal
+          visible={showCatalog}
+          addedTerms={addedTerms}
+          onClose={() => setShowCatalog(false)}
+          onToggleItem={toggleItemFromCatalog}
+        />
 
         {localError ? (
           <Card style={styles.errorCard}>
@@ -954,654 +1465,1067 @@ export default function ShoppingPlanScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Resultados</Text>
             {adjustedCarts.map((cart, index) => (
-              <StoreCartCard
-                key={cart.storeName}
-                cart={cart}
-                rank={index}
-                isSaved={savedCartByStore.has(cart.storeName)}
-                promos={getStorePromos(cart.storeName)}
-                overrides={overrides}
-                replaceKey={replaceKey}
-                replaceQuery={replaceQuery}
-                replaceOptions={replaceOptions}
-                alternativesIsPending={alternativesSearch.isPending}
-                alternativesVariables={
-                  alternativesSearch.variables
-                    ? {
-                        storeName: alternativesSearch.variables.storeName,
-                        searchTerm: alternativesSearch.variables.searchTerm,
-                      }
-                    : null
-                }
-                outOfStockRecommendation={outOfStockRecommendation}
-                onToggleSave={(c) => void toggleSaveStoreCart(c)}
-                onUpdateQuantity={updateQuantity}
-                onSetOverride={setProductOverride}
-                onToggleReplace={handleToggleReplace}
-                onReplaceQueryChange={setReplaceQuery}
-                onRunAlternatives={(sn, st, q) => void runAlternativesSearch(sn, st, q)}
-              />
+              <View key={cart.storeName}>
+                <StoreCartCard
+                  cart={cart}
+                  rank={index}
+                  isSaved={savedCartByStore.has(cart.storeName)}
+                  promos={getStorePromos(cart.storeName)}
+                  overrides={overrides}
+                  replaceKey={replaceKey}
+                  replaceQuery={replaceQuery}
+                  replaceOptions={replaceOptions}
+                  alternativesIsPending={alternativesSearch.isPending}
+                  alternativesVariables={
+                    alternativesSearch.variables
+                      ? {
+                          storeName: alternativesSearch.variables.storeName,
+                          searchTerm: alternativesSearch.variables.searchTerm,
+                        }
+                      : null
+                  }
+                  outOfStockRecommendation={outOfStockRecommendation}
+                  onToggleSave={(c) => void toggleSaveStoreCart(c)}
+                  onUpdateQuantity={updateQuantity}
+                  onSetOverride={setProductOverride}
+                  onToggleReplace={handleToggleReplace}
+                  onReplaceQueryChange={setReplaceQuery}
+                  onRunAlternatives={(sn, st, q) => void runAlternativesSearch(sn, st, q)}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  style={styles.registerExpenseBtn}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(app)/new-expense",
+                      params: {
+                        prefillTitle: cart.storeName,
+                        prefillAmount: String(Math.round(cart.totalPrice)),
+                        prefillCategory: "GROCERIES",
+                      },
+                    })
+                  }
+                >
+                  <Receipt size={13} color={colors.mutedForeground} />
+                  Registrar gasto
+                </Button>
+                {index === 0 ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    style={styles.shareCartBtn}
+                    onPress={() => {
+                      const productLines = cart.products
+                        .filter((p) => p.isAdded && !p.isOutOfStock)
+                        .slice(0, 5)
+                        .map(
+                          (p) =>
+                            `• ${p.productName}: $${p.price.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`,
+                        );
+                      const extraCount =
+                        cart.products.filter((p) => p.isAdded && !p.isOutOfStock).length - 5;
+                      const lines = [
+                        `Compré en ${cart.storeName} con Habita:`,
+                        "",
+                        ...productLines,
+                        ...(extraCount > 0 ? [`... y ${extraCount} más`] : []),
+                        "",
+                        `Total: $${cart.totalPrice.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`,
+                        "",
+                        "Comparador de precios 🏠 Habita",
+                      ];
+                      void Share.share({ message: lines.join("\n") }).catch(() => undefined);
+                    }}
+                  >
+                    <Share2 size={13} color={colors.mutedForeground} />
+                    Compartir
+                  </Button>
+                ) : null}
+              </View>
             ))}
           </View>
         ) : null}
 
-        {savedCarts.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Guardados</Text>
-            <Text style={styles.sectionSubtitle}>Tus carritos guardados y actualizables</Text>
-            {savedCarts.map((savedCart) => {
-              const adapted = fromSavedCart(savedCart);
-              return (
-                <Card key={savedCart.id} style={styles.savedCartCard}>
-                  <CardContent>
-                    <View style={styles.savedCartHeader}>
-                      <StoreAvatar storeName={adapted.storeName} size={36} />
-                      <View style={styles.savedCartMeta}>
-                        <Text style={styles.savedCartName}>{adapted.storeName}</Text>
-                        <Text style={styles.savedCartSub}>
-                          {new Date(savedCart.savedAt).toLocaleDateString("es-AR")} · {adapted.products.length} productos
-                        </Text>
-                      </View>
-                      <Text style={styles.savedCartTotal}>{formatAmount(adapted.totalPrice)}</Text>
-                    </View>
-                    <View style={styles.savedCartActions}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onPress={() => {
-                          setItems(
-                            savedCart.searchTerms.map((term) => {
-                              const quantityFromProducts = adapted.products.find(
-                                (product) => product.searchTerm === term,
-                              )?.quantity;
-                              return {
-                                term,
-                                quantity: quantityFromProducts ?? 1,
-                              };
-                            }),
-                          );
-                        }}
-                      >
-                        Cargar lista
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        loading={refreshSavedCart.isPending}
-                        onPress={() => void refreshSavedCart.mutateAsync(savedCart.id)}
-                      >
-                        <RefreshCw size={13} color={colors.text} />
-                        Refrescar
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onPress={() => void deleteSavedCart.mutateAsync(savedCart.id)}
-                      >
-                        <Trash2 size={13} color="#ffffff" />
-                        Eliminar
-                      </Button>
-                    </View>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </View>
-        ) : null}
-
-        {savedCarts.length === 0 && adjustedCarts.length === 0 && !shoppingPlan.isPending ? (
+        {adjustedCarts.length === 0 && !shoppingPlan.isPending ? (
           <EmptyState
             icon={<ShoppingCart size={32} color={colors.mutedForeground} />}
             title="Empezá a comparar"
             subtitle="Agregá productos y compará precios entre supermercados"
+            steps={[
+              { label: "Agregá productos a tu lista" },
+              { label: "Tocá 'Buscar precios' para comparar" },
+              { label: "Elegí el carrito más conveniente" },
+            ]}
           />
+        ) : null}
+          </>
+        ) : null}
+
+        {activeSection === "promos" ? (
+          <PromosSection
+            promos={allPromos}
+            isLoading={promosQuery.isPending}
+            isRunning={pipelineStatus.data?.isRunning ?? false}
+            onRefresh={() => refreshPromos.mutate()}
+            isRefreshing={refreshPromos.isPending}
+          />
+        ) : null}
+
+        {activeSection === "saved" ? (
+          savedCarts.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Guardados</Text>
+              <Text style={styles.sectionSubtitle}>Tus carritos guardados y actualizables</Text>
+              {savedCarts.map((savedCart) => {
+                const adapted = fromSavedCart(savedCart);
+                return (
+                  <Card key={savedCart.id} style={styles.savedCartCard}>
+                    <CardContent>
+                      <View style={styles.savedCartHeader}>
+                        <StoreAvatar storeName={adapted.storeName} size={36} />
+                        <View style={styles.savedCartMeta}>
+                          <Text style={styles.savedCartName}>{adapted.storeName}</Text>
+                          <Text style={styles.savedCartSub}>
+                            {new Date(savedCart.savedAt).toLocaleDateString("es-AR")} · {adapted.products.length} productos
+                          </Text>
+                        </View>
+                        <Text style={styles.savedCartTotal}>{formatAmount(adapted.totalPrice)}</Text>
+                      </View>
+                      <View style={styles.savedCartActions}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onPress={() => {
+                            setItems(
+                              savedCart.searchTerms.map((term) => {
+                                const quantityFromProducts = adapted.products.find(
+                                  (product) => product.searchTerm === term,
+                                )?.quantity;
+                                return {
+                                  term,
+                                  quantity: quantityFromProducts ?? 1,
+                                };
+                              }),
+                            );
+                            setActiveSection("search");
+                          }}
+                        >
+                          Cargar lista
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          loading={refreshSavedCart.isPending}
+                          onPress={() => void refreshSavedCart.mutateAsync(savedCart.id)}
+                        >
+                          <RefreshCw size={13} color={colors.text} />
+                          Refrescar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onPress={() =>
+                            router.push({
+                              pathname: "/(app)/new-expense",
+                              params: {
+                                prefillTitle: adapted.storeName,
+                                prefillAmount: String(Math.round(adapted.totalPrice)),
+                                prefillCategory: "GROCERIES",
+                              },
+                            })
+                          }
+                        >
+                          <Receipt size={13} color={colors.mutedForeground} />
+                          Registrar gasto
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onPress={() => void deleteSavedCart.mutateAsync(savedCart.id)}
+                        >
+                          <Trash2 size={13} color="#ffffff" />
+                          Eliminar
+                        </Button>
+                      </View>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </View>
+          ) : (
+            <EmptyState
+              icon={<Bookmark size={32} color={colors.mutedForeground} />}
+              title="Sin carritos guardados"
+              subtitle="Buscá precios y guardá tus carritos favoritos"
+            />
+          )
         ) : null}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: 24,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
-  },
-  title: {
-    ...typography.pageTitle,
-    color: colors.text,
-  },
-  subtitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    color: colors.mutedForeground,
-    marginBottom: spacing.md,
-  },
-  searchCard: {
-    marginBottom: spacing.md,
-  },
-  searchRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    alignItems: "flex-end",
-  },
-  searchInput: {
-    flex: 1,
-  },
-  itemsList: {
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-  searchButton: {
-    marginTop: spacing.md,
-  },
-  errorCard: {
-    backgroundColor: "#fee2e2",
-    marginBottom: spacing.md,
-  },
-  errorText: {
-    fontFamily: fontFamily.sans,
-    color: "#b91c1c",
-    fontSize: 14,
-  },
-  warningCard: {
-    backgroundColor: "#fffbeb",
-    marginBottom: spacing.md,
-  },
-  warningText: {
-    fontFamily: fontFamily.sans,
-    color: "#92400e",
-    fontSize: 14,
-  },
-  section: {
-    marginBottom: spacing.xl,
-  },
-  sectionTitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  sectionSubtitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 13,
-    color: colors.mutedForeground,
-    marginBottom: spacing.md,
-  },
-  storeCard: {
-    marginBottom: spacing.md,
-  },
-  storeCardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: spacing.md,
-  },
-  storeCardInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    flex: 1,
-  },
-  storeAvatar: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  storeAvatarText: {
-    fontFamily: fontFamily.sans,
-    fontWeight: "800",
-  },
-  storeCardMeta: {
-    flex: 1,
-  },
-  storeCardName: {
-    fontFamily: fontFamily.sans,
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  storeCardSub: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-    marginTop: 2,
-  },
-  storeCardRight: {
-    alignItems: "flex-end",
-    gap: spacing.xs,
-  },
-  storeCardTotal: {
-    fontFamily: fontFamily.sans,
-    fontSize: 20,
-    fontWeight: "800",
-    color: colors.text,
-  },
-  productGroup: {
-    marginTop: spacing.md,
-  },
-  productGroupTitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 13,
-    fontWeight: "700",
-    marginBottom: spacing.sm,
-  },
-  productRow: {
-    backgroundColor: colors.background,
-    borderRadius: 10,
-    padding: spacing.sm,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  productRowOutOfStock: {
-    backgroundColor: "#fffbeb",
-    borderColor: "#fcd34d",
-  },
-  productRowAdded: {
-    backgroundColor: "#f0fdf4",
-    borderColor: "#86efac",
-  },
-  productRowHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
-  productRowInfo: {
-    flex: 1,
-  },
-  productRowTerm: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  productRowName: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-    marginTop: 2,
-  },
-  productRowRec: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    color: "#92400e",
-    marginTop: 4,
-  },
-  productRowPrice: {
-    alignItems: "flex-end",
-    gap: 4,
-  },
-  productRowAmount: {
-    fontFamily: fontFamily.sans,
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  productRowAmountCheapest: {
-    fontFamily: fontFamily.sans,
-    color: "#065f46",
-  },
-  productRowButtons: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-    marginTop: spacing.sm,
-  },
-  replaceToggle: {
-    marginTop: spacing.xs,
-    alignSelf: "flex-start",
-  },
-  replacePanel: {
-    marginTop: spacing.sm,
-    gap: spacing.sm,
-  },
-  replaceSearch: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    alignItems: "flex-end",
-  },
-  replaceInput: {
-    flex: 1,
-  },
-  alternativeBtn: {
-    width: "100%",
-    justifyContent: "flex-start" as const,
-  },
-  saveIconButton: {
-    padding: spacing.xs,
-  },
-  productChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.full,
-    paddingLeft: 12,
-    paddingRight: 6,
-    paddingVertical: 6,
-    gap: spacing.sm,
-  },
-  productChipLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    flex: 1,
-    minWidth: 0,
-  },
-  productChipTerm: {
-    fontFamily: fontFamily.sans,
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.text,
-    flexShrink: 1,
-  },
-  productChipActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    flexShrink: 0,
-  },
-  productChipQty: {
-    fontFamily: fontFamily.sans,
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.text,
-    minWidth: 18,
-    textAlign: "center",
-  },
-  chipQtyBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  chipRemoveBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: colors.destructiveForeground,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 2,
-  },
-  savedCartCard: {
-    marginBottom: spacing.md,
-  },
-  savedCartHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  savedCartMeta: {
-    flex: 1,
-  },
-  savedCartName: {
-    fontFamily: fontFamily.sans,
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  savedCartSub: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-    marginTop: 2,
-  },
-  savedCartTotal: {
-    fontFamily: fontFamily.sans,
-    fontSize: 17,
-    fontWeight: "800",
-    color: colors.text,
-  },
-  savedCartActions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    flexWrap: "wrap",
-  },
-  /* --- Winner highlighting (C3) --- */
-  storeCardWinner: {
-    borderColor: colors.primary,
-    borderWidth: 2,
-    overflow: "hidden" as const,
-  },
-  winnerAccent: {
-    position: "absolute" as const,
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-    backgroundColor: colors.primary,
-    borderTopLeftRadius: 12,
-    borderBottomLeftRadius: 12,
-  },
-  storeNameRow: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: spacing.xs,
-    flexWrap: "wrap" as const,
-  },
-  winnerBadge: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 4,
-    backgroundColor: "#fffbeb",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  winnerBadgeText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    fontWeight: "700" as const,
-    color: "#d97706",
-  },
-  storeCardTotalStrikethrough: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    color: colors.mutedForeground,
-    textDecorationLine: "line-through" as const,
-  },
-  storeCardTotalDiscounted: {
-    fontFamily: fontFamily.sans,
-    fontSize: 20,
-    fontWeight: "800" as const,
-    color: "#059669",
-  },
-  /* --- Compact action bar (C5) --- */
-  productRowActions: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-    flexWrap: "wrap" as const,
-  },
-  qtyRow: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 4,
-  },
-  qtyLabel: {
-    fontFamily: fontFamily.sans,
-    fontSize: 13,
-    fontWeight: "700" as const,
-    color: colors.text,
-    minWidth: 20,
-    textAlign: "center" as const,
-  },
-  iconActionBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-  },
-  iconActionBtnActive: {
-    backgroundColor: "#16a34a",
-    borderColor: "#16a34a",
-  },
-  iconActionBtnWarning: {
-    backgroundColor: "#fffbeb",
-    borderColor: "#fcd34d",
-  },
-  productRowUnit: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    color: colors.mutedForeground,
-    marginTop: 2,
-  },
-  productRowQty: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    color: colors.mutedForeground,
-  },
-  cheaperAltHint: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    color: "#059669",
-    marginTop: 4,
-  },
-  replaceToggleBtn: {
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 4,
-  },
-  replaceToggleText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: "600" as const,
-  },
-  /* --- Alternatives (C2) --- */
-  alternativesToggle: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 4,
-    marginTop: spacing.sm,
-    paddingVertical: 4,
-  },
-  alternativesToggleText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: "600" as const,
-  },
-  alternativesList: {
-    marginTop: spacing.xs,
-    gap: 4,
-  },
-  alternativeItem: {
-    flexDirection: "row" as const,
-    justifyContent: "space-between" as const,
-    alignItems: "center" as const,
-    paddingVertical: 6,
-    paddingHorizontal: spacing.sm,
-    backgroundColor: colors.card,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  alternativeItemName: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.text,
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  alternativeItemPrice: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    fontWeight: "700" as const,
-    color: colors.text,
-  },
-  alternativeItemPriceCheaper: {
-    color: "#059669",
-  },
-  /* --- Promo banner (C1) --- */
-  promoBanner: {
-    marginTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: spacing.sm,
-  },
-  promoBannerToggle: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 6,
-    paddingVertical: 4,
-  },
-  promoBannerTitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 13,
-    fontWeight: "600" as const,
-    color: colors.primary,
-    flex: 1,
-  },
-  promoList: {
-    marginTop: spacing.sm,
-    gap: spacing.sm,
-  },
-  promoItem: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  promoItemSelected: {
-    borderColor: colors.primary,
-    backgroundColor: "#eef2ff",
-  },
-  promoItemHeader: {
-    flexDirection: "row" as const,
-    justifyContent: "space-between" as const,
-    alignItems: "center" as const,
-    marginBottom: 4,
-  },
-  promoBank: {
-    fontFamily: fontFamily.sans,
-    fontSize: 13,
-    fontWeight: "700" as const,
-    color: colors.text,
-  },
-  promoDays: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    color: colors.mutedForeground,
-  },
-  promoCap: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    color: colors.mutedForeground,
-    marginTop: 2,
-  },
-  promoApplied: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    fontWeight: "600" as const,
-    color: colors.primary,
-    marginTop: 4,
-  },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: 24,
+    },
+    titleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      marginTop: spacing.md,
+      marginBottom: spacing.xs,
+    },
+    title: {
+      ...typography.pageTitle,
+      color: c.text,
+    },
+    subtitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      color: c.mutedForeground,
+      marginBottom: spacing.sm,
+    },
+    sectionTabs: {
+      marginBottom: spacing.md,
+    },
+    searchCard: {
+      marginBottom: spacing.md,
+    },
+    searchRow: {
+      flexDirection: "row",
+      gap: spacing.sm,
+      alignItems: "flex-end",
+    },
+    searchInput: {
+      flex: 1,
+    },
+    itemsList: {
+      marginTop: spacing.md,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.sm,
+    },
+    catalogBanner: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      marginTop: spacing.md,
+      padding: spacing.md,
+      borderRadius: radius.xl,
+      backgroundColor: `${c.primary}10`,
+    },
+    catalogBannerIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: radius.md,
+      backgroundColor: `${c.primary}18`,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    catalogBannerContent: {
+      flex: 1,
+    },
+    catalogBannerTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "600" as const,
+      color: c.text,
+    },
+    catalogBannerCount: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      marginTop: 1,
+    },
+    searchButton: {
+      marginTop: spacing.sm,
+    },
+    /* --- Catalog modal --- */
+    catalogModalContainer: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    catalogModalHeader: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "space-between" as const,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+    },
+    catalogModalTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 17,
+      fontWeight: "700" as const,
+      color: c.text,
+    },
+    catalogConfirmBtn: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: 8,
+      borderRadius: radius.full,
+      backgroundColor: c.primary,
+    },
+    catalogConfirmText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "700" as const,
+      color: "#ffffff",
+    },
+    catalogSearchRow: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.sm,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+    },
+    catalogSearchInput: {
+      flex: 1,
+    },
+    catalogModalLoading: {
+      flex: 1,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    catalogModalScroll: {
+      flex: 1,
+    },
+    catalogModalContent: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      gap: spacing.lg,
+    },
+    catalogCategory: {
+      gap: spacing.xs,
+    },
+    catalogCategoryLabel: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "600" as const,
+      color: c.mutedForeground,
+      textTransform: "uppercase" as const,
+      letterSpacing: 0.5,
+    },
+    catalogChipRow: {
+      flexDirection: "row" as const,
+      flexWrap: "wrap" as const,
+      gap: spacing.xs,
+    },
+    catalogChip: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: radius.full,
+      backgroundColor: c.card,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    catalogChipAdded: {
+      borderColor: c.primary,
+      backgroundColor: `${c.primary}15`,
+    },
+    catalogChipText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      color: c.text,
+    },
+    catalogChipTextAdded: {
+      color: c.primary,
+      fontWeight: "600" as const,
+    },
+    errorCard: {
+      backgroundColor: "#fee2e2",
+      marginBottom: spacing.md,
+    },
+    errorText: {
+      fontFamily: fontFamily.sans,
+      color: "#b91c1c",
+      fontSize: 14,
+    },
+    warningCard: {
+      backgroundColor: "#fffbeb",
+      marginBottom: spacing.md,
+    },
+    warningText: {
+      fontFamily: fontFamily.sans,
+      color: "#92400e",
+      fontSize: 14,
+    },
+    section: {
+      marginBottom: spacing.xl,
+    },
+    sectionTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 18,
+      fontWeight: "700",
+      color: c.text,
+      marginBottom: spacing.xs,
+    },
+    sectionSubtitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      color: c.mutedForeground,
+      marginBottom: spacing.md,
+    },
+    storeCard: {
+      marginBottom: spacing.md,
+    },
+    storeCardHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: spacing.md,
+    },
+    storeCardInfo: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      flex: 1,
+    },
+    storeAvatar: {
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    storeAvatarText: {
+      fontFamily: fontFamily.sans,
+      fontWeight: "800",
+    },
+    storeCardMeta: {
+      flex: 1,
+    },
+    storeCardName: {
+      fontFamily: fontFamily.sans,
+      fontSize: 16,
+      fontWeight: "700",
+      color: c.text,
+    },
+    storeCardSub: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      marginTop: 2,
+    },
+    storeCardRight: {
+      alignItems: "flex-end",
+      gap: spacing.xs,
+    },
+    storeCardTotal: {
+      fontFamily: fontFamily.sans,
+      fontSize: 20,
+      fontWeight: "800",
+      color: c.text,
+    },
+    productGroup: {
+      marginTop: spacing.md,
+    },
+    productGroupTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "700",
+      marginBottom: spacing.sm,
+    },
+    productRow: {
+      backgroundColor: c.background,
+      borderRadius: 10,
+      padding: spacing.sm,
+      marginBottom: spacing.sm,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    productRowOutOfStock: {
+      backgroundColor: "#fffbeb",
+      borderColor: "#fcd34d",
+    },
+    productRowAdded: {
+      backgroundColor: "#f0fdf4",
+      borderColor: "#86efac",
+    },
+    productRowHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: spacing.sm,
+    },
+    productRowInfo: {
+      flex: 1,
+    },
+    productRowTerm: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "600",
+      color: c.text,
+    },
+    productRowName: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      marginTop: 2,
+    },
+    productRowRec: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: "#92400e",
+      marginTop: 4,
+    },
+    productRowPrice: {
+      alignItems: "flex-end",
+      gap: 4,
+    },
+    productRowAmount: {
+      fontFamily: fontFamily.sans,
+      fontSize: 15,
+      fontWeight: "700",
+      color: c.text,
+    },
+    productRowAmountCheapest: {
+      fontFamily: fontFamily.sans,
+      color: "#065f46",
+    },
+    productRowButtons: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.xs,
+      marginTop: spacing.sm,
+    },
+    replaceToggle: {
+      marginTop: spacing.xs,
+      alignSelf: "flex-start",
+    },
+    replacePanel: {
+      marginTop: spacing.sm,
+      gap: spacing.sm,
+    },
+    replaceSearch: {
+      flexDirection: "row",
+      gap: spacing.sm,
+      alignItems: "flex-end",
+    },
+    replaceInput: {
+      flex: 1,
+    },
+    alternativeBtn: {
+      width: "100%",
+      justifyContent: "flex-start" as const,
+    },
+    saveIconButton: {
+      padding: spacing.xs,
+    },
+    productChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: c.card,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: radius.full,
+      paddingLeft: 12,
+      paddingRight: 6,
+      paddingVertical: 6,
+      gap: spacing.sm,
+    },
+    productChipLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      flex: 1,
+      minWidth: 0,
+    },
+    productChipTerm: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "600",
+      color: c.text,
+      flexShrink: 1,
+    },
+    productChipActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      flexShrink: 0,
+    },
+    productChipQty: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "700",
+      color: c.text,
+      minWidth: 18,
+      textAlign: "center",
+    },
+    chipQtyBtn: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: c.background,
+      borderWidth: 1,
+      borderColor: c.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    chipRemoveBtn: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: c.destructiveForeground,
+      alignItems: "center",
+      justifyContent: "center",
+      marginLeft: 2,
+    },
+    savedCartCard: {
+      marginBottom: spacing.md,
+    },
+    savedCartHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    savedCartMeta: {
+      flex: 1,
+    },
+    savedCartName: {
+      fontFamily: fontFamily.sans,
+      fontSize: 15,
+      fontWeight: "700",
+      color: c.text,
+    },
+    savedCartSub: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      marginTop: 2,
+    },
+    savedCartTotal: {
+      fontFamily: fontFamily.sans,
+      fontSize: 17,
+      fontWeight: "800",
+      color: c.text,
+    },
+    registerExpenseBtn: {
+      alignSelf: "flex-end" as const,
+      marginTop: spacing.sm,
+      marginBottom: spacing.xs,
+    },
+    shareCartBtn: {
+      alignSelf: "flex-end" as const,
+      marginTop: spacing.xs,
+      marginBottom: spacing.xs,
+    },
+    savedCartActions: {
+      flexDirection: "row",
+      gap: spacing.sm,
+      flexWrap: "wrap",
+    },
+    /* --- Winner highlighting (C3) --- */
+    storeCardWinner: {
+      borderColor: c.primary,
+      borderWidth: 2,
+      overflow: "hidden" as const,
+    },
+    winnerAccent: {
+      position: "absolute" as const,
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 4,
+      backgroundColor: c.primary,
+      borderTopLeftRadius: 12,
+      borderBottomLeftRadius: 12,
+    },
+    storeNameRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.xs,
+      flexWrap: "wrap" as const,
+    },
+    winnerBadge: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+      backgroundColor: "#fffbeb",
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+    winnerBadgeText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      fontWeight: "700" as const,
+      color: "#d97706",
+    },
+    storeCardTotalStrikethrough: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      color: c.mutedForeground,
+      textDecorationLine: "line-through" as const,
+    },
+    storeCardTotalDiscounted: {
+      fontFamily: fontFamily.sans,
+      fontSize: 20,
+      fontWeight: "800" as const,
+      color: "#059669",
+    },
+    /* --- Compact action bar (C5) --- */
+    productRowActions: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      marginTop: spacing.sm,
+      flexWrap: "wrap" as const,
+    },
+    qtyRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+    },
+    qtyLabel: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "700" as const,
+      color: c.text,
+      minWidth: 20,
+      textAlign: "center" as const,
+    },
+    iconActionBtn: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: c.card,
+      borderWidth: 1,
+      borderColor: c.border,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    iconActionBtnActive: {
+      backgroundColor: "#16a34a",
+      borderColor: "#16a34a",
+    },
+    iconActionBtnWarning: {
+      backgroundColor: "#fffbeb",
+      borderColor: "#fcd34d",
+    },
+    productRowUnit: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: c.mutedForeground,
+      marginTop: 2,
+    },
+    productRowQty: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: c.mutedForeground,
+    },
+    cheaperAltHint: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: "#059669",
+      marginTop: 4,
+    },
+    replaceToggleBtn: {
+      paddingHorizontal: spacing.xs,
+      paddingVertical: 4,
+    },
+    replaceToggleText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.primary,
+      fontWeight: "600" as const,
+    },
+    /* --- Alternatives (C2) --- */
+    alternativesToggle: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+      marginTop: spacing.sm,
+      paddingVertical: 4,
+    },
+    alternativesToggleText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.primary,
+      fontWeight: "600" as const,
+    },
+    alternativesList: {
+      marginTop: spacing.xs,
+      gap: 4,
+    },
+    alternativeItem: {
+      flexDirection: "row" as const,
+      justifyContent: "space-between" as const,
+      alignItems: "center" as const,
+      paddingVertical: 6,
+      paddingHorizontal: spacing.sm,
+      backgroundColor: c.card,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    alternativeItemName: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.text,
+      flex: 1,
+      marginRight: spacing.sm,
+    },
+    alternativeItemPrice: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "700" as const,
+      color: c.text,
+    },
+    alternativeItemPriceCheaper: {
+      color: "#059669",
+    },
+    /* --- Promo banner (C1) --- */
+    promoBanner: {
+      marginTop: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: c.border,
+      paddingTop: spacing.sm,
+    },
+    promoBannerToggle: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: radius.md,
+      backgroundColor: `${c.muted}80`,
+    },
+    promoBannerToggleActive: {
+      backgroundColor: `${c.primary}15`,
+    },
+    promoBannerTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "600" as const,
+      color: c.mutedForeground,
+      flex: 1,
+    },
+    promoBannerTitleActive: {
+      color: c.primary,
+    },
+    promoList: {
+      marginTop: spacing.xs,
+      gap: 4,
+      backgroundColor: `${c.muted}40`,
+      borderRadius: radius.md,
+      padding: spacing.xs,
+    },
+    promoItem: {
+      borderRadius: radius.md,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+    },
+    promoItemSelected: {
+      backgroundColor: `${c.primary}12`,
+    },
+    promoItemRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+    },
+    promoDiscountBadge: {
+      borderRadius: 6,
+      paddingHorizontal: 6,
+      paddingVertical: 3,
+      backgroundColor: "#dcfce7",
+    },
+    promoDiscountBadgeActive: {
+      backgroundColor: c.primary,
+    },
+    promoDiscountText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      fontWeight: "700" as const,
+      color: "#166534",
+    },
+    promoDiscountTextActive: {
+      color: "#ffffff",
+    },
+    promoItemBody: {
+      flex: 1,
+      minWidth: 0,
+    },
+    promoBank: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "600" as const,
+      color: c.text,
+    },
+    promoBankActive: {
+      color: c.primary,
+    },
+    promoMeta: {
+      flexDirection: "row" as const,
+      flexWrap: "wrap" as const,
+      marginTop: 1,
+    },
+    promoDays: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: c.mutedForeground,
+    },
+    promoExtraHint: {
+      marginTop: 4,
+      paddingHorizontal: 10,
+    },
+    promoExtraHintText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: c.primary,
+    },
+  });
+}
+
+// ── Promos Section styles ─────────────────────────────────────────────────────
+
+function createPromoStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {
+      gap: spacing.md,
+    },
+    loadingContainer: {
+      paddingVertical: spacing.xl * 2,
+      alignItems: "center",
+    },
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: spacing.sm,
+    },
+    pipelineBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      backgroundColor: `${c.primary}10`,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: `${c.primary}30`,
+    },
+    pipelineText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      color: c.primary,
+      fontWeight: "500",
+    },
+    searchRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+    },
+    searchInput: {
+      flex: 1,
+    },
+    storeCard: {
+      overflow: "hidden" as const,
+    },
+    storeHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      padding: spacing.md,
+    },
+    storeMeta: {
+      flex: 1,
+      minWidth: 0,
+    },
+    storeName: {
+      fontFamily: fontFamily.sans,
+      fontSize: 15,
+      fontWeight: "700",
+      color: c.text,
+    },
+    storeSub: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      marginTop: 2,
+    },
+    bestBadge: {
+      backgroundColor: "#dcfce7",
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    bestBadgeText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "700",
+      color: "#166534",
+    },
+    promoList: {
+      paddingHorizontal: spacing.md,
+      paddingBottom: spacing.md,
+      gap: 6,
+    },
+    promoRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      paddingVertical: 6,
+      paddingHorizontal: spacing.sm,
+      backgroundColor: `${c.muted}40`,
+      borderRadius: radius.md,
+    },
+    discountBadge: {
+      borderRadius: 6,
+      paddingHorizontal: 6,
+      paddingVertical: 3,
+      backgroundColor: "#dcfce7",
+    },
+    discountBadgeActive: {
+      backgroundColor: c.primary,
+    },
+    discountText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      fontWeight: "700",
+      color: "#166534",
+    },
+    discountTextActive: {
+      color: "#ffffff",
+    },
+    promoBody: {
+      flex: 1,
+      minWidth: 0,
+    },
+    promoBank: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "600",
+      color: c.text,
+    },
+    promoMetaRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      marginTop: 1,
+    },
+    promoMetaText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: c.mutedForeground,
+    },
+    extraHint: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: c.primary,
+      paddingHorizontal: spacing.sm,
+      paddingTop: 2,
+    },
+  });
+}

@@ -194,6 +194,9 @@ export const notificationStyles: Record<
   REMINDER_DUE: { bg: "bg-blue-50", iconColor: "text-blue-500" },
   PLAN_READY: { bg: "bg-[#e4d5ff]/50", iconColor: "text-primary" },
   PLAN_APPLIED: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-600" },
+  SERVICE_DUE_SOON: { bg: "bg-amber-50", iconColor: "text-amber-600" },
+  EXPENSE_WEEKLY_SUMMARY: { bg: "bg-blue-50", iconColor: "text-blue-500" },
+  TASK_REMINDER: { bg: "bg-purple-50", iconColor: "text-purple-600" },
 };
 
 export const notificationStyleDefault = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { InviteShareBlock } from "@/components/features/invite-share-block";
 import { useToast } from "@/components/ui/toast";
@@ -17,11 +17,12 @@ interface InviteHomeCardProps {
 
 export function InviteHomeCard({ inviteCode, householdName, variant = "default" }: InviteHomeCardProps) {
   const toast = useToast();
-  const [dismissed, setDismissed] = useState(true);
+  const [dismissed, setDismissed] = useState(true); // start hidden to match SSR
 
+  // Hydrate from localStorage after mount to avoid SSR mismatch
   useEffect(() => {
-    const wasDismissed = localStorage.getItem(STORAGE_KEY);
-    setDismissed(wasDismissed === "true");
+    setDismissed(localStorage.getItem(STORAGE_KEY) === "true");
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   }, []);
 
   if (dismissed) return null;

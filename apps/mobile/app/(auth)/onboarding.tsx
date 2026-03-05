@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { router } from "expo-router";
 import {
-  Animated,
   Image,
   Pressable,
   ScrollView,
@@ -21,11 +20,13 @@ import {
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { useCreateHousehold } from "@/hooks/use-households";
 import { StyledTextInput } from "@/components/ui/text-input";
+import { CityTypeahead } from "@/components/ui/city-typeahead";
 import { Button } from "@/components/ui/button";
 import { colors, fontFamily, radius, spacing, typography } from "@/theme";
 import { mobileConfig } from "@/lib/config";
 
 import type { HouseholdResponse } from "@habita/contracts";
+import type { CityResult } from "@/hooks/use-cities";
 
 type Step = "householdType" | "setup" | "invite";
 
@@ -37,6 +38,8 @@ export default function OnboardingScreen() {
   const [isSoloMode, setIsSoloMode] = useState(false);
   const [householdName, setHouseholdName] = useState("");
   const [memberName, setMemberName] = useState("");
+  const [cityText, setCityText] = useState("");
+  const [selectedCity, setSelectedCity] = useState<CityResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -49,13 +52,34 @@ export default function OnboardingScreen() {
     setStep("setup");
   };
 
+  const handleCitySelect = (city: CityResult) => {
+    setSelectedCity(city);
+  };
+
   const handleCreate = async () => {
     setError(null);
     try {
+      const location = selectedCity
+        ? {
+            city: `${selectedCity.name}, ${selectedCity.province}`,
+            latitude: selectedCity.latitude,
+            longitude: selectedCity.longitude,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            country: "AR",
+          }
+        : cityText.trim()
+          ? {
+              city: cityText.trim(),
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              country: "AR",
+            }
+          : undefined;
+
       const result = await createHousehold.mutateAsync({
         householdName: householdName.trim() || `${memberName.trim()}'s Home`,
         memberName: memberName.trim(),
         memberType: "ADULT",
+        ...(location ? { location } : {}),
       });
 
       if (isSoloMode) {
@@ -79,7 +103,6 @@ export default function OnboardingScreen() {
   const handleShareInvite = async () => {
     if (!inviteCode) return;
     const baseUrl = mobileConfig.oauthBaseUrl;
-    // Universal link — opens the app directly if installed, otherwise prompts to download
     const inviteUrl = `${baseUrl}/join/${inviteCode}`;
     const message = `Te invito a unirte a mi hogar "${householdName || memberName}" en Habita 🏠\n\n${inviteUrl}`;
     try {
@@ -91,7 +114,6 @@ export default function OnboardingScreen() {
 
   const handleCopyCode = () => {
     if (!inviteCode) return;
-    // React Native doesn't have Clipboard built-in, but Share works fine
     setCodeCopied(true);
     setTimeout(() => setCodeCopied(false), 2000);
   };
@@ -101,10 +123,14 @@ export default function OnboardingScreen() {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.header}>
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <ArrowLeft size={20} color={colors.text} />
+          </Pressable>
           <View style={styles.logoRow}>
             <Image source={require("../../assets/logo.png")} style={styles.logoImg} />
             <Text style={styles.logoBrand}>Habita</Text>
           </View>
+          <View style={{ width: 20 }} />
         </View>
 
         <View style={styles.centeredContent}>
@@ -162,7 +188,7 @@ export default function OnboardingScreen() {
     );
   }
 
-  // ─── Step: Setup (name + household name) ──────────────────────────────────
+  // ─── Step: Setup (name + household name + city) ────────────────────────────
   if (step === "setup") {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
@@ -210,6 +236,19 @@ export default function OnboardingScreen() {
                 maxLength={50}
               />
             </View>
+
+            <View style={styles.fieldGap}>
+              <CityTypeahead
+                value={cityText}
+                onChangeText={(text) => {
+                  setCityText(text);
+                  if (selectedCity) setSelectedCity(null);
+                }}
+                onSelectCity={handleCitySelect}
+                placeholder="Ej: Buenos Aires"
+                label="Ciudad (opcional)"
+              />
+            </View>
           </View>
 
           {error ? (
@@ -224,7 +263,7 @@ export default function OnboardingScreen() {
             loading={createHousehold.isPending}
             style={styles.submitBtn}
           >
-            {createHousehold.isPending ? "Creando hogar..." : "Crear hogar"}
+            {createHousehold.isPending ? "Creando hogar..." : "Comencemos"}
           </Button>
         </ScrollView>
       </SafeAreaView>

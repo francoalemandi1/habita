@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Bookmark,
@@ -9,12 +9,15 @@ import {
   ChevronUp,
   Clock,
   Mic,
+  Share2,
   Users,
   Zap,
 } from "lucide-react-native";
 import { useCocina } from "@/hooks/use-cocina";
 import { useSavedRecipes, useToggleSaveRecipe } from "@/hooks/use-saved-recipes";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
+import { useMilestone } from "@/hooks/use-milestone";
+import { useCelebration } from "@/hooks/use-celebration";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,8 +26,15 @@ import { SkeletonCard } from "@/components/ui/skeleton";
 import { TabBar } from "@/components/ui/tab-bar";
 import { StyledTextInput } from "@/components/ui/text-input";
 import { ScreenHeader } from "@/components/features/screen-header";
-import { colors, fontFamily, radius, spacing, typography } from "@/theme";
+import { useThemeColors } from "@/hooks/use-theme";
+import { fontFamily, radius, spacing, typography } from "@/theme";
+import { useFirstVisit } from "@/hooks/use-first-visit";
+import { useUnlockedTabs } from "@/hooks/use-unlocked-tabs";
+import { SectionGuideCard } from "@/components/features/section-guide-card";
+import { useSectionToured } from "@/hooks/use-guided-tour";
+import { Sparkles, Heart } from "lucide-react-native";
 
+import type { ThemeColors } from "@/theme";
 import type { MealType, Recipe } from "@/hooks/use-cocina";
 import type { SavedRecipe, SaveRecipeInput } from "@/hooks/use-saved-recipes";
 
@@ -70,19 +80,53 @@ function recipeToSaveInput(recipe: Recipe): SaveRecipeInput {
   };
 }
 
+async function handleShareRecipe(recipe: Recipe | SavedRecipe): Promise<void> {
+  const difficultyLabel: Record<string, string> = {
+    facil: "Fácil",
+    media: "Media",
+    dificil: "Difícil",
+  };
+  const label = difficultyLabel[recipe.difficulty] ?? recipe.difficulty;
+  const lines = [
+    recipe.title,
+    "",
+    `🧑‍🍳 ${label} · ⏱ ${recipe.prepTimeMinutes} min · 🍽 ${recipe.servings} porciones`,
+    "",
+    "Ingredientes:",
+    ...recipe.ingredients.map((i) => `• ${i}`),
+    "",
+    "Preparación:",
+    ...recipe.steps.map((s, idx) => `${idx + 1}. ${s}`),
+    ...(recipe.tip ? ["", `💡 ${recipe.tip}`] : []),
+    "",
+    "Organizado con Habita 🏠",
+  ];
+  const text = lines.join("\n");
+  try {
+    await Share.share({ message: text });
+  } catch {
+    // user cancelled
+  }
+}
+
 // ─── RecipeCard ─────────────────────────────────────────────────────────────
 
 function RecipeCard({
   recipe,
   isSaved,
   onToggleSave,
+  onShare,
   savePending,
 }: {
   recipe: Recipe | SavedRecipe;
   isSaved: boolean;
   onToggleSave: () => void;
+  onShare: () => void;
   savePending: boolean;
 }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAllIngredients, setShowAllIngredients] = useState(false);
 
@@ -114,6 +158,13 @@ function RecipeCard({
             ) : (
               <Bookmark size={18} color={colors.mutedForeground} />
             )}
+          </Pressable>
+          <Pressable
+            onPress={onShare}
+            hitSlop={8}
+            style={styles.saveIconButton}
+          >
+            <Share2 size={18} color={colors.mutedForeground} />
           </Pressable>
         </View>
 
@@ -220,6 +271,17 @@ function RecipeCard({
 // ─── main screen ────────────────────────────────────────────────────────────
 
 export default function CocinaScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { isFirstVisit, dismiss: dismissGuide } = useFirstVisit("cocina");
+  const cocinaWasToured = useSectionToured("cocina");
+  const recipeMilestone = useMilestone("first-recipe");
+  const { celebrate } = useCelebration();
+  const { unlock } = useUnlockedTabs();
+  useEffect(() => {
+    void unlock("cocina");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [activeTab, setActiveTab] = useState(0);
   const [textInput, setTextInput] = useState("");
   const mealType = autoDetectMealType();
@@ -236,6 +298,16 @@ export default function CocinaScreen() {
 
   const recipes = cocinaM.data?.recipes ?? [];
   const summary = cocinaM.data?.summary;
+
+  // Celebrate first recipe generation
+  useEffect(() => {
+    if (recipes.length > 0) {
+      void recipeMilestone.complete().then((wasFirst) => {
+        if (wasFirst) celebrate("first-recipe");
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipes.length]);
 
   const handleToggleSaveRecipe = useCallback(
     (recipe: Recipe) => {
@@ -279,11 +351,34 @@ export default function CocinaScreen() {
         {/* Title */}
         <View style={styles.titleRow}>
           <ChefHat size={22} color={colors.primary} strokeWidth={2} />
-          <Text style={styles.title}>Cociná</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Cociná</Text>
         </View>
         <Text style={styles.subtitle}>
           Contanos qué tenés en la heladera y te sugerimos recetas
         </Text>
+
+        {isFirstVisit && !cocinaWasToured ? (
+          <SectionGuideCard
+            steps={[
+              {
+                icon: <ChefHat size={16} color={colors.primary} />,
+                title: "Decinos qué tenés",
+                description: "Listá los ingredientes que hay en tu cocina",
+              },
+              {
+                icon: <Sparkles size={16} color={colors.primary} />,
+                title: "La IA sugiere recetas",
+                description: "Recetas personalizadas con lo que ya tenés",
+              },
+              {
+                icon: <Heart size={16} color={colors.primary} />,
+                title: "Guardá y compartí",
+                description: "Tus recetas favoritas siempre a mano",
+              },
+            ]}
+            onDismiss={dismissGuide}
+          />
+        ) : null}
 
         {/* Tab bar: Cocinar / Recetas guardadas */}
         <TabBar
@@ -357,6 +452,7 @@ export default function CocinaScreen() {
                     recipe={recipe}
                     isSaved={!!savedRecipes?.find((r) => r.title === recipe.title)}
                     onToggleSave={() => handleToggleSaveRecipe(recipe)}
+                    onShare={() => { void handleShareRecipe(recipe); }}
                     savePending={savePending}
                   />
                 ))}
@@ -393,6 +489,7 @@ export default function CocinaScreen() {
                   recipe={saved}
                   isSaved
                   onToggleSave={() => handleRemoveSavedRecipe(saved.id)}
+                  onShare={() => { void handleShareRecipe(saved); }}
                   savePending={savePending}
                 />
               ))}
@@ -408,293 +505,295 @@ export default function CocinaScreen() {
 
 // ─── styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: 24,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
-  },
-  title: {
-    ...typography.pageTitle,
-  },
-  subtitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    color: colors.mutedForeground,
-    marginBottom: spacing.md,
-  },
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: 24,
+    },
+    titleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      marginTop: spacing.md,
+      marginBottom: spacing.xs,
+    },
+    title: {
+      ...typography.pageTitle,
+    },
+    subtitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      color: c.mutedForeground,
+      marginBottom: spacing.md,
+    },
 
-  // Input card
-  inputCard: {
-    marginBottom: spacing.md,
-  },
-  ingredientsInput: {
-    minHeight: 80,
-    textAlignVertical: "top",
-  },
-  belowInputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 4,
-  },
-  charCount: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    color: colors.mutedForeground,
-    marginBottom: spacing.md,
-  },
-  dictateButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: 4,
-  },
-  dictateButtonText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.primary,
-  },
+    // Input card
+    inputCard: {
+      marginBottom: spacing.md,
+    },
+    ingredientsInput: {
+      minHeight: 80,
+      textAlignVertical: "top",
+    },
+    belowInputRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginTop: 4,
+    },
+    charCount: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: c.mutedForeground,
+      marginBottom: spacing.md,
+    },
+    dictateButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingVertical: 4,
+    },
+    dictateButtonText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "600",
+      color: c.primary,
+    },
 
-  // Error
-  errorCard: {
-    backgroundColor: "#fee2e2",
-    marginBottom: spacing.md,
-  },
-  errorText: {
-    fontFamily: fontFamily.sans,
-    color: "#b91c1c",
-    fontSize: 13,
-  },
+    // Error
+    errorCard: {
+      backgroundColor: c.errorBg,
+      marginBottom: spacing.md,
+    },
+    errorText: {
+      fontFamily: fontFamily.sans,
+      color: c.errorText,
+      fontSize: 13,
+    },
 
-  // Summary
-  summaryText: {
-    fontFamily: fontFamily.sans,
-    color: colors.mutedForeground,
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: spacing.md,
-  },
+    // Summary
+    summaryText: {
+      fontFamily: fontFamily.sans,
+      color: c.mutedForeground,
+      fontSize: 14,
+      lineHeight: 20,
+      marginBottom: spacing.md,
+    },
 
-  // Recipes
-  recipesSection: {
-    gap: spacing.md,
-  },
-  recipeCard: {
-    marginBottom: 0,
-  },
-  recipeHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  recipeTitle: {
-    fontFamily: fontFamily.sans,
-    fontWeight: "600",
-    color: colors.text,
-    fontSize: 14,
-    flex: 1,
-    lineHeight: 18,
-  },
-  recipeMeta: {
-    flexDirection: "row",
-    gap: 6,
-    flexWrap: "wrap",
-    alignItems: "center",
-    marginBottom: spacing.sm,
-  },
-  speedBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    borderRadius: radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  speedBadgeText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    fontWeight: "500",
-  },
-  recipeMetaChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  recipeMetaText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    color: colors.mutedForeground,
-  },
-  recipeDesc: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    lineHeight: 17,
-    color: colors.mutedForeground,
-    marginBottom: spacing.md,
-  },
+    // Recipes
+    recipesSection: {
+      gap: spacing.md,
+    },
+    recipeCard: {
+      marginBottom: 0,
+    },
+    recipeHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: spacing.sm,
+      marginBottom: spacing.sm,
+    },
+    recipeTitle: {
+      fontFamily: fontFamily.sans,
+      fontWeight: "600",
+      color: c.text,
+      fontSize: 14,
+      flex: 1,
+      lineHeight: 18,
+    },
+    recipeMeta: {
+      flexDirection: "row",
+      gap: 6,
+      flexWrap: "wrap",
+      alignItems: "center",
+      marginBottom: spacing.sm,
+    },
+    speedBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+      borderRadius: radius.full,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    speedBadgeText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      fontWeight: "500",
+    },
+    recipeMetaChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    recipeMetaText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+    },
+    recipeDesc: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      lineHeight: 17,
+      color: c.mutedForeground,
+      marginBottom: spacing.md,
+    },
 
-  // Ingredients — pills (matches web)
-  ingredientsSection: {
-    marginBottom: spacing.sm,
-  },
-  ingredientsSectionTitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    fontWeight: "500",
-    color: colors.text,
-    marginBottom: 6,
-  },
-  ingredientPillsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 4,
-  },
-  ingredientPill: {
-    backgroundColor: "#ecfdf5",
-    borderRadius: radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  ingredientPillText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    color: "#065f46",
-  },
-  ingredientMorePill: {
-    backgroundColor: `${colors.muted}99`,
-    borderRadius: radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  ingredientMoreText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    fontWeight: "500",
-    color: colors.mutedForeground,
-  },
+    // Ingredients — pills (matches web)
+    ingredientsSection: {
+      marginBottom: spacing.sm,
+    },
+    ingredientsSectionTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "500",
+      color: c.text,
+      marginBottom: 6,
+    },
+    ingredientPillsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 4,
+    },
+    ingredientPill: {
+      backgroundColor: "#ecfdf5",
+      borderRadius: radius.full,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    ingredientPillText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: "#065f46",
+    },
+    ingredientMorePill: {
+      backgroundColor: `${c.muted}99`,
+      borderRadius: radius.full,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    ingredientMoreText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      fontWeight: "500",
+      color: c.mutedForeground,
+    },
 
-  // Missing ingredients
-  missingSection: {
-    marginBottom: spacing.sm,
-  },
-  missingSectionTitle: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#d97706",
-    marginBottom: 6,
-  },
-  missingPill: {
-    backgroundColor: "#fffbeb",
-    borderRadius: radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  missingPillText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 11,
-    color: "#92400e",
-  },
+    // Missing ingredients
+    missingSection: {
+      marginBottom: spacing.sm,
+    },
+    missingSectionTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "500",
+      color: "#d97706",
+      marginBottom: 6,
+    },
+    missingPill: {
+      backgroundColor: "#fffbeb",
+      borderRadius: radius.full,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    missingPillText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: c.warningText,
+    },
 
-  // Expand button (web: "Ver pasos (N)")
-  expandButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  expandButtonText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    fontWeight: "500",
-    color: colors.primary,
-  },
+    // Expand button (web: "Ver pasos (N)")
+    expandButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginTop: spacing.sm,
+      marginBottom: spacing.sm,
+    },
+    expandButtonText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "500",
+      color: c.primary,
+    },
 
-  // Steps
-  stepsSection: {
-    gap: 6,
-    marginBottom: spacing.sm,
-  },
-  step: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  stepNumber: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: `${colors.primary}1A`,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-    marginTop: 1,
-  },
-  stepNumberText: {
-    fontFamily: fontFamily.sans,
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  stepText: {
-    fontFamily: fontFamily.sans,
-    flex: 1,
-    color: colors.mutedForeground,
-    fontSize: 12,
-    lineHeight: 17,
-  },
+    // Steps
+    stepsSection: {
+      gap: 6,
+      marginBottom: spacing.sm,
+    },
+    step: {
+      flexDirection: "row",
+      gap: spacing.sm,
+    },
+    stepNumber: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: `${c.primary}1A`,
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+      marginTop: 1,
+    },
+    stepNumberText: {
+      fontFamily: fontFamily.sans,
+      color: c.primary,
+      fontSize: 10,
+      fontWeight: "600",
+    },
+    stepText: {
+      fontFamily: fontFamily.sans,
+      flex: 1,
+      color: c.mutedForeground,
+      fontSize: 12,
+      lineHeight: 17,
+    },
 
-  // Tip
-  tip: {
-    flexDirection: "row",
-    gap: 6,
-    backgroundColor: "#fffbeb",
-    borderRadius: radius.lg,
-    padding: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  tipText: {
-    fontFamily: fontFamily.sans,
-    flex: 1,
-    fontSize: 11,
-    lineHeight: 16,
-    color: "#92400e",
-  },
+    // Tip
+    tip: {
+      flexDirection: "row",
+      gap: 6,
+      backgroundColor: "#fffbeb",
+      borderRadius: radius.lg,
+      padding: spacing.sm,
+      marginTop: spacing.sm,
+    },
+    tipText: {
+      fontFamily: fontFamily.sans,
+      flex: 1,
+      fontSize: 11,
+      lineHeight: 16,
+      color: c.warningText,
+    },
 
-  // Tab bar
-  tabBar: {
-    marginBottom: spacing.md,
-  },
+    // Tab bar
+    tabBar: {
+      marginBottom: spacing.md,
+    },
 
-  // Save icon button
-  saveIconButton: {
-    padding: 4,
-    flexShrink: 0,
-  },
+    // Save icon button
+    saveIconButton: {
+      padding: 4,
+      flexShrink: 0,
+    },
 
-  // Loading
-  loadingList: {
-    gap: spacing.md,
-  },
+    // Loading
+    loadingList: {
+      gap: spacing.md,
+    },
 
-  bottomPadding: {
-    height: 20,
-  },
-});
+    bottomPadding: {
+      height: 20,
+    },
+  });
+}

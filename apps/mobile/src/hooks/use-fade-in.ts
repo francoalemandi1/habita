@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { Animated } from "react-native";
 
 /**
@@ -6,7 +6,7 @@ import { Animated } from "react-native";
  * Use with Animated.View style={{ opacity }}
  */
 export function useFadeIn(duration = 300, delay = 0) {
-  const opacity = useRef(new Animated.Value(0)).current;
+  const opacity = useMemo(() => new Animated.Value(0), []);
 
   useEffect(() => {
     Animated.timing(opacity, {

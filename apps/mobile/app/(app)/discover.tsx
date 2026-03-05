@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Linking,
   Pressable,
@@ -34,7 +34,6 @@ import { ScreenHeader } from "@/components/features/screen-header";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamily, radius, spacing, typography } from "@/theme";
 import { useFirstVisit } from "@/hooks/use-first-visit";
-import { useUnlockedTabs } from "@/hooks/use-unlocked-tabs";
 import { SectionGuideCard } from "@/components/features/section-guide-card";
 import { useSectionToured } from "@/hooks/use-guided-tour";
 import { Filter } from "lucide-react-native";
@@ -733,11 +732,6 @@ export default function DiscoverScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { isFirstVisit, dismiss: dismissGuide } = useFirstVisit("descubrir");
   const descubriWasToured = useSectionToured("descubri");
-  const { unlock } = useUnlockedTabs();
-  useEffect(() => {
-    void unlock("discover");
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   const eventsQuery = useEvents({ limit: 50 });
   const [refreshing, setRefreshing] = useState(false);
 

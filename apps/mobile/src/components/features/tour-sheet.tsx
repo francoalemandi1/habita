@@ -213,7 +213,6 @@ export function TourSheet({
   const content = TOUR_CONTENT[section];
   const Icon = content.icon;
   const householdQuery = useHouseholdDetail();
-
   const handleCta = useCallback(() => {
     if (section === "invitar") {
       const code = householdQuery.data?.household?.inviteCode;
@@ -224,11 +223,13 @@ export function TourSheet({
         void Share.share({ message });
       }
       onNavigate();
+      onDismiss();
       return;
     }
     onNavigate();
+    onDismiss();
     router.push(content.route as never);
-  }, [onNavigate, content.route, section, householdQuery.data]);
+  }, [onNavigate, onDismiss, content.route, section, householdQuery.data]);
 
   return (
     <BottomSheet visible={visible} onClose={onDismiss} scrollable={false}>

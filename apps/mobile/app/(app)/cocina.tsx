@@ -29,7 +29,6 @@ import { ScreenHeader } from "@/components/features/screen-header";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamily, radius, spacing, typography } from "@/theme";
 import { useFirstVisit } from "@/hooks/use-first-visit";
-import { useUnlockedTabs } from "@/hooks/use-unlocked-tabs";
 import { SectionGuideCard } from "@/components/features/section-guide-card";
 import { useSectionToured } from "@/hooks/use-guided-tour";
 import { Sparkles, Heart } from "lucide-react-native";
@@ -277,11 +276,6 @@ export default function CocinaScreen() {
   const cocinaWasToured = useSectionToured("cocina");
   const recipeMilestone = useMilestone("first-recipe");
   const { celebrate } = useCelebration();
-  const { unlock } = useUnlockedTabs();
-  useEffect(() => {
-    void unlock("cocina");
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   const [activeTab, setActiveTab] = useState(0);
   const [textInput, setTextInput] = useState("");
   const mealType = autoDetectMealType();

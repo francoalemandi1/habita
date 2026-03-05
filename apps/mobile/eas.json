@@ -16,7 +16,7 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://habita.vercel.app",
+        "EXPO_PUBLIC_API_BASE_URL": "https://habita.casa",
         "EXPO_PUBLIC_OAUTH_BASE_URL": "https://habita.casa",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "615232460202-r8buqnl4jgo1894drai2h4l9qiegutte.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "615232460202-e89h4nrbg8cte00m600q77m832nt5170.apps.googleusercontent.com",
@@ -25,7 +25,7 @@
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://habita.vercel.app",
+        "EXPO_PUBLIC_API_BASE_URL": "https://habita.casa",
         "EXPO_PUBLIC_OAUTH_BASE_URL": "https://habita.casa",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "615232460202-r8buqnl4jgo1894drai2h4l9qiegutte.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "615232460202-e89h4nrbg8cte00m600q77m832nt5170.apps.googleusercontent.com",

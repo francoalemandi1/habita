@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1081636061363",
+    "project_id": "habita-4183c",
+    "storage_bucket": "habita-4183c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1081636061363:android:18859b107c3b6086d1b0c6",
+        "android_client_info": {
+          "package_name": "casa.habita.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBjPPJzBF5q7iv0flqwDEv_mQXpFRgFWSk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

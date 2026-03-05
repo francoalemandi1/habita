@@ -4,7 +4,6 @@ import { Animated, Platform, Pressable, StyleSheet, Text, View } from "react-nat
 import { useRef, useEffect, useMemo } from "react";
 import { fontFamily } from "@/theme";
 import { useThemeColors } from "@/hooks/use-theme";
-import { useUnlockedTabs } from "@/hooks/use-unlocked-tabs";
 import {
   ChefHat,
   ClipboardCheck,
@@ -152,7 +151,6 @@ function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
 
 export default function AppLayout() {
   const { isAuthenticated, isBootstrapping, me } = useMobileAuth();
-  const { unlocked, loaded } = useUnlockedTabs();
 
   if (!isBootstrapping && !isAuthenticated) {
     return <Redirect href="/(auth)/login" />;
@@ -162,11 +160,6 @@ export default function AppLayout() {
     return <Redirect href="/(auth)/onboarding" />;
   }
 
-  // Hide a secondary tab only once we know the unlock state (loaded=true) and
-  // the user hasn't visited it yet. Before loading, show all tabs to avoid flicker.
-  const discoverHidden = loaded && !unlocked.has("discover");
-  const cocinaHidden = loaded && !unlocked.has("cocina");
-
   return (
     <Tabs
       tabBar={(props) => <CustomTabBar {...(props as unknown as TabBarProps)} />}
@@ -174,26 +167,12 @@ export default function AppLayout() {
         headerShown: false,
       }}
     >
-      {/* ── Primary tabs (always visible) ── */}
+      {/* ── Tabs (always visible) ── */}
       <Tabs.Screen name="tasks" options={{ title: "Planificá" }} />
       <Tabs.Screen name="expenses" options={{ title: "Registrá" }} />
       <Tabs.Screen name="shopping-plan" options={{ title: "Ahorrá" }} />
-
-      {/* ── Secondary tabs (hidden until unlocked via dashboard) ── */}
-      <Tabs.Screen
-        name="discover"
-        options={{
-          title: "Descubrí",
-          tabBarItemStyle: discoverHidden ? { display: "none" } : undefined,
-        }}
-      />
-      <Tabs.Screen
-        name="cocina"
-        options={{
-          title: "Cociná",
-          tabBarItemStyle: cocinaHidden ? { display: "none" } : undefined,
-        }}
-      />
+      <Tabs.Screen name="discover" options={{ title: "Descubrí" }} />
+      <Tabs.Screen name="cocina" options={{ title: "Cociná" }} />
 
       {/* Settings — hidden from tab bar, accessible via ScreenHeader avatar */}
       <Tabs.Screen name="settings" options={{ href: null, title: "Perfil" }} />

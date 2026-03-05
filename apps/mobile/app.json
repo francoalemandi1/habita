@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Habita",
-    "slug": "habita-mobile",
+    "slug": "habita",
     "scheme": "habita",
     "version": "0.1.0",
     "orientation": "portrait",

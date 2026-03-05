@@ -2,16 +2,18 @@ import { Stack } from "expo-router";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RuntimeBanner } from "@/components/runtime-banner";
 import { MobileQueryProvider } from "@/providers/query-provider";
 import { MobileAuthProvider, useMobileAuth } from "@/providers/mobile-auth-provider";
+import { ThemeProvider, useTheme } from "@/providers/theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
+import { NotificationProvider } from "@/providers/notification-provider";
 import { colors, fontFamily } from "@/theme";
 
 function BrandedSplash() {
-  const fadeIn = useRef(new Animated.Value(0)).current;
-  const scaleIn = useRef(new Animated.Value(0.9)).current;
+  const fadeIn = useMemo(() => new Animated.Value(0), []);
+  const scaleIn = useMemo(() => new Animated.Value(0.9), []);
 
   useEffect(() => {
     Animated.parallel([
@@ -80,24 +82,34 @@ const splashStyles = StyleSheet.create({
  * Stays mounted briefly after isBootstrapping flips to false to animate out.
  */
 function SplashOverlay({ visible }: { visible: boolean }) {
-  const opacity = useRef(new Animated.Value(1)).current;
+  const opacity = useMemo(() => new Animated.Value(1), []);
   const [mounted, setMounted] = useState(true);
-  const hasBootstrapped = useRef(false);
+  const [hasBootstrapped, setHasBootstrapped] = useState(false);
+  const [fadeStarted, setFadeStarted] = useState(false);
 
-  useEffect(() => {
-    if (!visible && !hasBootstrapped.current) {
-      // First time bootstrapping completes — fade out
-      hasBootstrapped.current = true;
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => setMounted(false));
-    } else if (visible && hasBootstrapped.current) {
-      // Subsequent hydrate() calls (e.g. after household creation) — skip splash
+  // Track visible transitions via derived state
+  const [prevVisible, setPrevVisible] = useState(visible);
+  if (prevVisible !== visible) {
+    setPrevVisible(visible);
+    if (!visible && !hasBootstrapped) {
+      // First time bootstrapping completes — mark for fade out
+      setHasBootstrapped(true);
+      setFadeStarted(true);
+    } else if (visible && hasBootstrapped) {
+      // Subsequent hydrate() calls — skip splash immediately
       setMounted(false);
     }
-  }, [visible, opacity]);
+  }
+
+  // Perform the fade-out animation
+  useEffect(() => {
+    if (!fadeStarted) return;
+    Animated.timing(opacity, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => setMounted(false));
+  }, [fadeStarted, opacity]);
 
   if (!mounted) return null;
 
@@ -110,12 +122,13 @@ function SplashOverlay({ visible }: { visible: boolean }) {
 
 function RootNavigator() {
   const { isBootstrapping } = useMobileAuth();
+  const { resolvedMode, colors: themeColors } = useTheme();
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar style="dark" backgroundColor={colors.background} />
+    <View style={{ flex: 1, backgroundColor: themeColors.background }}>
+      <StatusBar style={resolvedMode === "dark" ? "light" : "dark"} backgroundColor={themeColors.background} />
       <RuntimeBanner />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: themeColors.background } }} />
       <SplashOverlay visible={isBootstrapping} />
     </View>
   );
@@ -133,11 +146,15 @@ export default function RootLayout() {
 
   return (
     <MobileQueryProvider>
-      <MobileAuthProvider>
-        <ToastProvider>
-          <RootNavigator />
-        </ToastProvider>
-      </MobileAuthProvider>
+      <ThemeProvider>
+        <MobileAuthProvider>
+          <NotificationProvider>
+            <ToastProvider>
+              <RootNavigator />
+            </ToastProvider>
+          </NotificationProvider>
+        </MobileAuthProvider>
+      </ThemeProvider>
     </MobileQueryProvider>
   );
 }

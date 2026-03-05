@@ -10,6 +10,7 @@ import {
 } from "@/lib/storage";
 import { subscribeRuntimeEvents } from "@/lib/runtime-events";
 import { trackMobileEvent } from "@/lib/telemetry";
+import { deregisterPushToken } from "@/lib/push-notifications";
 
 import type { AuthMeResponse, MobileTokenExchangeResponse } from "@habita/contracts";
 import type { ReactNode } from "react";
@@ -136,6 +137,7 @@ export function MobileAuthProvider({ children }: MobileAuthProviderProps) {
 
   const logout = useCallback(async () => {
     clearProactiveRefresh();
+    await deregisterPushToken();
     const session = await getMobileSessionSnapshot();
     if (session.refreshToken) {
       try {

@@ -201,6 +201,9 @@ model Member {
   savedCarts           SavedCart[]
   fundAllocations      FundAllocation[]
   fundContributions    FundContribution[]
+  expoPushTokens       ExpoPushToken[]
+  notificationPreferences NotificationPreference[]
+  pushDeliveryLogs     PushDeliveryLog[]
   @@unique([userId, householdId])
   @@index([householdId])
   @@index([userId])
@@ -468,6 +471,13 @@ enum NotificationType {
   PLAN_READY
   PLAN_APPLIED
   REWARD_REDEEMED
+  SERVICE_DUE_SOON
+  EXPENSE_WEEKLY_SUMMARY
+  TASK_REMINDER
+  EXPENSE_SHARED
+  MEMBER_JOINED
+  CULTURAL_RECOMMENDATION
+  DEAL_ALERT
 }
 
 // ============================================
@@ -1144,4 +1154,59 @@ model FundExpense {
   @@index([fundId])
   @@index([fundId, date])
   @@map("fund_expenses")
+}
+
+// ============================================
+// EXPO PUSH TOKEN MODEL
+// ============================================
+
+model ExpoPushToken {
+  id        String   @id @default(cuid())
+  memberId  String
+  token     String   @unique
+  deviceId  String
+  platform  String   @default("ios")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, deviceId])
+  @@index([memberId])
+  @@map("expo_push_tokens")
+}
+
+// ============================================
+// NOTIFICATION PREFERENCE MODEL
+// ============================================
+
+model NotificationPreference {
+  id       String  @id @default(cuid())
+  memberId String
+  category String
+  enabled  Boolean @default(true)
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, category])
+  @@index([memberId])
+  @@map("notification_preferences")
+}
+
+// ============================================
+// PUSH DELIVERY LOG MODEL
+// ============================================
+
+model PushDeliveryLog {
+  id           String           @id @default(cuid())
+  memberId     String
+  type         NotificationType
+  sentAt       DateTime         @default(now())
+  expoTicketId String?
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, sentAt])
+  @@index([memberId, type, sentAt])
+  @@map("push_delivery_logs")
 }

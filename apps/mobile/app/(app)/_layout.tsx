@@ -1,8 +1,10 @@
 import { Redirect, Tabs } from "expo-router";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { useRef, useEffect } from "react";
-import { colors, fontFamily } from "@/theme";
+import { useRef, useEffect, useMemo } from "react";
+import { fontFamily } from "@/theme";
+import { useThemeColors } from "@/hooks/use-theme";
+import { useUnlockedTabs } from "@/hooks/use-unlocked-tabs";
 import {
   ChefHat,
   ClipboardCheck,
@@ -10,7 +12,9 @@ import {
   Receipt,
   ShoppingCart,
 } from "lucide-react-native";
+
 import type { LucideIcon } from "lucide-react-native";
+import type { ThemeColors } from "@/theme";
 
 // ─── Custom tab bar ──────────────────────────────────────────────────────────
 
@@ -35,8 +39,13 @@ function AnimatedTabItem({
   onPress: () => void;
   onLongPress: () => void;
 }) {
-  const scale = useRef(new Animated.Value(focused ? 1.05 : 1)).current;
-  const bgOpacity = useRef(new Animated.Value(focused ? 1 : 0)).current;
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- stable animated values
+  const scale = useMemo(() => new Animated.Value(focused ? 1.05 : 1), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- stable animated values
+  const bgOpacity = useMemo(() => new Animated.Value(focused ? 1 : 0), []);
 
   useEffect(() => {
     Animated.parallel([
@@ -64,7 +73,7 @@ function AnimatedTabItem({
         <Animated.View style={[styles.tabPill, { opacity: bgOpacity }]} />
         <Icon
           size={20}
-          color={focused ? colors.primary : colors.mutedForeground}
+          color={focused ? "#d2ffa0" : "rgba(255,255,255,0.65)"}
           strokeWidth={focused ? 2.4 : 1.8}
         />
         <Text
@@ -84,7 +93,7 @@ function AnimatedTabItem({
 /** Minimal type for the tab bar props we need — avoids importing @react-navigation/bottom-tabs. */
 interface TabBarProps {
   state: { index: number; routes: Array<{ key: string; name: string }> };
-  descriptors: Record<string, { options?: { href?: string | null } } | undefined>;
+  descriptors: Record<string, { options?: { href?: string | null; tabBarItemStyle?: { display?: string } } } | undefined>;
   navigation: {
     emit: (event: { type: string; target: string; canPreventDefault?: boolean }) => { defaultPrevented: boolean };
     navigate: (name: string) => void;
@@ -92,6 +101,8 @@ interface TabBarProps {
 }
 
 function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.tabBarContainer}>
@@ -102,6 +113,7 @@ function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
 
           const options = descriptors[route.key]?.options;
           if (options?.href === null) return null;
+          if (options?.tabBarItemStyle?.display === "none") return null;
 
           const focused = state.index === state.routes.indexOf(route);
 
@@ -140,6 +152,7 @@ function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
 
 export default function AppLayout() {
   const { isAuthenticated, isBootstrapping, me } = useMobileAuth();
+  const { unlocked, loaded } = useUnlockedTabs();
 
   if (!isBootstrapping && !isAuthenticated) {
     return <Redirect href="/(auth)/login" />;
@@ -149,6 +162,11 @@ export default function AppLayout() {
     return <Redirect href="/(auth)/onboarding" />;
   }
 
+  // Hide a secondary tab only once we know the unlock state (loaded=true) and
+  // the user hasn't visited it yet. Before loading, show all tabs to avoid flicker.
+  const discoverHidden = loaded && !unlocked.has("discover");
+  const cocinaHidden = loaded && !unlocked.has("cocina");
+
   return (
     <Tabs
       tabBar={(props) => <CustomTabBar {...(props as unknown as TabBarProps)} />}
@@ -156,12 +174,26 @@ export default function AppLayout() {
         headerShown: false,
       }}
     >
-      {/* ── Primary tabs (visible in tab bar) ── */}
+      {/* ── Primary tabs (always visible) ── */}
       <Tabs.Screen name="tasks" options={{ title: "Planificá" }} />
       <Tabs.Screen name="expenses" options={{ title: "Registrá" }} />
       <Tabs.Screen name="shopping-plan" options={{ title: "Ahorrá" }} />
-      <Tabs.Screen name="discover" options={{ title: "Descubrí" }} />
-      <Tabs.Screen name="cocina" options={{ title: "Cociná" }} />
+
+      {/* ── Secondary tabs (hidden until unlocked via dashboard) ── */}
+      <Tabs.Screen
+        name="discover"
+        options={{
+          title: "Descubrí",
+          tabBarItemStyle: discoverHidden ? { display: "none" } : undefined,
+        }}
+      />
+      <Tabs.Screen
+        name="cocina"
+        options={{
+          title: "Cociná",
+          tabBarItemStyle: cocinaHidden ? { display: "none" } : undefined,
+        }}
+      />
 
       {/* Settings — hidden from tab bar, accessible via ScreenHeader avatar */}
       <Tabs.Screen name="settings" options={{ href: null, title: "Perfil" }} />
@@ -182,58 +214,70 @@ export default function AppLayout() {
       <Tabs.Screen name="roulette" options={{ href: null, title: "Ruleta de tareas" }} />
       <Tabs.Screen name="suggest-tasks" options={{ href: null, title: "Sugerencias AI" }} />
       <Tabs.Screen name="grocery-deals" options={{ href: null, title: "Ofertas del super" }} />
+      <Tabs.Screen name="notification-settings" options={{ href: null, title: "Notificaciones push" }} />
     </Tabs>
   );
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  tabBarContainer: {
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: `${colors.border}80`,
-    paddingBottom: Platform.OS === "ios" ? 20 : 8,
-  },
-  tabBar: {
-    flexDirection: "row",
-    height: 54,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    justifyContent: "space-around",
-    paddingHorizontal: 8,
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    height: 54,
-  },
-  tabItemInner: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    position: "relative",
-  },
-  tabPill: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: `${colors.primary}12`,
-    borderRadius: 12,
-  },
-  tabLabel: {
-    fontFamily: fontFamily.sans,
-    fontSize: 10,
-    marginTop: 2,
-    textAlign: "center",
-  },
-  tabLabelActive: {
-    fontWeight: "700",
-    color: colors.primary,
-  },
-  tabLabelInactive: {
-    fontWeight: "500",
-    color: colors.mutedForeground,
-  },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    tabBarContainer: {
+      // Background del app — la barra flota sobre el
+      backgroundColor: c.background,
+      paddingHorizontal: 16,
+      paddingBottom: Platform.OS === "ios" ? 24 : 12,
+      paddingTop: 8,
+    },
+    tabBar: {
+      flexDirection: "row",
+      height: 58,
+      backgroundColor: c.primary,
+      alignItems: "center",
+      justifyContent: "space-around",
+      paddingHorizontal: 8,
+      // Bordes redondeados para que "flote"
+      borderRadius: 20,
+      // Sombra suave con tono del primario
+      shadowColor: c.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+    tabItem: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      height: 58,
+    },
+    tabItemInner: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 5,
+      paddingHorizontal: 14,
+      borderRadius: 14,
+      position: "relative",
+    },
+    tabPill: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(255,255,255,0.14)",
+      borderRadius: 14,
+    },
+    tabLabel: {
+      fontFamily: fontFamily.sans,
+      fontSize: 10,
+      marginTop: 3,
+      textAlign: "center",
+    },
+    tabLabelActive: {
+      fontWeight: "700",
+      color: "#d2ffa0",
+    },
+    tabLabelInactive: {
+      fontWeight: "500",
+      color: "rgba(255,255,255,0.65)",
+    },
+  });
+}

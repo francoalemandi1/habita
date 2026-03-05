@@ -1,15 +1,22 @@
 import { useMemo, useState, useCallback } from "react";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, DollarSign } from "lucide-react-native";
+import { ArrowLeft, Check, ChevronDown, DollarSign } from "lucide-react-native";
 import { useCreateExpense } from "@/hooks/use-expenses";
+import { useMembers } from "@/hooks/use-members";
+import { useMilestone } from "@/hooks/use-milestone";
+import { useCelebration } from "@/hooks/use-celebration";
+import { usePushOptIn } from "@/hooks/use-push-opt-in";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
+import { useThemeColors } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
 import { StyledTextInput } from "@/components/ui/text-input";
-import { colors, fontFamily, radius, spacing, typography } from "@/theme";
-import type { ExpenseCategory } from "@habita/contracts";
+import { fontFamily, radius, spacing, typography } from "@/theme";
+
+import type { ThemeColors } from "@/theme";
+import type { ExpenseCategory, SplitType } from "@habita/contracts";
 
 // ─── Category inference (mirrors web's inferCategory) ────────────────────────
 
@@ -111,33 +118,63 @@ function inferCategory(title: string): ExpenseCategory | null {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const CATEGORIES: Array<{ value: ExpenseCategory; label: string; emoji: string }> = [
-  { value: "GROCERIES", label: "Supermercado", emoji: "🛒" },
-  { value: "FOOD", label: "Comida", emoji: "🍔" },
-  { value: "RENT", label: "Alquiler", emoji: "🏠" },
-  { value: "UTILITIES", label: "Servicios", emoji: "⚡" },
-  { value: "TRANSPORT", label: "Transporte", emoji: "🚗" },
-  { value: "HEALTH", label: "Salud", emoji: "❤️" },
-  { value: "HOME", label: "Hogar", emoji: "🔧" },
-  { value: "ENTERTAINMENT", label: "Entrete.", emoji: "🎬" },
-  { value: "EDUCATION", label: "Educación", emoji: "📚" },
-  { value: "OTHER", label: "Otros", emoji: "📦" },
+  { value: "GROCERIES", label: "Supermercado", emoji: "\uD83D\uDED2" },
+  { value: "FOOD", label: "Comida", emoji: "\uD83C\uDF54" },
+  { value: "RENT", label: "Alquiler", emoji: "\uD83C\uDFE0" },
+  { value: "UTILITIES", label: "Servicios", emoji: "\u26A1" },
+  { value: "TRANSPORT", label: "Transporte", emoji: "\uD83D\uDE97" },
+  { value: "HEALTH", label: "Salud", emoji: "\u2764\uFE0F" },
+  { value: "HOME", label: "Hogar", emoji: "\uD83D\uDD27" },
+  { value: "ENTERTAINMENT", label: "Entrete.", emoji: "\uD83C\uDFAC" },
+  { value: "EDUCATION", label: "Educacion", emoji: "\uD83D\uDCDA" },
+  { value: "OTHER", label: "Otros", emoji: "\uD83D\uDCE6" },
+];
+
+const SPLIT_OPTIONS: Array<{ value: SplitType; label: string; icon: string }> = [
+  { value: "EQUAL", label: "Partes iguales", icon: "\u00F7" },
+  { value: "CUSTOM", label: "Montos custom", icon: "#" },
 ];
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function NewExpenseScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { me, activeHouseholdId } = useMobileAuth();
+  const expenseMilestone = useMilestone("first-expense");
+  const { celebrate } = useCelebration();
+  const { trackAction } = usePushOptIn();
   const createExpense = useCreateExpense();
-  const [title, setTitle] = useState("");
-  const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState<ExpenseCategory>("OTHER");
-  const [categoryAutoSet, setCategoryAutoSet] = useState(false);
+  const { data: membersData } = useMembers();
+  const members = membersData?.members ?? [];
+
+  const params = useLocalSearchParams<{ prefillTitle?: string; prefillAmount?: string; prefillCategory?: string }>();
+
+  const initialCategory = (params.prefillCategory as ExpenseCategory | undefined) ??
+    (params.prefillTitle ? (inferCategory(params.prefillTitle) ?? "OTHER") : "OTHER");
+
+  const [title, setTitle] = useState(params.prefillTitle ?? "");
+  const [amount, setAmount] = useState(params.prefillAmount ?? "");
+  const [category, setCategory] = useState<ExpenseCategory>(initialCategory);
+  const [categoryAutoSet, setCategoryAutoSet] = useState(
+    !!(params.prefillCategory ?? (params.prefillTitle && inferCategory(params.prefillTitle)))
+  );
+  const [splitType, setSplitType] = useState<SplitType>("EQUAL");
+  const [paidById, setPaidById] = useState<string | null>(null);
+  const [showPayerSelect, setShowPayerSelect] = useState(false);
+  const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState("");
+  const [showNotes, setShowNotes] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const payerId = useMemo(
+  const myMemberId = useMemo(
     () => me?.members.find((m) => m.householdId === activeHouseholdId)?.id ?? me?.members[0]?.id ?? "",
     [me, activeHouseholdId],
   );
+
+  const effectivePaidById = paidById ?? myMemberId;
+  const selectedPayer = members.find((m) => m.id === effectivePaidById);
+  const isSolo = members.length <= 1;
 
   const handleTitleChange = useCallback((text: string) => {
     setTitle(text);
@@ -159,17 +196,78 @@ export default function NewExpenseScreen() {
   const handleSubmit = async () => {
     setError(null);
     const parsedAmount = Number(amount.replace(",", "."));
-    if (!title.trim() || Number.isNaN(parsedAmount) || parsedAmount <= 0 || !payerId) {
-      setError("Completá título, monto válido y sesión con miembro activo.");
+    if (!title.trim() || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+      setError("Completa titulo y monto valido.");
       return;
     }
+    if (!effectivePaidById) {
+      setError("No hay miembro activo en este hogar.");
+      return;
+    }
+
+    // Validate custom splits sum
+    if (splitType === "CUSTOM" && members.length > 1) {
+      const assignedTotal = members.reduce(
+        (sum, m) => sum + (parseFloat(customSplits[m.id] ?? "0") || 0),
+        0,
+      );
+      if (Math.abs(parsedAmount - assignedTotal) > 0.01) {
+        setError("Los montos custom no suman el total del gasto.");
+        return;
+      }
+    }
+
+    const splits =
+      splitType === "CUSTOM" && members.length > 1
+        ? members.map((m) => ({
+            memberId: m.id,
+            amount: parseFloat(customSplits[m.id] ?? "0") || 0,
+          }))
+        : undefined;
+
     try {
-      await createExpense.mutateAsync({ title: title.trim(), amount: parsedAmount, category, paidById: payerId, splitType: "EQUAL" });
+      await createExpense.mutateAsync({
+        title: title.trim(),
+        amount: parsedAmount,
+        category,
+        paidById: effectivePaidById,
+        splitType,
+        splits,
+        notes: notes.trim() || undefined,
+      });
+      const wasFirst = await expenseMilestone.complete();
+      if (wasFirst) celebrate("first-expense");
+      void trackAction();
       router.back();
     } catch (submitError) {
       setError(getMobileErrorMessage(submitError));
     }
   };
+
+  // Auto-distribute helper for custom splits
+  const handleDistributeEqually = useCallback(() => {
+    const parsedAmount = Number(amount.replace(",", "."));
+    if (!parsedAmount || parsedAmount <= 0 || members.length === 0) return;
+    const perMember = Math.round((parsedAmount / members.length) * 100) / 100;
+    const newSplits: Record<string, string> = {};
+    for (const m of members) {
+      newSplits[m.id] = perMember.toFixed(2);
+    }
+    setCustomSplits(newSplits);
+  }, [amount, members]);
+
+  // Custom split validation
+  const customSplitTotal = useMemo(() => {
+    if (splitType !== "CUSTOM") return 0;
+    return members.reduce(
+      (sum, m) => sum + (parseFloat(customSplits[m.id] ?? "0") || 0),
+      0,
+    );
+  }, [splitType, customSplits, members]);
+
+  const parsedAmount = Number(amount.replace(",", ".")) || 0;
+  const splitDifference = parsedAmount - customSplitTotal;
+  const isSplitBalanced = Math.abs(splitDifference) < 0.01;
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -178,7 +276,7 @@ export default function NewExpenseScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
           <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
         </Pressable>
-        <Text style={styles.headerTitle}>Nuevo gasto</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Nuevo gasto</Text>
         <View style={styles.backBtn} />
       </View>
 
@@ -190,7 +288,7 @@ export default function NewExpenseScreen() {
       >
         {/* Description */}
         <StyledTextInput
-          label="Descripción"
+          label="Descripcion"
           placeholder="ej: Supermercado Coto..."
           value={title}
           onChangeText={handleTitleChange}
@@ -211,25 +309,155 @@ export default function NewExpenseScreen() {
 
         {/* Category chips */}
         <View style={styles.fieldGap}>
-          <Text style={styles.catLabel}>Categoría</Text>
-          <View style={styles.catGrid}>
+          <Text style={styles.sectionLabel}>Categoria</Text>
+          <View style={styles.chipGrid}>
             {CATEGORIES.map((cat) => {
               const isActive = category === cat.value;
               return (
                 <Pressable
                   key={cat.value}
                   onPress={() => handleCategorySelect(cat.value)}
-                  style={[styles.catChip, isActive && styles.catChipActive]}
+                  style={[styles.chip, isActive && styles.chipActive]}
                 >
-                  <Text style={styles.catEmoji}>{cat.emoji}</Text>
-                  <Text style={[styles.catText, isActive && styles.catTextActive]}>
+                  <Text style={styles.chipEmoji}>{cat.emoji}</Text>
+                  <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
                     {cat.label}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
+        </View>
+
+        {/* Payer select (only for multi-member households) */}
+        {!isSolo && (
+          <View style={styles.fieldGap}>
+            <Text style={styles.sectionLabel}>Quien pago</Text>
+            <Pressable
+              onPress={() => setShowPayerSelect(!showPayerSelect)}
+              style={styles.selectButton}
+            >
+              <Text style={styles.selectButtonText}>
+                {effectivePaidById === myMemberId
+                  ? "Vos pagaste"
+                  : selectedPayer?.name ?? "Seleccionar"}
+              </Text>
+              <ChevronDown size={16} color={colors.mutedForeground} />
+            </Pressable>
+
+            {showPayerSelect && (
+              <View style={styles.selectDropdown}>
+                {members.map((m) => {
+                  const isSelected = m.id === effectivePaidById;
+                  return (
+                    <Pressable
+                      key={m.id}
+                      onPress={() => {
+                        setPaidById(m.id);
+                        setShowPayerSelect(false);
+                      }}
+                      style={[styles.selectOption, isSelected && styles.selectOptionActive]}
+                    >
+                      <Text style={[styles.selectOptionText, isSelected && styles.selectOptionTextActive]}>
+                        {m.name}{m.id === myMemberId ? " (vos)" : ""}
+                      </Text>
+                      {isSelected && <Check size={14} color={colors.primary} />}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
           </View>
+        )}
+
+        {/* Split type (only for multi-member households) */}
+        {!isSolo && (
+          <View style={styles.fieldGap}>
+            <Text style={styles.sectionLabel}>Como se divide</Text>
+            <View style={styles.splitRow}>
+              {SPLIT_OPTIONS.map((opt) => {
+                const isActive = splitType === opt.value;
+                return (
+                  <Pressable
+                    key={opt.value}
+                    onPress={() => setSplitType(opt.value)}
+                    style={[styles.chip, isActive && styles.chipActive, styles.splitChip]}
+                  >
+                    <Text style={[styles.chipText, { fontWeight: "700" }]}>{opt.icon}</Text>
+                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* Custom split amounts */}
+        {!isSolo && splitType === "CUSTOM" && (
+          <View style={styles.fieldGap}>
+            <View style={styles.customSplitHeader}>
+              <Text style={styles.sectionLabel}>Monto por miembro</Text>
+              <Pressable onPress={handleDistributeEqually}>
+                <Text style={styles.distributeLink}>Dividir equitativo</Text>
+              </Pressable>
+            </View>
+            {members.map((m) => (
+              <View key={m.id} style={styles.customSplitRow}>
+                <Text style={styles.customSplitName} numberOfLines={1}>{m.name}</Text>
+                <StyledTextInput
+                  value={customSplits[m.id] ?? ""}
+                  onChangeText={(v) => setCustomSplits((prev) => ({ ...prev, [m.id]: v }))}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  style={styles.customSplitInput}
+                />
+              </View>
+            ))}
+            {/* Split validation indicator */}
+            {parsedAmount > 0 && (
+              <View style={[
+                styles.splitValidation,
+                isSplitBalanced ? styles.splitValidationOk : splitDifference > 0 ? styles.splitValidationWarn : styles.splitValidationError,
+              ]}>
+                <Text style={[
+                  styles.splitValidationText,
+                  isSplitBalanced ? styles.splitValidationTextOk : splitDifference > 0 ? styles.splitValidationTextWarn : styles.splitValidationTextError,
+                ]}>
+                  {isSplitBalanced
+                    ? "Montos correctos"
+                    : splitDifference > 0
+                      ? `$${splitDifference.toFixed(2)} por asignar`
+                      : `$${Math.abs(splitDifference).toFixed(2)} de mas`}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Notes toggle */}
+        <View style={styles.fieldGap}>
+          <Pressable onPress={() => setShowNotes(!showNotes)} style={styles.notesToggle}>
+            <ChevronDown
+              size={14}
+              color={colors.mutedForeground}
+              style={showNotes ? { transform: [{ rotate: "180deg" }] } : undefined}
+            />
+            <Text style={styles.notesToggleText}>Notas</Text>
+          </Pressable>
+          {showNotes && (
+            <StyledTextInput
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="Detalle adicional..."
+              multiline
+              numberOfLines={2}
+              maxLength={500}
+              style={styles.notesInput}
+            />
+          )}
+        </View>
 
         {/* Error */}
         {error ? (
@@ -249,87 +477,216 @@ export default function NewExpenseScreen() {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.card,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    ...typography.cardTitle,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: 24,
-  },
-  fieldGap: {
-    marginTop: spacing.lg,
-  },
-  catLabel: {
-    fontFamily: fontFamily.sans,
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
-  catGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  catChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: radius.full,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-  },
-  catChipActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryLight,
-  },
-  catEmoji: {
-    fontSize: 14,
-  },
-  catText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 13,
-    color: colors.text,
-  },
-  catTextActive: {
-    fontWeight: "700",
-    color: colors.primary,
-  },
-  errorBanner: {
-    backgroundColor: colors.errorBg,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginTop: spacing.lg,
-  },
-  errorText: {
-    fontFamily: fontFamily.sans,
-    color: colors.errorText,
-    fontSize: 14,
-  },
-  submitBtn: {
-    marginTop: spacing.xl,
-  },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+    },
+    backBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: c.card,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    headerTitle: {
+      ...typography.cardTitle,
+    },
+    scrollContent: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: 24,
+    },
+    fieldGap: {
+      marginTop: spacing.lg,
+    },
+    sectionLabel: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "600",
+      color: c.text,
+      marginBottom: spacing.sm,
+    },
+    chipGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.sm,
+    },
+    chip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: radius.full,
+      borderWidth: 1.5,
+      borderColor: c.border,
+      backgroundColor: c.card,
+    },
+    chipActive: {
+      borderColor: c.primary,
+      backgroundColor: c.primaryLight,
+    },
+    chipEmoji: {
+      fontSize: 14,
+    },
+    chipText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      color: c.text,
+    },
+    chipTextActive: {
+      fontWeight: "700",
+      color: c.primary,
+    },
+    // Payer select
+    selectButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: spacing.md,
+      paddingVertical: 12,
+      borderRadius: radius.lg,
+      borderWidth: 1.5,
+      borderColor: c.border,
+      backgroundColor: c.card,
+    },
+    selectButtonText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      color: c.text,
+    },
+    selectDropdown: {
+      marginTop: spacing.xs,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.card,
+      overflow: "hidden",
+    },
+    selectOption: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: spacing.md,
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+    },
+    selectOptionActive: {
+      backgroundColor: c.primaryLight,
+    },
+    selectOptionText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      color: c.text,
+    },
+    selectOptionTextActive: {
+      fontWeight: "700",
+      color: c.primary,
+    },
+    // Split
+    splitRow: {
+      flexDirection: "row",
+      gap: spacing.sm,
+    },
+    splitChip: {
+      flex: 1,
+      justifyContent: "center",
+    },
+    // Custom splits
+    customSplitHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: spacing.sm,
+    },
+    distributeLink: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.primary,
+      fontWeight: "600",
+    },
+    customSplitRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: spacing.sm,
+      gap: spacing.md,
+    },
+    customSplitName: {
+      flex: 1,
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      color: c.text,
+    },
+    customSplitInput: {
+      width: 110,
+      marginBottom: 0,
+    },
+    splitValidation: {
+      borderRadius: radius.lg,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    splitValidationOk: {
+      backgroundColor: c.successBg,
+    },
+    splitValidationWarn: {
+      backgroundColor: c.warningBg,
+    },
+    splitValidationError: {
+      backgroundColor: c.errorBg,
+    },
+    splitValidationText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+    },
+    splitValidationTextOk: {
+      color: c.successText,
+    },
+    splitValidationTextWarn: {
+      color: c.warningText,
+    },
+    splitValidationTextError: {
+      color: c.errorText,
+    },
+    // Notes
+    notesToggle: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    notesToggleText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      color: c.mutedForeground,
+    },
+    notesInput: {
+      marginTop: spacing.sm,
+    },
+    // Error & submit
+    errorBanner: {
+      backgroundColor: c.errorBg,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      marginTop: spacing.lg,
+    },
+    errorText: {
+      fontFamily: fontFamily.sans,
+      color: c.errorText,
+      fontSize: 14,
+    },
+    submitBtn: {
+      marginTop: spacing.xl,
+    },
+  });
+}

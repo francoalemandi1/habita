@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { createExpenseSchema } from "@/lib/validations/expense";
 import { handleApiError } from "@/lib/api-response";
+import { deliverNotificationToMembers } from "@/lib/push-delivery";
 import { buildSplitsData } from "@/lib/expense-splits";
 import { inferExpenseSubcategory } from "@/lib/expense-subcategory";
 
@@ -155,6 +156,28 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    // Notify split members (excluding the payer)
+    const splitMemberIds = expense.splits
+      .map((s) => s.member.id)
+      .filter((id) => id !== data.paidById);
+
+    if (splitMemberIds.length > 0) {
+      const household = await prisma.household.findUnique({
+        where: { id: member.householdId },
+        select: { timezone: true },
+      });
+
+      void deliverNotificationToMembers({
+        memberIds: splitMemberIds,
+        type: "EXPENSE_SHARED",
+        title: "Nuevo gasto compartido",
+        message: `${expense.paidBy.name} registró "${data.title}" por $${data.amount.toLocaleString("es-AR")}`,
+        actionUrl: "/expenses",
+        metadata: { expenseId: expense.id },
+        householdTimezone: household?.timezone,
+      });
+    }
 
     return NextResponse.json({
       ...expense,

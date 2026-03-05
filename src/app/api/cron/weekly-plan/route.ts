@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { autoAssignAllTasks } from "@/lib/assignment-algorithm";
 import { isAIEnabled } from "@/lib/llm/provider";
 import { getLocalDayOfWeek } from "@/lib/llm/regional-context";
-import { createNotificationForMembers } from "@/lib/notification-service";
+import { deliverNotificationToMembers } from "@/lib/push-delivery";
 import { formatLocalDate, sendPlanSummaryToAdults } from "@/lib/email-service";
 
 import type { NextRequest } from "next/server";
@@ -73,15 +73,14 @@ export async function POST(request: NextRequest) {
             where: { householdId: household.id, isActive: true },
             select: { id: true },
           });
-          await createNotificationForMembers(
-            householdMembers.map((m) => m.id),
-            {
-              type: "PLAN_READY",
-              title: "Nuevo plan semanal",
-              message: `Se asignaron ${result.assignmentsCreated} tareas para esta semana`,
-              actionUrl: "/my-tasks",
-            }
-          );
+          await deliverNotificationToMembers({
+            memberIds: householdMembers.map((m) => m.id),
+            type: "PLAN_READY",
+            title: "Nuevo plan semanal",
+            message: `Se asignaron ${result.assignmentsCreated} tareas para esta semana`,
+            actionUrl: "/my-tasks",
+            householdTimezone: household.timezone,
+          });
 
           // Email summary to adults
           const adultMembers = await prisma.member.findMany({

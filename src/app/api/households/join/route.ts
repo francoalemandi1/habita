@@ -6,6 +6,7 @@ import { CURRENT_HOUSEHOLD_COOKIE } from "@/lib/session";
 import { joinHouseholdWithMemberSchema } from "@/lib/validations/household";
 import { sendWelcomeEmail } from "@/lib/email-service";
 import { handleApiError } from "@/lib/api-response";
+import { deliverNotificationToMembers } from "@/lib/push-delivery";
 
 import type { NextRequest } from "next/server";
 import type { MemberType } from "@prisma/client";
@@ -92,6 +93,24 @@ export async function POST(request: NextRequest) {
         memberName: nameToUse,
         householdName: household.name,
         isNewHousehold: false,
+      });
+    }
+
+    // Notify existing household members
+    const existingMembers = await prisma.member.findMany({
+      where: { householdId: household.id, isActive: true, id: { not: newMember.id } },
+      select: { id: true },
+    });
+
+    if (existingMembers.length > 0) {
+      void deliverNotificationToMembers({
+        memberIds: existingMembers.map((m) => m.id),
+        type: "MEMBER_JOINED",
+        title: "Nuevo miembro en el hogar",
+        message: `${nameToUse} se unió a "${household.name}"`,
+        actionUrl: "/settings",
+        metadata: { memberId: newMember.id },
+        householdTimezone: household.timezone,
       });
     }
 

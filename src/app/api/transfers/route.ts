@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember, requirePermission } from "@/lib/session";
 import { createTransferSchema } from "@/lib/validations/transfer";
-import { createNotification } from "@/lib/notification-service";
+import { deliverNotification, getHouseholdTimezone } from "@/lib/push-delivery";
 import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
@@ -149,12 +149,14 @@ export async function POST(request: NextRequest) {
     });
 
     // Notify the recipient about the transfer request
-    await createNotification({
+    const tz = await getHouseholdTimezone(toMemberId);
+    await deliverNotification({
       memberId: toMemberId,
       type: "TRANSFER_REQUEST",
       title: "Solicitud de transferencia",
       message: `${transfer.fromMember.name} quiere transferirte "${transfer.assignment.task.name}"`,
       actionUrl: "/my-tasks",
+      householdTimezone: tz,
     });
 
     return NextResponse.json({ transfer }, { status: 201 });

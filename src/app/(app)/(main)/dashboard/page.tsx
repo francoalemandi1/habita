@@ -12,8 +12,11 @@ import { PushOptInBanner } from "@/components/features/push-opt-in-banner";
 import { OnboardingChecklist } from "@/components/features/onboarding-checklist";
 import { InviteHomeCard } from "@/components/features/invite-home-card";
 import { DashboardTour } from "@/components/features/dashboard-tour";
+import { DashboardHeroCard, computeHeroState } from "@/components/features/dashboard-hero-card";
+import { DashboardWeekCard } from "@/components/features/dashboard-week-card";
+import { DashboardDailyHighlight, computeDailyHighlight } from "@/components/features/dashboard-daily-highlight";
 import { getWeekMonday, getWeekSunday } from "@/lib/calendar-utils";
-import { ChevronRight, CheckCircle2, Dices, CalendarDays, Wallet, Sparkles, ChefHat } from "lucide-react";
+import { ChevronRight, Dices, CalendarDays, Wallet, Sparkles, ChefHat } from "lucide-react";
 import { spacing, iconSize } from "@/lib/design-tokens";
 import { isSoloHousehold, getHouseholdCopy } from "@/lib/household-mode";
 
@@ -55,7 +58,7 @@ export default async function DashboardPage() {
   const sunday = getWeekSunday(monday);
   const aiEnabled = isAIEnabled();
 
-  const [members, activePlan, transfers, calendarAssignments, firstExpense, firstCompletedTask] =
+  const [members, activePlan, transfers, calendarAssignments, firstExpense, firstCompletedTask, weeklyCompletions] =
     await Promise.all([
       prisma.member.findMany({
         where: { householdId, isActive: true },
@@ -96,6 +99,7 @@ export default async function DashboardPage() {
           dueDate: true,
           status: true,
           completedAt: true,
+          memberId: true,
           task: {
             select: { id: true, name: true, weight: true, frequency: true, estimatedMinutes: true },
           },
@@ -116,10 +120,79 @@ export default async function DashboardPage() {
         },
         select: { id: true },
       }),
+      // Weekly completions for stats (per member)
+      prisma.assignment.findMany({
+        where: {
+          householdId,
+          status: { in: ["COMPLETED", "VERIFIED"] },
+          completedAt: { gte: monday },
+        },
+        select: {
+          memberId: true,
+          task: { select: { weight: true } },
+        },
+      }),
     ]);
 
   const hasExpense = firstExpense !== null;
   const hasCompletedTask = firstCompletedTask !== null;
+
+  // Build member stats for week card
+  const weeklyCountMap = new Map<string, number>();
+  const weeklyPointsMap = new Map<string, number>();
+  for (const c of weeklyCompletions) {
+    weeklyCountMap.set(c.memberId, (weeklyCountMap.get(c.memberId) ?? 0) + 1);
+    weeklyPointsMap.set(c.memberId, (weeklyPointsMap.get(c.memberId) ?? 0) + c.task.weight);
+  }
+  const memberStats = members.map((m) => ({
+    id: m.id,
+    name: m.name,
+    weeklyTasks: weeklyCountMap.get(m.id) ?? 0,
+    weeklyPoints: weeklyPointsMap.get(m.id) ?? 0,
+  }));
+
+  // Household streak: consecutive weeks where ALL active members completed ≥1
+  const fiftyTwoWeeksAgo = new Date(now);
+  fiftyTwoWeeksAgo.setDate(fiftyTwoWeeksAgo.getDate() - 364);
+  fiftyTwoWeeksAgo.setHours(0, 0, 0, 0);
+
+  const streakCompletions = await prisma.assignment.findMany({
+    where: {
+      householdId,
+      status: { in: ["COMPLETED", "VERIFIED"] },
+      completedAt: { gte: fiftyTwoWeeksAgo },
+    },
+    select: { memberId: true, completedAt: true },
+  });
+
+  const activeMemberIds = new Set(members.map((m) => m.id));
+  const completionsByWeek = new Map<string, Set<string>>();
+  for (const c of streakCompletions) {
+    if (c.completedAt) {
+      const weekMonday = getWeekMonday(c.completedAt);
+      const weekKey = weekMonday.toISOString().split("T")[0] ?? "";
+      if (!completionsByWeek.has(weekKey)) {
+        completionsByWeek.set(weekKey, new Set());
+      }
+      completionsByWeek.get(weekKey)!.add(c.memberId);
+    }
+  }
+
+  let householdStreak = 0;
+  const currentMonday = getWeekMonday(now);
+  const walkDate = new Date(currentMonday);
+  while (true) {
+    const weekKey = walkDate.toISOString().split("T")[0] ?? "";
+    const membersThisWeek = completionsByWeek.get(weekKey);
+    const allActive = membersThisWeek != null
+      && Array.from(activeMemberIds).every((id) => membersThisWeek.has(id));
+    if (allActive) {
+      householdStreak++;
+      walkDate.setDate(walkDate.getDate() - 7);
+    } else {
+      break;
+    }
+  }
 
   // Expense balance
   const [othersOweMeAgg, iOweOthersAgg] = await Promise.all([
@@ -143,6 +216,27 @@ export default async function DashboardPage() {
   const othersOweMe = othersOweMeAgg._sum.amount?.toNumber() ?? 0;
   const iOweOthers = iOweOthersAgg._sum.amount?.toNumber() ?? 0;
   const expenseBalance = Math.round((othersOweMe - iOweOthers) * 100) / 100;
+
+  // Hero state
+  const todayStr = now.toDateString();
+  const todayTaskCount = calendarAssignments.filter(
+    (a) =>
+      a.memberId === member.id &&
+      a.dueDate.toDateString() === todayStr &&
+      a.status !== "COMPLETED" &&
+      a.status !== "VERIFIED",
+  ).length;
+  const pendingIncomingTransferCount = transfers.filter(
+    (t) => t.toMemberId === member.id && t.status === "PENDING",
+  ).length;
+  const heroState = computeHeroState({
+    todayTaskCount,
+    pendingTransferCount: pendingIncomingTransferCount,
+    expenseBalance,
+  });
+
+  // Daily highlight (recipe fallback — deals/events would require client fetch)
+  const dailyHighlight = computeDailyHighlight();
 
   // Plan pending assignments for finalize modal
   const planPendingAssignments = activePlan?.status === "APPLIED"
@@ -179,10 +273,6 @@ export default async function DashboardPage() {
   const hasAppliedPlan = activePlan?.status === "APPLIED";
   const calendarData = hasAppliedPlan ? calendarAssignments : [];
 
-  const weeklyCompletedCount = calendarAssignments.filter(
-    (a) => a.status === "COMPLETED" || a.status === "VERIFIED",
-  ).length;
-
   // Serialize dates for client components
   const serializedAssignments = calendarData.map((a) => ({
     ...a,
@@ -204,17 +294,6 @@ export default async function DashboardPage() {
         <p className="mt-0.5 text-sm capitalize text-muted-foreground">{formatTodayDate()}</p>
       </div>
 
-      {/* Weekly completed stat */}
-      {weeklyCompletedCount > 0 && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4 -mt-2">
-          <CheckCircle2 className="h-4 w-4 text-green-500" />
-          <span>
-            <strong className="text-foreground">{weeklyCompletedCount}</strong>{" "}
-            {weeklyCompletedCount === 1 ? "tarea completada" : "tareas completadas"} esta semana
-          </span>
-        </div>
-      )}
-
       {/* Guided tour */}
       <DashboardTour isSharedHousehold={!isSolo} />
 
@@ -235,9 +314,24 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Briefing (arriba, contexto del hogar) */}
+      {/* Hero card */}
+      <div className={spacing.sectionGap}>
+        <DashboardHeroCard state={heroState} />
+      </div>
+
+      {/* Briefing */}
       <div className={spacing.sectionGap}>
         <DailyBriefingWrapper />
+      </div>
+
+      {/* Household week card (gamification) */}
+      <div className={spacing.sectionGap}>
+        <DashboardWeekCard
+          memberStats={memberStats}
+          householdStreak={householdStreak}
+          isSolo={isSolo}
+          currentMemberId={member.id}
+        />
       </div>
 
       {/* Plan status */}
@@ -315,7 +409,12 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {/* Descubrir previews */}
+      {/* Daily highlight */}
+      <div className={spacing.sectionGap}>
+        <DashboardDailyHighlight highlight={dailyHighlight} />
+      </div>
+
+      {/* Descubrir + Cocina previews */}
       <div className={`${spacing.sectionGap} grid gap-3 sm:grid-cols-2`}>
         <Link href="/descubrir" className="group block">
           <Card className="border-violet-200/50 bg-violet-50/30 transition-all hover:shadow-md active:scale-[0.99]">

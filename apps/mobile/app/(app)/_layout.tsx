@@ -19,9 +19,9 @@ import type { ThemeColors } from "@/theme";
 
 const TAB_CONFIG: Record<string, { Icon: LucideIcon; label: string }> = {
   tasks: { Icon: ClipboardCheck, label: "Planificá" },
-  expenses: { Icon: Receipt, label: "Registrá" },
-  "shopping-plan": { Icon: ShoppingCart, label: "Ahorrá" },
-  discover: { Icon: Compass, label: "Descubrí" },
+  balance: { Icon: Receipt, label: "Registrá" },
+  compras: { Icon: ShoppingCart, label: "Ahorrá" },
+  descubrir: { Icon: Compass, label: "Descubrí" },
   cocina: { Icon: ChefHat, label: "Cociná" },
 };
 
@@ -169,20 +169,20 @@ export default function AppLayout() {
     >
       {/* ── Tabs (always visible) ── */}
       <Tabs.Screen name="tasks" options={{ title: "Planificá" }} />
-      <Tabs.Screen name="expenses" options={{ title: "Registrá" }} />
-      <Tabs.Screen name="shopping-plan" options={{ title: "Ahorrá" }} />
-      <Tabs.Screen name="discover" options={{ title: "Descubrí" }} />
+      <Tabs.Screen name="balance" options={{ title: "Registrá" }} />
+      <Tabs.Screen name="compras" options={{ title: "Ahorrá" }} />
+      <Tabs.Screen name="descubrir" options={{ title: "Descubrí" }} />
       <Tabs.Screen name="cocina" options={{ title: "Cociná" }} />
 
-      {/* Settings — hidden from tab bar, accessible via ScreenHeader avatar */}
-      <Tabs.Screen name="settings" options={{ href: null, title: "Perfil" }} />
+      {/* Profile — hidden from tab bar, accessible via ScreenHeader avatar */}
+      <Tabs.Screen name="profile" options={{ href: null, title: "Perfil" }} />
 
       {/* ── Hidden screens (accessible via router.push) ── */}
       <Tabs.Screen name="dashboard" options={{ href: null, title: "Dashboard" }} />
       <Tabs.Screen name="new-task" options={{ href: null, title: "Nueva tarea" }} />
       <Tabs.Screen name="new-expense" options={{ href: null, title: "Nuevo gasto" }} />
       <Tabs.Screen name="expense-insights" options={{ href: null, title: "Insights financieros" }} />
-      <Tabs.Screen name="weekly-plan" options={{ href: null, title: "Plan semanal" }} />
+      <Tabs.Screen name="plan" options={{ href: null, title: "Plan semanal" }} />
       <Tabs.Screen name="transfers" options={{ href: null, title: "Transferencias" }} />
       <Tabs.Screen name="notifications" options={{ href: null, title: "Notificaciones" }} />
       <Tabs.Screen name="task-catalog" options={{ href: null, title: "Catálogo de tareas" }} />
@@ -190,7 +190,7 @@ export default function AppLayout() {
       <Tabs.Screen name="fund" options={{ href: null, title: "Fondo Común" }} />
       <Tabs.Screen name="services" options={{ href: null, title: "Servicios" }} />
       <Tabs.Screen name="preferences" options={{ href: null, title: "Mis preferencias" }} />
-      <Tabs.Screen name="roulette" options={{ href: null, title: "Ruleta de tareas" }} />
+      <Tabs.Screen name="rotations" options={{ href: null, title: "Ruleta de tareas" }} />
       <Tabs.Screen name="suggest-tasks" options={{ href: null, title: "Sugerencias AI" }} />
       <Tabs.Screen name="grocery-deals" options={{ href: null, title: "Ofertas del super" }} />
       <Tabs.Screen name="notification-settings" options={{ href: null, title: "Notificaciones push" }} />

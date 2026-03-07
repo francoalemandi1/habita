@@ -109,9 +109,27 @@ export async function requireAuth(): Promise<string> {
 /**
  * Require member context - throws if not a member of any household.
  * Use in API routes that require household membership.
+ * Separates auth check (→ 401) from membership check (→ 403).
  */
 export async function requireMember(): Promise<CurrentMember> {
-  const member = await getCurrentMember();
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    throw new Error("Unauthorized");
+  }
+
+  const householdId = await getRequestedHouseholdId();
+  const where: { userId: string; isActive: boolean; householdId?: string } = {
+    userId,
+    isActive: true,
+  };
+  if (householdId) {
+    where.householdId = householdId;
+  }
+
+  const member = await prisma.member.findFirst({
+    where,
+    include: { household: true },
+  });
 
   if (!member) {
     throw new Error("Not a member of any household");

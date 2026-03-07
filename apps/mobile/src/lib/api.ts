@@ -1,13 +1,20 @@
 import { createApiClient } from "@habita/api-client";
 
 import { mobileConfig } from "./config";
-import { clearMobileSession, getMobileSessionSnapshot, getOrCreateDeviceId, setMobileTokens } from "./storage";
+import {
+  clearMobileSession,
+  getMobileSessionSnapshot,
+  getOrCreateDeviceId,
+  getTokenExpiresAt,
+  setMobileTokens,
+} from "./storage";
 import { trackMobileEvent } from "./telemetry";
 import { emitRuntimeEvent } from "./runtime-events";
 
 interface MobileRefreshResponse {
   accessToken: string;
   refreshToken: string;
+  expiresInSeconds: number;
 }
 
 let refreshPromise: Promise<boolean> | null = null;
@@ -42,7 +49,7 @@ async function refreshMobileTokens(): Promise<boolean> {
       return false;
     }
 
-    await setMobileTokens(payload.accessToken, payload.refreshToken);
+    await setMobileTokens(payload.accessToken, payload.refreshToken, payload.expiresInSeconds);
     trackMobileEvent("info", "Mobile tokens refreshed");
     return true;
   } catch (error) {
@@ -63,22 +70,9 @@ async function refreshMobileTokensWithLock(): Promise<boolean> {
 }
 
 // ─── Proactive token refresh ────────────────────────────────────────────────
-// Decode JWT exp claim (without a library) and refresh 2 minutes before expiry.
+// Read stored expiresAt timestamp and refresh 5 minutes before expiry.
 
-const REFRESH_BUFFER_MS = 2 * 60 * 1000;
-const MIN_CHECK_INTERVAL_MS = 30 * 1000;
-const MAX_CHECK_INTERVAL_MS = 5 * 60 * 1000;
-
-function decodeJwtExp(token: string): number | null {
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3 || !parts[1]) return null;
-    const payload = JSON.parse(atob(parts[1])) as { exp?: number };
-    return typeof payload.exp === "number" ? payload.exp : null;
-  } catch {
-    return null;
-  }
-}
+const REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
 
 let proactiveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -86,37 +80,29 @@ function scheduleProactiveRefresh(): void {
   clearProactiveRefresh();
 
   const run = async () => {
-    const session = await getMobileSessionSnapshot();
-    if (!session.accessToken) return;
+    const expiresAt = await getTokenExpiresAt();
+    if (!expiresAt) return; // no expiry info stored
 
-    const exp = decodeJwtExp(session.accessToken);
-    if (!exp) {
-      // Can't determine expiry — check again later
-      proactiveTimer = setTimeout(run, MAX_CHECK_INTERVAL_MS);
-      return;
-    }
+    const timeUntilExpiry = expiresAt - Date.now();
 
-    const nowSec = Math.floor(Date.now() / 1000);
-    const timeUntilExpiryMs = (exp - nowSec) * 1000;
-
-    if (timeUntilExpiryMs <= REFRESH_BUFFER_MS) {
+    if (timeUntilExpiry <= REFRESH_BUFFER_MS) {
       // Token is near expiry or already expired — refresh now
       const refreshed = await refreshMobileTokensWithLock();
       if (refreshed) {
-        // Re-schedule with new token
-        proactiveTimer = setTimeout(run, MIN_CHECK_INTERVAL_MS);
+        // New tokens stored with new expiresAt — re-check in 1 min
+        proactiveTimer = setTimeout(run, 60_000);
       }
       // If refresh failed, reactive handler (onAuthFailure) will take over
       return;
     }
 
-    // Schedule refresh for REFRESH_BUFFER_MS before expiry
-    const delayMs = Math.max(MIN_CHECK_INTERVAL_MS, timeUntilExpiryMs - REFRESH_BUFFER_MS);
-    proactiveTimer = setTimeout(run, Math.min(delayMs, MAX_CHECK_INTERVAL_MS));
+    // Schedule refresh for BUFFER before expiry
+    const delayMs = timeUntilExpiry - REFRESH_BUFFER_MS;
+    proactiveTimer = setTimeout(run, delayMs);
   };
 
-  // Initial check after a short delay
-  proactiveTimer = setTimeout(() => void run(), MIN_CHECK_INTERVAL_MS);
+  // Initial check after 10s (let hydration complete first)
+  proactiveTimer = setTimeout(() => void run(), 10_000);
 }
 
 function clearProactiveRefresh(): void {
@@ -127,6 +113,14 @@ function clearProactiveRefresh(): void {
 }
 
 export { scheduleProactiveRefresh, clearProactiveRefresh };
+
+// ─── Auth-expired deduplication ─────────────────────────────────────────────
+
+let authExpiredEmitted = false;
+
+export function resetAuthExpiredFlag(): void {
+  authExpiredEmitted = false;
+}
 
 // ─── API client ─────────────────────────────────────────────────────────────
 
@@ -147,6 +141,8 @@ export const mobileApi = createApiClient({
     return refreshMobileTokensWithLock();
   },
   onUnauthorized: async () => {
+    if (authExpiredEmitted) return;
+    authExpiredEmitted = true;
     await clearMobileSession();
     emitRuntimeEvent({
       type: "auth-expired",

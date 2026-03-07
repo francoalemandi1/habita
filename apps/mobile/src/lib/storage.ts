@@ -4,6 +4,7 @@ const ACCESS_TOKEN_KEY = "habita_mobile_access_token";
 const REFRESH_TOKEN_KEY = "habita_mobile_refresh_token";
 const HOUSEHOLD_ID_KEY = "habita_mobile_household_id";
 const DEVICE_ID_KEY = "habita_mobile_device_id";
+const TOKEN_EXPIRES_AT_KEY = "habita_mobile_token_expires_at";
 
 export interface MobileSessionSnapshot {
   accessToken: string | null;
@@ -21,11 +22,25 @@ export async function getMobileSessionSnapshot(): Promise<MobileSessionSnapshot>
   return { accessToken, refreshToken, householdId };
 }
 
-export async function setMobileTokens(accessToken: string, refreshToken: string): Promise<void> {
-  await Promise.all([
-    AsyncStorage.setItem(ACCESS_TOKEN_KEY, accessToken),
-    AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken),
-  ]);
+export async function setMobileTokens(
+  accessToken: string,
+  refreshToken: string,
+  expiresInSeconds?: number,
+): Promise<void> {
+  const pairs: [string, string][] = [
+    [ACCESS_TOKEN_KEY, accessToken],
+    [REFRESH_TOKEN_KEY, refreshToken],
+  ];
+  if (expiresInSeconds) {
+    const expiresAt = Date.now() + expiresInSeconds * 1000;
+    pairs.push([TOKEN_EXPIRES_AT_KEY, String(expiresAt)]);
+  }
+  await AsyncStorage.multiSet(pairs);
+}
+
+export async function getTokenExpiresAt(): Promise<number | null> {
+  const raw = await AsyncStorage.getItem(TOKEN_EXPIRES_AT_KEY);
+  return raw ? Number(raw) : null;
 }
 
 export async function setActiveHousehold(householdId: string | null): Promise<void> {
@@ -41,6 +56,7 @@ export async function clearMobileSession(): Promise<void> {
     AsyncStorage.removeItem(ACCESS_TOKEN_KEY),
     AsyncStorage.removeItem(REFRESH_TOKEN_KEY),
     AsyncStorage.removeItem(HOUSEHOLD_ID_KEY),
+    AsyncStorage.removeItem(TOKEN_EXPIRES_AT_KEY),
   ]);
 }
 

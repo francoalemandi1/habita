@@ -156,7 +156,7 @@ export function OnboardingChecklist({ hasExpense, hasCompletedTask }: Onboarding
     {
       label: "Compará precios",
       done: shoppingSearched,
-      onPress: () => router.push("/(app)/shopping-plan"),
+      onPress: () => router.push("/(app)/compras"),
     },
   ];
 

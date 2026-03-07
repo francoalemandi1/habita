@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
+import { getWeekMonday } from "@/lib/calendar-utils";
 
 /**
  * GET /api/stats
@@ -26,6 +27,11 @@ export async function GET() {
     const endOfToday = new Date(now);
     endOfToday.setHours(23, 59, 59, 999);
 
+    // Streak lookback: 52 weeks
+    const fiftyTwoWeeksAgo = new Date(now);
+    fiftyTwoWeeksAgo.setDate(fiftyTwoWeeksAgo.getDate() - 364);
+    fiftyTwoWeeksAgo.setHours(0, 0, 0, 0);
+
     // All queries are independent — run in parallel
     const [
       members,
@@ -36,19 +42,22 @@ export async function GET() {
       pendingTasks,
       recentActivity,
       weekCompletions,
+      streakCompletions,
     ] = await Promise.all([
       prisma.member.findMany({
         where: { householdId, isActive: true },
         select: { id: true, name: true, memberType: true },
       }),
-      prisma.assignment.groupBy({
-        by: ["memberId"],
+      prisma.assignment.findMany({
         where: {
           householdId,
           status: { in: ["COMPLETED", "VERIFIED"] },
           completedAt: { gte: startOfWeek },
         },
-        _count: { id: true },
+        select: {
+          memberId: true,
+          task: { select: { weight: true } },
+        },
       }),
       prisma.assignment.groupBy({
         by: ["memberId"],
@@ -100,11 +109,22 @@ export async function GET() {
         },
         select: { completedAt: true },
       }),
+      prisma.assignment.findMany({
+        where: {
+          householdId,
+          status: { in: ["COMPLETED", "VERIFIED"] },
+          completedAt: { gte: fiftyTwoWeeksAgo },
+        },
+        select: { memberId: true, completedAt: true },
+      }),
     ]);
 
-    const weeklyCompletionMap = new Map(
-      weeklyCompletions.map((c) => [c.memberId, c._count.id])
-    );
+    const weeklyCountMap = new Map<string, number>();
+    const weeklyPointsMap = new Map<string, number>();
+    for (const c of weeklyCompletions) {
+      weeklyCountMap.set(c.memberId, (weeklyCountMap.get(c.memberId) ?? 0) + 1);
+      weeklyPointsMap.set(c.memberId, (weeklyPointsMap.get(c.memberId) ?? 0) + c.task.weight);
+    }
     const monthlyCompletionMap = new Map(
       monthlyCompletions.map((c) => [c.memberId, c._count.id])
     );
@@ -117,7 +137,8 @@ export async function GET() {
       id: m.id,
       name: m.name,
       memberType: m.memberType,
-      weeklyTasks: weeklyCompletionMap.get(m.id) ?? 0,
+      weeklyTasks: weeklyCountMap.get(m.id) ?? 0,
+      weeklyPoints: weeklyPointsMap.get(m.id) ?? 0,
       monthlyTasks: monthlyCompletionMap.get(m.id) ?? 0,
       totalTasks: totalCompletionMap.get(m.id) ?? 0,
     }));
@@ -139,6 +160,36 @@ export async function GET() {
       dailyCompletions.push({ date: key, count: countsByDate.get(key) ?? 0 });
     }
 
+    // Compute household streak: consecutive weeks where ALL active members completed ≥1
+    const activeMemberIds = new Set(members.map((m) => m.id));
+    const completionsByWeek = new Map<string, Set<string>>();
+    for (const c of streakCompletions) {
+      if (c.completedAt) {
+        const monday = getWeekMonday(c.completedAt);
+        const weekKey = monday.toISOString().split("T")[0] ?? "";
+        if (!completionsByWeek.has(weekKey)) {
+          completionsByWeek.set(weekKey, new Set());
+        }
+        completionsByWeek.get(weekKey)!.add(c.memberId);
+      }
+    }
+
+    let householdStreak = 0;
+    const currentMonday = getWeekMonday(now);
+    const walkDate = new Date(currentMonday);
+    while (true) {
+      const weekKey = walkDate.toISOString().split("T")[0] ?? "";
+      const membersThisWeek = completionsByWeek.get(weekKey);
+      const allActive = membersThisWeek != null
+        && Array.from(activeMemberIds).every((id) => membersThisWeek.has(id));
+      if (allActive) {
+        householdStreak++;
+        walkDate.setDate(walkDate.getDate() - 7);
+      } else {
+        break;
+      }
+    }
+
     return NextResponse.json({
       memberStats,
       totals: {
@@ -146,6 +197,7 @@ export async function GET() {
         pending: pendingTasks,
         members: members.length,
       },
+      householdStreak,
       recentActivity: recentActivity.map((a) => ({
         id: a.id,
         taskName: a.task.name,

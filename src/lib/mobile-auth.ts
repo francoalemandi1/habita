@@ -5,8 +5,8 @@ import type { MobileAuthSession } from "@prisma/client";
 
 const ACCESS_TOKEN_PREFIX = "mob_at_";
 const REFRESH_TOKEN_PREFIX = "mob_rt_";
-const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
-const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
+const ACCESS_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 90; // 90 days
 
 function tokenExpiresIn(seconds: number): Date {
   return new Date(Date.now() + seconds * 1000);

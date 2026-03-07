@@ -4,14 +4,13 @@ import { Platform } from "react-native";
 import { mobileApi } from "./api";
 import { getOrCreateDeviceId } from "./storage";
 
-// No push alerts when app is in foreground — only update badge
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: false,
-    shouldPlaySound: false,
+    shouldShowAlert: true,
+    shouldPlaySound: true,
     shouldSetBadge: true,
-    shouldShowBanner: false,
-    shouldShowList: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -51,7 +50,7 @@ export async function registerForPushNotifications(): Promise<boolean> {
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
       name: "Habita",
-      importance: Notifications.AndroidImportance.DEFAULT,
+      importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: "#2F6B4F",
     });

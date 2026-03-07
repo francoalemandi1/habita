@@ -45,7 +45,7 @@ export function ScreenHeader({ notificationCount = 0 }: ScreenHeaderProps) {
           ) : null}
         </Pressable>
         <Pressable
-          onPress={() => router.push("/(app)/settings")}
+          onPress={() => router.push("/(app)/profile")}
           style={styles.avatarButton}
           hitSlop={8}
         >

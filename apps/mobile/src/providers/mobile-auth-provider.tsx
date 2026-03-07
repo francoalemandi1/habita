@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Alert } from "react-native";
-import { mobileApi, scheduleProactiveRefresh, clearProactiveRefresh } from "@/lib/api";
+import { ApiError } from "@habita/api-client";
+import { mobileApi, scheduleProactiveRefresh, clearProactiveRefresh, resetAuthExpiredFlag } from "@/lib/api";
 import {
   clearMobileSession,
   getMobileSessionSnapshot,
@@ -21,7 +21,7 @@ interface MobileAuthContextValue {
   me: AuthMeResponse | null;
   activeHouseholdId: string | null;
   hydrate: () => Promise<void>;
-  exchangeTokens: (input: { accessToken: string; refreshToken: string }) => Promise<void>;
+  exchangeTokens: (input: { accessToken: string; refreshToken: string; expiresInSeconds?: number }) => Promise<void>;
   exchangeGoogleIdToken: (idToken: string) => Promise<void>;
   exchangeGoogleAuthCode: (authCode: string, codeVerifier: string) => Promise<void>;
   refreshAccessToken: () => Promise<void>;
@@ -61,9 +61,15 @@ export function MobileAuthProvider({ children }: MobileAuthProviderProps) {
       }
       scheduleProactiveRefresh();
     } catch (error) {
-      trackMobileEvent("warn", "Failed to hydrate mobile auth", {
-        error: error instanceof Error ? error.message : "unknown",
-      });
+      // Auth errors (401 after failed refresh) → session already cleared by onUnauthorized
+      // Network/other errors → keep tokens in storage so next open can retry
+      if (error instanceof ApiError && error.status === 401) {
+        trackMobileEvent("warn", "Hydration failed: session expired");
+      } else {
+        trackMobileEvent("warn", "Hydration failed (non-auth)", {
+          error: error instanceof Error ? error.message : "unknown",
+        });
+      }
       setMe(null);
     } finally {
       setIsBootstrapping(false);
@@ -83,13 +89,14 @@ export function MobileAuthProvider({ children }: MobileAuthProviderProps) {
       clearProactiveRefresh();
       setMe(null);
       setActiveHouseholdIdState(null);
-      Alert.alert("Sesión expirada", "Tu sesión expiró. Volvé a iniciar sesión.");
+      // No Alert.alert — the (app)/_layout Redirect handles navigation to login
     });
   }, []);
 
   const exchangeTokens = useCallback(
-    async (input: { accessToken: string; refreshToken: string }) => {
-      await setMobileTokens(input.accessToken, input.refreshToken);
+    async (input: { accessToken: string; refreshToken: string; expiresInSeconds?: number }) => {
+      resetAuthExpiredFlag();
+      await setMobileTokens(input.accessToken, input.refreshToken, input.expiresInSeconds);
       await hydrate();
     },
     [hydrate],
@@ -102,7 +109,8 @@ export function MobileAuthProvider({ children }: MobileAuthProviderProps) {
         idToken,
         deviceId,
       });
-      await setMobileTokens(response.accessToken, response.refreshToken);
+      resetAuthExpiredFlag();
+      await setMobileTokens(response.accessToken, response.refreshToken, response.expiresInSeconds);
       await hydrate();
     },
     [hydrate],
@@ -116,7 +124,8 @@ export function MobileAuthProvider({ children }: MobileAuthProviderProps) {
         codeVerifier,
         deviceId,
       });
-      await setMobileTokens(response.accessToken, response.refreshToken);
+      resetAuthExpiredFlag();
+      await setMobileTokens(response.accessToken, response.refreshToken, response.expiresInSeconds);
       await hydrate();
     },
     [hydrate],
@@ -131,7 +140,8 @@ export function MobileAuthProvider({ children }: MobileAuthProviderProps) {
       refreshToken: session.refreshToken,
       deviceId,
     });
-    await setMobileTokens(response.accessToken, response.refreshToken);
+    resetAuthExpiredFlag();
+    await setMobileTokens(response.accessToken, response.refreshToken, response.expiresInSeconds);
     await hydrate();
   }, [hydrate]);
 

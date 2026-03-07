@@ -30,6 +30,7 @@
     },
     "android": {
       "package": "casa.habita.app",
+      "googleServicesFile": "./google-services.json",
       "intentFilters": [
         {
           "action": "VIEW",

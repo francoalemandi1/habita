@@ -49,7 +49,7 @@ const TOUR_CONTENT: Record<TourSection, TourSectionContent> = {
       { emoji: "🔔", label: "Notificarse mutuamente" },
     ],
     cta: "Compartir invitación",
-    route: "/(app)/settings",
+    route: "/(app)/profile",
   },
   registra: {
     icon: Receipt,
@@ -61,7 +61,7 @@ const TOUR_CONTENT: Record<TourSection, TourSectionContent> = {
       { emoji: "💰", label: "Liquidar deudas" },
     ],
     cta: "Registrar un gasto",
-    route: "/(app)/expenses",
+    route: "/(app)/balance",
   },
   ahorra: {
     icon: ShoppingCart,
@@ -73,7 +73,7 @@ const TOUR_CONTENT: Record<TourSection, TourSectionContent> = {
       { emoji: "🏷️", label: "Ofertas bancarias" },
     ],
     cta: "Buscar un producto",
-    route: "/(app)/shopping-plan",
+    route: "/(app)/compras",
   },
   descubri: {
     icon: MapPin,
@@ -85,7 +85,7 @@ const TOUR_CONTENT: Record<TourSection, TourSectionContent> = {
       { emoji: "📍", label: "Filtrar por zona" },
     ],
     cta: "Explorar eventos",
-    route: "/(app)/discover",
+    route: "/(app)/descubrir",
   },
   cocina: {
     icon: ChefHat,

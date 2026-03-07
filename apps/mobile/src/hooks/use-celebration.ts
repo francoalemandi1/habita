@@ -7,7 +7,8 @@ export type CelebrationType =
   | "first-recipe"
   | "first-event-saved"
   | "first-invite-sent"
-  | "tour-complete";
+  | "tour-complete"
+  | "share-nudge";
 
 const CELEBRATIONS: Record<CelebrationType, { title: string; message: string }> = {
   "first-expense":     { title: "🎉 ¡Primer gasto registrado!", message: "Ya tenés visibilidad sobre tus gastos" },
@@ -16,6 +17,7 @@ const CELEBRATIONS: Record<CelebrationType, { title: string; message: string }> 
   "first-event-saved": { title: "🎫 ¡Evento guardado!", message: "No te lo vas a perder" },
   "first-invite-sent": { title: "🏠 ¡Invitación enviada!", message: "Te avisamos cuando se una" },
   "tour-complete":     { title: "🚀 ¡Ya conocés todo Habita!", message: "Tu hogar organizado empieza acá" },
+  "share-nudge":       { title: "💪 ¡Vas volando!", message: "Compartí con tu hogar cómo viene la semana" },
 };
 
 export function useCelebration() {

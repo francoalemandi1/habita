@@ -3,5 +3,5 @@ import { useMobileAuth } from "@/providers/mobile-auth-provider";
 
 export default function IndexScreen() {
   const { isAuthenticated } = useMobileAuth();
-  return <Redirect href={isAuthenticated ? "/(app)/dashboard" : "/(auth)/login"} />;
+  return <Redirect href={isAuthenticated ? "/(app)/tasks" : "/(auth)/login"} />;
 }

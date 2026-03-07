@@ -21,6 +21,7 @@ import { useMembers } from "@/hooks/use-members";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { useThemeColors } from "@/hooks/use-theme";
+import { useCelebration } from "@/hooks/use-celebration";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -575,6 +576,8 @@ export default function TasksScreen() {
   const completeMutation = useCompleteAssignment();
   const uncompleteMutation = useUncompleteAssignment();
   const verifyMutation = useVerifyAssignment();
+  const { celebrate } = useCelebration();
+  const completionCountRef = useRef(0);
   const [transferTarget, setTransferTarget] = useState<AssignmentSummary | null>(null);
   const [selectedDay, setSelectedDay] = useState(dayKey(new Date()));
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
@@ -660,7 +663,12 @@ export default function TasksScreen() {
         isCompleting={isCurrentCompleting}
         isUncompleting={isCurrentUncompleting}
         canVerify={isAdult}
-        onComplete={() => completeMutation.mutate(assignment.id)}
+        onComplete={() => completeMutation.mutate(assignment.id, {
+          onSuccess: () => {
+            completionCountRef.current += 1;
+            if (completionCountRef.current % 5 === 0) celebrate("share-nudge");
+          },
+        })}
         onUncomplete={() => uncompleteMutation.mutate(assignment.id)}
         onVerify={() => {}}
         onTransfer={() => setTransferTarget(assignment)}
@@ -702,7 +710,7 @@ export default function TasksScreen() {
             title="No tenés un plan generado"
             subtitle="Generá un plan semanal para distribuir las tareas del hogar."
             actionLabel="Planificá"
-            onAction={() => router.push("/(app)/weekly-plan")}
+            onAction={() => router.push("/(app)/plan")}
             steps={[
               { label: "Habita sugiere tareas para tu hogar" },
               { label: "Aceptá o personalizá las sugerencias" },
@@ -810,7 +818,7 @@ export default function TasksScreen() {
           title="No tenés un plan generado"
           subtitle="Generá un plan semanal para distribuir las tareas del hogar."
           actionLabel="Planificá"
-          onAction={() => router.push("/(app)/weekly-plan")}
+          onAction={() => router.push("/(app)/plan")}
         />
       );
     }
@@ -839,7 +847,12 @@ export default function TasksScreen() {
                   <ListRow
                     key={a.id}
                     assignment={a}
-                    onComplete={() => completeMutation.mutate(a.id)}
+                    onComplete={() => completeMutation.mutate(a.id, {
+                      onSuccess: () => {
+                        completionCountRef.current += 1;
+                        if (completionCountRef.current % 5 === 0) celebrate("share-nudge");
+                      },
+                    })}
                     onTransfer={() => setTransferTarget(a)}
                     isCompleting={completing}
                     isMutating={mutating}
@@ -886,7 +899,7 @@ export default function TasksScreen() {
           <View style={styles.headerSpacer} />
           {hasAnyAssignments ? (
             <Pressable
-              onPress={() => router.push("/(app)/weekly-plan")}
+              onPress={() => router.push("/(app)/plan")}
               style={styles.regenLink}
               hitSlop={8}
             >
@@ -894,7 +907,7 @@ export default function TasksScreen() {
             </Pressable>
           ) : null}
           <Pressable
-            onPress={() => router.push("/(app)/roulette")}
+            onPress={() => router.push("/(app)/rotations")}
             style={styles.rouletteCta}
           >
             <Dices size={16} color={colors.primary} />

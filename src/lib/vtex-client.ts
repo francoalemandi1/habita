@@ -28,7 +28,10 @@ export interface StoreConfig {
   name: string;
   baseUrl: string;
   type: "vtex" | "vtex-legacy" | "coto" | "coope";
-  /** null = nacional (siempre visible). Array = solo si city contiene algún token. */
+  /**
+   * null = siempre visible (sin ciudad configurada en el hogar).
+   * Array = visible solo si city contiene algún token (sin tildes, minúsculas).
+   */
   regions: string[] | null;
 }
 
@@ -43,14 +46,116 @@ export interface StoreSearchResult {
 // ============================================
 
 export const SUPERMARKET_STORES: StoreConfig[] = [
-  // Nacionales
-  { name: "Carrefour", baseUrl: "https://www.carrefour.com.ar", type: "vtex", regions: null },
-  { name: "Coto", baseUrl: "https://www.cotodigital.com.ar", type: "coto", regions: null },
-  { name: "Dia", baseUrl: "https://diaonline.supermercadosdia.com.ar", type: "vtex", regions: null },
-  { name: "Disco", baseUrl: "https://www.disco.com.ar", type: "vtex", regions: null },
-  { name: "Jumbo", baseUrl: "https://www.jumbo.com.ar", type: "vtex-legacy", regions: null },
-  { name: "Mas Online", baseUrl: "https://www.masonline.com.ar", type: "vtex", regions: null },
-  { name: "Vea", baseUrl: "https://www.vea.com.ar", type: "vtex", regions: null },
+  // Cadenas nacionales — con cobertura real por ciudad/provincia
+  {
+    name: "Carrefour",
+    baseUrl: "https://www.carrefour.com.ar",
+    type: "vtex",
+    // Presencia física en GBA, CABA y principales ciudades del interior
+    regions: [
+      "buenos aires", "caba", "capital federal",
+      "cordoba", "rosario", "santa fe", "mendoza", "tucuman",
+      "mar del plata", "la plata", "quilmes", "lomas de zamora",
+      "lanus", "avellaneda", "san justo", "moron", "merlo",
+      "tigre", "san isidro", "vicente lopez", "san martin",
+      "tres de febrero", "hurlingham", "ituzaingo", "ezeiza",
+      "florencio varela", "berazategui", "quilmes", "almirante brown",
+      "lomas de zamora", "esteban echeverria", "canuelas",
+      "pilar", "escobar", "campana", "zarate", "lujan",
+      "san miguel", "jose c paz", "malvinas argentinas",
+      "bahia blanca", "neuquen", "salta", "jujuy", "corrientes",
+      "posadas", "resistencia", "san juan", "san luis",
+    ],
+  },
+  {
+    name: "Coto",
+    baseUrl: "https://www.cotodigital.com.ar",
+    type: "coto",
+    // Coto opera casi exclusivamente en GBA y CABA
+    regions: [
+      "buenos aires", "caba", "capital federal",
+      "la plata", "quilmes", "lomas de zamora", "lanus", "avellaneda",
+      "san justo", "moron", "merlo", "tigre", "san isidro",
+      "vicente lopez", "san martin", "tres de febrero", "hurlingham",
+      "ituzaingo", "ezeiza", "florencio varela", "berazategui",
+      "almirante brown", "lomas de zamora", "esteban echeverria",
+      "pilar", "escobar", "san miguel", "jose c paz",
+      "malvinas argentinas", "mar del plata",
+    ],
+  },
+  {
+    name: "Dia",
+    baseUrl: "https://diaonline.supermercadosdia.com.ar",
+    type: "vtex",
+    // Dia tiene presencia muy amplia en Argentina
+    regions: [
+      "buenos aires", "caba", "capital federal",
+      "cordoba", "rosario", "santa fe", "mendoza", "tucuman",
+      "mar del plata", "la plata", "bahia blanca", "neuquen",
+      "quilmes", "lomas de zamora", "lanus", "avellaneda",
+      "san justo", "moron", "merlo", "tigre", "san isidro",
+      "vicente lopez", "san martin", "tres de febrero",
+      "pilar", "escobar", "san miguel", "jose c paz",
+      "florencio varela", "berazategui", "almirante brown",
+      "esteban echeverria", "canuelas", "lujan",
+      "salta", "jujuy", "san juan", "san luis",
+      "corrientes", "posadas", "resistencia",
+      "santa rosa", "rio cuarto", "villa maria", "villa carlos paz",
+    ],
+  },
+  {
+    name: "Disco",
+    baseUrl: "https://www.disco.com.ar",
+    type: "vtex",
+    // Disco/Vea son del grupo Cencosud — principalmente GBA Norte y CABA
+    regions: [
+      "buenos aires", "caba", "capital federal",
+      "san isidro", "vicente lopez", "tigre", "escobar", "pilar",
+      "san martin", "tres de febrero", "moron", "ituzaingo",
+      "la plata", "mar del plata", "bahia blanca",
+      "mendoza", "neuquen",
+    ],
+  },
+  {
+    name: "Jumbo",
+    baseUrl: "https://www.jumbo.com.ar",
+    type: "vtex-legacy",
+    // Jumbo tiene pocas sucursales, concentradas en ciudades grandes
+    regions: [
+      "buenos aires", "caba", "capital federal",
+      "la plata", "mar del plata",
+      "cordoba", "rosario", "mendoza", "neuquen",
+      "tigre", "pilar", "san isidro", "vicente lopez",
+      "moron", "lomas de zamora",
+    ],
+  },
+  {
+    name: "Mas Online",
+    baseUrl: "https://www.masonline.com.ar",
+    type: "vtex",
+    // Mas Online (Cencosud) — GBA y CABA
+    regions: [
+      "buenos aires", "caba", "capital federal",
+      "la plata", "quilmes", "lomas de zamora", "lanus", "avellaneda",
+      "san justo", "moron", "merlo", "tigre", "san isidro",
+      "vicente lopez", "san martin", "tres de febrero",
+      "pilar", "escobar", "florencio varela", "berazategui",
+      "almirante brown",
+    ],
+  },
+  {
+    name: "Vea",
+    baseUrl: "https://www.vea.com.ar",
+    type: "vtex",
+    // Vea (Cencosud) — GBA y algunas ciudades del interior
+    regions: [
+      "buenos aires", "caba", "capital federal",
+      "cordoba", "mendoza", "rosario", "san juan", "san luis",
+      "tucuman", "salta", "neuquen", "bahia blanca",
+      "mar del plata", "la plata",
+      "tigre", "pilar", "moron", "lomas de zamora",
+    ],
+  },
   // Regionales
   { name: "HiperLibertad", baseUrl: "https://www.hiperlibertad.com.ar", type: "vtex-legacy", regions: ["cordoba", "mendoza", "tucuman", "rosario", "santa fe"] },
   { name: "Cordiez", baseUrl: "https://www.cordiez.com.ar", type: "vtex-legacy", regions: ["cordoba"] },

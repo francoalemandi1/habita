@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { StoreLogo } from "@/components/ui/store-logo";
 import { SaveButton } from "@/components/ui/save-button";
-import { ChevronDown, Trophy, ExternalLink, ArrowDownRight, ClipboardCopy, Check, Package, Tag, Pin, Receipt, Share2, AlertCircle } from "lucide-react";
+import { ChevronDown, Trophy, ExternalLink, ArrowDownRight, ClipboardCopy, Check, Package, Tag, Pin, Share2, AlertCircle } from "lucide-react";
 
 import type { AlternativeProduct, ProductUnitInfo } from "@/lib/supermarket-search";
 import type { AdjustedStoreCart, AdjustedCartProduct } from "@/components/features/grocery-advisor";
@@ -80,9 +80,9 @@ interface StoreCartCardProps {
   onPinStore?: (storeName: string) => void;
 }
 
-export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlternatives, isSaved, isSavePending, onToggleSave, onRegisterAsExpense, promos, isPinned, onPinStore }: StoreCartCardProps) {
+export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlternatives, isSaved, isSavePending, onToggleSave, promos, isPinned, onPinStore }: StoreCartCardProps) {
   const isBest = rank === 0;
-  const [isOpen, setIsOpen] = useState(isBest);
+  const [isOpen, setIsOpen] = useState(false);
 
   // Cart-level comparison vs market average
   const productsWithAverage = cart.products.filter((p) => p.averagePrice != null);
@@ -223,16 +223,6 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
             )}
           </div>
 
-          {onRegisterAsExpense && (
-            <button
-              type="button"
-              onClick={() => onRegisterAsExpense(cart.storeName, discountedPrice ?? cart.totalPrice)}
-              className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
-            >
-              <Receipt className="h-3.5 w-3.5" />
-              Registrar
-            </button>
-          )}
           {onToggleSave && (
             <SaveButton
               isSaved={isSaved ?? false}
@@ -253,6 +243,15 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
               <Share2 className="h-4 w-4" />
             )}
           </button>
+          {/* Collapse toggle — top right */}
+          <button
+            type="button"
+            onClick={() => setIsOpen((v) => !v)}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={isOpen ? "Ocultar productos" : "Ver productos"}
+          >
+            <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "rotate-180")} />
+          </button>
         </div>
       </div>
 
@@ -264,16 +263,6 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
           onSelectPromo={setSelectedPromoId}
         />
       )}
-
-      {/* Collapsible toggle */}
-      <button
-        type="button"
-        onClick={() => setIsOpen((v) => !v)}
-        className="flex w-full items-center justify-between border-t border-border/30 px-4 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted/20"
-      >
-        <span>{isOpen ? "Ocultar productos" : `Ver ${cart.products.length} producto${cart.products.length !== 1 ? "s" : ""}`}</span>
-        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", isOpen && "rotate-180")} />
-      </button>
 
       {/* Product list (collapsible) */}
       {isOpen && (

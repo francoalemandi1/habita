@@ -11,6 +11,13 @@ interface DailyHighlightState {
   ctaRoute: string;
 }
 
+interface RecommendedEvent {
+  title: string;
+  startDate?: string | null;
+  venueName?: string | null;
+  editorialHighlight?: string | null;
+}
+
 interface DashboardDailyHighlightProps {
   highlight: DailyHighlightState;
 }
@@ -52,7 +59,29 @@ function getMealLabel(): string {
   return "cena";
 }
 
-export function computeDailyHighlight(): DailyHighlightState {
+export function computeDailyHighlight(recommendedEvent?: RecommendedEvent | null): DailyHighlightState {
+  if (recommendedEvent) {
+    const dateStr = recommendedEvent.startDate
+      ? new Date(recommendedEvent.startDate).toLocaleDateString("es-AR", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        })
+      : null;
+    const subtitle = recommendedEvent.editorialHighlight
+      ?? [dateStr, recommendedEvent.venueName].filter(Boolean).join(" · ")
+      ?? "Evento cerca tuyo";
+
+    return {
+      type: "event",
+      title: recommendedEvent.title,
+      subtitle,
+      categoryLabel: "EVENTO",
+      ctaLabel: "Ver evento",
+      ctaRoute: "/descubrir",
+    };
+  }
+
   return {
     type: "recipe",
     title: `¿Qué cocinamos para el ${getMealLabel()}?`,

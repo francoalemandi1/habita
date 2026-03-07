@@ -3,11 +3,11 @@ import Link from "next/link";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
+import { resolveCityId } from "@/lib/events/city-normalizer";
 import { Card, CardContent } from "@/components/ui/card";
 import { PlanStatusCard } from "@/components/features/plan-status-card";
 import { PendingTransfers } from "@/components/features/pending-transfers";
 import { FridgeCalendarView } from "@/components/features/fridge-calendar-view";
-import { DailyBriefingWrapper } from "@/components/features/daily-briefing-wrapper";
 import { PushOptInBanner } from "@/components/features/push-opt-in-banner";
 import { OnboardingChecklist } from "@/components/features/onboarding-checklist";
 import { InviteHomeCard } from "@/components/features/invite-home-card";
@@ -16,7 +16,7 @@ import { DashboardHeroCard, computeHeroState } from "@/components/features/dashb
 import { DashboardWeekCard } from "@/components/features/dashboard-week-card";
 import { DashboardDailyHighlight, computeDailyHighlight } from "@/components/features/dashboard-daily-highlight";
 import { getWeekMonday, getWeekSunday } from "@/lib/calendar-utils";
-import { ChevronRight, Dices, CalendarDays, Wallet, Sparkles, ChefHat } from "lucide-react";
+import { ChevronRight, CalendarDays, Wallet } from "lucide-react";
 import { spacing, iconSize } from "@/lib/design-tokens";
 import { isSoloHousehold, getHouseholdCopy } from "@/lib/household-mode";
 
@@ -35,14 +35,6 @@ function formatTodayDate(): string {
     day: "numeric",
     month: "long",
   });
-}
-
-function getMealLabel(): string {
-  const hour = new Date().getHours();
-  if (hour < 10) return "desayuno";
-  if (hour < 15) return "almuerzo";
-  if (hour < 19) return "merienda";
-  return "cena";
 }
 
 export default async function DashboardPage() {
@@ -235,8 +227,35 @@ export default async function DashboardPage() {
     expenseBalance,
   });
 
-  // Daily highlight (recipe fallback — deals/events would require client fetch)
-  const dailyHighlight = computeDailyHighlight();
+  // Top recommended cultural event for daily highlight
+  const cityName = member.household.city ?? null;
+  let recommendedEvent: { title: string; startDate: string | null; venueName: string | null; editorialHighlight: string | null } | null = null;
+  if (cityName) {
+    try {
+      const cityId = await resolveCityId(cityName);
+      const eventRow = await prisma.culturalEvent.findFirst({
+        where: {
+          status: "ACTIVE",
+          ...(cityId ? { cityId } : {}),
+          startDate: { gte: now },
+          editorialHighlight: { not: null },
+        },
+        orderBy: [{ finalScore: { sort: "desc", nulls: "last" } }, { startDate: "asc" }],
+        select: { title: true, startDate: true, venueName: true, editorialHighlight: true },
+      });
+      if (eventRow) {
+        recommendedEvent = {
+          title: eventRow.title,
+          startDate: eventRow.startDate?.toISOString() ?? null,
+          venueName: eventRow.venueName,
+          editorialHighlight: eventRow.editorialHighlight,
+        };
+      }
+    } catch {
+      // Non-blocking: fall back to recipe highlight
+    }
+  }
+  const dailyHighlight = computeDailyHighlight(recommendedEvent);
 
   // Plan pending assignments for finalize modal
   const planPendingAssignments = activePlan?.status === "APPLIED"
@@ -280,7 +299,6 @@ export default async function DashboardPage() {
     completedAt: a.completedAt?.toISOString() ?? null,
   }));
 
-  const mealLabel = getMealLabel();
   const isSolo = isSoloHousehold(members.length);
   const householdCopy = getHouseholdCopy(isSolo);
 
@@ -317,11 +335,6 @@ export default async function DashboardPage() {
       {/* Hero card */}
       <div className={spacing.sectionGap}>
         <DashboardHeroCard state={heroState} />
-      </div>
-
-      {/* Briefing */}
-      <div className={spacing.sectionGap}>
-        <DailyBriefingWrapper />
       </div>
 
       {/* Household week card (gamification) */}
@@ -414,42 +427,6 @@ export default async function DashboardPage() {
         <DashboardDailyHighlight highlight={dailyHighlight} />
       </div>
 
-      {/* Descubrir + Cocina previews */}
-      <div className={`${spacing.sectionGap} grid gap-3 sm:grid-cols-2`}>
-        <Link href="/descubrir" className="group block">
-          <Card className="border-violet-200/50 bg-violet-50/30 transition-all hover:shadow-md active:scale-[0.99]">
-            <CardContent className="py-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100">
-                  <Sparkles className="h-5 w-5 text-violet-600" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold">Planes para hoy</p>
-                  <p className="text-xs text-muted-foreground">Cultura, restaurantes y actividades cerca tuyo</p>
-                </div>
-                <ChevronRight className={`${iconSize.sm} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/cocina" className="group block">
-          <Card className="border-orange-200/50 bg-orange-50/30 transition-all hover:shadow-md active:scale-[0.99]">
-            <CardContent className="py-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100">
-                  <ChefHat className="h-5 w-5 text-orange-600" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold">Recetas</p>
-                  <p className="text-xs text-muted-foreground">Sacá una foto de tu heladera y te sugerimos recetas para el {mealLabel}</p>
-                </div>
-                <ChevronRight className={`${iconSize.sm} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
-
       {/* Balance de gastos */}
       <div className={spacing.sectionGap}>
         <Link
@@ -497,27 +474,6 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* Roulette CTA (card visible, only for shared households) */}
-      {!isSolo && (
-        <div className={spacing.sectionGap}>
-          <Link href="/roulette" className="group block">
-            <Card className="border-violet-400/25 bg-gradient-to-br from-violet-500/10 via-primary/5 to-fuchsia-500/8 transition-all hover:scale-[1.01] hover:border-violet-400/50 hover:shadow-lg active:scale-[0.99]">
-              <CardContent className="py-5">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/15 shadow-sm">
-                    <Dices className={`${iconSize.lg} text-violet-600 transition-transform group-hover:rotate-12`} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold">Ruleta de tareas</p>
-                    <p className="text-xs text-muted-foreground">Asigna una tarea al azar</p>
-                  </div>
-                  <ChevronRight className={`${iconSize.md} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
-      )}
     </div>
   );
 }

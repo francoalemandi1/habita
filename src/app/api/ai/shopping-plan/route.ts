@@ -11,13 +11,13 @@ import type { NextRequest } from "next/server";
 // ============================================
 
 const bodySchema = z.object({
-  searchTerms: z.array(z.string().min(1).max(100)).max(30).optional(),
+  searchTerms: z.array(z.string().min(1).max(100)).max(100).optional(),
   searchItems: z.array(
     z.object({
       term: z.string().min(1).max(100),
       quantity: z.number().int().min(1).max(99),
     }),
-  ).max(30).optional(),
+  ).max(100).optional(),
 }).refine(
   (body) => (body.searchItems?.length ?? 0) > 0 || (body.searchTerms?.length ?? 0) > 0,
   { message: "Agregá al menos un producto" },

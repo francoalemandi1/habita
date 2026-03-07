@@ -1,10 +1,8 @@
-"use client";
-
 import Link from "next/link";
 
-type HeroPriority = "today" | "transfers" | "balance-owed" | "balance-owing" | "all-clear";
+export type HeroPriority = "today" | "transfers" | "balance-owed" | "balance-owing" | "all-clear";
 
-interface HeroState {
+export interface HeroState {
   priority: HeroPriority;
   headline: string;
   label: string;

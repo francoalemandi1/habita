@@ -69,6 +69,7 @@ export function ProductSearchInput({
   const [inputValue, setInputValue] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [pendingDeleteTerm, setPendingDeleteTerm] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -175,17 +176,30 @@ export function ProductSearchInput({
         return;
       }
 
-      // Backspace on empty input removes last chip
+      // Backspace on empty input: first press marks last chip, second press removes it
       if (e.key === "Backspace" && inputValue === "" && searchItems.length > 0) {
         const lastItem = searchItems[searchItems.length - 1];
-        if (lastItem) onRemove(lastItem.term);
+        if (!lastItem) return;
+        if (pendingDeleteTerm === lastItem.term) {
+          onRemove(lastItem.term);
+          setPendingDeleteTerm(null);
+        } else {
+          setPendingDeleteTerm(lastItem.term);
+        }
+        return;
+      }
+
+      // Any other key clears the pending delete mark
+      if (pendingDeleteTerm) {
+        setPendingDeleteTerm(null);
       }
     },
-    [addTerm, inputValue, searchItems, onRemove, showDropdown, suggestions, highlightedIndex, selectSuggestion],
+    [addTerm, inputValue, searchItems, onRemove, showDropdown, suggestions, highlightedIndex, selectSuggestion, pendingDeleteTerm],
   );
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
+      setPendingDeleteTerm(null);
       setInputValue(e.target.value);
       setIsDropdownOpen(true);
       setHighlightedIndex(-1);
@@ -293,7 +307,11 @@ export function ProductSearchInput({
           {searchItems.map((item) => (
             <span
               key={item.term}
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary"
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                pendingDeleteTerm === item.term
+                  ? "bg-destructive/15 text-destructive ring-1 ring-destructive/40"
+                  : "bg-primary/10 text-primary"
+              }`}
             >
               <span>{item.term}</span>
               <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold">

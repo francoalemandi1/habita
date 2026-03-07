@@ -39,6 +39,7 @@ import {
   RefreshCw,
   Tag,
   Undo2,
+  Plus,
 } from "lucide-react";
 
 import { AddExpenseDialog } from "@/components/features/add-expense-dialog";
@@ -55,9 +56,7 @@ import type { SaveCartInput } from "@/lib/validations/saved-items";
 // ============================================
 
 export interface AdjustedCartProduct extends CartProduct {
-  isRemoved: boolean;
-  isAdded: boolean;
-  isOutOfStock: boolean;
+  // No removed/added/outOfStock states — the card is read-only, swap-only
 }
 
 export interface AdjustedStoreCart extends Omit<StoreCart, "products"> {
@@ -158,22 +157,13 @@ function mergeSearchItems(items: SearchItem[]): SearchItem[] {
 // ============================================
 
 interface CartOverride {
-  type?: "swap" | "remove";
+  type?: "swap";
   alternative?: AlternativeProduct;
-  isAdded?: boolean;
-  isOutOfStock?: boolean;
 }
 
 /** Key for the overrides map: "storeName::searchTerm" */
 function overrideKey(storeName: string, searchTerm: string): string {
   return `${storeName}::${searchTerm}`;
-}
-
-interface OutOfStockRecommendation {
-  sourceStore: string;
-  recommendedStore: string;
-  coveredTerms: string[];
-  totalPrice: number;
 }
 
 /** Apply user overrides (swap/remove) to the original API carts. */
@@ -194,9 +184,6 @@ function applyOverrides(
           ...p,
           quantity,
           lineTotal: p.price * quantity,
-          isRemoved: override?.type === "remove",
-          isAdded: override?.isAdded ?? false,
-          isOutOfStock: override?.isOutOfStock ?? false,
         };
 
         if (override?.type === "swap" && override.alternative) {
@@ -207,6 +194,7 @@ function applyOverrides(
             price: alt.price,
             lineTotal: alt.price * quantity,
             listPrice: alt.listPrice,
+            imageUrl: alt.imageUrl,
             link: alt.link,
             unitInfo: alt.unitInfo,
             alternatives: [
@@ -219,61 +207,11 @@ function applyOverrides(
         return base;
       });
 
-      const activeProducts = products.filter((p) => !p.isRemoved && !p.isOutOfStock);
-      const totalPrice = activeProducts.reduce((sum, p) => sum + p.lineTotal, 0);
-      const cheapestCount = activeProducts.filter((p) => p.isCheapest).length;
+      const totalPrice = products.reduce((sum, p) => sum + p.lineTotal, 0);
+      const cheapestCount = products.filter((p) => p.isCheapest).length;
       return { ...cart, products, totalPrice, cheapestCount };
     });
   // Preserve original API ranking — don't re-sort after user overrides
-}
-
-function computeOutOfStockRecommendations(carts: AdjustedStoreCart[]): Map<string, OutOfStockRecommendation> {
-  const recommendations = new Map<string, OutOfStockRecommendation>();
-
-  for (const sourceCart of carts) {
-    const outOfStockTerms = sourceCart.products
-      .filter((product) => product.isOutOfStock)
-      .map((product) => product.searchTerm);
-    if (outOfStockTerms.length === 0) continue;
-
-    let bestCandidate: OutOfStockRecommendation | null = null;
-    for (const targetCart of carts) {
-      if (targetCart.storeName === sourceCart.storeName) continue;
-      const availableProducts = outOfStockTerms
-        .map((term) => targetCart.products.find((product) => product.searchTerm === term))
-        .filter((product): product is AdjustedCartProduct => Boolean(product))
-        .filter((product) => !product.isOutOfStock);
-      if (availableProducts.length === 0) continue;
-
-      const candidate: OutOfStockRecommendation = {
-        sourceStore: sourceCart.storeName,
-        recommendedStore: targetCart.storeName,
-        coveredTerms: availableProducts.map((product) => product.searchTerm),
-        totalPrice: availableProducts.reduce((sum, product) => sum + product.lineTotal, 0),
-      };
-
-      if (!bestCandidate) {
-        bestCandidate = candidate;
-        continue;
-      }
-
-      const candidateCoverage = candidate.coveredTerms.length;
-      const bestCoverage = bestCandidate.coveredTerms.length;
-      if (candidateCoverage > bestCoverage) {
-        bestCandidate = candidate;
-        continue;
-      }
-      if (candidateCoverage === bestCoverage && candidate.totalPrice < bestCandidate.totalPrice) {
-        bestCandidate = candidate;
-      }
-    }
-
-    if (bestCandidate) {
-      recommendations.set(sourceCart.storeName, bestCandidate);
-    }
-  }
-
-  return recommendations;
 }
 
 // ============================================
@@ -353,9 +291,11 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
   const [catalogInitialCategory, setCatalogInitialCategory] = useState<GroceryCategory | null>(null);
   const [overrides, setOverrides] = useState<Map<string, CartOverride>>(new Map());
   const [selectedStores, setSelectedStores] = useState<Set<string>>(new Set());
+  const [pinnedStore, setPinnedStore] = useState<string | null>(null);
   const [showComparison, setShowComparison] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
   const [showPromos, setShowPromos] = useState(false);
+  const [clearUndoSnapshot, setClearUndoSnapshot] = useState<SearchItem[] | null>(null);
 
   // Register as expense
   const [expenseDefaults, setExpenseDefaults] = useState<QuickAddDefaults | null>(null);
@@ -440,7 +380,7 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
       if (existing) {
         toggleSaveCart({ savedCartId: existing.id });
       } else {
-        const activeProducts = cart.products.filter((p) => !p.isRemoved && !p.isOutOfStock);
+        const activeProducts = cart.products;
         const input: SaveCartInput = {
           storeName: cart.storeName,
           searchTerms: searchTerms,
@@ -474,15 +414,15 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
     return applyOverrides(data.storeCarts, overrides, searchItems);
   }, [data, overrides, searchItems]);
 
-  const outOfStockRecommendations = useMemo(
-    () => computeOutOfStockRecommendations(adjustedCarts),
-    [adjustedCarts],
-  );
-
   const filteredCarts = useMemo(() => {
-    if (selectedStores.size === 0) return adjustedCarts;
-    return adjustedCarts.filter((c) => selectedStores.has(c.storeName));
-  }, [adjustedCarts, selectedStores]);
+    const base = selectedStores.size === 0 ? adjustedCarts : adjustedCarts.filter((c) => selectedStores.has(c.storeName));
+    if (!pinnedStore) return base;
+    return [...base].sort((a, b) => {
+      if (a.storeName === pinnedStore) return -1;
+      if (b.storeName === pinnedStore) return 1;
+      return 0;
+    });
+  }, [adjustedCarts, selectedStores, pinnedStore]);
 
   const comparisonSummary = useMemo(() => {
     if (filteredCarts.length < 2) return null;
@@ -532,9 +472,17 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
   }, []);
 
   const clearAllTerms = useCallback(() => {
+    setClearUndoSnapshot((prev) => prev ?? [...searchItems]);
     setSearchItems([]);
     saveSearchItems([]);
-  }, []);
+  }, [searchItems]);
+
+  const undoClearTerms = useCallback(() => {
+    if (!clearUndoSnapshot) return;
+    setSearchItems(clearUndoSnapshot);
+    saveSearchItems(clearUndoSnapshot);
+    setClearUndoSnapshot(null);
+  }, [clearUndoSnapshot]);
 
   const setTermQuantity = useCallback((term: string, quantity: number) => {
     setSearchItems((prev) => {
@@ -619,43 +567,6 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
     },
     [props.householdCity],
   );
-
-  const removeProduct = useCallback((storeName: string, searchTerm: string) => {
-    setOverrides((prev) => {
-      const next = new Map(prev);
-      const previous = next.get(overrideKey(storeName, searchTerm));
-      next.set(overrideKey(storeName, searchTerm), { ...previous, type: "remove" });
-      return next;
-    });
-  }, []);
-
-  const toggleAddedProduct = useCallback((storeName: string, searchTerm: string) => {
-    setOverrides((prev) => {
-      const next = new Map(prev);
-      const key = overrideKey(storeName, searchTerm);
-      const previous = next.get(key);
-      next.set(key, { ...previous, isAdded: !(previous?.isAdded ?? false) });
-      return next;
-    });
-  }, []);
-
-  const toggleOutOfStockProduct = useCallback((storeName: string, searchTerm: string) => {
-    setOverrides((prev) => {
-      const next = new Map(prev);
-      const key = overrideKey(storeName, searchTerm);
-      const previous = next.get(key);
-      next.set(key, { ...previous, isOutOfStock: !(previous?.isOutOfStock ?? false) });
-      return next;
-    });
-  }, []);
-
-  const restoreProduct = useCallback((storeName: string, searchTerm: string) => {
-    setOverrides((prev) => {
-      const next = new Map(prev);
-      next.delete(overrideKey(storeName, searchTerm));
-      return next;
-    });
-  }, []);
 
   // ── Results state ──
   if (data) {
@@ -822,6 +733,9 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
               </div>
             )}
 
+            {/* Quick-add products to search from results view */}
+            <QuickAddFromResults onAdd={addTerm} />
+
             {/* Store carts */}
             {filteredCarts.length > 0 ? (
               <div className="space-y-3">
@@ -833,17 +747,13 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
                     isComplete={cart.missingTerms.length === 0}
                     onSwapProduct={(searchTerm, alt) => swapProduct(cart.storeName, searchTerm, alt)}
                     onFindAlternatives={findScopedAlternatives}
-                    onSetQuantity={setTermQuantity}
-                    onToggleAdded={(searchTerm) => toggleAddedProduct(cart.storeName, searchTerm)}
-                    onToggleOutOfStock={(searchTerm) => toggleOutOfStockProduct(cart.storeName, searchTerm)}
-                    onRemoveProduct={(searchTerm) => removeProduct(cart.storeName, searchTerm)}
-                    onRestoreProduct={(searchTerm) => restoreProduct(cart.storeName, searchTerm)}
-                    outOfStockRecommendation={outOfStockRecommendations.get(cart.storeName) ?? null}
                     isSaved={!!isCartSaved(savedCarts, cart.storeName)}
                     isSavePending={isSavePending}
                     onToggleSave={() => handleToggleSaveCart(cart)}
                     onRegisterAsExpense={handleRegisterAsExpense}
                     promos={getStorePromos(promos, cart.storeName)}
+                    isPinned={pinnedStore === cart.storeName}
+                    onPinStore={(storeName) => setPinnedStore((prev) => prev === storeName ? null : storeName)}
                   />
                 ))}
               </div>
@@ -1069,7 +979,7 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
           <Search className="h-4 w-4" />
           Buscar precios
         </Button>
-        {searchItems.length > 0 && (
+        {searchItems.length > 0 && !clearUndoSnapshot && (
           <Button
             variant="ghost"
             size="sm"
@@ -1078,6 +988,16 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
           >
             Limpiar todo
           </Button>
+        )}
+        {clearUndoSnapshot && (
+          <button
+            type="button"
+            onClick={undoClearTerms}
+            className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline active:opacity-70"
+          >
+            <Undo2 className="h-3 w-3" />
+            Deshacer
+          </button>
         )}
       </div>
 
@@ -1524,18 +1444,11 @@ function toAdjustedSavedCart(savedCart: SavedCart): AdjustedStoreCart {
         ? rawProduct.alternatives as AlternativeProduct[]
         : [],
       averagePrice: typeof rawProduct.averagePrice === "number" ? rawProduct.averagePrice : null,
-      isRemoved: Boolean(rawProduct.isRemoved),
-      isAdded: Boolean(rawProduct.isAdded),
-      isOutOfStock: Boolean(rawProduct.isOutOfStock),
     };
   });
 
-  const totalPrice = products
-    .filter((product) => !product.isRemoved && !product.isOutOfStock)
-    .reduce((sum, product) => sum + product.lineTotal, 0);
-  const cheapestCount = products
-    .filter((product) => !product.isRemoved && !product.isOutOfStock && product.isCheapest)
-    .length;
+  const totalPrice = products.reduce((sum, product) => sum + product.lineTotal, 0);
+  const cheapestCount = products.filter((product) => product.isCheapest).length;
 
   return {
     storeName: savedCart.storeName,
@@ -1545,6 +1458,37 @@ function toAdjustedSavedCart(savedCart: SavedCart): AdjustedStoreCart {
     missingTerms: savedCart.missingTerms,
     totalSearched: savedCart.totalSearched,
   };
+}
+
+// ============================================
+// Quick Add From Results
+// ============================================
+
+function QuickAddFromResults({ onAdd }: { onAdd: (term: string) => void }) {
+  const [value, setValue] = useState("");
+
+  const handleAdd = useCallback(() => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    onAdd(trimmed);
+    setValue("");
+  }, [value, onAdd]);
+
+  return (
+    <div className="flex gap-2">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
+        placeholder="Agregar producto a la búsqueda..."
+        className="h-9 flex-1 rounded-xl border border-border/40 bg-card px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+      />
+      <Button size="sm" variant="outline" onClick={handleAdd} disabled={!value.trim()} className="shrink-0">
+        <Plus className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
 }
 
 function SavedCartsView({ savedCarts, toggleSaveCart, isSavePending, promos, onRegisterAsExpense }: SavedCartsViewProps) {

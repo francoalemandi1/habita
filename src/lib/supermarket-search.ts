@@ -322,14 +322,17 @@ function buildStoreCarts(
     });
   }
 
-  // Sort by completeness (more products first), then by total price
+  // Sort by weighted score: completeness (60%) + price factor (40%)
+  // This avoids ranking a store with 31/31 products at +14% above one with 29/31 at -5%
+  const maxPrice = Math.max(...storeCarts.map((c) => c.totalPrice), 1);
   storeCarts.sort((a, b) => {
     const completenessA = a.totalSearched > 0 ? a.products.length / a.totalSearched : 0;
     const completenessB = b.totalSearched > 0 ? b.products.length / b.totalSearched : 0;
-
-    if (completenessA !== completenessB) return completenessB - completenessA;
-
-    return a.totalPrice - b.totalPrice;
+    const priceFactorA = 1 - (a.totalPrice / maxPrice);
+    const priceFactorB = 1 - (b.totalPrice / maxPrice);
+    const scoreA = completenessA * 0.6 + priceFactorA * 0.4;
+    const scoreB = completenessB * 0.6 + priceFactorB * 0.4;
+    return scoreB - scoreA;
   });
 
   return { storeCarts, notFound };

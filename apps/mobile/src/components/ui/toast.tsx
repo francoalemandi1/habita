@@ -26,9 +26,9 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 function getVariantStyles(c: ThemeColors): Record<ToastVariant, { bg: string; text: string }> {
   return {
     default: { bg: c.text, text: c.background },
-    success: { bg: "#166534", text: "#ffffff" },
+    success: { bg: c.successBg, text: c.successText },
     error: { bg: c.destructive, text: "#ffffff" },
-    warning: { bg: "#92400e", text: "#ffffff" },
+    warning: { bg: c.warningBg, text: c.warningText },
     celebration: { bg: c.primaryLight, text: c.primary },
   };
 }

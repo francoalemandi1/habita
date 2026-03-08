@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { Share2 } from "lucide-react";
+import Link from "next/link";
+import { Share2, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -187,6 +188,15 @@ export function DashboardWeekCard({
             🔥 {streakText}
           </span>
         )}
+
+        {/* Full stats link */}
+        <Link
+          href="/progress"
+          className="mt-4 inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Ver progreso completo
+          <ChevronRight className="h-3 w-3" />
+        </Link>
       </CardContent>
     </Card>
   );

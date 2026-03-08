@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { CalendarRange, Check, CheckCircle2, ChevronRight, ClipboardList, Clock, Dices, Loader2, Undo2 } from "lucide-react-native";
+import { CalendarDays, Check, CheckCircle2, ChevronRight, ClipboardList, Clock, Dices, History, Loader2, Undo2 } from "lucide-react-native";
 import {
   useCompleteAssignment,
   useMyAssignments,
@@ -200,9 +200,7 @@ function DayCalendar({
           <Text style={[styles.dayNumber, isSelected && styles.dayNumberSelected]}>
             {day.date.getDate()}
           </Text>
-          {count > 0 ? (
-            <View style={[styles.dayDot, isSelected && styles.dayDotSelected]} />
-          ) : null}
+          <View style={[styles.dayDot, count > 0 ? (isSelected ? styles.dayDotSelected : styles.dayDotVisible) : styles.dayDotHidden]} />
         </Pressable>
       );
     });
@@ -578,6 +576,7 @@ export default function TasksScreen() {
   const verifyMutation = useVerifyAssignment();
   const { celebrate } = useCelebration();
   const completionCountRef = useRef(0);
+  const allDoneCelebrationFiredRef = useRef(false);
   const [transferTarget, setTransferTarget] = useState<AssignmentSummary | null>(null);
   const [selectedDay, setSelectedDay] = useState(dayKey(new Date()));
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
@@ -651,6 +650,17 @@ export default function TasksScreen() {
 
   const allDone = !isLoading && pendingAssignments.length === 0;
 
+  // Fire celebration toast once when all tasks for the day are done
+  useEffect(() => {
+    if (allDone && completedDayAssignments.length > 0 && !allDoneCelebrationFiredRef.current) {
+      allDoneCelebrationFiredRef.current = true;
+      celebrate("share-nudge");
+    }
+    if (!allDone) {
+      allDoneCelebrationFiredRef.current = false;
+    }
+  }, [allDone, completedDayAssignments.length, celebrate]);
+
   const renderPendingCard = (assignment: AssignmentSummary) => {
     const isCurrentCompleting = completeMutation.isPending && completeMutation.variables === assignment.id;
     const isCurrentUncompleting = uncompleteMutation.isPending && uncompleteMutation.variables === assignment.id;
@@ -681,7 +691,7 @@ export default function TasksScreen() {
   const renderCalendarContent = () => {
     if (isLoading) {
       return (
-        <ScrollView bounces={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView bounces={false} style={styles.flex1} contentContainerStyle={styles.scrollContent}>
           <SkeletonCard style={styles.skeleton} />
           <SkeletonCard lines={2} style={styles.skeleton} />
           <SkeletonCard style={styles.skeleton} />
@@ -691,47 +701,54 @@ export default function TasksScreen() {
 
     if (isError) {
       return (
-        <Card style={styles.errorCard}>
-          <CardContent>
-            <Text style={styles.errorText}>{getMobileErrorMessage(error)}</Text>
-            <Button variant="ghost" onPress={() => void refetch()} style={{ marginTop: spacing.sm }}>
-              Reintentar
-            </Button>
-          </CardContent>
-        </Card>
+        <ScrollView bounces={false} style={styles.flex1} contentContainerStyle={styles.scrollContent}>
+          <Card style={styles.errorCard}>
+            <CardContent>
+              <Text style={styles.errorText}>{getMobileErrorMessage(error)}</Text>
+              <Button variant="ghost" onPress={() => void refetch()} style={{ marginTop: spacing.sm }}>
+                Reintentar
+              </Button>
+            </CardContent>
+          </Card>
+        </ScrollView>
       );
     }
 
     if (allDone && completedDayAssignments.length === 0) {
       if (!hasAnyAssignments) {
         return (
-          <EmptyState
-            icon={<ClipboardList size={32} color={colors.primary} />}
-            title="No tenés un plan generado"
-            subtitle="Generá un plan semanal para distribuir las tareas del hogar."
-            actionLabel="Planificá"
-            onAction={() => router.push("/(app)/plan")}
-            steps={[
-              { label: "Habita sugiere tareas para tu hogar" },
-              { label: "Aceptá o personalizá las sugerencias" },
-              { label: "Completá tareas para ganar XP" },
-            ]}
-          />
+          <ScrollView bounces={false} style={styles.flex1} contentContainerStyle={styles.scrollContent}>
+            <EmptyState
+              icon={<ClipboardList size={32} color={colors.primary} />}
+              title="No tenés un plan generado"
+              subtitle="Generá un plan semanal para distribuir las tareas del hogar."
+              actionLabel="Planificá"
+              onAction={() => router.push("/(app)/plan")}
+              steps={[
+                { label: "Habita sugiere tareas para tu hogar" },
+                { label: "Aceptá o personalizá las sugerencias" },
+                { label: "Completá tareas para ganar XP" },
+              ]}
+            />
+          </ScrollView>
         );
       }
 
       return (
-        <EmptyState
-          icon={<ClipboardList size={32} color={colors.primary} />}
-          title="Sin tareas este día"
-          subtitle="No hay tareas pendientes ni completadas."
-        />
+        <ScrollView bounces={false} style={styles.flex1} contentContainerStyle={styles.scrollContent}>
+          <EmptyState
+            icon={<ClipboardList size={32} color={colors.primary} />}
+            title="Sin tareas este día"
+            subtitle="No hay tareas pendientes ni completadas."
+          />
+        </ScrollView>
       );
     }
 
     return (
       <ScrollView
         bounces={false}
+        style={styles.flex1}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -742,7 +759,19 @@ export default function TasksScreen() {
           />
         }
       >
-        {pendingAssignments.length > 0 ? (
+        {allDone && completedDayAssignments.length > 0 ? (
+          <Card style={styles.allDoneCard}>
+            <CardContent style={styles.allDoneContent}>
+              <View style={styles.allDoneIconCircle}>
+                <CheckCircle2 size={28} color={colors.primary} />
+              </View>
+              <Text style={styles.allDoneTitle}>¡Estás al día!</Text>
+              <Text style={styles.allDoneSubtitle}>
+                Completaste {completedDayAssignments.length} tarea{completedDayAssignments.length !== 1 ? "s" : ""} hoy
+              </Text>
+            </CardContent>
+          </Card>
+        ) : pendingAssignments.length > 0 ? (
           <View style={styles.cardStack}>
             {pendingAssignments.map(renderPendingCard)}
           </View>
@@ -762,6 +791,17 @@ export default function TasksScreen() {
               ))}
             </View>
           </View>
+        ) : null}
+
+        {/* Plan CTA in calendar view */}
+        {hasAnyAssignments ? (
+          <Pressable
+            onPress={() => router.push("/(app)/plan")}
+            style={styles.planCtaLink}
+          >
+            <Text style={styles.planCtaLinkText}>Generar un nuevo plan de tareas</Text>
+            <ChevronRight size={14} color={colors.primary} />
+          </Pressable>
         ) : null}
 
         <View style={styles.bottomPadding} />
@@ -894,18 +934,9 @@ export default function TasksScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
-          <ClipboardList size={24} color={colors.primary} />
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Mis tareas</Text>
+          <CalendarDays size={24} color={colors.primary} />
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Planificá</Text>
           <View style={styles.headerSpacer} />
-          {hasAnyAssignments ? (
-            <Pressable
-              onPress={() => router.push("/(app)/plan")}
-              style={styles.regenLink}
-              hitSlop={8}
-            >
-              <Text style={styles.regenLinkText}>Regenerar plan</Text>
-            </Pressable>
-          ) : null}
           <Pressable
             onPress={() => router.push("/(app)/rotations")}
             style={styles.rouletteCta}
@@ -914,6 +945,22 @@ export default function TasksScreen() {
             <Text style={styles.rouletteCtaText}>Ruleta</Text>
           </Pressable>
         </View>
+        {hasAnyAssignments ? (
+          <Pressable
+            onPress={() => router.push("/(app)/plan")}
+            style={styles.historyLink}
+            hitSlop={8}
+          >
+            <History size={12} color={colors.mutedForeground} />
+            <Text style={styles.historyLinkText}>Ver historial de planes</Text>
+          </Pressable>
+        ) : null}
+        <Button
+          onPress={() => router.push("/(app)/plan")}
+          style={styles.generatePlanBtn}
+        >
+          Generar plan
+        </Button>
       </View>
 
       {isFirstVisit ? (
@@ -963,7 +1010,7 @@ export default function TasksScreen() {
 
       {/* Content */}
       {viewMode === "calendar" ? (
-        <>
+        <View style={styles.calendarSection}>
           <DayCalendar
             days={calendarDays}
             selectedDay={selectedDay}
@@ -971,7 +1018,7 @@ export default function TasksScreen() {
             assignmentCountByDay={assignmentCountByDay}
           />
           {renderCalendarContent()}
-        </>
+        </View>
       ) : (
         renderListContent()
       )}
@@ -1224,15 +1271,34 @@ function createStyles(c: ThemeColors) {
     headerSpacer: {
       flex: 1,
     },
-    regenLink: {
-      paddingHorizontal: 4,
-      paddingVertical: 4,
+    historyLink: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.xs,
     },
-    regenLinkText: {
+    historyLinkText: {
       fontFamily: fontFamily.sans,
       fontSize: 12,
       fontWeight: "500",
       color: c.mutedForeground,
+    },
+    planCtaLink: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginTop: spacing.lg,
+      alignSelf: "flex-start",
+    },
+    planCtaLinkText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "600",
+      color: c.primary,
+    },
+    generatePlanBtn: {
+      marginTop: spacing.sm,
     },
     planCta: {
       flexDirection: "row",
@@ -1266,10 +1332,18 @@ function createStyles(c: ThemeColors) {
       color: c.primary,
     },
 
+    calendarSection: {
+      flex: 1,
+    },
+    flex1: {
+      flex: 1,
+    },
+
     // Day calendar
     weekCalendar: {
       flexDirection: "row",
       justifyContent: "space-between",
+      alignItems: "center",
       paddingHorizontal: spacing.lg,
       paddingBottom: spacing.md,
       gap: 4,
@@ -1280,17 +1354,20 @@ function createStyles(c: ThemeColors) {
     weekCalendarScroll: {
       paddingHorizontal: spacing.lg,
       gap: 4,
+      alignItems: "center",
     },
     dayPill: {
       flex: 1,
+      height: 68,
       alignItems: "center",
-      paddingVertical: 8,
+      justifyContent: "center",
       borderRadius: radius.lg,
     },
     dayPillFixed: {
       width: DAY_PILL_WIDTH,
+      height: 68,
       alignItems: "center",
-      paddingVertical: 8,
+      justifyContent: "center",
       borderRadius: radius.lg,
     },
     dayPillSelected: {
@@ -1322,11 +1399,16 @@ function createStyles(c: ThemeColors) {
       width: 4,
       height: 4,
       borderRadius: 2,
-      backgroundColor: c.primary,
       marginTop: 3,
+    },
+    dayDotVisible: {
+      backgroundColor: c.primary,
     },
     dayDotSelected: {
       backgroundColor: "#ffffff",
+    },
+    dayDotHidden: {
+      backgroundColor: "transparent",
     },
 
     // List view
@@ -1391,6 +1473,35 @@ function createStyles(c: ThemeColors) {
 
     bottomPadding: {
       height: 20,
+    },
+    allDoneCard: {
+      marginBottom: spacing.md,
+    },
+    allDoneContent: {
+      alignItems: "center" as const,
+      paddingVertical: spacing.lg,
+      gap: spacing.sm,
+    },
+    allDoneIconCircle: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: `${c.primary}18`,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      marginBottom: spacing.xs,
+    },
+    allDoneTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 18,
+      fontWeight: "700" as const,
+      color: c.text,
+    },
+    allDoneSubtitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      color: c.mutedForeground,
+      textAlign: "center" as const,
     },
   });
 }

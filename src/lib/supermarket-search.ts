@@ -241,6 +241,7 @@ function pickRankedMatches(searchTerm: string, products: VtexProduct[]): TermRes
 function buildStoreCarts(
   searchItems: SearchItem[],
   storeResults: Map<string, Map<string, TermResult>>,
+  promoStores?: Set<string> | null,
 ): { storeCarts: StoreCart[]; notFound: string[] } {
   const searchTerms = searchItems.map((item) => item.term);
   const quantityByTerm = new Map(searchItems.map((item) => [item.term, item.quantity]));
@@ -322,16 +323,17 @@ function buildStoreCarts(
     });
   }
 
-  // Sort by weighted score: completeness (60%) + price factor (40%)
-  // This avoids ranking a store with 31/31 products at +14% above one with 29/31 at -5%
+  // Sort by weighted score: completeness (50%) + price factor (35%) + promo boost (15%)
   const maxPrice = Math.max(...storeCarts.map((c) => c.totalPrice), 1);
   storeCarts.sort((a, b) => {
     const completenessA = a.totalSearched > 0 ? a.products.length / a.totalSearched : 0;
     const completenessB = b.totalSearched > 0 ? b.products.length / b.totalSearched : 0;
     const priceFactorA = 1 - (a.totalPrice / maxPrice);
     const priceFactorB = 1 - (b.totalPrice / maxPrice);
-    const scoreA = completenessA * 0.6 + priceFactorA * 0.4;
-    const scoreB = completenessB * 0.6 + priceFactorB * 0.4;
+    const promoBoostA = promoStores?.has(a.storeName) ? 1 : 0;
+    const promoBoostB = promoStores?.has(b.storeName) ? 1 : 0;
+    const scoreA = completenessA * 0.5 + priceFactorA * 0.35 + promoBoostA * 0.15;
+    const scoreB = completenessB * 0.5 + priceFactorB * 0.35 + promoBoostB * 0.15;
     return scoreB - scoreA;
   });
 
@@ -346,6 +348,7 @@ function buildStoreCarts(
 export async function compareProducts(
   searchInput: string[] | SearchItem[],
   city?: string | null,
+  promoStores?: Set<string> | null,
 ): Promise<ShoppingPlanResult> {
   const searchItems = normalizeSearchItems(searchInput);
   const searchTerms = searchItems.map((item) => item.term);
@@ -381,7 +384,7 @@ export async function compareProducts(
     }
   }
 
-  const { storeCarts, notFound } = buildStoreCarts(searchItems, storeResults);
+  const { storeCarts, notFound } = buildStoreCarts(searchItems, storeResults, promoStores);
 
   return {
     storeCarts,

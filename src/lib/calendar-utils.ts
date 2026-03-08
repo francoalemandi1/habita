@@ -64,6 +64,34 @@ export function formatDayHeader(date: Date): { dayName: string; dayNumber: numbe
   };
 }
 
+/** Generate array of Date objects from start to end (inclusive), capped at 31 days */
+export function getDaysInRange(start: Date, end: Date): Date[] {
+  const days: Date[] = [];
+  const cur = new Date(start);
+  cur.setHours(0, 0, 0, 0);
+  const endNorm = new Date(end);
+  endNorm.setHours(23, 59, 59, 999);
+  while (cur <= endNorm && days.length < 31) {
+    days.push(new Date(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return days;
+}
+
+/** Format a date range label, e.g. "10 Feb – 16 Feb 2026" */
+export function formatDateRange(start: Date, end: Date): string {
+  const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+  const sameMonth =
+    start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+  const startStr = sameMonth
+    ? String(start.getDate())
+    : start.toLocaleDateString("es", opts);
+  const endStr = end.toLocaleDateString("es", sameMonth
+    ? { day: "numeric", month: "short", year: "numeric" }
+    : { ...opts, year: "numeric" });
+  return `${startStr} – ${endStr}`;
+}
+
 /** Check if two dates fall on the same calendar day */
 export function isSameDay(dateA: Date, dateB: Date): boolean {
   return (

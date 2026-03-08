@@ -435,11 +435,51 @@ body {
 .notebook-divider {
   border-color: #d4d0c8;
   border-style: solid;
-  border-width: 0 0 1px 0;
+  border-width: 0 0 1.5px 0;
 }
 
 .dark .notebook-divider {
   border-color: hsl(220 13% 22%);
+}
+
+/* Notebook outer border */
+.notebook-border {
+  border: 1.5px solid #d4d0c8;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04), 2px 2px 0 #f0ece4;
+}
+
+.dark .notebook-border {
+  border-color: hsl(220 13% 22%);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 1px 4px rgba(0,0,0,0.15);
+}
+
+/* Notebook header strip — pen-drawn style */
+.notebook-header {
+  background: linear-gradient(180deg, #fdfcf7 0%, #f8f4ec 100%);
+  border-bottom: 1.5px solid #c4bfb3;
+}
+
+.dark .notebook-header {
+  background: hsl(220 13% 15%);
+  border-bottom-color: hsl(220 13% 22%);
+}
+
+/* Notebook sub-divider */
+.notebook-subdivider {
+  border-bottom: 1px solid #e8e4dc;
+}
+
+.dark .notebook-subdivider {
+  border-bottom-color: hsl(220 13% 20%);
+}
+
+/* Notebook dashed divider */
+.notebook-dashed {
+  border-bottom: 1px dashed #d4d0c8;
+}
+
+.dark .notebook-dashed {
+  border-bottom-color: hsl(220 13% 22%);
 }
 
 /* Notebook grid lines — subtle horizontal rules */

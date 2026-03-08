@@ -104,13 +104,10 @@ export function FridgeCalendarDay({
   return (
     <div
       className={cn(
-        "min-h-[72px] p-1 notebook-ruled",
+        "min-h-[72px] p-1 notebook-ruled notebook-subdivider",
         isToday && "notebook-today-highlight",
+        !isLast && "border-r border-[#e8e4dc] dark:border-[hsl(220_13%_20%)]",
       )}
-      style={{
-        borderBottom: "1px solid #e8e4dc",
-        borderRight: isLast ? "none" : "1px solid #e8e4dc",
-      }}
     >
       {isEmpty ? (
         <div className="flex h-full min-h-[56px] items-center justify-center">
@@ -276,12 +273,7 @@ function MobileDayCard({
   }
 
   return (
-    <div
-      className="px-3 py-2"
-      style={{
-        borderBottom: "1px solid #e8e4dc",
-      }}
-    >
+    <div className="notebook-subdivider px-3 py-2">
       {/* Day header row */}
       <div className="mb-1.5 flex items-center gap-2">
         <span

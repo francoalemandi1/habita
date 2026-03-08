@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useToast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/api-client";
 import { ExpenseList } from "@/components/features/expense-list";
@@ -338,6 +339,16 @@ export function ExpensesView({
           <>
             {/* Financial pulse — hero + tips (above the list) */}
             <FinancialPulse data={insightsData} isLoading={insightsLoading} />
+
+            {/* Quick links to full pages */}
+            <div className="flex items-center gap-4 text-xs">
+              <Link href="/expense-insights" className="text-muted-foreground hover:text-foreground transition-colors">
+                Ver análisis completo →
+              </Link>
+              <Link href="/services" className="text-muted-foreground hover:text-foreground transition-colors">
+                Servicios recurrentes →
+              </Link>
+            </div>
 
             {frequentExpenses.length > 0 && (
               <QuickAddPills expenses={frequentExpenses} onQuickAdd={handleQuickAdd} />

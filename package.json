@@ -9,6 +9,7 @@
     "mobile:qr": "pnpm --filter @habita/mobile qr",
     "build": "prisma generate && next build",
     "build:mobile": "pnpm --filter @habita/mobile build",
+    "generate:icons": "bash scripts/generate-icons.sh",
     "db:deploy": "prisma migrate deploy",
     "start": "next start",
     "lint": "eslint",

@@ -149,13 +149,13 @@ export function PreferencesManager({ preferences, tasks }: PreferencesManagerPro
                   <Badge
                     key={pref.id}
                     variant="secondary"
-                    className="flex items-center gap-1 bg-green-100 text-green-800"
+                    className="flex items-center gap-1 bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
                   >
                     {pref.task.name}
                     <button
                       onClick={() => handleRemovePreference(pref.taskId)}
                       disabled={isLoading}
-                      className="ml-1 rounded-full hover:bg-green-200"
+                      className="ml-1 rounded-full hover:bg-green-200 dark:hover:bg-green-800"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -185,13 +185,13 @@ export function PreferencesManager({ preferences, tasks }: PreferencesManagerPro
                   <Badge
                     key={pref.id}
                     variant="secondary"
-                    className="flex items-center gap-1 bg-red-100 text-red-800"
+                    className="flex items-center gap-1 bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
                   >
                     {pref.task.name}
                     <button
                       onClick={() => handleRemovePreference(pref.taskId)}
                       disabled={isLoading}
-                      className="ml-1 rounded-full hover:bg-red-200"
+                      className="ml-1 rounded-full hover:bg-red-200 dark:hover:bg-red-800"
                     >
                       <X className="h-3 w-3" />
                     </button>

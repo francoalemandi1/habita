@@ -921,8 +921,8 @@ function createStyles(c: ThemeColors) {
     progressCount: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "700", color: c.text },
 
     // Day tabs
-    dayTabs: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: c.card, borderRadius: 16, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, marginBottom: spacing.sm, borderWidth: 1, borderColor: c.border },
-    dayTab: { flex: 1, alignItems: "center", paddingVertical: 4, borderRadius: 12, gap: 2 },
+    dayTabs: { flexDirection: "row", alignItems: "stretch", justifyContent: "space-between", backgroundColor: c.card, borderRadius: 16, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, marginBottom: spacing.sm, borderWidth: 1, borderColor: c.border, height: 72 },
+    dayTab: { flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 12, gap: 2 },
     dayTabActive: { backgroundColor: `${c.primary}12` },
     dayTabShort: { fontFamily: fontFamily.sans, fontSize: 9, fontWeight: "600", color: c.mutedForeground, textTransform: "uppercase", letterSpacing: 0.5 },
     dayTabShortActive: { color: c.primary },

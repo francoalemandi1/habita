@@ -661,7 +661,7 @@ export function PlanPageClient({
 
       {/* Loading state */}
       {isGenerating && !plan && (
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
+        <div className="rounded-2xl bg-card p-6 shadow-sm">
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
             <h2 className="text-lg font-semibold mb-2">Generando plan</h2>
@@ -720,7 +720,7 @@ export function PlanPageClient({
                           {group.tasks.map((task) => (
                             <div
                               key={task.id}
-                              className="flex items-center gap-3 rounded-xl border border-primary/10 bg-white px-3 py-2.5 shadow-sm sm:justify-between"
+                              className="flex items-center gap-3 rounded-xl border border-primary/10 bg-card px-3 py-2.5 shadow-sm sm:justify-between"
                             >
                               <div className="flex min-w-0 flex-1 items-center gap-3">
                                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-lg leading-none">
@@ -775,7 +775,7 @@ export function PlanPageClient({
                   {members.map((m) => (
                     <div
                       key={m.id}
-                      className="flex items-center gap-2.5 rounded-xl border border-primary/10 bg-white px-3 py-2.5 shadow-sm"
+                      className="flex items-center gap-2.5 rounded-xl border border-primary/10 bg-card px-3 py-2.5 shadow-sm"
                     >
                       {MEMBER_TYPE_ICONS[m.type]}
                       <span className="font-medium">{m.name}</span>
@@ -869,7 +869,7 @@ export function PlanPageClient({
           )}
 
           {/* Balance Score */}
-          <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm">
+          <div className="rounded-2xl bg-card p-4 sm:p-5 shadow-sm">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <h3 className="min-w-0 text-base font-semibold sm:text-lg">
                 {isSolo ? "Cobertura del plan" : "Equidad de distribución"}
@@ -942,7 +942,7 @@ export function PlanPageClient({
               /* Day-based view: one day at a time with progress + day selector */
               <div className="space-y-4">
                 {/* Weekly progress bar */}
-                <div className="rounded-2xl bg-white p-4 shadow-sm">
+                <div className="rounded-2xl bg-card p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-muted-foreground">
                       Progreso del plan
@@ -1015,7 +1015,7 @@ export function PlanPageClient({
 
                   if (dayAssignments.length === 0) {
                     return (
-                      <div className="rounded-2xl bg-white p-6 shadow-sm text-center space-y-3">
+                      <div className="rounded-2xl bg-card p-6 shadow-sm text-center space-y-3">
                         <p className="text-sm text-muted-foreground">
                           Sin tareas para {DAY_OF_WEEK_LABELS[activeDayOfWeek]}
                         </p>
@@ -1033,7 +1033,7 @@ export function PlanPageClient({
                   }
 
                   return (
-                    <div className="rounded-2xl bg-white shadow-sm overflow-hidden">
+                    <div className="rounded-2xl bg-card shadow-sm overflow-hidden">
                       <div className="flex items-center justify-between bg-primary/5 px-3 py-2.5 sm:px-5 sm:py-3">
                         <div className="flex items-center gap-2">
                           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
@@ -1143,7 +1143,7 @@ export function PlanPageClient({
                   const memberData = members.find((m) => m.id === memberId);
 
                   return (
-                    <div key={memberId} className="rounded-2xl bg-white shadow-sm overflow-hidden">
+                    <div key={memberId} className="rounded-2xl bg-card shadow-sm overflow-hidden">
                       <div className="flex items-center gap-2 bg-muted/30 px-3 py-2.5 sm:px-5 sm:py-3">
                         {MEMBER_TYPE_ICONS[memberType]}
                         <span className="text-sm font-semibold sm:text-base truncate">{displayName}</span>
@@ -1222,7 +1222,7 @@ export function PlanPageClient({
 
           {/* Notes */}
           {plan.notes.length > 0 && (
-            <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm">
+            <div className="rounded-2xl bg-card p-4 sm:p-5 shadow-sm">
               <h3 className="text-base font-semibold sm:text-lg mb-3">Notas del plan</h3>
               <ul className="space-y-2">
                 {plan.notes.map((note, idx) => (
@@ -1237,7 +1237,7 @@ export function PlanPageClient({
 
           {/* Action buttons */}
           {plan.status === "PENDING" && (
-            <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm">
+            <div className="rounded-2xl bg-card p-4 sm:p-5 shadow-sm">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
                 <p className="text-sm text-muted-foreground">
                   {selectedCount} de {totalCount} asignaciones seleccionadas

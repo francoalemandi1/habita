@@ -234,7 +234,7 @@ function ActivePlanCard({ plan }: { plan: PlanCardPlan }) {
   return (
     <Link href="/plan" className="block">
       <div className={cn(
-        "rounded-2xl bg-white shadow-sm overflow-hidden border transition-shadow hover:shadow-md",
+        "rounded-2xl bg-card shadow-sm overflow-hidden border transition-shadow hover:shadow-md",
         isPending ? "border-amber-200" : "border-green-200"
       )}>
         {/* Top accent bar */}
@@ -307,7 +307,7 @@ function PastPlanCard({ plan }: { plan: PlanCardPlan }) {
   }
 
   return (
-    <details className="group rounded-2xl bg-white shadow-sm">
+    <details className="group rounded-2xl bg-card shadow-sm">
       {/* Summary row */}
       <summary className="flex cursor-pointer items-center gap-3 p-4 sm:p-5 [&::-webkit-details-marker]:hidden">
         <div className={cn("shrink-0 rounded-full p-2", config.bgColor)}>

@@ -252,7 +252,7 @@ export function ProfileSettings({
   return (
     <div className="space-y-6">
       {/* Edit name */}
-      <div className="rounded-2xl bg-white p-5 shadow-sm">
+      <div className="rounded-2xl bg-card p-5 shadow-sm">
         <div className="mb-3">
           <h3 className="text-lg font-semibold">Mi nombre</h3>
           <p className="text-sm text-muted-foreground">Cómo te ven los demás miembros del hogar</p>
@@ -303,7 +303,7 @@ export function ProfileSettings({
       </div>
 
       {/* Household settings */}
-      <div className="rounded-2xl bg-white p-5 shadow-sm">
+      <div className="rounded-2xl bg-card p-5 shadow-sm">
         <div className="mb-3">
           <h3 className="flex items-center gap-2 text-lg font-semibold">
             <Users className="h-5 w-5" />

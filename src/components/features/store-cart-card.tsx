@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { StoreLogo } from "@/components/ui/store-logo";
 import { SaveButton } from "@/components/ui/save-button";
-import { ChevronDown, Trophy, ExternalLink, ArrowDownRight, ClipboardCopy, Check, Package, Tag, Pin, Share2, AlertCircle } from "lucide-react";
+import { ChevronDown, Trophy, ExternalLink, ArrowDownRight, Check, Package, Tag, Pin, Share2, AlertCircle, MapPin } from "lucide-react";
 
 import type { AlternativeProduct, ProductUnitInfo } from "@/lib/supermarket-search";
 import type { AdjustedStoreCart, AdjustedCartProduct } from "@/components/features/grocery-advisor";
@@ -78,11 +78,21 @@ interface StoreCartCardProps {
   promos?: BankPromo[];
   isPinned?: boolean;
   onPinStore?: (storeName: string) => void;
+  preferredBankSlugs?: string[];
+  userCoords?: { lat: number; lng: number };
 }
 
-export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlternatives, isSaved, isSavePending, onToggleSave, promos, isPinned, onPinStore }: StoreCartCardProps) {
+export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlternatives, isSaved, isSavePending, onToggleSave, promos, isPinned, onPinStore, preferredBankSlugs, userCoords }: StoreCartCardProps) {
   const isBest = rank === 0;
   const [isOpen, setIsOpen] = useState(false);
+
+  const mapsUrl = useMemo(() => {
+    const q = encodeURIComponent(`${cart.storeName} supermercado`);
+    if (userCoords) {
+      return `https://www.google.com/maps/dir/?api=1&origin=${userCoords.lat},${userCoords.lng}&destination=${q}&travelmode=driving`;
+    }
+    return `https://www.google.com/maps/search/?api=1&query=${q}`;
+  }, [cart.storeName, userCoords]);
 
   // Cart-level comparison vs market average
   const productsWithAverage = cart.products.filter((p) => p.averagePrice != null);
@@ -91,8 +101,11 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
   const savingsAmount = cartAvgTotal > 0 ? Math.round(cartAvgTotal - cartActualTotal) : 0;
   const savingsPercent = cartAvgTotal > 0 ? Math.round((1 - cartActualTotal / cartAvgTotal) * 100) : null;
 
-  // Promo selection + discounted price
-  const [selectedPromoId, setSelectedPromoId] = useState<string | null>(null);
+  // Promo selection + discounted price — auto-select first preferred bank's promo on mount
+  const preferredPromo = preferredBankSlugs?.length
+    ? promos?.find((p) => preferredBankSlugs.includes(p.bankSlug)) ?? null
+    : null;
+  const [selectedPromoId, setSelectedPromoId] = useState<string | null>(preferredPromo?.id ?? null);
   const selectedPromo = promos?.find((p) => p.id === selectedPromoId) ?? null;
   const discountedPrice = selectedPromo
     ? calcDiscountedPrice(cart.totalPrice, selectedPromo.discountPercent, selectedPromo.capAmount)
@@ -101,20 +114,20 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
   const [shareLabel, setShareLabel] = useState<string | null>(null);
 
   const handleShare = useCallback(async () => {
-    const productLines = cart.products
-      .slice(0, 5)
-      .map((p) => `• ${p.productName}: $${p.price.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`);
-    const extraCount = cart.products.length - 5;
+    const today = new Date().toLocaleDateString("es-AR", { day: "numeric", month: "long" });
+    const activeProducts = cart.products;
+    const productLines = activeProducts.map((p) => {
+      const qty = p.quantity > 1 ? ` x${p.quantity}` : "";
+      return `• ${p.productName}${qty} — ${formatPrice(p.lineTotal)}`;
+    });
     const lines = [
-      `Comparé precios en ${cart.storeName} con Habita:`,
+      `🛒 *Lista ${cart.storeName}* — ${today}`,
       "",
       ...productLines,
-      ...(extraCount > 0 ? [`... y ${extraCount} más`] : []),
       "",
-      `Total: $${cart.totalPrice.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`,
-      ...(cart.cheapestCount > 0 ? ["", `💰 ${cart.cheapestCount} producto${cart.cheapestCount !== 1 ? "s" : ""} más barato${cart.cheapestCount !== 1 ? "s" : ""} que en otros supers`] : []),
+      `*Total: ${formatPrice(cart.totalPrice)}*`,
       "",
-      "Comparador de precios en Habita 🏠",
+      "_Generado con Habita_",
     ];
     const text = lines.join("\n");
     try {
@@ -176,6 +189,16 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
                   Mejor precio
                 </span>
               )}
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-0.5 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                title="Cómo llegar"
+              >
+                <MapPin className="h-2.5 w-2.5" />
+                Cómo llegar
+              </a>
             </div>
             <p className="text-xs text-muted-foreground">
               {cart.products.length} de {cart.totalSearched} producto{cart.totalSearched !== 1 ? "s" : ""}
@@ -231,18 +254,6 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
               size="md"
             />
           )}
-          <button
-            type="button"
-            onClick={() => { void handleShare(); }}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label={shareLabel ?? "Compartir"}
-          >
-            {shareLabel ? (
-              <span className="text-[10px] font-semibold text-primary leading-none whitespace-nowrap">{shareLabel}</span>
-            ) : (
-              <Share2 className="h-4 w-4" />
-            )}
-          </button>
           {/* Collapse toggle — top right */}
           <button
             type="button"
@@ -305,7 +316,7 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
         </div>
       )}
 
-      {/* Pin / copy row */}
+      {/* Pin + Share row */}
       <div className="flex items-center gap-2 px-4 pb-3">
         {onPinStore && (
           <button
@@ -322,7 +333,14 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
             {isPinned ? "Fijado" : "Elegir este super"}
           </button>
         )}
-        <CopyListButton products={cart.products} storeName={cart.storeName} />
+        <button
+          type="button"
+          onClick={() => { void handleShare(); }}
+          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 transition-colors hover:bg-primary/10 hover:text-primary"
+        >
+          <Share2 className="h-3 w-3" />
+          {shareLabel ?? "Compartir lista"}
+        </button>
       </div>
     </div>
   );
@@ -590,50 +608,6 @@ function AlternativesSection({ alternatives, onSwap }: AlternativesSectionProps)
   );
 }
 
-// ============================================
-// Copy List Button
-// ============================================
-
-function CopyListButton({ products, storeName }: { products: AdjustedCartProduct[]; storeName: string }) {
-  const [isCopied, setIsCopied] = useState(false);
-
-  const handleCopy = useCallback(async () => {
-    const lines = products.map((p) => `- ${p.quantity} x ${p.productName}`);
-    const text = `Lista para ${storeName}:\n${lines.join("\n")}`;
-    try {
-      await navigator.clipboard.writeText(text);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-    } catch {
-      // Clipboard API not available
-    }
-  }, [products, storeName]);
-
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className={cn(
-        "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-        isCopied
-          ? "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
-          : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground",
-      )}
-    >
-      {isCopied ? (
-        <>
-          <Check className="h-3 w-3" />
-          Copiado
-        </>
-      ) : (
-        <>
-          <ClipboardCopy className="h-3 w-3" />
-          Copiar lista
-        </>
-      )}
-    </button>
-  );
-}
 
 // ============================================
 // Product Thumbnail
@@ -670,16 +644,18 @@ function ProductThumbnail({ imageUrl, size = "md" }: { imageUrl: string | null; 
 // Promo Banner
 // ============================================
 
-import { scorePromo, parseDaysOfWeek, getTodayDayName } from "@/lib/promos/scoring";
+import { scorePromo, parseDaysOfWeek, getTodayDayName, isPromoExpired, promoAppliesToday } from "@/lib/promos/scoring";
+
+/** Map lowercase day names → short labels (case-insensitive lookup). */
+const DAY_SHORT: Record<string, string> = {
+  lunes: "Lun", martes: "Mar", "miércoles": "Mié", miercoles: "Mié",
+  jueves: "Jue", viernes: "Vie", "sábado": "Sáb", sabado: "Sáb", domingo: "Dom",
+};
 
 function formatDaysShort(daysOfWeek: string): string {
   const days = parseDaysOfWeek(daysOfWeek);
   if (days.length === 0 || days.length === 7) return "Todos";
-  const SHORT: Record<string, string> = {
-    Lunes: "Lun", Martes: "Mar", Miércoles: "Mié",
-    Jueves: "Jue", Viernes: "Vie", Sábado: "Sáb", Domingo: "Dom",
-  };
-  return days.map((d) => SHORT[d] ?? d).join(", ");
+  return days.map((d) => DAY_SHORT[d.toLowerCase()] ?? d).join(", ");
 }
 
 function formatCapShort(capAmount: number | null): string | null {
@@ -688,8 +664,9 @@ function formatCapShort(capAmount: number | null): string | null {
 }
 
 function getBankBestPromos(promos: BankPromo[], todayName: string) {
+  const active = promos.filter((p) => !isPromoExpired(p));
   const bankMap = new Map<string, BankPromo>();
-  for (const promo of promos) {
+  for (const promo of active) {
     const existing = bankMap.get(promo.bankSlug);
     if (!existing || scorePromo(promo, todayName) > scorePromo(existing, todayName)) {
       bankMap.set(promo.bankSlug, promo);
@@ -713,7 +690,7 @@ function PromoBanner({ promos, selectedPromoId, onSelectPromo }: PromoBannerProp
   const best = bestPerBank[0]!;
   const extraPromos = promos.length - bestPerBank.length;
 
-  const allSorted = [...promos].sort(
+  const allSorted = promos.filter((p) => !isPromoExpired(p)).sort(
     (a, b) => scorePromo(b, todayName) - scorePromo(a, todayName),
   );
   const visiblePromos = isExpanded ? allSorted : bestPerBank;
@@ -755,6 +732,7 @@ function PromoBanner({ promos, selectedPromoId, onSelectPromo }: PromoBannerProp
             const isSelected = promo.id === selectedPromoId;
             const cap = formatCapShort(promo.capAmount);
             const paymentMethods = parseJsonArray(promo.paymentMethods);
+            const appliesToday = promoAppliesToday(promo, todayName);
             return (
               <button
                 key={promo.id}
@@ -787,6 +765,11 @@ function PromoBanner({ promos, selectedPromoId, onSelectPromo }: PromoBannerProp
                 <span className="text-[10px] text-muted-foreground">
                   {formatDaysShort(promo.daysOfWeek)}
                 </span>
+                {appliesToday && (
+                  <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+                    Hoy
+                  </span>
+                )}
                 {cap && (
                   <span className="text-[10px] text-muted-foreground">· tope {cap}</span>
                 )}

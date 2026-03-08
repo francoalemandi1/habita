@@ -234,6 +234,16 @@ export function NotificationsDropdown() {
               })}
             </div>
           )}
+          {/* Full page link */}
+          <div className="mt-3 border-t pt-3 text-center">
+            <Link
+              href="/notifications"
+              onClick={() => setOpen(false)}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Ver todas las notificaciones →
+            </Link>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

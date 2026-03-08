@@ -40,6 +40,9 @@ SIEMPRE nullable (`?`) o con `@default()`. Si no, la migración falla en producc
 ### Typecheck después de cambios
 Si se tocó solo web: `pnpm typecheck`. Si se tocó mobile o packages: `pnpm typecheck:all`.
 
+### Paridad web ↔ mobile
+Todo cambio funcional o de UX hecho en web (`src/`) DEBE replicarse en mobile (`apps/mobile/`). Aplicar misma lógica, mismos fixes, misma data. Adaptar UI a patrones nativos (React Native, `useThemeColors`, `ScrollView`, etc.).
+
 ## Patrones del proyecto
 
 ### Auth dual

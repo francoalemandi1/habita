@@ -67,7 +67,7 @@ const SUBCATEGORY_ICON_OVERRIDES: Partial<Record<ExpenseSubcategory, typeof Bike
 const SUBCATEGORY_COLOR_OVERRIDES: Partial<Record<ExpenseSubcategory, string>> = {
   DELIVERY: "bg-orange-100 text-orange-600",
   KIOSCO: "bg-fuchsia-100 text-fuchsia-600",
-  SUPERMARKET: "bg-green-100 text-green-600",
+  SUPERMARKET: "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400",
 };
 
 /** An expense is settled when every split that isn't the payer's own is marked settled. */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo, useEffect } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Plus, Minus } from "lucide-react";
 
@@ -25,6 +25,7 @@ interface ProductSearchInputProps {
   onSetQuantity: (term: string, quantity: number) => void;
   disabled?: boolean;
   products?: AutocompleteProduct[];
+  collapsible?: boolean;
 }
 
 // ============================================
@@ -65,6 +66,7 @@ export function ProductSearchInput({
   onSetQuantity,
   disabled,
   products,
+  collapsible,
 }: ProductSearchInputProps) {
   const [inputValue, setInputValue] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -72,6 +74,35 @@ export function ProductSearchInput({
   const [pendingDeleteTerm, setPendingDeleteTerm] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Collapsible chip list
+  const chipsContainerRef = useRef<HTMLDivElement>(null);
+  const [isChipsExpanded, setIsChipsExpanded] = useState(false);
+  const [needsCollapse, setNeedsCollapse] = useState(false);
+  const [hiddenChipCount, setHiddenChipCount] = useState(0);
+  const [chipRowHeight, setChipRowHeight] = useState(28);
+
+  const itemsKey = searchItems.map((i) => i.term).join(",");
+  useEffect(() => { setIsChipsExpanded(false); }, [itemsKey]);
+
+  useLayoutEffect(() => {
+    if (!collapsible || !chipsContainerRef.current || searchItems.length === 0) {
+      setNeedsCollapse(false);
+      setHiddenChipCount(0);
+      return;
+    }
+    const container = chipsContainerRef.current;
+    const chips = Array.from(container.querySelectorAll("[data-chip]")) as HTMLElement[];
+    if (chips.length === 0) return;
+    const firstChip = chips[0]!;
+    const rh = firstChip.offsetHeight;
+    setChipRowHeight(rh);
+    const gap = 8;
+    const row3Top = (rh + gap) * 2;
+    const hidden = chips.filter((c) => c.offsetTop >= row3Top - 2).length;
+    setNeedsCollapse(hidden > 0);
+    setHiddenChipCount(hidden);
+  }, [searchItems, collapsible]);
 
   const suggestions = useMemo(() => {
     if (!products || inputValue.trim().length < MIN_CHARS_FOR_AUTOCOMPLETE) {
@@ -303,48 +334,69 @@ export function ProductSearchInput({
 
       {/* Chips */}
       {searchItems.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {searchItems.map((item) => (
-            <span
-              key={item.term}
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                pendingDeleteTerm === item.term
-                  ? "bg-destructive/15 text-destructive ring-1 ring-destructive/40"
-                  : "bg-primary/10 text-primary"
-              }`}
-            >
-              <span>{item.term}</span>
-              <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold">
-                x{item.quantity}
+        <div>
+          <div
+            ref={chipsContainerRef}
+            className="flex flex-wrap gap-2"
+            style={
+              collapsible && !isChipsExpanded && needsCollapse
+                ? { maxHeight: `${chipRowHeight * 2 + 8}px`, overflow: "hidden" }
+                : undefined
+            }
+          >
+            {searchItems.map((item) => (
+              <span
+                key={item.term}
+                data-chip
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                  pendingDeleteTerm === item.term
+                    ? "bg-destructive/15 text-destructive ring-1 ring-destructive/40"
+                    : "bg-primary/10 text-primary"
+                }`}
+              >
+                <span>{item.term}</span>
+                <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold">
+                  x{item.quantity}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onSetQuantity(item.term, Math.max(1, item.quantity - 1))}
+                  disabled={disabled || item.quantity <= 1}
+                  className="rounded-full p-0.5 transition-colors hover:bg-primary/20 active:scale-[0.95] disabled:opacity-40"
+                  aria-label={`Disminuir cantidad de ${item.term}`}
+                >
+                  <Minus className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSetQuantity(item.term, item.quantity + 1)}
+                  disabled={disabled}
+                  className="rounded-full p-0.5 transition-colors hover:bg-primary/20 active:scale-[0.95] disabled:opacity-40"
+                  aria-label={`Aumentar cantidad de ${item.term}`}
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemove(item.term)}
+                  disabled={disabled}
+                  className="rounded-full p-0.5 transition-colors hover:bg-primary/20 active:scale-[0.95] disabled:opacity-50"
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </span>
-              <button
-                type="button"
-                onClick={() => onSetQuantity(item.term, Math.max(1, item.quantity - 1))}
-                disabled={disabled || item.quantity <= 1}
-                className="rounded-full p-0.5 transition-colors hover:bg-primary/20 active:scale-[0.95] disabled:opacity-40"
-                aria-label={`Disminuir cantidad de ${item.term}`}
-              >
-                <Minus className="h-3 w-3" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onSetQuantity(item.term, item.quantity + 1)}
-                disabled={disabled}
-                className="rounded-full p-0.5 transition-colors hover:bg-primary/20 active:scale-[0.95] disabled:opacity-40"
-                aria-label={`Aumentar cantidad de ${item.term}`}
-              >
-                <Plus className="h-3 w-3" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onRemove(item.term)}
-                disabled={disabled}
-                className="rounded-full p-0.5 transition-colors hover:bg-primary/20 active:scale-[0.95] disabled:opacity-50"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
+            ))}
+          </div>
+          {collapsible && needsCollapse && !isChipsExpanded && (
+            <button
+              type="button"
+              onClick={() => setIsChipsExpanded(true)}
+              className="mt-1.5 flex items-center gap-1 text-xs font-medium text-primary hover:opacity-80"
+            >
+              <Plus className="h-3 w-3" />
+              {hiddenChipCount} producto{hiddenChipCount !== 1 ? "s" : ""} más
+            </button>
+          )}
         </div>
       )}
     </div>

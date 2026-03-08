@@ -433,25 +433,25 @@ export default async function DashboardPage() {
           href="/balance"
           className={`group flex items-center gap-3 rounded-2xl px-4 py-3 shadow-sm transition-all hover:shadow-md active:scale-[0.99] ${
             expenseBalance > 0
-              ? "border border-green-200 bg-green-50"
+              ? "border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
               : expenseBalance < 0
-                ? "border border-red-200 bg-red-50"
+                ? "border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950"
                 : "border border-border bg-muted/30"
           }`}
         >
           <div className={`shrink-0 rounded-full p-2 ${
-            expenseBalance > 0 ? "bg-green-100" : expenseBalance < 0 ? "bg-red-100" : "bg-muted"
+            expenseBalance > 0 ? "bg-green-100 dark:bg-green-900/40" : expenseBalance < 0 ? "bg-red-100 dark:bg-red-900/40" : "bg-muted"
           }`}>
             <Wallet className={`${iconSize.md} ${
-              expenseBalance > 0 ? "text-green-600" : expenseBalance < 0 ? "text-red-600" : "text-muted-foreground"
+              expenseBalance > 0 ? "text-green-600 dark:text-green-400" : expenseBalance < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
             }`} />
           </div>
           <div className="min-w-0 flex-1">
             <p className={`text-sm font-medium ${
               expenseBalance > 0
-                ? "text-green-800"
+                ? "text-green-800 dark:text-green-300"
                 : expenseBalance < 0
-                  ? "text-red-800"
+                  ? "text-red-800 dark:text-red-300"
                   : "text-foreground"
             }`}>
               {expenseBalance > 0
@@ -462,9 +462,9 @@ export default async function DashboardPage() {
             </p>
             <p className={`text-xs ${
               expenseBalance > 0
-                ? "text-green-600"
+                ? "text-green-600 dark:text-green-400"
                 : expenseBalance < 0
-                  ? "text-red-600"
+                  ? "text-red-600 dark:text-red-400"
                   : "text-muted-foreground"
             }`}>
               {expenseBalance !== 0 ? "Ver gastos del hogar" : householdCopy.balanceSubtitle}

@@ -201,7 +201,7 @@ export function AbsencesManager({ absences }: AbsencesManagerProps) {
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {new Date(absence.startDate) <= now && new Date(absence.endDate) >= now && (
-                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300">
                         Activa
                       </Badge>
                     )}

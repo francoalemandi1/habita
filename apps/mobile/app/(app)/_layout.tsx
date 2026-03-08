@@ -1,13 +1,15 @@
-import { Redirect, Tabs } from "expo-router";
+import { Redirect, Tabs, useRouter } from "expo-router";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
-import { Animated, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { useRef, useEffect, useMemo } from "react";
+import { Animated, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import { fontFamily } from "@/theme";
 import { useThemeColors } from "@/hooks/use-theme";
 import {
   ChefHat,
   ClipboardCheck,
   Compass,
+  Home,
+  MoreHorizontal,
   Receipt,
   ShoppingCart,
 } from "lucide-react-native";
@@ -18,12 +20,16 @@ import type { ThemeColors } from "@/theme";
 // ─── Custom tab bar ──────────────────────────────────────────────────────────
 
 const TAB_CONFIG: Record<string, { Icon: LucideIcon; label: string }> = {
+  dashboard: { Icon: Home, label: "Habita" },
   tasks: { Icon: ClipboardCheck, label: "Planificá" },
   balance: { Icon: Receipt, label: "Registrá" },
   compras: { Icon: ShoppingCart, label: "Ahorrá" },
-  descubrir: { Icon: Compass, label: "Descubrí" },
-  cocina: { Icon: ChefHat, label: "Cociná" },
 };
+
+const MORE_ITEMS: { screen: string; Icon: LucideIcon; label: string }[] = [
+  { screen: "descubrir", Icon: Compass, label: "Descubrí" },
+  { screen: "cocina", Icon: ChefHat, label: "Cociná" },
+];
 
 function AnimatedTabItem({
   focused,
@@ -102,6 +108,17 @@ interface TabBarProps {
 function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const router = useRouter();
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  // Check if currently on a "more" screen
+  const currentRoute = state.routes[state.index]?.name;
+  const isMoreActive = MORE_ITEMS.some((item) => item.screen === currentRoute);
+
+  const handleMoreItem = useCallback((screen: string) => {
+    setMoreOpen(false);
+    router.push(`/(app)/${screen}` as never);
+  }, [router]);
 
   return (
     <View style={styles.tabBarContainer}>
@@ -142,7 +159,72 @@ function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
             />
           );
         })}
+
+        {/* "Más" button */}
+        <Pressable
+          onPress={() => setMoreOpen(true)}
+          style={styles.tabItem}
+        >
+          <View style={styles.tabItemInner}>
+            {(isMoreActive) && <View style={styles.tabPillStatic} />}
+            <MoreHorizontal
+              size={20}
+              color={isMoreActive ? "#d2ffa0" : "rgba(255,255,255,0.65)"}
+              strokeWidth={isMoreActive ? 2.4 : 1.8}
+            />
+            <Text
+              style={[
+                styles.tabLabel,
+                isMoreActive ? styles.tabLabelActive : styles.tabLabelInactive,
+              ]}
+              numberOfLines={1}
+            >
+              Más
+            </Text>
+          </View>
+        </Pressable>
       </View>
+
+      {/* Bottom sheet modal for "Más" */}
+      <Modal
+        visible={moreOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMoreOpen(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setMoreOpen(false)}>
+          <View style={[styles.moreSheet, { backgroundColor: colors.card }]}>
+            {MORE_ITEMS.map((item) => {
+              const isActive = currentRoute === item.screen;
+              return (
+                <Pressable
+                  key={item.screen}
+                  style={[
+                    styles.moreItem,
+                    isActive && { backgroundColor: colors.primary + "18" },
+                  ]}
+                  onPress={() => handleMoreItem(item.screen)}
+                >
+                  <item.Icon
+                    size={20}
+                    color={isActive ? colors.primary : colors.text}
+                    strokeWidth={isActive ? 2.4 : 1.8}
+                  />
+                  <Text
+                    style={[
+                      styles.moreItemLabel,
+                      { color: isActive ? colors.primary : colors.text },
+                      isActive && { fontWeight: "700" },
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -167,18 +249,20 @@ export default function AppLayout() {
         headerShown: false,
       }}
     >
-      {/* ── Tabs (always visible) ── */}
+      {/* ── Tabs (visible in tab bar) ── */}
+      <Tabs.Screen name="dashboard" options={{ title: "Habita" }} />
       <Tabs.Screen name="tasks" options={{ title: "Planificá" }} />
       <Tabs.Screen name="balance" options={{ title: "Registrá" }} />
       <Tabs.Screen name="compras" options={{ title: "Ahorrá" }} />
-      <Tabs.Screen name="descubrir" options={{ title: "Descubrí" }} />
-      <Tabs.Screen name="cocina" options={{ title: "Cociná" }} />
+
+      {/* ── "Más" screens (accessible via bottom sheet) ── */}
+      <Tabs.Screen name="descubrir" options={{ href: null, title: "Descubrí" }} />
+      <Tabs.Screen name="cocina" options={{ href: null, title: "Cociná" }} />
 
       {/* Profile — hidden from tab bar, accessible via ScreenHeader avatar */}
       <Tabs.Screen name="profile" options={{ href: null, title: "Perfil" }} />
 
       {/* ── Hidden screens (accessible via router.push) ── */}
-      <Tabs.Screen name="dashboard" options={{ href: null, title: "Dashboard" }} />
       <Tabs.Screen name="new-task" options={{ href: null, title: "Nueva tarea" }} />
       <Tabs.Screen name="new-expense" options={{ href: null, title: "Nuevo gasto" }} />
       <Tabs.Screen name="expense-insights" options={{ href: null, title: "Insights financieros" }} />
@@ -203,7 +287,6 @@ export default function AppLayout() {
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     tabBarContainer: {
-      // Background del app — la barra flota sobre el
       backgroundColor: c.background,
       paddingHorizontal: 16,
       paddingBottom: Platform.OS === "ios" ? 24 : 12,
@@ -216,9 +299,7 @@ function createStyles(c: ThemeColors) {
       alignItems: "center",
       justifyContent: "space-around",
       paddingHorizontal: 8,
-      // Bordes redondeados para que "flote"
       borderRadius: 20,
-      // Sombra suave con tono del primario
       shadowColor: c.primary,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.35,
@@ -244,6 +325,11 @@ function createStyles(c: ThemeColors) {
       backgroundColor: "rgba(255,255,255,0.14)",
       borderRadius: 14,
     },
+    tabPillStatic: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(255,255,255,0.14)",
+      borderRadius: 14,
+    },
     tabLabel: {
       fontFamily: fontFamily.sans,
       fontSize: 10,
@@ -257,6 +343,32 @@ function createStyles(c: ThemeColors) {
     tabLabelInactive: {
       fontWeight: "500",
       color: "rgba(255,255,255,0.65)",
+    },
+    // "Más" bottom sheet
+    modalOverlay: {
+      flex: 1,
+      justifyContent: "flex-end",
+      backgroundColor: "rgba(0,0,0,0.4)",
+    },
+    moreSheet: {
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingTop: 12,
+      paddingBottom: Platform.OS === "ios" ? 40 : 24,
+      paddingHorizontal: 16,
+    },
+    moreItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 14,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      borderRadius: 14,
+    },
+    moreItemLabel: {
+      fontFamily: fontFamily.sans,
+      fontSize: 16,
+      fontWeight: "500",
     },
   });
 }

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireMember } from "@/lib/session";
 import { compareProducts } from "@/lib/supermarket-search";
 import { handleApiError } from "@/lib/api-response";
+import { prisma } from "@/lib/prisma";
 
 import type { NextRequest } from "next/server";
 
@@ -18,6 +19,7 @@ const bodySchema = z.object({
       quantity: z.number().int().min(1).max(99),
     }),
   ).max(100).optional(),
+  preferredBankSlugs: z.array(z.string().max(50)).max(10).optional(),
 }).refine(
   (body) => (body.searchItems?.length ?? 0) > 0 || (body.searchTerms?.length ?? 0) > 0,
   { message: "Agregá al menos un producto" },
@@ -46,8 +48,19 @@ export async function POST(request: NextRequest) {
 
     const searchInput = validation.data.searchItems ?? validation.data.searchTerms ?? [];
     const city = member.household.city ?? null;
+    const preferredBankSlugs = validation.data.preferredBankSlugs ?? [];
 
-    const result = await compareProducts(searchInput, city);
+    // Resolve which stores have an active promo for any of the preferred banks
+    let promoStores: Set<string> | null = null;
+    if (preferredBankSlugs.length > 0) {
+      const promos = await prisma.bankPromo.findMany({
+        where: { householdId: member.householdId, bankSlug: { in: preferredBankSlugs } },
+        select: { storeName: true },
+      });
+      promoStores = new Set(promos.map((p) => p.storeName));
+    }
+
+    const result = await compareProducts(searchInput, city, promoStores);
 
     return NextResponse.json(result);
   } catch (error) {

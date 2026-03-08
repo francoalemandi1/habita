@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ClipboardList, CalendarDays, List } from "lucide-react";
+import Link from "next/link";
+import { CalendarDays, List, History, ArrowRight, Sparkles, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FridgeCalendarView } from "@/components/features/fridge-calendar-view";
 import { MyAssignmentsList } from "@/components/features/my-assignments-list";
 import { PendingTransfers } from "@/components/features/pending-transfers";
 import { cn } from "@/lib/utils";
-import { spacing } from "@/lib/design-tokens";
+import { spacing, iconSize } from "@/lib/design-tokens";
 
 import type { Assignment, Task } from "@prisma/client";
 import type { CalendarAssignment, CalendarMember } from "@/components/features/fridge-calendar-day";
@@ -65,10 +66,37 @@ export function MyTasksPageClient({
     <>
       <div className={spacing.pageHeader}>
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl flex items-center gap-2">
-            <ClipboardList className="h-6 w-6 text-primary shrink-0" />
-            Mis tareas
-          </h1>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl flex items-center gap-2">
+              <CalendarDays className={`${iconSize.lg} text-primary shrink-0`} />
+              Planificá
+            </h1>
+            {showPlanCta && (
+              <Link
+                href="/plans"
+                className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <History className="h-3 w-3" />
+                Ver historial de planes
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            )}
+            <div className="mt-2 flex items-center gap-3">
+              <Link href="/plan">
+                <Button size="sm" className="gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Generar plan
+                </Button>
+              </Link>
+              <Link
+                href="/suggest-tasks"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <Lightbulb className="h-3 w-3" />
+                Sugerir tareas con IA
+              </Link>
+            </div>
+          </div>
           <div className="flex items-center rounded-lg border bg-muted p-0.5">
             <Button
               variant="ghost"
@@ -120,6 +148,8 @@ export function MyTasksPageClient({
           initialAssignments={calendarAssignments}
           members={calendarMembers}
           initialWeekStart={initialWeekStart}
+          showPlanCta={showPlanCta}
+          isSolo={isSolo}
         />
       )}
     </>

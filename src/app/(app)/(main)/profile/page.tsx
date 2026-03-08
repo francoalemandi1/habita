@@ -35,7 +35,7 @@ export default async function ProfilePage() {
         <h2 className="mb-2 text-2xl font-bold text-foreground">Mi Hogar</h2>
         <Link
           href="/dashboard"
-          className="flex items-center justify-between gap-2 rounded-2xl bg-white p-4 shadow-sm"
+          className="flex items-center justify-between gap-2 rounded-2xl bg-card p-4 shadow-sm"
         >
           <span className="min-w-0 truncate font-medium text-foreground">{member.household.name}</span>
           <ChevronRight className={`${iconSize.lg} shrink-0 text-primary`} />

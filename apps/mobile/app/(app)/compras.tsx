@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { router } from "expo-router";
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Linking, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Bookmark,
@@ -13,21 +13,23 @@ import {
   CreditCard,
   ExternalLink,
   List,
-  Minus,
+  MapPin,
   Plus,
-  Receipt,
   RefreshCw,
   Search,
   ShoppingCart,
+  ArrowDownRight,
+  BarChart3,
+  Pin,
   Trash2,
   Trophy,
+  Undo2,
   X,
-  XCircle,
   Share2,
 } from "lucide-react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDeleteSavedCart, useRefreshSavedCart, useSaveCart, useSavedCarts } from "@/hooks/use-saved-carts";
-import { useProductCatalog, useShoppingAlternatives, useShoppingPlan } from "@/hooks/use-shopping-plan";
+import { useProductCatalog, useShoppingPlan } from "@/hooks/use-shopping-plan";
 import { usePromos, usePromoPipelineStatus, useRefreshPromos, parseJsonArray } from "@/hooks/use-promos";
 import { TabBar } from "@/components/ui/tab-bar";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
@@ -170,6 +172,88 @@ function SimpleItemChip({ item, onRemove }: SimpleItemChipProps) {
   );
 }
 
+// ── Collapsible chip list (max 2 rows) ───────────────────────────────────────
+
+interface CollapsibleChipListProps {
+  items: SearchItem[];
+  onRemove: (term: string) => void;
+}
+
+function CollapsibleChipList({ items, onRemove }: CollapsibleChipListProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const [expanded, setExpanded] = useState(false);
+  const [hiddenCount, setHiddenCount] = useState(0);
+  const chipYMap = useRef<Map<string, number>>(new Map());
+  const measured = useRef(false);
+
+  const itemsKey = items.map((i) => i.term).join(",");
+  useEffect(() => {
+    chipYMap.current.clear();
+    measured.current = false;
+    setHiddenCount(0);
+    setExpanded(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsKey]);
+
+  const tryFinalizeMeasurement = useCallback(() => {
+    if (measured.current || chipYMap.current.size < items.length) return;
+    measured.current = true;
+    const ys = [...chipYMap.current.values()].sort((a, b) => a - b);
+    const row2Start = ys.find((y) => y > 4) ?? null;
+    if (row2Start === null) return;
+    const row3Start = ys.find((y) => y > row2Start + 4) ?? null;
+    if (row3Start === null) return;
+    const hidden = ys.filter((y) => y >= row3Start - 2).length;
+    if (hidden > 0) setHiddenCount(hidden);
+  }, [items.length]);
+
+  const visibleItems = useMemo(() => {
+    if (expanded || hiddenCount === 0) return items;
+    return items.slice(0, items.length - hiddenCount);
+  }, [items, expanded, hiddenCount]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <View style={styles.itemsList}>
+      {/* Invisible measurement clone — absolute so it doesn't affect layout */}
+      <View
+        pointerEvents="none"
+        style={{ position: "absolute", opacity: 0, flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, width: "100%" }}
+      >
+        {items.map((item) => (
+          <View
+            key={`m-${item.term}`}
+            onLayout={(e) => {
+              chipYMap.current.set(item.term, e.nativeEvent.layout.y);
+              tryFinalizeMeasurement();
+            }}
+          >
+            <SimpleItemChip item={item} onRemove={() => {}} />
+          </View>
+        ))}
+      </View>
+
+      {/* Visible chips */}
+      {visibleItems.map((item) => (
+        <SimpleItemChip key={item.term} item={item} onRemove={() => onRemove(item.term)} />
+      ))}
+
+      {/* Expand button */}
+      {hiddenCount > 0 && !expanded && (
+        <Pressable onPress={() => setExpanded(true)} style={styles.expandChipsBtn} hitSlop={8}>
+          <Plus size={12} color={colors.primary} />
+          <Text style={styles.expandChipsBtnText}>
+            {hiddenCount} producto{hiddenCount !== 1 ? "s" : ""} más
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   almacen: "Almacén",
   frutas_verduras: "Frutas y Verduras",
@@ -184,16 +268,29 @@ const CATEGORY_LABELS: Record<string, string> = {
 interface CatalogModalProps {
   visible: boolean;
   addedTerms: Set<string>;
+  initialCategory?: string | null;
   onClose: () => void;
   onToggleItem: (name: string) => void;
 }
 
-function CatalogModal({ visible, addedTerms, onClose, onToggleItem }: CatalogModalProps) {
+function CatalogModal({ visible, addedTerms, initialCategory, onClose, onToggleItem }: CatalogModalProps) {
   const catalog = useProductCatalog();
   const [search, setSearch] = useState("");
   const products = catalog.data?.products ?? [];
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const scrollRef = useRef<ScrollView>(null);
+  const categoryOffsets = useRef<Map<string, number>>(new Map());
+
+  // Auto-scroll to initialCategory when modal opens
+  useEffect(() => {
+    if (visible && initialCategory && categoryOffsets.current.size > 0) {
+      const offset = categoryOffsets.current.get(initialCategory);
+      if (offset != null) {
+        scrollRef.current?.scrollTo({ y: offset, animated: true });
+      }
+    }
+  }, [visible, initialCategory]);
 
   const filteredGroups = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -240,13 +337,18 @@ function CatalogModal({ visible, addedTerms, onClose, onToggleItem }: CatalogMod
           </View>
         ) : (
           <ScrollView
+            ref={scrollRef}
             style={styles.catalogModalScroll}
             contentContainerStyle={styles.catalogModalContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
             {[...filteredGroups.entries()].map(([category, items]) => (
-              <View key={category} style={styles.catalogCategory}>
+              <View
+                key={category}
+                style={styles.catalogCategory}
+                onLayout={(e) => categoryOffsets.current.set(category, e.nativeEvent.layout.y)}
+              >
                 <Text style={styles.catalogCategoryLabel}>
                   {CATEGORY_LABELS[category] ?? category}
                 </Text>
@@ -327,61 +429,26 @@ function fromSavedCart(savedCart: SavedCart): AdjustedStoreCart {
 interface ProductRowProps {
   product: AdjustedProduct;
   storeName: string;
-  overrides: Map<string, ProductOverride>;
-  replaceKey: string | null;
-  replaceQuery: string;
-  replaceOptions: Record<string, AlternativeProduct[]>;
-  alternativesIsPending: boolean;
-  alternativesVariables: { storeName: string; searchTerm: string } | null;
-  recommendation: { storeName: string; lineTotal: number } | undefined;
-  onUpdateQuantity: (term: string, delta: number) => void;
   onSetOverride: (storeName: string, searchTerm: string, update: Partial<ProductOverride>) => void;
-  onToggleReplace: (key: string, searchTerm: string) => void;
-  onReplaceQueryChange: (query: string) => void;
-  onRunAlternatives: (storeName: string, searchTerm: string, query: string) => void;
 }
 
 function ProductRow({
   product,
   storeName,
-  replaceKey,
-  replaceQuery,
-  replaceOptions,
-  alternativesIsPending,
-  alternativesVariables,
-  recommendation,
-  onUpdateQuantity,
   onSetOverride,
-  onToggleReplace,
-  onReplaceQueryChange,
-  onRunAlternatives,
 }: ProductRowProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const key = overrideKey(storeName, product.searchTerm);
-  const showReplace = replaceKey === key;
-  const replacementChoices = replaceOptions[key] ?? [];
   const [showAlternatives, setShowAlternatives] = useState(false);
-  const isSearchingAlternatives =
-    alternativesIsPending &&
-    alternativesVariables?.storeName === storeName &&
-    alternativesVariables?.searchTerm === product.searchTerm;
-
   const hasAlternatives = product.alternatives.length > 0;
   const cheaperAlt = product.alternatives.find(
     (alt) => alt.price < product.price,
   );
 
   return (
-    <View
-      style={[
-        styles.productRow,
-        product.isOutOfStock && styles.productRowOutOfStock,
-        product.isAdded && styles.productRowAdded,
-      ]}
-    >
-      {/* Header: name + unit + price */}
+    <View style={styles.productRow}>
+      {/* Header: name + unit + price + link */}
       <View style={styles.productRowHeader}>
         <View style={styles.productRowInfo}>
           <Text style={styles.productRowName} numberOfLines={1}>
@@ -392,95 +459,47 @@ function ProductRow({
               {(product.unitInfo as { unit?: string }).unit ?? ""} {(product.unitInfo as { unitPrice?: number }).unitPrice ? `· $${(product.unitInfo as { unitPrice?: number }).unitPrice}/u` : ""}
             </Text>
           ) : null}
-          {recommendation ? (
-            <Text style={styles.productRowRec}>
-              Ir a {recommendation.storeName} → {formatAmount(recommendation.lineTotal)}
-            </Text>
-          ) : null}
-          {cheaperAlt && !product.isAdded && !product.isOutOfStock ? (
-            <Text style={styles.cheaperAltHint}>
-              Alternativa más barata: {formatAmount(cheaperAlt.price * product.quantity)}
-            </Text>
-          ) : null}
         </View>
         <View style={styles.productRowPrice}>
-          {product.isCheapest ? (
-            <Badge bgColor="#dcfce7" textColor="#166534">
-              + barato
-            </Badge>
+          {product.quantity > 1 ? (
+            <Text style={styles.productRowQty}>x{product.quantity}</Text>
           ) : null}
           <Text style={[styles.productRowAmount, product.isCheapest && styles.productRowAmountCheapest]}>
             {formatAmount(product.lineTotal)}
           </Text>
-          <Text style={styles.productRowQty}>x{product.quantity}</Text>
+          {product.link ? (
+            <Pressable
+              onPress={() => {
+                if (product.link) {
+                  void Linking.openURL(product.link);
+                }
+              }}
+              hitSlop={8}
+            >
+              <ExternalLink size={14} color={colors.mutedForeground} />
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
-      {/* Action bar: qty, added, out-of-stock, link — compact icons */}
-      <View style={styles.productRowActions}>
-        <View style={styles.qtyRow}>
-          <Pressable
-            onPress={() => onUpdateQuantity(product.searchTerm, -1)}
-            style={styles.iconActionBtn}
-            hitSlop={6}
-          >
-            <Minus size={14} color={colors.text} />
-          </Pressable>
-          <Text style={styles.qtyLabel}>{product.quantity}</Text>
-          <Pressable
-            onPress={() => onUpdateQuantity(product.searchTerm, 1)}
-            style={styles.iconActionBtn}
-            hitSlop={6}
-          >
-            <Plus size={14} color={colors.text} />
-          </Pressable>
-        </View>
-
+      {/* Cheaper alternative inline suggestion */}
+      {cheaperAlt ? (
         <Pressable
-          onPress={() => onSetOverride(storeName, product.searchTerm, { isAdded: !product.isAdded })}
-          style={[styles.iconActionBtn, product.isAdded && styles.iconActionBtnActive]}
-          hitSlop={6}
+          onPress={() => onSetOverride(storeName, product.searchTerm, { replacement: cheaperAlt })}
+          style={styles.cheaperAltBtn}
         >
-          <Check size={14} color={product.isAdded ? "#ffffff" : colors.mutedForeground} />
-        </Pressable>
-
-        {!product.isAdded ? (
-          <Pressable
-            onPress={() => onSetOverride(storeName, product.searchTerm, { isOutOfStock: !product.isOutOfStock })}
-            style={[styles.iconActionBtn, product.isOutOfStock && styles.iconActionBtnWarning]}
-            hitSlop={6}
-          >
-            <XCircle size={14} color={product.isOutOfStock ? "#92400e" : colors.mutedForeground} />
-          </Pressable>
-        ) : null}
-
-        {product.link ? (
-          <Pressable
-            onPress={() => {
-              if (product.link) {
-                void import("react-native").then(({ Linking }) => Linking.openURL(product.link));
-              }
-            }}
-            style={styles.iconActionBtn}
-            hitSlop={6}
-          >
-            <ExternalLink size={14} color={colors.mutedForeground} />
-          </Pressable>
-        ) : null}
-
-        <Pressable
-          onPress={() => onToggleReplace(key, product.searchTerm)}
-          style={styles.replaceToggleBtn}
-          hitSlop={6}
-        >
-          <Text style={styles.replaceToggleText}>
-            {showReplace ? "Ocultar" : "Cambiar"}
+          <ArrowDownRight size={12} color="#059669" />
+          <Text style={styles.cheaperAltName} numberOfLines={1}>
+            {cheaperAlt.productName}
+          </Text>
+          <Text style={styles.cheaperAltPrice}>
+            {formatAmount(cheaperAlt.price * product.quantity)}
           </Text>
         </Pressable>
-      </View>
+      ) : null}
 
-      {/* Collapsible alternatives (C2) */}
-      {hasAlternatives && !showReplace ? (
+      {/* Collapsible alternatives */}
+      {hasAlternatives && product.alternatives.length > (cheaperAlt ? 1 : 0) ? (
         <>
           <Pressable
             onPress={() => setShowAlternatives(!showAlternatives)}
@@ -492,12 +511,14 @@ function ProductRow({
               <ChevronDown size={14} color={colors.primary} />
             )}
             <Text style={styles.alternativesToggleText}>
-              {product.alternatives.length} alternativa{product.alternatives.length !== 1 ? "s" : ""}
+              {product.alternatives.length - (cheaperAlt ? 1 : 0)} alternativa{(product.alternatives.length - (cheaperAlt ? 1 : 0)) !== 1 ? "s" : ""}
             </Text>
           </Pressable>
           {showAlternatives ? (
             <View style={styles.alternativesList}>
-              {product.alternatives.map((alt) => (
+              {product.alternatives
+                .filter((a) => a.link !== cheaperAlt?.link)
+                .map((alt) => (
                 <Pressable
                   key={alt.link}
                   onPress={() => onSetOverride(storeName, product.searchTerm, { replacement: alt })}
@@ -516,46 +537,6 @@ function ProductRow({
           ) : null}
         </>
       ) : null}
-
-      {/* Replace search panel */}
-      {showReplace ? (
-        <View style={styles.replacePanel}>
-          <View style={styles.replaceSearch}>
-            <StyledTextInput
-              value={replaceQuery}
-              onChangeText={onReplaceQueryChange}
-              placeholder="Buscar reemplazo..."
-              style={styles.replaceInput}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              loading={isSearchingAlternatives}
-              onPress={() =>
-                onRunAlternatives(
-                  storeName,
-                  product.searchTerm,
-                  replaceQuery.trim().length > 1 ? replaceQuery : product.searchTerm,
-                )
-              }
-            >
-              Buscar
-            </Button>
-          </View>
-          {replacementChoices.map((alternative) => (
-            <Pressable
-              key={alternative.link}
-              onPress={() => onSetOverride(storeName, product.searchTerm, { replacement: alternative })}
-              style={styles.alternativeItem}
-            >
-              <Text style={styles.alternativeItemName} numberOfLines={1}>{alternative.productName}</Text>
-              <Text style={styles.alternativeItemPrice}>
-                {formatAmount(alternative.price * product.quantity)}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -563,36 +544,65 @@ function ProductRow({
 // ── Promo scoring helpers (mirrors src/lib/promos/scoring.ts) ───────────────
 
 const DAY_INDEX_TO_NAME: Record<number, string> = {
-  0: "Domingo", 1: "Lunes", 2: "Martes", 3: "Miércoles",
-  4: "Jueves", 5: "Viernes", 6: "Sábado",
+  0: "domingo", 1: "lunes", 2: "martes", 3: "miércoles",
+  4: "jueves", 5: "viernes", 6: "sábado",
 };
+
 const DAY_SHORT: Record<string, string> = {
-  Lunes: "Lun", Martes: "Mar", "Miércoles": "Mié",
-  Jueves: "Jue", Viernes: "Vie", Sábado: "Sáb", Domingo: "Dom",
+  lunes: "Lun", martes: "Mar", "miércoles": "Mié",
+  jueves: "Jue", viernes: "Vie", "sábado": "Sáb", domingo: "Dom",
 };
 
 function getTodayDayName(): string {
-  return DAY_INDEX_TO_NAME[new Date().getDay()] ?? "Lunes";
+  return DAY_INDEX_TO_NAME[new Date().getDay()] ?? "lunes";
+}
+
+/** Normalize a day name to lowercase + canonical accents. */
+function normalizeDay(day: string): string {
+  const lower = day.toLowerCase().trim();
+  switch (lower) {
+    case "miercoles": return "miércoles";
+    case "sabado":    return "sábado";
+    default:          return lower;
+  }
+}
+
+/** Check if a promo is expired (validUntil < today). */
+function isPromoExpired(promo: BankPromo): boolean {
+  if (!promo.validUntil) return false;
+  const expiry = new Date(promo.validUntil);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return expiry < today;
+}
+
+/** Check if a promo applies on a given day (case-insensitive, accent-tolerant). */
+function promoAppliesToday(promo: BankPromo, todayDayName: string): boolean {
+  const days = parseJsonArray(promo.daysOfWeek);
+  if (days.length === 0) return true;
+  const normalizedToday = normalizeDay(todayDayName);
+  return days.some((d) => normalizeDay(d) === normalizedToday);
 }
 
 function scorePromo(promo: BankPromo, todayName: string): number {
+  if (isPromoExpired(promo)) return 0;
   let score = promo.discountPercent;
   if (!promo.capAmount) score += 5;
-  const days = parseJsonArray(promo.daysOfWeek);
-  if (days.length === 0 || days.includes(todayName)) score += 10;
+  if (promoAppliesToday(promo, todayName)) score += 10;
   return score;
 }
 
 function formatDaysShort(daysOfWeekJson: string): string {
   const days = parseJsonArray(daysOfWeekJson);
   if (days.length === 0 || days.length === 7) return "Todos los días";
-  return days.map((d) => DAY_SHORT[d] ?? d).join(", ");
+  return days.map((d) => DAY_SHORT[normalizeDay(d)] ?? d).join(", ");
 }
 
-/** Best promo per bank sorted by score. */
+/** Best promo per bank sorted by score (expired promos excluded). */
 function getBestPromosByBank(promos: BankPromo[], todayName: string): BankPromo[] {
+  const active = promos.filter((p) => !isPromoExpired(p));
   const bankMap = new Map<string, BankPromo>();
-  for (const promo of promos) {
+  for (const promo of active) {
     const existing = bankMap.get(promo.bankSlug);
     if (!existing || scorePromo(promo, todayName) > scorePromo(existing, todayName)) {
       bankMap.set(promo.bankSlug, promo);
@@ -622,8 +632,8 @@ function StorePromoBanner({
   const best = bestPerBank[0]!;
   const extraCount = promos.length - bestPerBank.length;
 
-  // All promos sorted by score (shown when expanded)
-  const allSorted = [...promos].sort((a, b) => scorePromo(b, todayName) - scorePromo(a, todayName));
+  // All promos sorted by score, expired filtered out (shown when expanded)
+  const allSorted = promos.filter((p) => !isPromoExpired(p)).sort((a, b) => scorePromo(b, todayName) - scorePromo(a, todayName));
   const visiblePromos = expanded ? allSorted : bestPerBank;
 
   const selectedPromo = selectedPromoId ? promos.find((p) => p.id === selectedPromoId) : null;
@@ -659,7 +669,8 @@ function StorePromoBanner({
             const isSelected = selectedPromoId === promo.id;
             const days = parseJsonArray(promo.daysOfWeek);
             const methods = parseJsonArray(promo.paymentMethods);
-            const daysLabel = days.length > 0 ? days.map((d) => DAY_SHORT[d] ?? d).join(", ") : "Todos los días";
+            const daysLabel = days.length > 0 ? days.map((d) => DAY_SHORT[normalizeDay(d)] ?? d).join(", ") : "Todos los días";
+            const appliesToday = promoAppliesToday(promo, todayName);
             return (
               <Pressable
                 key={promo.id}
@@ -673,9 +684,14 @@ function StorePromoBanner({
                     </Text>
                   </View>
                   <View style={styles.promoItemBody}>
-                    <Text style={[styles.promoBank, isSelected && styles.promoBankActive]}>
-                      {promo.bankDisplayName}
-                    </Text>
+                    <View style={styles.promoMeta}>
+                      <Text style={[styles.promoBank, isSelected && styles.promoBankActive]}>
+                        {promo.bankDisplayName}
+                      </Text>
+                      {appliesToday ? (
+                        <Badge variant="success" size="sm">Hoy</Badge>
+                      ) : null}
+                    </View>
                     <View style={styles.promoMeta}>
                       <Text style={styles.promoDays}>{daysLabel}</Text>
                       {methods[0] ? (
@@ -708,54 +724,90 @@ function StorePromoBanner({
   );
 }
 
+// ── Comparison summary (ported from web grocery-advisor.tsx) ─────────────────
+
+function buildComparisonSummary(carts: AdjustedStoreCart[]): string | null {
+  if (carts.length < 2) return null;
+
+  const winner = carts[0]!;
+  const runnerUp = carts[1]!;
+  const worst = carts[carts.length - 1]!;
+  const savingsVsSecond = Math.round(runnerUp.totalPrice - winner.totalPrice);
+  const savingsVsWorst = Math.round(worst.totalPrice - winner.totalPrice);
+  const pctVsSecond = Math.round((savingsVsSecond / runnerUp.totalPrice) * 100);
+
+  const lines: string[] = [];
+
+  lines.push(
+    `${winner.storeName} es la opción más barata con un total de ${formatAmount(winner.totalPrice)}, ` +
+    `${formatAmount(savingsVsSecond)} menos que ${runnerUp.storeName} (${pctVsSecond}% de ahorro).`,
+  );
+
+  if (carts.length > 2) {
+    lines.push(
+      `La diferencia entre el más barato y el más caro (${worst.storeName}, ${formatAmount(worst.totalPrice)}) ` +
+      `es de ${formatAmount(savingsVsWorst)}.`,
+    );
+  }
+
+  const storesWithCheapest = carts.filter((c) => c.cheapestCount > 0);
+  if (storesWithCheapest.length > 0) {
+    const cheapestBreakdown = storesWithCheapest
+      .map((c) => `${c.storeName} (${c.cheapestCount})`)
+      .join(", ");
+    lines.push(`Productos al mejor precio por supermercado: ${cheapestBreakdown}.`);
+  }
+
+  const storesWithMissing = carts.filter((c) => c.missingTerms.length > 0);
+  if (storesWithMissing.length > 0) {
+    const missingNote = storesWithMissing
+      .map((c) => `${c.storeName} (${c.missingTerms.length})`)
+      .join(", ");
+    lines.push(`Productos no encontrados: ${missingNote}. Tené en cuenta que un total más bajo puede deberse a que faltan productos.`);
+  }
+
+  return lines.join("\n\n");
+}
+
+// ── StoreCartCard ──────────────────────────────────────────────────────────────
+
 interface StoreCartCardProps {
   cart: AdjustedStoreCart;
   rank: number;
   isSaved: boolean;
+  isPinned?: boolean;
   promos: BankPromo[];
-  overrides: Map<string, ProductOverride>;
-  replaceKey: string | null;
-  replaceQuery: string;
-  replaceOptions: Record<string, AlternativeProduct[]>;
-  alternativesIsPending: boolean;
-  alternativesVariables: { storeName: string; searchTerm: string } | null;
-  outOfStockRecommendation: Map<string, { storeName: string; lineTotal: number }>;
+  userCoords?: { lat: number; lng: number };
   onToggleSave: (cart: AdjustedStoreCart) => void;
-  onUpdateQuantity: (term: string, delta: number) => void;
+  onPinStore?: () => void;
   onSetOverride: (storeName: string, searchTerm: string, update: Partial<ProductOverride>) => void;
-  onToggleReplace: (key: string, searchTerm: string) => void;
-  onReplaceQueryChange: (query: string) => void;
-  onRunAlternatives: (storeName: string, searchTerm: string, query: string) => void;
 }
 
 function StoreCartCard({
   cart,
   rank,
   isSaved,
+  isPinned,
   promos,
-  overrides,
-  replaceKey,
-  replaceQuery,
-  replaceOptions,
-  alternativesIsPending,
-  alternativesVariables,
-  outOfStockRecommendation,
+  userCoords,
   onToggleSave,
-  onUpdateQuantity,
+  onPinStore,
   onSetOverride,
-  onToggleReplace,
-  onReplaceQueryChange,
-  onRunAlternatives,
 }: StoreCartCardProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [selectedPromo, setSelectedPromo] = useState<BankPromo | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
   const isWinner = rank === 0;
 
-  const pendingProducts = cart.products.filter((p) => !p.isAdded && !p.isOutOfStock);
-  const addedProducts = cart.products.filter((p) => p.isAdded);
-  const outProducts = cart.products.filter((p) => p.isOutOfStock);
+  const mapsUrl = useMemo(() => {
+    const q = encodeURIComponent(cart.storeName);
+    if (userCoords) {
+      return `https://www.google.com/maps/dir/?api=1&origin=${userCoords.lat},${userCoords.lng}&destination=${q}&travelmode=driving`;
+    }
+    return `https://www.google.com/maps/search/${q}`;
+  }, [cart.storeName, userCoords]);
 
   // Calculate discounted total
   const baseTotal = cart.totalPrice;
@@ -766,16 +818,18 @@ function StoreCartCard({
     discountedTotal = baseTotal - cappedDiscount;
   }
 
-  const groups: Array<{ title: string; products: AdjustedProduct[]; color: string }> = [
-    { title: "Pendientes", products: pendingProducts, color: colors.text },
-    { title: "Ya agregados", products: addedProducts, color: "#166534" },
-    { title: "Sin stock", products: outProducts, color: "#92400e" },
-  ];
+  // Cart-level savings vs market average
+  const productsWithAvg = cart.products.filter((p) => p.averagePrice != null);
+  const avgTotal = productsWithAvg.reduce((sum, p) => sum + ((p.averagePrice ?? 0) * p.quantity), 0);
+  const actualTotal = productsWithAvg.reduce((sum, p) => sum + p.lineTotal, 0);
+  const savingsAmount = avgTotal > 0 ? Math.round(avgTotal - actualTotal) : 0;
+  const savingsPercent = avgTotal > 0 ? Math.round((1 - actualTotal / avgTotal) * 100) : null;
 
   return (
     <Card style={[styles.storeCard, isWinner && styles.storeCardWinner]}>
       {isWinner ? <View style={styles.winnerAccent} /> : null}
       <CardContent>
+        {/* Header */}
         <View style={styles.storeCardHeader}>
           <View style={styles.storeCardInfo}>
             <StoreAvatar storeName={cart.storeName} />
@@ -788,9 +842,22 @@ function StoreCartCard({
                     <Text style={styles.winnerBadgeText}>Mejor precio</Text>
                   </View>
                 ) : null}
+                <Pressable
+                  onPress={() => {
+                    void Linking.openURL(mapsUrl);
+                  }}
+                  style={styles.mapsLink}
+                  hitSlop={8}
+                >
+                  <MapPin size={11} color={colors.primary} />
+                  <Text style={styles.mapsLinkText}>Cómo llegar</Text>
+                </Pressable>
               </View>
               <Text style={styles.storeCardSub}>
-                {cart.products.length}/{cart.totalSearched} productos · {cart.cheapestCount} más baratos
+                {cart.products.length} de {cart.totalSearched} producto{cart.totalSearched !== 1 ? "s" : ""}
+                {cart.cheapestCount > 0 ? (
+                  <Text style={styles.cheapestCountText}> · {cart.cheapestCount} al mejor precio</Text>
+                ) : null}
               </Text>
             </View>
           </View>
@@ -801,57 +868,118 @@ function StoreCartCard({
                 <Text style={styles.storeCardTotalDiscounted}>{formatAmount(discountedTotal)}</Text>
               </>
             ) : (
-              <Text style={styles.storeCardTotal}>{formatAmount(baseTotal)}</Text>
+              <>
+                <Text style={[styles.storeCardTotal, (isWinner || isPinned) && { color: colors.primary }]}>
+                  {formatAmount(baseTotal)}
+                </Text>
+                {savingsPercent != null && savingsPercent !== 0 ? (
+                  <Text style={[styles.savingsHintText, savingsPercent < 0 && styles.savingsHintTextNeg]}>
+                    {savingsPercent > 0 ? `${savingsPercent}% menos` : `+${Math.abs(savingsPercent)}% vs prom.`}
+                  </Text>
+                ) : null}
+              </>
             )}
-            <Pressable
-              onPress={() => onToggleSave(cart)}
-              hitSlop={8}
-              style={styles.saveIconButton}
-            >
-              {isSaved ? (
-                <BookmarkCheck size={20} color={colors.primary} />
-              ) : (
-                <Bookmark size={20} color={colors.mutedForeground} />
-              )}
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable
+                onPress={() => onToggleSave(cart)}
+                hitSlop={8}
+                style={styles.saveIconButton}
+              >
+                {isSaved ? (
+                  <BookmarkCheck size={20} color={colors.primary} />
+                ) : (
+                  <Bookmark size={20} color={colors.mutedForeground} />
+                )}
+              </Pressable>
+              <Pressable
+                onPress={() => setIsOpen((v) => !v)}
+                hitSlop={8}
+              >
+                <View style={isOpen ? { transform: [{ rotate: "180deg" }] } : undefined}>
+                  <ChevronDown size={18} color={colors.mutedForeground} />
+                </View>
+              </Pressable>
+            </View>
           </View>
         </View>
 
-        {/* Promo banner (C1) */}
+        {/* Promo banner */}
         <StorePromoBanner
           promos={promos}
           onSelectPromo={setSelectedPromo}
           selectedPromoId={selectedPromo?.id ?? null}
         />
 
-        {groups.map((group) =>
-          group.products.length > 0 ? (
-            <View key={group.title} style={styles.productGroup}>
-              <Text style={[styles.productGroupTitle, { color: group.color }]}>
-                {group.title} ({group.products.length})
+        {/* Product list (collapsible) */}
+        {isOpen ? (
+          <View style={styles.productListSection}>
+            {cart.products.map((product) => (
+              <ProductRow
+                key={`${cart.storeName}-${product.searchTerm}`}
+                product={product}
+                storeName={cart.storeName}
+                onSetOverride={onSetOverride}
+              />
+            ))}
+
+            {/* Price disclaimer */}
+            <Text style={styles.priceDisclaimer}>
+              * Los precios pueden variar al momento de la compra.
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Missing products */}
+        {cart.missingTerms.length > 0 ? (
+          <View style={styles.missingBanner}>
+            <Text style={styles.missingTitle}>No encontrado</Text>
+            <Text style={styles.missingText}>{cart.missingTerms.join(", ")}</Text>
+          </View>
+        ) : null}
+
+        {/* Savings footer */}
+        {savingsAmount > 0 && isWinner ? (
+          <View style={styles.savingsFooter}>
+            <Text style={styles.savingsText}>
+              Ahorrás {formatAmount(savingsAmount)} comprando acá vs el promedio del mercado
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Share + Pin row */}
+        <View style={styles.cardActionsRow}>
+          <Pressable
+            onPress={() => {
+              const today = new Date().toLocaleDateString("es-AR", { day: "numeric", month: "long" });
+              const productLines = cart.products.map((p) => {
+                const qty = p.quantity > 1 ? ` x${p.quantity}` : "";
+                return `• ${p.productName}${qty} — ${formatAmount(p.lineTotal)}`;
+              });
+              const lines = [
+                `🛒 *Lista ${cart.storeName}* — ${today}`,
+                "",
+                ...productLines,
+                "",
+                `*Total: ${formatAmount(cart.totalPrice)}*`,
+                "",
+                "_Generado con Habita_",
+              ];
+              void Share.share({ message: lines.join("\n") }).catch(() => undefined);
+            }}
+            style={styles.shareListBtn}
+          >
+            <Share2 size={14} color={colors.primary} />
+            <Text style={styles.shareListBtnText}>Compartir lista</Text>
+          </Pressable>
+          {onPinStore ? (
+            <Pressable onPress={onPinStore} style={[styles.pinStoreBtn, isPinned && styles.pinStoreBtnActive]}>
+              <Pin size={14} color={isPinned ? colors.primary : colors.mutedForeground} />
+              <Text style={[styles.pinStoreText, isPinned && styles.pinStoreTextActive]}>
+                {isPinned ? "Fijado" : "Elegir este super"}
               </Text>
-              {group.products.map((product) => (
-                <ProductRow
-                  key={`${cart.storeName}-${product.searchTerm}`}
-                  product={product}
-                  storeName={cart.storeName}
-                  overrides={overrides}
-                  replaceKey={replaceKey}
-                  replaceQuery={replaceQuery}
-                  replaceOptions={replaceOptions}
-                  alternativesIsPending={alternativesIsPending}
-                  alternativesVariables={alternativesVariables}
-                  recommendation={outOfStockRecommendation.get(overrideKey(cart.storeName, product.searchTerm))}
-                  onUpdateQuantity={onUpdateQuantity}
-                  onSetOverride={onSetOverride}
-                  onToggleReplace={onToggleReplace}
-                  onReplaceQueryChange={onReplaceQueryChange}
-                  onRunAlternatives={onRunAlternatives}
-                />
-              ))}
-            </View>
-          ) : null,
-        )}
+            </Pressable>
+          ) : null}
+        </View>
       </CardContent>
     </Card>
   );
@@ -867,10 +995,10 @@ interface PromosSectionProps {
   isRefreshing: boolean;
 }
 
-/** Group promos by storeName, then within each store pick the best per bank. */
+/** Group promos by storeName, then within each store pick the best per bank. Expired promos excluded. */
 function groupPromosByStore(promos: BankPromo[], todayName: string) {
   const storeMap = new Map<string, BankPromo[]>();
-  for (const promo of promos) {
+  for (const promo of promos.filter((p) => !isPromoExpired(p))) {
     const list = storeMap.get(promo.storeName);
     if (list) {
       list.push(promo);
@@ -995,9 +1123,9 @@ function PromosSection({ promos, isLoading, isRunning, onRefresh, isRefreshing }
                     const days = parseJsonArray(promo.daysOfWeek);
                     const methods = parseJsonArray(promo.paymentMethods);
                     const daysLabel = days.length > 0
-                      ? days.map((d) => DAY_SHORT[d] ?? d).join(", ")
+                      ? days.map((d) => DAY_SHORT[normalizeDay(d)] ?? d).join(", ")
                       : "Todos los días";
-                    const isToday = days.length === 0 || days.includes(todayName);
+                    const isToday = promoAppliesToday(promo, todayName);
                     return (
                       <View key={promo.id} style={promoSty.promoRow}>
                         <View style={[promoSty.discountBadge, isToday && promoSty.discountBadgeActive]}>
@@ -1046,16 +1174,93 @@ function PromosSection({ promos, isLoading, isRunning, onRefresh, isRefreshing }
   );
 }
 
+// ── Quick-category pills ─────────────────────────────────────────────────────
+
+// ── Payment method picker ────────────────────────────────────────────────────
+
+const PAYMENT_METHOD_OPTIONS: { bankSlug: string; label: string }[] = [
+  { bankSlug: "mercadopago", label: "Mercado Pago" },
+  { bankSlug: "naranjax", label: "Naranja X" },
+  { bankSlug: "modo", label: "MODO" },
+  { bankSlug: "uala", label: "Ualá" },
+  { bankSlug: "personalpay", label: "Personal Pay" },
+  { bankSlug: "cuentadni", label: "Cuenta DNI" },
+  { bankSlug: "galicia", label: "Galicia" },
+  { bankSlug: "santander", label: "Santander" },
+  { bankSlug: "bbva", label: "BBVA" },
+  { bankSlug: "macro", label: "Macro" },
+  { bankSlug: "nacion", label: "Nación" },
+  { bankSlug: "patagonia", label: "Patagonia" },
+  { bankSlug: "ciudad", label: "Ciudad" },
+  { bankSlug: "provincia", label: "Provincia" },
+  { bankSlug: "icbc", label: "ICBC" },
+  { bankSlug: "supervielle", label: "Supervielle" },
+  { bankSlug: "credicoop", label: "Credicoop" },
+  { bankSlug: "brubank", label: "Brubank" },
+];
+
+function PaymentMethodPicker({
+  selectedSlugs,
+  onToggle,
+}: {
+  selectedSlugs: string[];
+  onToggle: (slug: string) => void;
+}) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  return (
+    <View style={styles.bankPickerContainer}>
+      <Text style={styles.bankPickerLabel}>
+        <CreditCard size={13} color={colors.mutedForeground} />{" "}
+        Tus bancos y billeteras
+      </Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.bankPickerScroll}
+      >
+        {PAYMENT_METHOD_OPTIONS.map((opt) => {
+          const isSelected = selectedSlugs.includes(opt.bankSlug);
+          return (
+            <Pressable
+              key={opt.bankSlug}
+              onPress={() => onToggle(opt.bankSlug)}
+              style={[styles.bankChip, isSelected && styles.bankChipSelected]}
+            >
+              <Text style={[styles.bankChipText, isSelected && styles.bankChipTextSelected]}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
 export default function ShoppingPlanScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  // Geolocation (once on mount, for "Cómo llegar" links)
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    // expo provides navigator.geolocation polyfill
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {}, // silently ignore errors
+      { enableHighAccuracy: false, timeout: 10000 },
+    );
+  }, []);
 
   const searchMilestone = useMilestone("first-search");
   const { celebrate } = useCelebration();
   const ahorraWasToured = useSectionToured("ahorra");
   const shoppingPlan = useShoppingPlan();
   const catalog = useProductCatalog();
-  const alternativesSearch = useShoppingAlternatives();
+  // alternativesSearch removed — simplified product rows no longer need it
   const savedCartsQuery = useSavedCarts();
   const saveCart = useSaveCart();
   const deleteSavedCart = useDeleteSavedCart();
@@ -1068,15 +1273,39 @@ export default function ShoppingPlanScreen() {
 
   const { isFirstVisit, dismiss: dismissGuide } = useFirstVisit("ahorra");
 
+  // Payment method picker (persisted)
+  const [selectedBankSlugs, setSelectedBankSlugs] = useState<string[]>([]);
+  useEffect(() => {
+    void AsyncStorage.getItem("habita_mobile_payment_methods").then((raw) => {
+      if (!raw) return;
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        if (Array.isArray(parsed)) setSelectedBankSlugs(parsed.filter((s): s is string => typeof s === "string"));
+      } catch { /* ignore */ }
+    });
+  }, []);
+  const toggleBankSlug = useCallback((slug: string) => {
+    setSelectedBankSlugs((prev) => {
+      const next = prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug];
+      void AsyncStorage.setItem("habita_mobile_payment_methods", JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const [activeSection, setActiveSection] = useState<"search" | "promos" | "saved">("search");
   const [termInput, setTermInput] = useState("");
   const [items, setItems] = useState<SearchItem[]>([]);
+  const [lastSearchedTerms, setLastSearchedTerms] = useState<Set<string>>(new Set());
   const [overrides, setOverrides] = useState<Map<string, ProductOverride>>(new Map());
-  const [replaceKey, setReplaceKey] = useState<string | null>(null);
-  const [replaceQuery, setReplaceQuery] = useState("");
-  const [replaceOptions, setReplaceOptions] = useState<Record<string, AlternativeProduct[]>>({});
+  // replaceKey/replaceQuery/replaceOptions removed — simplified product rows
   const [localError, setLocalError] = useState<string | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
+  const [clearUndoSnapshot, setClearUndoSnapshot] = useState<SearchItem[] | null>(null);
+  const [pinnedStore, setPinnedStore] = useState<string | null>(null);
+  const [selectedStores, setSelectedStores] = useState<Set<string>>(new Set());
+  const [showComparison, setShowComparison] = useState(false);
+  const [catalogInitialCategory, setCatalogInitialCategory] = useState<string | null>(null);
+  const [quickAddTerm, setQuickAddTerm] = useState("");
 
   // Auto-trigger promo refresh when no promos exist
   const hasAutoTriggered = useRef(false);
@@ -1103,6 +1332,13 @@ export default function ShoppingPlanScreen() {
   }, [pipelineStatus.data?.isRunning, queryClient]);
 
   const canSearch = items.length > 0 && !shoppingPlan.isPending;
+
+  const hasResults = (shoppingPlan.data?.storeCarts?.length ?? 0) > 0;
+
+  const newItems = useMemo(() => {
+    if (!hasResults || lastSearchedTerms.size === 0) return [];
+    return items.filter((i) => !lastSearchedTerms.has(i.term.toLowerCase()));
+  }, [items, lastSearchedTerms, hasResults]);
 
   const quantityByTerm = useMemo(
     () => new Map(items.map((item) => [item.term.toLowerCase(), item.quantity])),
@@ -1161,8 +1397,38 @@ export default function ShoppingPlanScreen() {
     });
 
     // Sort by totalPrice ascending — cheapest first (C3)
-    return carts.sort((a, b) => a.totalPrice - b.totalPrice);
-  }, [shoppingPlan.data?.storeCarts, overrides, quantityByTerm]);
+    carts.sort((a, b) => a.totalPrice - b.totalPrice);
+
+    // Pinned store to top
+    if (pinnedStore) {
+      carts.sort((a, b) => {
+        if (a.storeName === pinnedStore) return -1;
+        if (b.storeName === pinnedStore) return 1;
+        return 0;
+      });
+    }
+
+    return carts;
+  }, [shoppingPlan.data?.storeCarts, overrides, quantityByTerm, pinnedStore]);
+
+  const toggleStore = (storeName: string) => {
+    setSelectedStores((prev) => {
+      const next = new Set(prev);
+      if (next.has(storeName)) next.delete(storeName);
+      else next.add(storeName);
+      return next;
+    });
+  };
+
+  const filteredCarts = useMemo(() => {
+    if (selectedStores.size === 0) return adjustedCarts;
+    return adjustedCarts.filter((c) => selectedStores.has(c.storeName));
+  }, [adjustedCarts, selectedStores]);
+
+  const comparisonSummary = useMemo(
+    () => buildComparisonSummary(filteredCarts),
+    [filteredCarts],
+  );
 
   /** Get promos matching a store name. */
   const getStorePromos = useCallback(
@@ -1180,37 +1446,6 @@ export default function ShoppingPlanScreen() {
     () => new Map(savedCarts.map((savedCart) => [savedCart.storeName, savedCart])),
     [savedCarts],
   );
-
-  const outOfStockRecommendation = useMemo(() => {
-    const recommendation = new Map<string, { storeName: string; lineTotal: number }>();
-
-    for (const cart of adjustedCarts) {
-      for (const product of cart.products) {
-        if (!product.isOutOfStock) continue;
-        const candidate = adjustedCarts
-          .flatMap((current) =>
-            current.products
-              .filter(
-                (currentProduct) =>
-                  currentProduct.searchTerm === product.searchTerm &&
-                  !currentProduct.isOutOfStock &&
-                  current.storeName !== cart.storeName,
-              )
-              .map((currentProduct) => ({
-                storeName: current.storeName,
-                lineTotal: currentProduct.lineTotal,
-              })),
-          )
-          .sort((a, b) => a.lineTotal - b.lineTotal)[0];
-
-        if (candidate) {
-          recommendation.set(overrideKey(cart.storeName, product.searchTerm), candidate);
-        }
-      }
-    }
-
-    return recommendation;
-  }, [adjustedCarts]);
 
   const addItem = (overrideTerm?: string) => {
     const cleanTerm = (overrideTerm ?? termInput).trim();
@@ -1233,33 +1468,33 @@ export default function ShoppingPlanScreen() {
     setTermInput("");
   };
 
-  const updateQuantity = (term: string, delta: number) => {
-    setItems((previous) =>
-      previous.map((item) => {
-        if (item.term !== term) {
-          return item;
-        }
-        const quantity = Math.max(1, Math.min(99, item.quantity + delta));
-        return { ...item, quantity };
-      }),
-    );
-  };
-
   const removeItem = (term: string) => {
     setItems((previous) => previous.filter((item) => item.term !== term));
+  };
+
+  const clearAllItems = () => {
+    setClearUndoSnapshot([...items]);
+    setItems([]);
+  };
+
+  const undoClearItems = () => {
+    if (!clearUndoSnapshot) return;
+    setItems(clearUndoSnapshot);
+    setClearUndoSnapshot(null);
   };
 
   const runSearch = async () => {
     setLocalError(null);
     try {
       await shoppingPlan.mutateAsync({ searchItems: items });
+      setLastSearchedTerms(new Set(items.map((i) => i.term.toLowerCase())));
       void AsyncStorage.setItem("habita_shopping_first_search", "1");
       const wasFirst = await searchMilestone.complete();
       if (wasFirst) celebrate("first-search");
       setOverrides(new Map());
-      setReplaceOptions({});
-      setReplaceKey(null);
-      setReplaceQuery("");
+      setSelectedStores(new Set());
+      setPinnedStore(null);
+      setShowComparison(false);
     } catch (error) {
       setLocalError(getMobileErrorMessage(error));
     }
@@ -1273,23 +1508,6 @@ export default function ShoppingPlanScreen() {
       next.set(key, { ...current, ...update });
       return next;
     });
-  };
-
-  const runAlternativesSearch = async (storeName: string, searchTerm: string, query: string) => {
-    try {
-      const result = await alternativesSearch.mutateAsync({
-        storeName,
-        searchTerm,
-        query,
-      });
-      const key = overrideKey(storeName, searchTerm);
-      setReplaceOptions((previous) => ({
-        ...previous,
-        [key]: result.alternatives,
-      }));
-    } catch (error) {
-      setLocalError(getMobileErrorMessage(error));
-    }
   };
 
   const toggleSaveStoreCart = async (cart: AdjustedStoreCart) => {
@@ -1314,14 +1532,6 @@ export default function ShoppingPlanScreen() {
       await saveCart.mutateAsync(input);
     } catch (error) {
       setLocalError(getMobileErrorMessage(error));
-    }
-  };
-
-  const handleToggleReplace = (key: string, searchTerm: string) => {
-    const isShowing = replaceKey === key;
-    setReplaceKey(isShowing ? null : key);
-    if (!isShowing) {
-      setReplaceQuery(searchTerm);
     }
   };
 
@@ -1395,17 +1605,7 @@ export default function ShoppingPlanScreen() {
               </Button>
             </View>
 
-            {items.length > 0 ? (
-              <View style={styles.itemsList}>
-                {items.map((item) => (
-                  <SimpleItemChip
-                    key={item.term}
-                    item={item}
-                    onRemove={() => removeItem(item.term)}
-                  />
-                ))}
-              </View>
-            ) : null}
+            <CollapsibleChipList items={items} onRemove={removeItem} />
 
             <Pressable
               onPress={() => setShowCatalog(true)}
@@ -1431,15 +1631,40 @@ export default function ShoppingPlanScreen() {
               loading={shoppingPlan.isPending}
               style={styles.searchButton}
             >
-              Buscar precios
+              {hasResults && newItems.length > 0
+                ? <RefreshCw size={16} color="#ffffff" />
+                : <Search size={16} color="#ffffff" />
+              }
+              {hasResults && newItems.length > 0 ? "Actualizar búsqueda" : "Buscar precios"}
             </Button>
+            {items.length > 0 && !clearUndoSnapshot ? (
+              <Pressable onPress={clearAllItems} style={styles.clearAllBtn} hitSlop={8}>
+                <Text style={styles.clearAllText}>Limpiar todo</Text>
+              </Pressable>
+            ) : null}
+            {clearUndoSnapshot ? (
+              <Pressable onPress={undoClearItems} style={styles.undoBtn} hitSlop={8}>
+                <Undo2 size={12} color={colors.mutedForeground} />
+                <Text style={styles.undoText}>Deshacer</Text>
+              </Pressable>
+            ) : null}
+            {/* Store logos strip */}
+            <View style={styles.storeLogosStrip}>
+              <Text style={styles.storeLogosLabel}>Buscamos en</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storeLogosScroll}>
+                {Object.keys(storeColors).map((name) => (
+                  <StoreAvatar key={name} storeName={name} size={22} />
+                ))}
+              </ScrollView>
+            </View>
           </CardContent>
         </Card>
 
         <CatalogModal
           visible={showCatalog}
           addedTerms={addedTerms}
-          onClose={() => setShowCatalog(false)}
+          initialCategory={catalogInitialCategory}
+          onClose={() => { setShowCatalog(false); setCatalogInitialCategory(null); }}
           onToggleItem={toggleItemFromCatalog}
         />
 
@@ -1464,86 +1689,117 @@ export default function ShoppingPlanScreen() {
         {adjustedCarts.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Resultados</Text>
-            {adjustedCarts.map((cart, index) => (
+            <PaymentMethodPicker selectedSlugs={selectedBankSlugs} onToggle={toggleBankSlug} />
+
+            {/* Store comparison bar */}
+            {adjustedCarts.length > 1 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.comparisonBar}>
+                {adjustedCarts.map((cart, idx) => {
+                  const isWinner = idx === 0;
+                  const isSelected = selectedStores.size === 0 || selectedStores.has(cart.storeName);
+                  return (
+                    <Pressable
+                      key={cart.storeName}
+                      onPress={() => toggleStore(cart.storeName)}
+                      style={[
+                        styles.comparisonChip,
+                        isSelected
+                          ? isWinner ? styles.comparisonChipWinner : styles.comparisonChipSelected
+                          : styles.comparisonChipMuted,
+                      ]}
+                    >
+                      <StoreAvatar storeName={cart.storeName} size={20} />
+                      {isWinner && isSelected ? <Trophy size={12} color="#fbbf24" /> : null}
+                      <Text style={[
+                        styles.comparisonChipPrice,
+                        isSelected && isWinner && styles.comparisonChipPriceWinner,
+                      ]}>
+                        {formatAmount(cart.totalPrice)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            ) : null}
+
+            {/* Comparison summary panel */}
+            {comparisonSummary ? (
+              <View style={styles.comparisonSection}>
+                <Pressable
+                  onPress={() => setShowComparison((prev) => !prev)}
+                  style={[styles.comparisonToggle, showComparison && styles.comparisonToggleActive]}
+                >
+                  {showComparison ? (
+                    <ChevronUp size={14} color={colors.primary} />
+                  ) : (
+                    <BarChart3 size={14} color={colors.mutedForeground} />
+                  )}
+                  <Text style={[styles.comparisonToggleText, showComparison && styles.comparisonToggleTextActive]}>
+                    {showComparison ? "Ocultar" : "Comparar"}
+                  </Text>
+                </Pressable>
+                {showComparison ? (
+                  <Card style={styles.comparisonCard}>
+                    <CardContent>
+                      <View style={styles.comparisonHeader}>
+                        <BarChart3 size={14} color={colors.primary} />
+                        <Text style={styles.comparisonTitle}>Resumen comparativo</Text>
+                      </View>
+                      {comparisonSummary.split("\n\n").map((paragraph, idx) => (
+                        <Text key={idx} style={styles.comparisonParagraph}>{paragraph}</Text>
+                      ))}
+                    </CardContent>
+                  </Card>
+                ) : null}
+              </View>
+            ) : null}
+
+            {/* Quick-add from results */}
+            <View style={styles.quickAddRow}>
+              <StyledTextInput
+                placeholder="Agregar producto..."
+                value={quickAddTerm}
+                onChangeText={setQuickAddTerm}
+                onSubmitEditing={() => {
+                  const term = quickAddTerm.trim();
+                  if (term) { addItem(term); setQuickAddTerm(""); }
+                }}
+                containerStyle={styles.quickAddInput}
+              />
+              <Pressable
+                onPress={() => {
+                  const term = quickAddTerm.trim();
+                  if (term) { addItem(term); setQuickAddTerm(""); }
+                }}
+                style={[styles.quickAddBtn, !quickAddTerm.trim() && styles.quickAddBtnDisabled]}
+                disabled={!quickAddTerm.trim()}
+                hitSlop={6}
+              >
+                <Plus size={16} color={quickAddTerm.trim() ? "#ffffff" : colors.mutedForeground} />
+              </Pressable>
+            </View>
+
+            {filteredCarts.map((cart, index) => {
+              const storePromos = getStorePromos(cart.storeName);
+              const cartPromos = selectedBankSlugs.length > 0
+                ? storePromos.filter((p) => selectedBankSlugs.includes(p.bankSlug))
+                : storePromos;
+              return (
               <View key={cart.storeName}>
                 <StoreCartCard
                   cart={cart}
                   rank={index}
                   isSaved={savedCartByStore.has(cart.storeName)}
-                  promos={getStorePromos(cart.storeName)}
-                  overrides={overrides}
-                  replaceKey={replaceKey}
-                  replaceQuery={replaceQuery}
-                  replaceOptions={replaceOptions}
-                  alternativesIsPending={alternativesSearch.isPending}
-                  alternativesVariables={
-                    alternativesSearch.variables
-                      ? {
-                          storeName: alternativesSearch.variables.storeName,
-                          searchTerm: alternativesSearch.variables.searchTerm,
-                        }
-                      : null
-                  }
-                  outOfStockRecommendation={outOfStockRecommendation}
+                  isPinned={pinnedStore === cart.storeName}
+                  promos={cartPromos}
+                  userCoords={userCoords ?? undefined}
                   onToggleSave={(c) => void toggleSaveStoreCart(c)}
-                  onUpdateQuantity={updateQuantity}
+                  onPinStore={() => setPinnedStore((prev) => prev === cart.storeName ? null : cart.storeName)}
                   onSetOverride={setProductOverride}
-                  onToggleReplace={handleToggleReplace}
-                  onReplaceQueryChange={setReplaceQuery}
-                  onRunAlternatives={(sn, st, q) => void runAlternativesSearch(sn, st, q)}
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  style={styles.registerExpenseBtn}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(app)/new-expense",
-                      params: {
-                        prefillTitle: cart.storeName,
-                        prefillAmount: String(Math.round(cart.totalPrice)),
-                        prefillCategory: "GROCERIES",
-                      },
-                    })
-                  }
-                >
-                  <Receipt size={13} color={colors.mutedForeground} />
-                  Registrar gasto
-                </Button>
-                {index === 0 ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    style={styles.shareCartBtn}
-                    onPress={() => {
-                      const productLines = cart.products
-                        .filter((p) => p.isAdded && !p.isOutOfStock)
-                        .slice(0, 5)
-                        .map(
-                          (p) =>
-                            `• ${p.productName}: $${p.price.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`,
-                        );
-                      const extraCount =
-                        cart.products.filter((p) => p.isAdded && !p.isOutOfStock).length - 5;
-                      const lines = [
-                        `Compré en ${cart.storeName} con Habita:`,
-                        "",
-                        ...productLines,
-                        ...(extraCount > 0 ? [`... y ${extraCount} más`] : []),
-                        "",
-                        `Total: $${cart.totalPrice.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`,
-                        "",
-                        "Comparador de precios 🏠 Habita",
-                      ];
-                      void Share.share({ message: lines.join("\n") }).catch(() => undefined);
-                    }}
-                  >
-                    <Share2 size={13} color={colors.mutedForeground} />
-                    Compartir
-                  </Button>
-                ) : null}
               </View>
-            ))}
+              );
+            })}
           </View>
         ) : null}
 
@@ -1623,23 +1879,6 @@ export default function ShoppingPlanScreen() {
                           Refrescar
                         </Button>
                         <Button
-                          variant="outline"
-                          size="sm"
-                          onPress={() =>
-                            router.push({
-                              pathname: "/(app)/new-expense",
-                              params: {
-                                prefillTitle: adapted.storeName,
-                                prefillAmount: String(Math.round(adapted.totalPrice)),
-                                prefillCategory: "GROCERIES",
-                              },
-                            })
-                          }
-                        >
-                          <Receipt size={13} color={colors.mutedForeground} />
-                          Registrar gasto
-                        </Button>
-                        <Button
                           variant="destructive"
                           size="sm"
                           onPress={() => void deleteSavedCart.mutateAsync(savedCart.id)}
@@ -1699,6 +1938,40 @@ function createStyles(c: ThemeColors) {
     sectionTabs: {
       marginBottom: spacing.md,
     },
+    bankPickerContainer: {
+      marginBottom: spacing.md,
+    },
+    bankPickerLabel: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "600" as const,
+      color: c.mutedForeground,
+      marginBottom: spacing.xs,
+    },
+    bankPickerScroll: {
+      gap: spacing.xs,
+    },
+    bankChip: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.card,
+    },
+    bankChipSelected: {
+      borderColor: c.primary,
+      backgroundColor: `${c.primary}15`,
+    },
+    bankChipText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+    },
+    bankChipTextSelected: {
+      color: c.primary,
+      fontWeight: "600" as const,
+    },
     searchCard: {
       marginBottom: spacing.md,
     },
@@ -1750,6 +2023,43 @@ function createStyles(c: ThemeColors) {
     },
     searchButton: {
       marginTop: spacing.sm,
+    },
+    clearAllBtn: {
+      alignSelf: "center" as const,
+      paddingVertical: spacing.xs,
+      marginTop: spacing.xs,
+    },
+    clearAllText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      color: c.mutedForeground,
+    },
+    undoBtn: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+      alignSelf: "center" as const,
+      paddingVertical: spacing.xs,
+      marginTop: spacing.xs,
+    },
+    undoText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      color: c.mutedForeground,
+    },
+    storeLogosStrip: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.xs,
+      marginTop: spacing.md,
+    },
+    storeLogosLabel: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: c.mutedForeground,
+    },
+    storeLogosScroll: {
+      gap: 4,
     },
     /* --- Catalog modal --- */
     catalogModalContainer: {
@@ -1928,14 +2238,52 @@ function createStyles(c: ThemeColors) {
       fontWeight: "800",
       color: c.text,
     },
-    productGroup: {
-      marginTop: spacing.md,
+    cheapestCountText: {
+      color: "#16a34a",
     },
-    productGroupTitle: {
+    savingsHintText: {
       fontFamily: fontFamily.sans,
-      fontSize: 13,
-      fontWeight: "700",
-      marginBottom: spacing.sm,
+      fontSize: 11,
+      fontWeight: "500" as const,
+      color: "#16a34a",
+    },
+    savingsHintTextNeg: {
+      color: "#d97706",
+    },
+    headerActions: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+    },
+    productListSection: {
+      borderTopWidth: 1,
+      borderTopColor: `${c.border}60`,
+      marginTop: spacing.sm,
+      paddingTop: spacing.sm,
+    },
+    priceDisclaimer: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: `${c.mutedForeground}80`,
+      marginTop: spacing.xs,
+    },
+    missingBanner: {
+      backgroundColor: "#fffbeb",
+      borderRadius: radius.md,
+      padding: spacing.sm,
+      marginTop: spacing.sm,
+    },
+    missingTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "600" as const,
+      color: "#92400e",
+    },
+    missingText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: "#a16207",
+      marginTop: 2,
     },
     productRow: {
       backgroundColor: c.background,
@@ -1944,14 +2292,6 @@ function createStyles(c: ThemeColors) {
       marginBottom: spacing.sm,
       borderWidth: 1,
       borderColor: c.border,
-    },
-    productRowOutOfStock: {
-      backgroundColor: "#fffbeb",
-      borderColor: "#fcd34d",
-    },
-    productRowAdded: {
-      backgroundColor: "#f0fdf4",
-      borderColor: "#86efac",
     },
     productRowHeader: {
       flexDirection: "row",
@@ -2022,6 +2362,144 @@ function createStyles(c: ThemeColors) {
     saveIconButton: {
       padding: spacing.xs,
     },
+    shareListBtn: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      gap: 6,
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: `${c.primary}30`,
+      backgroundColor: `${c.primary}08`,
+    },
+    shareListBtnText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "600" as const,
+      color: c.primary,
+    },
+    savingsFooter: {
+      backgroundColor: "#dcfce7",
+      borderRadius: radius.xl,
+      padding: spacing.md,
+      marginTop: spacing.sm,
+    },
+    savingsText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "500" as const,
+      color: "#166534",
+    },
+    cardActionsRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      marginTop: spacing.sm,
+    },
+    pinStoreBtn: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      gap: 6,
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: radius.lg,
+      backgroundColor: `${c.muted}80`,
+    },
+    pinStoreBtnActive: {
+      backgroundColor: `${c.primary}15`,
+    },
+    pinStoreText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "600" as const,
+      color: c.mutedForeground,
+    },
+    pinStoreTextActive: {
+      color: c.primary,
+    },
+    comparisonBar: {
+      gap: spacing.sm,
+      paddingVertical: spacing.xs,
+      marginBottom: spacing.sm,
+    },
+    comparisonChip: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: radius.full,
+      backgroundColor: c.muted,
+    },
+    comparisonChipWinner: {
+      backgroundColor: c.primary,
+    },
+    comparisonChipSelected: {
+      backgroundColor: c.card,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    comparisonChipMuted: {
+      opacity: 0.5,
+    },
+    comparisonChipPrice: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "700" as const,
+      color: c.text,
+    },
+    comparisonChipPriceWinner: {
+      color: "#ffffff",
+    },
+    comparisonSection: {
+      marginBottom: spacing.sm,
+    },
+    comparisonToggle: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      gap: 6,
+      paddingVertical: 10,
+      borderRadius: radius.xl,
+      backgroundColor: `${c.muted}80`,
+    },
+    comparisonToggleActive: {
+      backgroundColor: `${c.primary}15`,
+    },
+    comparisonToggleText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "600" as const,
+      color: c.mutedForeground,
+    },
+    comparisonToggleTextActive: {
+      color: c.primary,
+    },
+    comparisonCard: {
+      marginTop: spacing.sm,
+    },
+    comparisonHeader: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 6,
+      marginBottom: spacing.sm,
+    },
+    comparisonTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "600" as const,
+      color: c.text,
+    },
+    comparisonParagraph: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      lineHeight: 20,
+      color: c.mutedForeground,
+      marginTop: spacing.xs,
+    },
     productChip: {
       flexDirection: "row",
       alignItems: "center",
@@ -2034,6 +2512,18 @@ function createStyles(c: ThemeColors) {
       paddingRight: 6,
       paddingVertical: 6,
       gap: spacing.sm,
+    },
+    expandChipsBtn: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+      marginTop: spacing.xs,
+    },
+    expandChipsBtnText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "600" as const,
+      color: c.primary,
     },
     productChipLeft: {
       flexDirection: "row",
@@ -2112,16 +2602,6 @@ function createStyles(c: ThemeColors) {
       fontWeight: "800",
       color: c.text,
     },
-    registerExpenseBtn: {
-      alignSelf: "flex-end" as const,
-      marginTop: spacing.sm,
-      marginBottom: spacing.xs,
-    },
-    shareCartBtn: {
-      alignSelf: "flex-end" as const,
-      marginTop: spacing.xs,
-      marginBottom: spacing.xs,
-    },
     savedCartActions: {
       flexDirection: "row",
       gap: spacing.sm,
@@ -2157,6 +2637,17 @@ function createStyles(c: ThemeColors) {
       paddingHorizontal: 6,
       paddingVertical: 2,
       borderRadius: 6,
+    },
+    mapsLink: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 3,
+    },
+    mapsLinkText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      fontWeight: "600" as const,
+      color: c.primary,
     },
     winnerBadgeText: {
       fontFamily: fontFamily.sans,
@@ -2231,6 +2722,28 @@ function createStyles(c: ThemeColors) {
       fontSize: 11,
       color: "#059669",
       marginTop: 4,
+    },
+    cheaperAltBtn: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+      marginTop: 4,
+      backgroundColor: "#dcfce7",
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: radius.sm,
+    },
+    cheaperAltName: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: "#059669",
+      flex: 1,
+    },
+    cheaperAltPrice: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      fontWeight: "700" as const,
+      color: "#059669",
     },
     replaceToggleBtn: {
       paddingHorizontal: spacing.xs,
@@ -2386,10 +2899,32 @@ function createStyles(c: ThemeColors) {
       fontSize: 11,
       color: c.primary,
     },
+    /* --- Quick-add from results --- */
+    quickAddRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 8,
+      marginBottom: spacing.md,
+    },
+    quickAddInput: {
+      flex: 1,
+    },
+    quickAddBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: radius.md,
+      backgroundColor: c.primary,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    quickAddBtnDisabled: {
+      backgroundColor: c.muted,
+    },
   });
 }
 
 // ── Promos Section styles ─────────────────────────────────────────────────────
+
 
 function createPromoStyles(c: ThemeColors) {
   return StyleSheet.create({

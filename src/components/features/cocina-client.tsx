@@ -65,9 +65,9 @@ const MEAL_OPTIONS: { key: MealType; label: string }[] = [
 ];
 
 const DIFFICULTY_CONFIG: Record<string, { label: string; color: string }> = {
-  facil: { label: "Facil", color: "bg-emerald-100 text-emerald-700" },
-  media: { label: "Media", color: "bg-amber-100 text-amber-700" },
-  dificil: { label: "Dificil", color: "bg-red-100 text-red-700" },
+  facil: { label: "Facil", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" },
+  media: { label: "Media", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" },
+  dificil: { label: "Dificil", color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" },
 };
 
 // ============================================
@@ -328,7 +328,7 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
       ) : (
       <>
       {/* Input section */}
-      <div className={cn(radius.card, "border bg-white p-4", spacing.contentStack)}>
+      <div className={cn(radius.card, "border bg-card p-4", spacing.contentStack)}>
         {/* Textarea */}
         <div>
           <textarea
@@ -373,7 +373,7 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
                 className={cn(
                   "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   isRecording
-                    ? "bg-red-100 text-red-700 animate-pulse"
+                    ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 animate-pulse"
                     : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
@@ -600,7 +600,7 @@ function RecipeCard({ recipe, savedRecipes, savedRecipeId }: RecipeCardProps) {
   const hiddenCount = recipe.ingredients.length - INGREDIENTS_COLLAPSED_LIMIT;
 
   return (
-    <div className={cn(radius.card, "overflow-hidden border bg-white transition-shadow hover:shadow-md")}>
+    <div className={cn(radius.card, "overflow-hidden border bg-card transition-shadow hover:shadow-md")}>
       <div className="p-4">
         {/* Header: title + badge + save */}
         <div className="mb-2 flex items-start justify-between gap-2">
@@ -734,9 +734,9 @@ function RecipeCard({ recipe, savedRecipes, savedRecipeId }: RecipeCardProps) {
 
 /** Speed badge based on prep time */
 function getSpeedBadge(minutes: number): { label: string; style: string } | null {
-  if (minutes <= 15) return { label: "Rápida", style: "bg-emerald-100 text-emerald-700" };
-  if (minutes <= 30) return { label: "Media", style: "bg-blue-100 text-blue-700" };
-  if (minutes >= 60) return { label: "Elaborada", style: "bg-purple-100 text-purple-700" };
+  if (minutes <= 15) return { label: "Rápida", style: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" };
+  if (minutes <= 30) return { label: "Media", style: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" };
+  if (minutes >= 60) return { label: "Elaborada", style: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400" };
   return null;
 }
 

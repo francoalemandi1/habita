@@ -36,6 +36,10 @@ export const metadata: Metadata = {
   authors: [{ name: "Habita" }],
   creator: "Habita",
   metadataBase: new URL(process.env.NEXTAUTH_URL ?? "http://localhost:3000"),
+  icons: {
+    icon: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }, { url: "/icon-512.png", sizes: "512x512", type: "image/png" }],
+    apple: "/icon-192.png",
+  },
   openGraph: {
     type: "website",
     locale: "es_ES",

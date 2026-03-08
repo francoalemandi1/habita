@@ -21,7 +21,7 @@ export function useShoppingPlan() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const search = useCallback(async (searchItems: SearchItem[]) => {
+  const search = useCallback(async (searchItems: SearchItem[], preferredBankSlugs?: string[]) => {
     if (searchItems.length === 0) return;
 
     setIsLoading(true);
@@ -30,7 +30,7 @@ export function useShoppingPlan() {
     try {
       const result = await apiFetch<ShoppingPlanResult>("/api/ai/shopping-plan", {
         method: "POST",
-        body: { searchItems },
+        body: { searchItems, ...(preferredBankSlugs?.length ? { preferredBankSlugs } : {}) },
       });
       setData(result);
     } catch (err) {

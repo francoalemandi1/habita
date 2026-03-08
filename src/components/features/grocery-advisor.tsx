@@ -4,6 +4,8 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useShoppingPlan } from "@/hooks/use-shopping-plan";
 import { useProductSelection } from "@/hooks/use-product-selection";
+import { usePaymentMethod, PAYMENT_METHOD_OPTIONS } from "@/hooks/use-payment-method";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useSavedCarts, useToggleSaveCart, isCartSaved } from "@/hooks/use-saved-items";
 import { usePromos, useRefreshPromos, usePromoPipelineStatus, getStorePromos } from "@/hooks/use-promos";
 import { apiFetch } from "@/lib/api-client";
@@ -40,6 +42,9 @@ import {
   Tag,
   Undo2,
   Plus,
+  Check,
+  X,
+  ChevronDown as ChevronDownIcon,
 } from "lucide-react";
 
 import { AddExpenseDialog } from "@/components/features/add-expense-dialog";
@@ -78,11 +83,11 @@ const QUICK_CATEGORIES: Array<{
   color: string;
   bgColor: string;
 }> = [
-  { key: "ALMACEN", label: "Almacen", icon: ShoppingBasket, color: "text-amber-700", bgColor: "bg-amber-100 dark:bg-amber-900/30" },
-  { key: "LACTEOS", label: "Lacteos", icon: Milk, color: "text-blue-700", bgColor: "bg-blue-100 dark:bg-blue-900/30" },
-  { key: "BEBIDAS", label: "Bebidas", icon: Wine, color: "text-purple-700", bgColor: "bg-purple-100 dark:bg-purple-900/30" },
-  { key: "CARNES", label: "Carnes", icon: Drumstick, color: "text-red-700", bgColor: "bg-red-100 dark:bg-red-900/30" },
-  { key: "FRUTAS_VERDURAS", label: "Frutas", icon: Apple, color: "text-green-700", bgColor: "bg-green-100 dark:bg-green-900/30" },
+  { key: "ALMACEN", label: "Almacen", icon: ShoppingBasket, color: "text-amber-700 dark:text-amber-400", bgColor: "bg-amber-100 dark:bg-amber-900/30" },
+  { key: "LACTEOS", label: "Lacteos", icon: Milk, color: "text-blue-700 dark:text-blue-400", bgColor: "bg-blue-100 dark:bg-blue-900/30" },
+  { key: "BEBIDAS", label: "Bebidas", icon: Wine, color: "text-purple-700 dark:text-purple-400", bgColor: "bg-purple-100 dark:bg-purple-900/30" },
+  { key: "CARNES", label: "Carnes", icon: Drumstick, color: "text-red-700 dark:text-red-400", bgColor: "bg-red-100 dark:bg-red-900/30" },
+  { key: "FRUTAS_VERDURAS", label: "Frutas", icon: Apple, color: "text-green-700 dark:text-green-400", bgColor: "bg-green-100 dark:bg-green-900/30" },
 ];
 
 function isSearchItem(value: unknown): value is SearchItem {
@@ -277,6 +282,111 @@ function buildComparisonSummary(carts: AdjustedStoreCart[]): string {
 // Component
 // ============================================
 
+// ============================================
+// PaymentMethodPicker
+// ============================================
+
+function PaymentMethodPicker({
+  paymentMethods,
+  onToggle,
+}: {
+  paymentMethods: { bankSlug: string; label: string }[];
+  onToggle: (method: { bankSlug: string; label: string }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const filtered = query
+    ? PAYMENT_METHOD_OPTIONS.filter((o) =>
+        o.label.toLowerCase().includes(query.toLowerCase()),
+      )
+    : PAYMENT_METHOD_OPTIONS;
+
+  const hasSelected = paymentMethods.length > 0;
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[11px] font-medium text-muted-foreground">¿Con qué pagás?</p>
+
+      {/* Selected chips */}
+      {hasSelected && (
+        <div className="-mx-4 flex flex-wrap gap-1.5 px-4">
+          {paymentMethods.map((m) => (
+            <button
+              key={m.bankSlug}
+              type="button"
+              onClick={() => onToggle(m)}
+              className="flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-all active:scale-[0.97]"
+            >
+              {m.label}
+              <span className="ml-0.5 opacity-70">×</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Popover trigger */}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200 active:scale-[0.97]",
+              "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            <Plus className="h-3 w-3" />
+            {hasSelected ? "Agregar otro" : "Agregar banco o billetera"}
+            <ChevronDownIcon className="h-3 w-3 opacity-60" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-0" align="start">
+          {/* Search input */}
+          <div className="border-b p-2">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar banco o billetera..."
+              className="w-full rounded-md bg-muted/50 px-3 py-1.5 text-sm outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+              autoFocus
+            />
+          </div>
+          {/* Options list */}
+          <div className="max-h-56 overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-muted-foreground">Sin resultados</p>
+            ) : (
+              filtered.map((option) => {
+                const isSelected = paymentMethods.some((m) => m.bankSlug === option.bankSlug);
+                return (
+                  <button
+                    key={option.bankSlug}
+                    type="button"
+                    onClick={() => { onToggle(option); setQuery(""); }}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors hover:bg-muted/60",
+                      isSelected && "text-primary",
+                    )}
+                  >
+                    <span className={cn(
+                      "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border",
+                      isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40",
+                    )}>
+                      {isSelected && <Check className="h-3 w-3" />}
+                    </span>
+                    {option.label}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
 interface ShoppingPlanProps {
   hasLocation: boolean;
   householdCity: string | null;
@@ -286,7 +396,10 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
   const { isFirstVisit: isFirstVisitAhorra, dismiss: dismissAhorra } = useFirstVisit("ahorra");
   const searchMilestone = useMilestone("first-search");
   const { celebrate } = useCelebration();
+  const { paymentMethods, togglePaymentMethod } = usePaymentMethod();
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [searchItems, setSearchItems] = useState<SearchItem[]>([]);
+  const [lastSearchedTerms, setLastSearchedTerms] = useState<Set<string>>(new Set());
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [catalogInitialCategory, setCatalogInitialCategory] = useState<GroceryCategory | null>(null);
   const [overrides, setOverrides] = useState<Map<string, CartOverride>>(new Map());
@@ -345,6 +458,16 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
     const saved = loadSavedSearchItems();
     if (saved.length > 0) setSearchItems(saved);
   }, []);
+
+  // Request user location once — used for "Cómo llegar" Maps links
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => { /* permission denied or unavailable — silently ignore */ },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    );
+  }, []);
   const { data, isLoading, error, search, reset, restore } = useShoppingPlan();
   const undoSnapshot = useRef<{
     data: ShoppingPlanResult;
@@ -352,6 +475,13 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
     selectedStores: Set<string>;
   } | null>(null);
   const searchTerms = useMemo(() => searchItems.map((item) => item.term), [searchItems]);
+
+  const hasResults = (data?.storeCarts?.length ?? 0) > 0;
+
+  const newItems = useMemo(() => {
+    if (!hasResults || lastSearchedTerms.size === 0) return [];
+    return searchItems.filter((i) => !lastSearchedTerms.has(normalizeProductTerm(i.term)));
+  }, [searchItems, lastSearchedTerms, hasResults]);
 
   // Saved carts
   // Product catalog for autocomplete
@@ -513,12 +643,13 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
 
   const handleSearch = useCallback(() => {
     if (searchItems.length === 0) return;
-    search(searchItems);
+    search(searchItems, paymentMethods.map((m) => m.bankSlug));
+    setLastSearchedTerms(new Set(searchItems.map((i) => normalizeProductTerm(i.term))));
     if (searchMilestone.complete()) celebrate("first-search");
     if (typeof window !== "undefined") {
       localStorage.setItem("habita:shopping-first-search", "1");
     }
-  }, [searchItems, search, searchMilestone, celebrate]);
+  }, [searchItems, search, paymentMethods, searchMilestone, celebrate]);
 
   const handleNewSearch = useCallback(() => {
     if (data) {
@@ -639,6 +770,12 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
         {/* Results content (hidden when showing saved/promos) */}
         {!showSaved && !showPromos && (
           <>
+            {/* Payment method selector — keep visible in results so user can filter promos */}
+            <PaymentMethodPicker
+              paymentMethods={paymentMethods}
+              onToggle={togglePaymentMethod}
+            />
+
             {/* Context line: date + store count */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>{searchedDate}</span>
@@ -751,9 +888,15 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
                     isSavePending={isSavePending}
                     onToggleSave={() => handleToggleSaveCart(cart)}
                     onRegisterAsExpense={handleRegisterAsExpense}
-                    promos={getStorePromos(promos, cart.storeName)}
+                    promos={(() => {
+                      const storePromos = getStorePromos(promos, cart.storeName);
+                      const slugs = paymentMethods.map((m) => m.bankSlug);
+                      return slugs.length > 0 ? storePromos.filter((p) => slugs.includes(p.bankSlug)) : storePromos;
+                    })()}
                     isPinned={pinnedStore === cart.storeName}
                     onPinStore={(storeName) => setPinnedStore((prev) => prev === storeName ? null : storeName)}
+                    preferredBankSlugs={paymentMethods.map((m) => m.bankSlug)}
+                    userCoords={userCoords ?? undefined}
                   />
                 ))}
               </div>
@@ -923,32 +1066,14 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
             onRemove={removeTerm}
             onSetQuantity={setTermQuantity}
             products={catalogData?.products}
+            collapsible
           />
 
-      {/* Category quick-start pills */}
-      <div className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-1 scrollbar-none">
-        {QUICK_CATEGORIES.map((cat) => {
-          const Icon = cat.icon;
-          return (
-            <button
-              key={cat.key}
-              type="button"
-              onClick={() => {
-                setCatalogInitialCategory(cat.key);
-                setCatalogOpen(true);
-              }}
-              className={cn(
-                "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium transition-all duration-200 active:scale-[0.97]",
-                cat.bgColor, cat.color,
-                "hover:opacity-80",
-              )}
-            >
-              <Icon className={iconSize.xs} />
-              {cat.label}
-            </button>
-          );
-        })}
-      </div>
+          {/* Payment method selector */}
+          <PaymentMethodPicker
+            paymentMethods={paymentMethods}
+            onToggle={togglePaymentMethod}
+          />
 
       {/* Catalog banner */}
       <button
@@ -973,11 +1098,14 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
       <div className="flex items-center gap-2">
         <Button
           onClick={handleSearch}
-            disabled={searchItems.length === 0}
+          disabled={searchItems.length === 0}
           className="gap-2"
         >
-          <Search className="h-4 w-4" />
-          Buscar precios
+          {hasResults && newItems.length > 0
+            ? <RefreshCw className="h-4 w-4" />
+            : <Search className="h-4 w-4" />
+          }
+          {hasResults && newItems.length > 0 ? "Actualizar búsqueda" : "Buscar precios"}
         </Button>
         {searchItems.length > 0 && !clearUndoSnapshot && (
           <Button
@@ -1088,7 +1216,7 @@ function SectionTabs({ tabs, activeKey, onSelect, trailing }: SectionTabsProps) 
 // Promos View
 // ============================================
 
-import { scorePromo, scoreStore, parseDaysOfWeek, getTodayDayName } from "@/lib/promos/scoring";
+import { scorePromo, scoreStore, parseDaysOfWeek, getTodayDayName, isPromoExpired, promoAppliesToday } from "@/lib/promos/scoring";
 
 interface PromosViewProps {
   promos: BankPromo[] | undefined;
@@ -1096,12 +1224,17 @@ interface PromosViewProps {
   onRefresh: () => Promise<void>;
 }
 
+/** Capitalize first letter of a day name. */
+function capitalizeDay(day: string): string {
+  return day.charAt(0).toUpperCase() + day.slice(1);
+}
+
 /** Format daysOfWeek JSON array into a human-readable label. */
 function formatDays(daysOfWeek: string): string {
   const days = parseDaysOfWeek(daysOfWeek);
   if (days.length === 0) return "Todos los días";
   if (days.length === 7) return "Todos los días";
-  return days.join(", ");
+  return days.map(capitalizeDay).join(", ");
 }
 
 /** Format capAmount to a readable string. */
@@ -1170,14 +1303,15 @@ function PromosView({ promos, isRunning, onRefresh }: PromosViewProps) {
   const storeGroups = useMemo((): StorePromoGroup[] => {
     if (!promos || promos.length === 0) return [];
 
-    // Apply filter: match bank name OR store name
+    // Remove expired promos, then apply search filter
+    const active = promos.filter((p) => !isPromoExpired(p));
     const filtered = searchFilter.trim()
-      ? promos.filter(
+      ? active.filter(
           (p) =>
             fuzzyMatch(searchFilter, p.bankDisplayName) ||
             fuzzyMatch(searchFilter, p.storeName),
         )
-      : promos;
+      : active;
 
     if (filtered.length === 0) return [];
 
@@ -1310,6 +1444,7 @@ function PromosView({ promos, isRunning, onRefresh }: PromosViewProps) {
               {bankGroups.map(({ bankSlug, bestPromo }) => {
                 const cap = formatCap(bestPromo.capAmount);
                 const paymentMethods = parseJsonArray(bestPromo.paymentMethods);
+                const appliesToday = promoAppliesToday(bestPromo, todayName);
                 return (
                   <div
                     key={bankSlug}
@@ -1325,6 +1460,11 @@ function PromosView({ promos, isRunning, onRefresh }: PromosViewProps) {
                     <span className="ml-auto text-xs text-muted-foreground">
                       {formatDays(bestPromo.daysOfWeek)}
                     </span>
+                    {appliesToday && (
+                      <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                        Hoy
+                      </span>
+                    )}
                     {cap && (
                       <span className="text-[11px] text-muted-foreground">tope {cap}</span>
                     )}

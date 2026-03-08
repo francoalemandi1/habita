@@ -125,100 +125,100 @@ interface CategoryColorSet {
 /** Per-category color system — accent color for chips, CTAs, and card left border. */
 const CATEGORY_COLORS: Record<string, CategoryColorSet> = {
   cine: {
-    cardBg: "bg-violet-50/60", cardBorder: "border-violet-200/70",
-    iconBg: "bg-violet-100", iconColor: "text-violet-600",
+    cardBg: "bg-violet-50/60 dark:bg-violet-950/40", cardBorder: "border-violet-200/70 dark:border-violet-800/50",
+    iconBg: "bg-violet-100 dark:bg-violet-900/40", iconColor: "text-violet-600 dark:text-violet-400",
     pillActiveBg: "bg-violet-600", pillActiveText: "text-white",
-    chipBg: "bg-violet-100", chipText: "text-violet-700",
+    chipBg: "bg-violet-100 dark:bg-violet-900/40", chipText: "text-violet-700 dark:text-violet-400",
   },
   teatro: {
-    cardBg: "bg-orange-50/60", cardBorder: "border-orange-200/70",
-    iconBg: "bg-orange-100", iconColor: "text-orange-600",
+    cardBg: "bg-orange-50/60 dark:bg-orange-950/40", cardBorder: "border-orange-200/70 dark:border-orange-800/50",
+    iconBg: "bg-orange-100 dark:bg-orange-900/40", iconColor: "text-orange-600 dark:text-orange-400",
     pillActiveBg: "bg-orange-600", pillActiveText: "text-white",
-    chipBg: "bg-orange-100", chipText: "text-orange-700",
+    chipBg: "bg-orange-100 dark:bg-orange-900/40", chipText: "text-orange-700 dark:text-orange-400",
   },
   musica: {
-    cardBg: "bg-pink-50/60", cardBorder: "border-pink-200/70",
-    iconBg: "bg-pink-100", iconColor: "text-pink-600",
+    cardBg: "bg-pink-50/60 dark:bg-pink-950/40", cardBorder: "border-pink-200/70 dark:border-pink-800/50",
+    iconBg: "bg-pink-100 dark:bg-pink-900/40", iconColor: "text-pink-600 dark:text-pink-400",
     pillActiveBg: "bg-pink-600", pillActiveText: "text-white",
-    chipBg: "bg-pink-100", chipText: "text-pink-700",
+    chipBg: "bg-pink-100 dark:bg-pink-900/40", chipText: "text-pink-700 dark:text-pink-400",
   },
   muestras: {
-    cardBg: "bg-emerald-50/60", cardBorder: "border-emerald-200/70",
-    iconBg: "bg-emerald-100", iconColor: "text-emerald-600",
+    cardBg: "bg-emerald-50/60 dark:bg-emerald-950/40", cardBorder: "border-emerald-200/70 dark:border-emerald-800/50",
+    iconBg: "bg-emerald-100 dark:bg-emerald-900/40", iconColor: "text-emerald-600 dark:text-emerald-400",
     pillActiveBg: "bg-emerald-600", pillActiveText: "text-white",
-    chipBg: "bg-emerald-100", chipText: "text-emerald-700",
+    chipBg: "bg-emerald-100 dark:bg-emerald-900/40", chipText: "text-emerald-700 dark:text-emerald-400",
   },
   danza: {
-    cardBg: "bg-fuchsia-50/60", cardBorder: "border-fuchsia-200/70",
-    iconBg: "bg-fuchsia-100", iconColor: "text-fuchsia-600",
+    cardBg: "bg-fuchsia-50/60 dark:bg-fuchsia-950/40", cardBorder: "border-fuchsia-200/70 dark:border-fuchsia-800/50",
+    iconBg: "bg-fuchsia-100 dark:bg-fuchsia-900/40", iconColor: "text-fuchsia-600 dark:text-fuchsia-400",
     pillActiveBg: "bg-fuchsia-600", pillActiveText: "text-white",
-    chipBg: "bg-fuchsia-100", chipText: "text-fuchsia-700",
+    chipBg: "bg-fuchsia-100 dark:bg-fuchsia-900/40", chipText: "text-fuchsia-700 dark:text-fuchsia-400",
   },
   talleres: {
-    cardBg: "bg-cyan-50/60", cardBorder: "border-cyan-200/70",
-    iconBg: "bg-cyan-100", iconColor: "text-cyan-600",
+    cardBg: "bg-cyan-50/60 dark:bg-cyan-950/40", cardBorder: "border-cyan-200/70 dark:border-cyan-800/50",
+    iconBg: "bg-cyan-100 dark:bg-cyan-900/40", iconColor: "text-cyan-600 dark:text-cyan-400",
     pillActiveBg: "bg-cyan-600", pillActiveText: "text-white",
-    chipBg: "bg-cyan-100", chipText: "text-cyan-700",
+    chipBg: "bg-cyan-100 dark:bg-cyan-900/40", chipText: "text-cyan-700 dark:text-cyan-400",
   },
   ferias: {
-    cardBg: "bg-amber-50/60", cardBorder: "border-amber-200/70",
-    iconBg: "bg-amber-100", iconColor: "text-amber-600",
+    cardBg: "bg-amber-50/60 dark:bg-amber-950/40", cardBorder: "border-amber-200/70 dark:border-amber-800/50",
+    iconBg: "bg-amber-100 dark:bg-amber-900/40", iconColor: "text-amber-600 dark:text-amber-400",
     pillActiveBg: "bg-amber-600", pillActiveText: "text-white",
-    chipBg: "bg-amber-100", chipText: "text-amber-700",
+    chipBg: "bg-amber-100 dark:bg-amber-900/40", chipText: "text-amber-700 dark:text-amber-400",
   },
   infantil: {
-    cardBg: "bg-teal-50/60", cardBorder: "border-teal-200/70",
-    iconBg: "bg-teal-100", iconColor: "text-teal-600",
+    cardBg: "bg-teal-50/60 dark:bg-teal-950/40", cardBorder: "border-teal-200/70 dark:border-teal-800/50",
+    iconBg: "bg-teal-100 dark:bg-teal-900/40", iconColor: "text-teal-600 dark:text-teal-400",
     pillActiveBg: "bg-teal-600", pillActiveText: "text-white",
-    chipBg: "bg-teal-100", chipText: "text-teal-700",
+    chipBg: "bg-teal-100 dark:bg-teal-900/40", chipText: "text-teal-700 dark:text-teal-400",
   },
   restaurantes: {
-    cardBg: "bg-rose-50/60", cardBorder: "border-rose-200/70",
-    iconBg: "bg-rose-100", iconColor: "text-rose-600",
+    cardBg: "bg-rose-50/60 dark:bg-rose-950/40", cardBorder: "border-rose-200/70 dark:border-rose-800/50",
+    iconBg: "bg-rose-100 dark:bg-rose-900/40", iconColor: "text-rose-600 dark:text-rose-400",
     pillActiveBg: "bg-rose-600", pillActiveText: "text-white",
-    chipBg: "bg-rose-100", chipText: "text-rose-700",
+    chipBg: "bg-rose-100 dark:bg-rose-900/40", chipText: "text-rose-700 dark:text-rose-400",
   },
   bares: {
-    cardBg: "bg-indigo-50/60", cardBorder: "border-indigo-200/70",
-    iconBg: "bg-indigo-100", iconColor: "text-indigo-600",
+    cardBg: "bg-indigo-50/60 dark:bg-indigo-950/40", cardBorder: "border-indigo-200/70 dark:border-indigo-800/50",
+    iconBg: "bg-indigo-100 dark:bg-indigo-900/40", iconColor: "text-indigo-600 dark:text-indigo-400",
     pillActiveBg: "bg-indigo-600", pillActiveText: "text-white",
-    chipBg: "bg-indigo-100", chipText: "text-indigo-700",
+    chipBg: "bg-indigo-100 dark:bg-indigo-900/40", chipText: "text-indigo-700 dark:text-indigo-400",
   },
   cafes: {
-    cardBg: "bg-yellow-50/60", cardBorder: "border-yellow-200/70",
-    iconBg: "bg-yellow-100", iconColor: "text-yellow-700",
+    cardBg: "bg-yellow-50/60 dark:bg-yellow-950/40", cardBorder: "border-yellow-200/70 dark:border-yellow-800/50",
+    iconBg: "bg-yellow-100 dark:bg-yellow-900/40", iconColor: "text-yellow-700 dark:text-yellow-400",
     pillActiveBg: "bg-yellow-600", pillActiveText: "text-white",
-    chipBg: "bg-yellow-100", chipText: "text-yellow-700",
+    chipBg: "bg-yellow-100 dark:bg-yellow-900/40", chipText: "text-yellow-700 dark:text-yellow-400",
   },
   cervecerias: {
-    cardBg: "bg-amber-50/60", cardBorder: "border-amber-200/70",
-    iconBg: "bg-amber-100", iconColor: "text-amber-600",
+    cardBg: "bg-amber-50/60 dark:bg-amber-950/40", cardBorder: "border-amber-200/70 dark:border-amber-800/50",
+    iconBg: "bg-amber-100 dark:bg-amber-900/40", iconColor: "text-amber-600 dark:text-amber-400",
     pillActiveBg: "bg-amber-600", pillActiveText: "text-white",
-    chipBg: "bg-amber-100", chipText: "text-amber-700",
+    chipBg: "bg-amber-100 dark:bg-amber-900/40", chipText: "text-amber-700 dark:text-amber-400",
   },
   heladerias: {
-    cardBg: "bg-sky-50/60", cardBorder: "border-sky-200/70",
-    iconBg: "bg-sky-100", iconColor: "text-sky-600",
+    cardBg: "bg-sky-50/60 dark:bg-sky-950/40", cardBorder: "border-sky-200/70 dark:border-sky-800/50",
+    iconBg: "bg-sky-100 dark:bg-sky-900/40", iconColor: "text-sky-600 dark:text-sky-400",
     pillActiveBg: "bg-sky-600", pillActiveText: "text-white",
-    chipBg: "bg-sky-100", chipText: "text-sky-700",
+    chipBg: "bg-sky-100 dark:bg-sky-900/40", chipText: "text-sky-700 dark:text-sky-400",
   },
   pizzerias: {
-    cardBg: "bg-orange-50/60", cardBorder: "border-orange-200/70",
-    iconBg: "bg-orange-100", iconColor: "text-orange-600",
+    cardBg: "bg-orange-50/60 dark:bg-orange-950/40", cardBorder: "border-orange-200/70 dark:border-orange-800/50",
+    iconBg: "bg-orange-100 dark:bg-orange-900/40", iconColor: "text-orange-600 dark:text-orange-400",
     pillActiveBg: "bg-orange-600", pillActiveText: "text-white",
-    chipBg: "bg-orange-100", chipText: "text-orange-700",
+    chipBg: "bg-orange-100 dark:bg-orange-900/40", chipText: "text-orange-700 dark:text-orange-400",
   },
   comida_rapida: {
-    cardBg: "bg-lime-50/60", cardBorder: "border-lime-200/70",
-    iconBg: "bg-lime-100", iconColor: "text-lime-700",
+    cardBg: "bg-lime-50/60 dark:bg-lime-950/40", cardBorder: "border-lime-200/70 dark:border-lime-800/50",
+    iconBg: "bg-lime-100 dark:bg-lime-900/40", iconColor: "text-lime-700 dark:text-lime-400",
     pillActiveBg: "bg-lime-600", pillActiveText: "text-white",
-    chipBg: "bg-lime-100", chipText: "text-lime-700",
+    chipBg: "bg-lime-100 dark:bg-lime-900/40", chipText: "text-lime-700 dark:text-lime-400",
   },
   parrillas: {
-    cardBg: "bg-red-50/60", cardBorder: "border-red-200/70",
-    iconBg: "bg-red-100", iconColor: "text-red-600",
+    cardBg: "bg-red-50/60 dark:bg-red-950/40", cardBorder: "border-red-200/70 dark:border-red-800/50",
+    iconBg: "bg-red-100 dark:bg-red-900/40", iconColor: "text-red-600 dark:text-red-400",
     pillActiveBg: "bg-red-600", pillActiveText: "text-white",
-    chipBg: "bg-red-100", chipText: "text-red-700",
+    chipBg: "bg-red-100 dark:bg-red-900/40", chipText: "text-red-700 dark:text-red-400",
   },
 };
 
@@ -625,7 +625,7 @@ export function DescubrirClient({
         />
       )}
       {query.error && query.data && (
-        <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-950/40 p-3 text-sm text-red-700 dark:text-red-400">
           <AlertTriangle className={iconSize.sm} />
           No se pudo actualizar. Intentá en unos minutos.
         </div>
@@ -1149,9 +1149,9 @@ function PriceBadge({ priceRange }: { priceRange: string }) {
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold",
-        isGratis && "bg-green-200/80 text-green-800",
+        isGratis && "bg-green-200/80 text-green-800 dark:bg-green-900/40 dark:text-green-400",
         isConsultar && "bg-muted/70 text-muted-foreground font-medium",
-        !isGratis && !isConsultar && "bg-amber-200/80 text-amber-900",
+        !isGratis && !isConsultar && "bg-amber-200/80 text-amber-900 dark:bg-amber-900/40 dark:text-amber-400",
       )}
     >
       {isGratis ? (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { subscribeRuntimeEvents } from "@/lib/runtime-events";
+import { useThemeColors } from "@/hooks/use-theme";
 
 interface BannerState {
   type: "network-error" | "auth-expired";
@@ -9,6 +10,7 @@ interface BannerState {
 
 export function RuntimeBanner() {
   const [banner, setBanner] = useState<BannerState | null>(null);
+  const c = useThemeColors();
 
   useEffect(() => {
     return subscribeRuntimeEvents((event) => {
@@ -37,8 +39,8 @@ export function RuntimeBanner() {
     return null;
   }
 
-  const backgroundColor = banner.type === "auth-expired" ? "#fef3c7" : "#fee2e2";
-  const textColor = banner.type === "auth-expired" ? "#92400e" : "#991b1b";
+  const backgroundColor = banner.type === "auth-expired" ? c.warningBg : c.errorBg;
+  const textColor = banner.type === "auth-expired" ? c.warningText : c.errorText;
 
   return (
     <View
@@ -53,7 +55,7 @@ export function RuntimeBanner() {
         paddingVertical: 10,
         backgroundColor,
         borderWidth: 1,
-        borderColor: "#f3f4f6",
+        borderColor: c.border,
       }}
     >
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>

@@ -21,4 +21,5 @@ export * from "./roulette";
 export * from "./suggest-tasks";
 export * from "./task-catalog";
 export * from "./grocery-deals";
+export * from "./ai-jobs";
 export { queryKeys } from "./query-keys";

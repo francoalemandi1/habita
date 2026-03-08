@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 
-import type { MealType, Recipe, CocinaResponse, CocinaInput } from "@habita/contracts";
+import type { MealType, Recipe, CocinaResponse, CocinaInput, AiJobTriggerResponse } from "@habita/contracts";
 
 export type { MealType, Recipe, CocinaResponse, CocinaInput };
 
@@ -10,7 +10,7 @@ export type { MealType, Recipe, CocinaResponse, CocinaInput };
 export function useCocina() {
   return useMutation({
     mutationFn: async (input: CocinaInput) =>
-      mobileApi.post<CocinaResponse>("/api/ai/cocina", {
+      mobileApi.post<AiJobTriggerResponse>("/api/ai/cocina", {
         textInput: input.textInput,
         mealType: input.mealType,
         images: input.images ?? [],

@@ -32,6 +32,8 @@ import {
 import { useCreateTask, useDeleteTask, useTasks } from "@/hooks/use-task-management";
 import { useMembers } from "@/hooks/use-members";
 import { useThemeColors } from "@/hooks/use-theme";
+import { useAiJobStatus } from "@/hooks/use-ai-job-status";
+import { mobileApi } from "@/lib/api";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,7 +41,7 @@ import { StyledTextInput } from "@/components/ui/text-input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { fontFamily, spacing, typography } from "@/theme";
 
-import type { PlanAssignment, TaskFrequency } from "@habita/contracts";
+import type { PlanAssignment, PlanPreviewResponse, TaskFrequency } from "@habita/contracts";
 import type { ThemeColors } from "@/theme";
 
 // ─── constants ──────────────────────────────────────────────────────────────
@@ -121,8 +123,31 @@ export default function WeeklyPlanScreen() {
   // Selected assignments set (for toggle behaviour, mirrors web)
   const [selectedAssignments, setSelectedAssignments] = useState<Set<string>>(new Set());
 
-  const plan = previewPlan.data?.plan;
-  const fairness = previewPlan.data?.fairnessDetails;
+  // Plan result from background job
+  const [planResult, setPlanResult] = useState<PlanPreviewResponse | null>(null);
+
+  const { isRunning: isJobRunning, refetchStatus } = useAiJobStatus({
+    jobType: "PREVIEW_PLAN",
+    onComplete: async (jobId) => {
+      try {
+        const result = await mobileApi.get<{
+          resultData: PlanPreviewResponse;
+        }>(`/api/ai/job-result/${jobId}`);
+        setPlanResult(result.resultData);
+        setSelectedAssignments(
+          new Set(result.resultData.plan.assignments.map((a) => assignmentKey(a)))
+        );
+      } catch {
+        setError("Error al obtener el plan generado");
+      }
+    },
+    onError: (errorMessage) => {
+      setError(errorMessage ?? "Error al generar el plan");
+    },
+  });
+
+  const plan = planResult?.plan;
+  const fairness = planResult?.fairnessDetails;
 
   const hasDayInfo = useMemo(() => plan?.assignments.some((a) => a.dayOfWeek), [plan]);
 
@@ -171,13 +196,14 @@ export default function WeeklyPlanScreen() {
     setSuccessMessage(null);
     setAppliedPlanId(null);
     setActiveDayOfWeek(1);
+    setPlanResult(null);
     try {
-      const result = await previewPlan.mutateAsync({
+      await previewPlan.mutateAsync({
         startDate: `${startIso}T00:00:00.000Z`,
         endDate: `${endIso}T00:00:00.000Z`,
       });
-      // Pre-select all assignments
-      setSelectedAssignments(new Set(result.plan.assignments.map((a) => assignmentKey(a))));
+      // Trigger polling for job completion
+      await refetchStatus();
     } catch (previewError) {
       setError(getMobileErrorMessage(previewError));
     }
@@ -260,7 +286,7 @@ export default function WeeklyPlanScreen() {
 
 
         {/* -- SETUP SCREEN (no plan yet) -- */}
-        {!plan && !previewPlan.isPending && !appliedPlanId ? (
+        {!plan && !(previewPlan.isPending || isJobRunning) && !appliedPlanId ? (
           <>
             {/* Date picker — first so the user sets the range before seeing the task count */}
             <Card style={styles.setupCard}>
@@ -377,7 +403,7 @@ export default function WeeklyPlanScreen() {
                     </Text>
                   </View>
                   <Button
-                    loading={previewPlan.isPending}
+                    loading={(previewPlan.isPending || isJobRunning)}
                     onPress={() => void handlePreview()}
                     style={styles.ctaButton}
                     disabled={householdTasks.length === 0}
@@ -498,7 +524,7 @@ export default function WeeklyPlanScreen() {
         </Modal>
 
         {/* -- LOADING STATE -- */}
-        {previewPlan.isPending ? (
+        {(previewPlan.isPending || isJobRunning) ? (
           <EmptyState
             pulsing
             icon={<CalendarDays size={40} color={colors.primary} />}

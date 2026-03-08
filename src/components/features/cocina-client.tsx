@@ -24,12 +24,12 @@ import { useFirstVisit } from "@/hooks/use-first-visit";
 import { useMilestone } from "@/hooks/use-milestone";
 import { useCelebration } from "@/hooks/use-celebration";
 import { wasSectionToured } from "@/hooks/use-guided-tour";
-import { useMutationState } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { radius, spacing, iconSize } from "@/lib/design-tokens";
 import { useCocinaMutation } from "@/hooks/use-cocina-mutation";
+import { useAiJobStatus } from "@/hooks/use-ai-job-status";
 import { useSessionStorageState } from "@/hooks/use-session-storage-state";
-import { queryKeys } from "@/lib/query-keys";
+import { apiFetch } from "@/lib/api-client";
 import { SaveButton } from "@/components/ui/save-button";
 import {
   useSavedRecipes,
@@ -144,16 +144,30 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
   const [showSaved, setShowSaved] = useState(false);
   const { data: savedRecipes } = useSavedRecipes();
 
-  // React Query mutation — survives navigation via MutationCache (gcTime 30min)
+  // Mutation trigger — now returns immediately with a job ID
   const mutation = useCocinaMutation();
+  const [cocinaResult, setCocinaResult] = useState<{ recipes: Recipe[]; summary: string } | null>(null);
+  const [cocinaError, setCocinaError] = useState<string | null>(null);
 
-  // Observe in-flight mutations from the global cache so loading state survives remount.
-  // When the component remounts while a mutation is still running, `mutation.isPending`
-  // on the new hook instance is false, but the cache still tracks the pending mutation.
-  const pendingMutations = useMutationState({
-    filters: { mutationKey: queryKeys.cocina.recipes(), status: "pending" },
+  // Poll for job completion
+  const { isRunning: isJobRunning, refetchStatus } = useAiJobStatus({
+    jobType: "COCINA",
+    onComplete: async (jobId) => {
+      try {
+        const result = await apiFetch<{
+          resultData: { recipes: Recipe[]; summary: string; generatedAt: string };
+        }>(`/api/ai/job-result/${jobId}`);
+        setCocinaResult(result.resultData);
+      } catch {
+        setCocinaError("Error al obtener las recetas");
+      }
+    },
+    onError: (errorMessage) => {
+      setCocinaError(errorMessage ?? "Error al generar recetas");
+    },
   });
-  const isGenerating = mutation.isPending || pendingMutations.length > 0;
+
+  const isGenerating = mutation.isPending || isJobRunning;
 
   // Transient UI state (not worth persisting)
   const [isRecording, setIsRecording] = useState(false);
@@ -174,17 +188,17 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
     [textInput, images, isGenerating]
   );
 
-  // Scroll to results only when a NEW generation completes (not on remount from cache)
-  const prevDataRef = useRef(mutation.data);
+  // Scroll to results only when a NEW generation completes
+  const prevDataRef = useRef(cocinaResult);
   useEffect(() => {
-    const isNewResult = mutation.data?.recipes && mutation.data !== prevDataRef.current;
-    prevDataRef.current = mutation.data;
+    const isNewResult = cocinaResult?.recipes && cocinaResult !== prevDataRef.current;
+    prevDataRef.current = cocinaResult;
     if (isNewResult && resultsRef.current) {
       resultsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
       if (recipeMilestone.complete()) celebrate("first-recipe");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mutation.data]);
+  }, [cocinaResult]);
 
   // ---- Image handling ----
   const handleImageUpload = useCallback(async (files: FileList | null) => {
@@ -252,12 +266,12 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
   // ---- Submit ----
   const handleSubmit = useCallback(() => {
     if (!canSubmit) return;
-    mutation.mutate({
-      textInput: textInput.trim(),
-      images,
-      mealType,
-    });
-  }, [canSubmit, textInput, images, mealType, mutation]);
+    setCocinaError(null);
+    mutation.mutate(
+      { textInput: textInput.trim(), images, mealType },
+      { onSuccess: () => { void refetchStatus(); } },
+    );
+  }, [canSubmit, textInput, images, mealType, mutation, refetchStatus]);
 
   // ---- AI not enabled ----
   if (!aiEnabled) {
@@ -469,29 +483,29 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
         </div>
       )}
 
-      {/* Mutation error */}
-      {mutation.error && (
+      {/* Error */}
+      {(mutation.error || cocinaError) && (
         <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">
           <AlertTriangle className={iconSize.sm} />
-          {mutation.error.message}
+          {mutation.error?.message ?? cocinaError}
         </div>
       )}
 
       {/* Rejection message (non-food input) */}
-      {mutation.data?.recipes && mutation.data.recipes.length === 0 && mutation.data.summary && (
+      {cocinaResult?.recipes && cocinaResult.recipes.length === 0 && cocinaResult.summary && (
         <div className="rounded-lg border border-border bg-muted/50 p-4 text-center">
-          <p className="text-sm text-muted-foreground">{mutation.data.summary}</p>
+          <p className="text-sm text-muted-foreground">{cocinaResult.summary}</p>
         </div>
       )}
 
       {/* Results */}
-      {mutation.data?.recipes && mutation.data.recipes.length > 0 && (
+      {cocinaResult?.recipes && cocinaResult.recipes.length > 0 && (
         <div ref={resultsRef} className={spacing.contentStack}>
-          {mutation.data.summary && (
-            <p className="text-sm text-muted-foreground">{mutation.data.summary}</p>
+          {cocinaResult.summary && (
+            <p className="text-sm text-muted-foreground">{cocinaResult.summary}</p>
           )}
           <div className="grid grid-cols-1 gap-4">
-            {mutation.data.recipes.map((recipe, index) => (
+            {cocinaResult.recipes.map((recipe, index) => (
               <RecipeCard
                 key={`${recipe.title}-${index}`}
                 recipe={recipe}

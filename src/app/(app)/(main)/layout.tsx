@@ -5,6 +5,7 @@ import { getCurrentMember, getCurrentUserMembers } from "@/lib/session";
 import { AppNav } from "@/components/features/app-nav";
 import { AppNavMobile } from "@/components/features/app-nav-mobile";
 import { HouseholdSwitcher } from "@/components/features/household-switcher";
+import { AiJobWatcher } from "@/components/features/ai-job-watcher";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -54,6 +55,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
       </header>
       <main className="flex-1 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0">{children}</main>
       <AppNavMobile />
+      <AiJobWatcher />
     </div>
   );
 }

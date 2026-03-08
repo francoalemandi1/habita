@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 import { queryKeys } from "@habita/contracts";
 import type {
+  AiJobTriggerResponse,
   SearchItem,
   ShoppingPlanAlternativesResponse,
   ShoppingPlanResult,
@@ -26,7 +27,7 @@ interface ShoppingPlanInput {
 export function useShoppingPlan() {
   return useMutation({
     mutationFn: async (input: ShoppingPlanInput) =>
-      mobileApi.post<ShoppingPlanResult>("/api/ai/shopping-plan", input),
+      mobileApi.post<AiJobTriggerResponse>("/api/ai/shopping-plan", input),
   });
 }
 

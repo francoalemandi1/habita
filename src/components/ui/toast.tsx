@@ -7,22 +7,33 @@ import type { ReactNode } from "react";
 
 type ToastType = "success" | "error" | "warning" | "info" | "celebration";
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface Toast {
   id: string;
   type: ToastType;
   title: string;
   message?: string;
+  action?: ToastAction;
   isExiting: boolean;
+}
+
+interface ToastOptions {
+  message?: string;
+  action?: ToastAction;
 }
 
 interface ToastContextType {
   toasts: Toast[];
   addToast: (toast: Omit<Toast, "id" | "isExiting">) => void;
   removeToast: (id: string) => void;
-  success: (title: string, message?: string) => void;
-  error: (title: string, message?: string) => void;
-  warning: (title: string, message?: string) => void;
-  info: (title: string, message?: string) => void;
+  success: (title: string, messageOrOptions?: string | ToastOptions) => void;
+  error: (title: string, messageOrOptions?: string | ToastOptions) => void;
+  warning: (title: string, messageOrOptions?: string | ToastOptions) => void;
+  info: (title: string, messageOrOptions?: string | ToastOptions) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -34,17 +45,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const id = Math.random().toString(36).slice(2);
     setToasts((prev) => [...prev, { ...toast, id, isExiting: false }]);
 
+    // Extend auto-dismiss when there's an action button
+    const duration = toast.action ? 8000 : 5000;
+
     // Begin exit animation before removal
     setTimeout(() => {
       setToasts((prev) =>
         prev.map((t) => (t.id === id ? { ...t, isExiting: true } : t))
       );
-    }, 4700);
+    }, duration - 300);
 
     // Remove from DOM after exit animation completes
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 5000);
+    }, duration);
   }, []);
 
   const removeToast = useCallback((id: string) => {
@@ -56,24 +70,36 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }, 200);
   }, []);
 
+  const makeHelper = useCallback(
+    (type: ToastType) =>
+      (title: string, messageOrOptions?: string | ToastOptions) => {
+        if (typeof messageOrOptions === "string") {
+          addToast({ type, title, message: messageOrOptions });
+        } else {
+          addToast({ type, title, ...messageOrOptions });
+        }
+      },
+    [addToast],
+  );
+
   const success = useCallback(
-    (title: string, message?: string) => addToast({ type: "success", title, message }),
-    [addToast]
+    (title: string, messageOrOptions?: string | ToastOptions) => makeHelper("success")(title, messageOrOptions),
+    [makeHelper]
   );
 
   const error = useCallback(
-    (title: string, message?: string) => addToast({ type: "error", title, message }),
-    [addToast]
+    (title: string, messageOrOptions?: string | ToastOptions) => makeHelper("error")(title, messageOrOptions),
+    [makeHelper]
   );
 
   const warning = useCallback(
-    (title: string, message?: string) => addToast({ type: "warning", title, message }),
-    [addToast]
+    (title: string, messageOrOptions?: string | ToastOptions) => makeHelper("warning")(title, messageOrOptions),
+    [makeHelper]
   );
 
   const info = useCallback(
-    (title: string, message?: string) => addToast({ type: "info", title, message }),
-    [addToast]
+    (title: string, messageOrOptions?: string | ToastOptions) => makeHelper("info")(title, messageOrOptions),
+    [makeHelper]
   );
 
   return (
@@ -139,6 +165,17 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
         <p className="font-medium">{toast.title}</p>
         {toast.message && <p className="mt-1 text-sm text-muted-foreground">{toast.message}</p>}
       </div>
+      {toast.action && (
+        <button
+          onClick={() => {
+            toast.action?.onClick();
+            onClose();
+          }}
+          className="shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/10 dark:hover:bg-primary/20"
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button
         onClick={onClose}
         className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/5"

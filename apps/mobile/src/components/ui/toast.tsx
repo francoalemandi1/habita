@@ -8,17 +8,23 @@ import type { ThemeColors } from "@/theme";
 
 type ToastVariant = "default" | "success" | "error" | "warning" | "celebration";
 
+interface ToastAction {
+  label: string;
+  onPress: () => void;
+}
+
 interface ToastMessage {
   id: string;
   message: string;
   variant: ToastVariant;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
-  show: (message: string, variant?: ToastVariant) => void;
-  success: (message: string) => void;
-  error: (message: string) => void;
-  warning: (message: string) => void;
+  show: (message: string, variant?: ToastVariant, action?: ToastAction) => void;
+  success: (message: string, action?: ToastAction) => void;
+  error: (message: string, action?: ToastAction) => void;
+  warning: (message: string, action?: ToastAction) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -73,6 +79,18 @@ function ToastItem({
       <Text style={[styles.toastText, { color: v.text }]} numberOfLines={3}>
         {toast.message}
       </Text>
+      {toast.action && (
+        <Pressable
+          onPress={() => {
+            toast.action?.onPress();
+            dismiss();
+          }}
+          style={[styles.actionButton, { backgroundColor: colors.primary + "20" }]}
+          hitSlop={8}
+        >
+          <Text style={[styles.actionText, { color: colors.primary }]}>{toast.action.label}</Text>
+        </Pressable>
+      )}
       <Pressable onPress={dismiss} style={styles.dismissButton} hitSlop={8}>
         <Text style={[styles.dismissText, { color: v.text }]}>✕</Text>
       </Pressable>
@@ -87,14 +105,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const timersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  const show = useCallback((message: string, variant: ToastVariant = "default") => {
+  const show = useCallback((message: string, variant: ToastVariant = "default", action?: ToastAction) => {
     const id = String(++toastIdCounter);
-    setToasts((prev) => [...prev, { id, message, variant }]);
+    setToasts((prev) => [...prev, { id, message, variant, action }]);
 
+    const duration = action ? 8000 : 5000;
     timersRef.current[id] = setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
       delete timersRef.current[id];
-    }, 5000);
+    }, duration);
   }, []);
 
   const dismiss = useCallback((id: string) => {
@@ -108,9 +127,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const value: ToastContextValue = useMemo(
     () => ({
       show,
-      success: (msg: string) => show(msg, "success"),
-      error: (msg: string) => show(msg, "error"),
-      warning: (msg: string) => show(msg, "warning"),
+      success: (msg: string, action?: ToastAction) => show(msg, "success", action),
+      error: (msg: string, action?: ToastAction) => show(msg, "error", action),
+      warning: (msg: string, action?: ToastAction) => show(msg, "warning", action),
     }),
     [show],
   );
@@ -166,6 +185,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     lineHeight: 20,
+  },
+  actionButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.md,
+  },
+  actionText: {
+    fontFamily: fontFamily.sans,
+    fontSize: 13,
+    fontWeight: "600",
   },
   dismissButton: {
     padding: 2,

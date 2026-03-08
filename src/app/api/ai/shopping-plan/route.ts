@@ -1,11 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { requireMember } from "@/lib/session";
 import { compareProducts } from "@/lib/supermarket-search";
 import { handleApiError } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
+import { findRunningJob, markJobRunning, completeJob } from "@/lib/ai-jobs";
 
 import type { NextRequest } from "next/server";
+import type { AiJobTriggerResponse } from "@habita/contracts";
+
+export const maxDuration = 60;
 
 // ============================================
 // Schema
@@ -31,7 +35,7 @@ const bodySchema = z.object({
 
 /**
  * POST /api/ai/shopping-plan
- * Compare prices across supermarkets for a list of product search terms.
+ * Fire-and-forget: validates input, returns immediately, price comparison runs in background.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -50,19 +54,62 @@ export async function POST(request: NextRequest) {
     const city = member.household.city ?? null;
     const preferredBankSlugs = validation.data.preferredBankSlugs ?? [];
 
-    // Resolve which stores have an active promo for any of the preferred banks
-    let promoStores: Set<string> | null = null;
-    if (preferredBankSlugs.length > 0) {
-      const promos = await prisma.bankPromo.findMany({
-        where: { householdId: member.householdId, bankSlug: { in: preferredBankSlugs } },
-        select: { storeName: true },
-      });
-      promoStores = new Set(promos.map((p) => p.storeName));
+    // Prevent duplicate concurrent runs
+    const existing = await findRunningJob(member.householdId, "SHOPPING_PLAN");
+    if (existing) {
+      const response: AiJobTriggerResponse = {
+        started: false,
+        alreadyRunning: true,
+        jobId: existing.id,
+      };
+      return NextResponse.json(response);
     }
 
-    const result = await compareProducts(searchInput, city, promoStores);
+    const jobId = await markJobRunning(
+      member.householdId,
+      member.id,
+      "SHOPPING_PLAN",
+      { searchInput, city, preferredBankSlugs },
+    );
 
-    return NextResponse.json(result);
+    // Schedule background work
+    after(async () => {
+      const startTime = Date.now();
+      try {
+        // Resolve promo stores inside after() to keep the response fast
+        let promoStores: Set<string> | null = null;
+        if (preferredBankSlugs.length > 0) {
+          const promos = await prisma.bankPromo.findMany({
+            where: { householdId: member.householdId, bankSlug: { in: preferredBankSlugs } },
+            select: { storeName: true },
+          });
+          promoStores = new Set(promos.map((p) => p.storeName));
+        }
+
+        const result = await compareProducts(searchInput, city, promoStores);
+
+        await completeJob(jobId, {
+          status: "SUCCESS",
+          resultData: result,
+          durationMs: Date.now() - startTime,
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error("[shopping-plan] Background job failed:", errorMessage);
+        await completeJob(jobId, {
+          status: "FAILED",
+          errorMessage,
+          durationMs: Date.now() - startTime,
+        });
+      }
+    });
+
+    const response: AiJobTriggerResponse = {
+      started: true,
+      alreadyRunning: false,
+      jobId,
+    };
+    return NextResponse.json(response);
   } catch (error) {
     return handleApiError(error, { route: "/api/ai/shopping-plan", method: "POST" });
   }

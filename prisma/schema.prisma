@@ -164,6 +164,7 @@ model Household {
   invoices             Invoice[]
   bankPromos           BankPromo[]
   promoPipelineLogs    PromoPipelineLog[]
+  aiJobLogs            AiJobLog[]
   sharedFund           SharedFund?
   @@map("households")
 }
@@ -204,6 +205,7 @@ model Member {
   expoPushTokens       ExpoPushToken[]
   notificationPreferences NotificationPreference[]
   pushDeliveryLogs     PushDeliveryLog[]
+  aiJobLogs            AiJobLog[]
   @@unique([userId, householdId])
   @@index([householdId])
   @@index([userId])
@@ -405,6 +407,7 @@ model WeeklyPlan {
 
   household Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
   feedbacks PlanFeedback[]
+  aiJobLogs AiJobLog[]
 
   @@index([householdId, status])
   @@index([householdId, status, expiresAt])
@@ -1081,6 +1084,44 @@ model PromoPipelineLog {
 
   @@index([householdId, status])
   @@map("promo_pipeline_logs")
+}
+
+// ============================================
+// AI JOB LOG
+// ============================================
+
+enum AiJobStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum AiJobType {
+  PREVIEW_PLAN
+  COCINA
+  SHOPPING_PLAN
+}
+
+model AiJobLog {
+  id            String       @id @default(cuid())
+  householdId   String
+  memberId      String
+  jobType       AiJobType
+  status        AiJobStatus  @default(RUNNING)
+  inputData     Json?
+  resultData    Json?
+  weeklyPlanId  String?
+  errorMessage  String?
+  durationMs    Int?
+  startedAt     DateTime     @default(now())
+  completedAt   DateTime?
+
+  household  Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  member     Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  weeklyPlan WeeklyPlan? @relation(fields: [weeklyPlanId], references: [id], onDelete: SetNull)
+
+  @@index([householdId, jobType, status])
+  @@map("ai_job_logs")
 }
 
 // ============================================

@@ -50,6 +50,8 @@ import { Progress } from "@/components/ui/progress";
 import { getTaskIcon, getTaskCategoryMeta } from "@/data/onboarding-catalog";
 import { AddTaskToDayDialog } from "@/components/features/add-task-to-day-dialog";
 import { isSoloHousehold, getHouseholdCopy } from "@/lib/household-mode";
+import { useAiJobStatus } from "@/hooks/use-ai-job-status";
+import { apiFetch } from "@/lib/api-client";
 
 import type { MemberType, WeeklyPlanStatus, TaskFrequency } from "@prisma/client";
 import type { ExcludedTask } from "@/lib/plan-duration";
@@ -185,7 +187,7 @@ export function PlanPageClient({
   tasks,
   existingPlan,
 }: PlanPageClientProps) {
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingLocal, setIsGenerating] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [plan, setPlan] = useState<StoredPlan | null>(existingPlan);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
@@ -229,6 +231,59 @@ export function PlanPageClient({
   const toast = useToast();
   const isSolo = isSoloHousehold(members.length);
   const householdCopy = getHouseholdCopy(isSolo);
+
+  // Poll for plan generation job completion
+  const { isRunning: isJobRunning, refetchStatus } = useAiJobStatus({
+    jobType: "PREVIEW_PLAN",
+    onComplete: async (jobId) => {
+      try {
+        const result = await apiFetch<{
+          resultData: PlanPreviewResponse;
+        }>(`/api/ai/job-result/${jobId}`);
+        const data = result.resultData;
+
+        const newPlan: StoredPlan = {
+          id: data.plan.id,
+          status: "PENDING",
+          balanceScore: data.plan.balanceScore,
+          notes: data.plan.notes,
+          assignments: data.plan.assignments,
+          durationDays: data.plan.durationDays,
+          startDate: new Date(data.plan.startDate),
+          excludedTasks: data.plan.excludedTasks,
+          createdAt: new Date(),
+          appliedAt: null,
+          expiresAt: new Date(data.plan.endDate),
+        };
+
+        setPlan(newPlan);
+        setFairnessDetails(data.fairnessDetails);
+        setSelectedAssignments(
+          new Set(data.plan.assignments.map((a) => assignmentKey(a)))
+        );
+
+        const newStart = startOfDay(new Date(data.plan.startDate));
+        const newEnd = startOfDay(new Date(data.plan.endDate));
+        const todayDate = startOfDay(new Date());
+        if (todayDate >= newStart && todayDate <= newEnd) {
+          const diffDays = Math.round((todayDate.getTime() - newStart.getTime()) / (1000 * 60 * 60 * 24));
+          setActiveDayOfWeek(diffDays + 1);
+        } else {
+          setActiveDayOfWeek(1);
+        }
+      } catch {
+        toast.error("Error", "No se pudo obtener el plan generado");
+      } finally {
+        setIsGenerating(false);
+      }
+    },
+    onError: (errorMessage) => {
+      toast.error("Error", errorMessage ?? "No se pudo generar el plan. Intenta de nuevo.");
+      setIsGenerating(false);
+    },
+  });
+
+  const isGenerating = isGeneratingLocal || isJobRunning;
 
   const categorizedTasks = useMemo(
     () => {
@@ -280,12 +335,14 @@ export function PlanPageClient({
           "Servicio no disponible",
           "La generación de planes no está configurada"
         );
+        setIsGenerating(false);
         return;
       }
 
       if (response.status === 400) {
         const data = await response.json() as { error?: string };
         toast.info("Sin tareas", data.error ?? "No hay tareas para asignar");
+        setIsGenerating(false);
         return;
       }
 
@@ -293,45 +350,14 @@ export function PlanPageClient({
         throw new Error("Failed to generate plan");
       }
 
-      const data = (await response.json()) as PlanPreviewResponse;
-
-      const newPlan: StoredPlan = {
-        id: data.plan.id,
-        status: "PENDING",
-        balanceScore: data.plan.balanceScore,
-        notes: data.plan.notes,
-        assignments: data.plan.assignments,
-        durationDays: data.plan.durationDays,
-        startDate: new Date(data.plan.startDate),
-        excludedTasks: data.plan.excludedTasks,
-        createdAt: new Date(),
-        appliedAt: null,
-        expiresAt: new Date(data.plan.endDate),
-      };
-
-      setPlan(newPlan);
-      setFairnessDetails(data.fairnessDetails);
-      setSelectedAssignments(
-        new Set(data.plan.assignments.map((a) => assignmentKey(a)))
-      );
-
-      // Reset active day to today if within range, otherwise first day
-      const newStart = startOfDay(new Date(data.plan.startDate));
-      const newEnd = startOfDay(new Date(data.plan.endDate));
-      const todayDate = startOfDay(new Date());
-      if (todayDate >= newStart && todayDate <= newEnd) {
-        const diffDays = Math.round((todayDate.getTime() - newStart.getTime()) / (1000 * 60 * 60 * 24));
-        setActiveDayOfWeek(diffDays + 1);
-      } else {
-        setActiveDayOfWeek(1);
-      }
+      // Trigger accepted — polling will detect completion via useAiJobStatus
+      await refetchStatus();
     } catch (error) {
       console.error("Generate plan error:", error);
       toast.error("Error", "No se pudo generar el plan. Intenta de nuevo.");
-    } finally {
       setIsGenerating(false);
     }
-  }, [toast, dateRange]);
+  }, [toast, dateRange, refetchStatus]);
 
   const handleConfirmRegenerate = useCallback(async () => {
     setIsRegenerateDialogOpen(false);

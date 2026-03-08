@@ -30,6 +30,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useDeleteSavedCart, useRefreshSavedCart, useSaveCart, useSavedCarts } from "@/hooks/use-saved-carts";
 import { useProductCatalog, useShoppingPlan } from "@/hooks/use-shopping-plan";
+import { useAiJobStatus } from "@/hooks/use-ai-job-status";
+import { mobileApi } from "@/lib/api";
 import { usePromos, usePromoPipelineStatus, useRefreshPromos, parseJsonArray } from "@/hooks/use-promos";
 import { TabBar } from "@/components/ui/tab-bar";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
@@ -53,6 +55,7 @@ import type {
   SavedCart,
   SaveCartInput,
   SearchItem,
+  ShoppingPlanResult,
   StoreCart,
 } from "@habita/contracts";
 import type { BankPromo } from "@/hooks/use-promos";
@@ -1259,6 +1262,24 @@ export default function ShoppingPlanScreen() {
   const { celebrate } = useCelebration();
   const ahorraWasToured = useSectionToured("ahorra");
   const shoppingPlan = useShoppingPlan();
+  // Shopping results from background job
+  const [shoppingResult, setShoppingResult] = useState<ShoppingPlanResult | null>(null);
+  const { isRunning: isShoppingJobRunning, refetchStatus: refetchShoppingStatus } = useAiJobStatus({
+    jobType: "SHOPPING_PLAN",
+    onComplete: async (jobId) => {
+      try {
+        const result = await mobileApi.get<{ resultData: ShoppingPlanResult }>(
+          `/api/ai/job-result/${jobId}`,
+        );
+        setShoppingResult(result.resultData);
+      } catch {
+        setLocalError("Error al obtener los resultados");
+      }
+    },
+    onError: (errorMessage) => {
+      setLocalError(errorMessage ?? "Error al buscar precios");
+    },
+  });
   const catalog = useProductCatalog();
   // alternativesSearch removed — simplified product rows no longer need it
   const savedCartsQuery = useSavedCarts();
@@ -1331,9 +1352,9 @@ export default function ShoppingPlanScreen() {
     wasRunning.current = isRunning;
   }, [pipelineStatus.data?.isRunning, queryClient]);
 
-  const canSearch = items.length > 0 && !shoppingPlan.isPending;
+  const canSearch = items.length > 0 && !(shoppingPlan.isPending || isShoppingJobRunning);
 
-  const hasResults = (shoppingPlan.data?.storeCarts?.length ?? 0) > 0;
+  const hasResults = (shoppingResult?.storeCarts?.length ?? 0) > 0;
 
   const newItems = useMemo(() => {
     if (!hasResults || lastSearchedTerms.size === 0) return [];
@@ -1361,7 +1382,7 @@ export default function ShoppingPlanScreen() {
   };
 
   const adjustedCarts = useMemo<AdjustedStoreCart[]>(() => {
-    const source = shoppingPlan.data?.storeCarts ?? [];
+    const source = shoppingResult?.storeCarts ?? [];
 
     const carts = source.map((cart) => {
       const products: AdjustedProduct[] = cart.products.map((product) => {
@@ -1409,7 +1430,7 @@ export default function ShoppingPlanScreen() {
     }
 
     return carts;
-  }, [shoppingPlan.data?.storeCarts, overrides, quantityByTerm, pinnedStore]);
+  }, [shoppingResult?.storeCarts, overrides, quantityByTerm, pinnedStore]);
 
   const toggleStore = (storeName: string) => {
     setSelectedStores((prev) => {
@@ -1485,6 +1506,7 @@ export default function ShoppingPlanScreen() {
 
   const runSearch = async () => {
     setLocalError(null);
+    setShoppingResult(null);
     try {
       await shoppingPlan.mutateAsync({ searchItems: items });
       setLastSearchedTerms(new Set(items.map((i) => i.term.toLowerCase())));
@@ -1495,6 +1517,8 @@ export default function ShoppingPlanScreen() {
       setSelectedStores(new Set());
       setPinnedStore(null);
       setShowComparison(false);
+      // Trigger polling for job completion
+      await refetchShoppingStatus();
     } catch (error) {
       setLocalError(getMobileErrorMessage(error));
     }
@@ -1628,7 +1652,7 @@ export default function ShoppingPlanScreen() {
             <Button
               onPress={() => void runSearch()}
               disabled={!canSearch}
-              loading={shoppingPlan.isPending}
+              loading={(shoppingPlan.isPending || isShoppingJobRunning)}
               style={styles.searchButton}
             >
               {hasResults && newItems.length > 0
@@ -1676,11 +1700,11 @@ export default function ShoppingPlanScreen() {
           </Card>
         ) : null}
 
-        {shoppingPlan.data?.notFound.length ? (
+        {shoppingResult?.notFound.length ? (
           <Card style={styles.warningCard}>
             <CardContent>
               <Text style={styles.warningText}>
-                Sin resultados: {shoppingPlan.data.notFound.join(", ")}
+                Sin resultados: {shoppingResult?.notFound.join(", ")}
               </Text>
             </CardContent>
           </Card>
@@ -1803,7 +1827,7 @@ export default function ShoppingPlanScreen() {
           </View>
         ) : null}
 
-        {adjustedCarts.length === 0 && !shoppingPlan.isPending ? (
+        {adjustedCarts.length === 0 && !(shoppingPlan.isPending || isShoppingJobRunning) ? (
           <EmptyState
             icon={<ShoppingCart size={32} color={colors.mutedForeground} />}
             title="Empezá a comparar"

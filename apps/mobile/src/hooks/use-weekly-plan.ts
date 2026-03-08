@@ -3,9 +3,9 @@ import { mobileApi } from "@/lib/api";
 
 import { queryKeys } from "@habita/contracts";
 import type {
+  AiJobTriggerResponse,
   ApplyPlanResponse,
   PlanAssignment,
-  PlanPreviewResponse,
 } from "@habita/contracts";
 
 interface PreviewInput {
@@ -21,7 +21,7 @@ interface ApplyInput {
 export function usePreviewWeeklyPlan() {
   return useMutation({
     mutationFn: async (input: PreviewInput) =>
-      mobileApi.post<PlanPreviewResponse>("/api/ai/preview-plan", input),
+      mobileApi.post<AiJobTriggerResponse>("/api/ai/preview-plan", input),
   });
 }
 

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { generateAIPlan } from "@/lib/llm/ai-planner";
@@ -6,10 +6,14 @@ import { isAIEnabled } from "@/lib/llm/provider";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { computeDurationDays, validateDateRange } from "@/lib/plan-duration";
+import { findRunningJob, markJobRunning, completeJob } from "@/lib/ai-jobs";
 
 import type { NextRequest } from "next/server";
 import type { MemberType } from "@prisma/client";
 import type { ExcludedTask } from "@/lib/plan-duration";
+import type { AiJobTriggerResponse } from "@habita/contracts";
+
+export const maxDuration = 60;
 
 interface PlanAssignment {
   taskName: string;
@@ -56,8 +60,7 @@ const previewPlanSchema = z.object({
 
 /**
  * POST /api/ai/preview-plan
- * Generate an AI-powered task distribution plan preview without applying it.
- * Returns the plan details for user review before confirmation.
+ * Fire-and-forget: validates input, returns immediately, plan generates in background.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -89,124 +92,163 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Prevent duplicate concurrent runs
+    const existing = await findRunningJob(member.householdId, "PREVIEW_PLAN");
+    if (existing) {
+      const response: AiJobTriggerResponse = {
+        started: false,
+        alreadyRunning: true,
+        jobId: existing.id,
+      };
+      return NextResponse.json(response);
+    }
+
     const durationDays = computeDurationDays(startDate, endDate);
 
-    // Generate plan without applying
-    const plan = await generateAIPlan(member.householdId, { durationDays });
+    // Create RUNNING job entry
+    const jobId = await markJobRunning(
+      member.householdId,
+      member.id,
+      "PREVIEW_PLAN",
+      { startDate: startDate.toISOString(), endDate: endDate.toISOString(), durationDays },
+    );
 
-    if (!plan) {
-      return NextResponse.json(
-        { error: "No se pudo generar el plan. Verifica que hay tareas y miembros activos." },
-        { status: 400 }
-      );
-    }
+    // Schedule background work
+    after(async () => {
+      const startTime = Date.now();
+      try {
+        const plan = await generateAIPlan(member.householdId, { durationDays });
 
-    // Get member details for enriching the response
-    const members = await prisma.member.findMany({
-      where: { householdId: member.householdId, isActive: true },
-      include: {
-        assignments: {
-          where: { status: { in: ["PENDING", "IN_PROGRESS"] } },
-          select: { id: true },
-        },
-      },
-    });
+        if (!plan) {
+          await completeJob(jobId, {
+            status: "FAILED",
+            errorMessage: "No se pudo generar el plan. Verifica que hay tareas y miembros activos.",
+            durationMs: Date.now() - startTime,
+          });
+          return;
+        }
 
-    const memberByIdMap = new Map(members.map((m) => [m.id, m]));
+        // Get member details for enriching the response
+        const members = await prisma.member.findMany({
+          where: { householdId: member.householdId, isActive: true },
+          include: {
+            assignments: {
+              where: { status: { in: ["PENDING", "IN_PROGRESS"] } },
+              select: { id: true },
+            },
+          },
+        });
 
-    // Enrich assignments with member type, preserving dayOfWeek from AI
-    const enrichedAssignments: PlanAssignment[] = plan.assignments
-      .filter((a) => memberByIdMap.has(a.memberId))
-      .map((a) => {
-        const member = memberByIdMap.get(a.memberId)!;
-        return {
-          taskName: a.taskName,
-          memberId: a.memberId,
-          memberName: member.name,
-          memberType: member.memberType,
-          reason: a.reason,
-          dayOfWeek: a.dayOfWeek,
+        const memberByIdMap = new Map(members.map((m) => [m.id, m]));
+
+        const enrichedAssignments: PlanAssignment[] = plan.assignments
+          .filter((a) => memberByIdMap.has(a.memberId))
+          .map((a) => {
+            const m = memberByIdMap.get(a.memberId)!;
+            return {
+              taskName: a.taskName,
+              memberId: a.memberId,
+              memberName: m.name,
+              memberType: m.memberType,
+              reason: a.reason,
+              dayOfWeek: a.dayOfWeek,
+            };
+          });
+
+        const assignmentCounts = new Map<string, number>();
+        for (const a of enrichedAssignments) {
+          assignmentCounts.set(a.memberId, (assignmentCounts.get(a.memberId) ?? 0) + 1);
+        }
+
+        const memberSummaries: MemberSummary[] = members.map((m) => ({
+          id: m.id,
+          name: m.name,
+          type: m.memberType,
+          currentPending: m.assignments.length,
+          assignedInPlan: assignmentCounts.get(m.id) ?? 0,
+        }));
+
+        const adultMembers = members.filter((m) => m.memberType === "ADULT");
+        const adultDistribution: Record<string, number> = {};
+        for (const adult of adultMembers) {
+          adultDistribution[adult.name] = assignmentCounts.get(adult.id) ?? 0;
+        }
+        const adultCounts = Object.values(adultDistribution);
+        const maxCount = Math.max(...adultCounts, 0);
+        const minCount = Math.min(...adultCounts, 0);
+        const maxDiff = adultCounts.length > 1 ? maxCount - minCount : 0;
+
+        const excludedTasks: ExcludedTask[] = plan.excludedTasks ?? [];
+
+        // Expire previous PENDING previews and COMPLETED plans, then create the new one atomically
+        const expiresAt = new Date(endDate);
+        expiresAt.setHours(23, 59, 59, 999);
+
+        const savedPlan = await prisma.$transaction(async (tx) => {
+          await tx.weeklyPlan.updateMany({
+            where: {
+              householdId: member.householdId,
+              status: { in: ["PENDING", "COMPLETED"] },
+            },
+            data: { status: "EXPIRED" },
+          });
+
+          return tx.weeklyPlan.create({
+            data: {
+              householdId: member.householdId,
+              status: "PENDING",
+              balanceScore: plan.balanceScore,
+              notes: plan.notes,
+              assignments: JSON.parse(JSON.stringify(enrichedAssignments)),
+              durationDays,
+              startDate,
+              excludedTasks: excludedTasks.length > 0 ? JSON.parse(JSON.stringify(excludedTasks)) : undefined,
+              expiresAt,
+            },
+          });
+        });
+
+        const resultData: PlanPreviewResponse = {
+          plan: {
+            id: savedPlan.id,
+            assignments: enrichedAssignments,
+            balanceScore: plan.balanceScore,
+            notes: plan.notes,
+            durationDays,
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            excludedTasks,
+          },
+          members: memberSummaries,
+          fairnessDetails: {
+            adultDistribution,
+            isSymmetric: maxDiff <= 2,
+            maxDifference: maxDiff,
+          },
         };
-      });
 
-    // Count assignments per member in the plan
-    const assignmentCounts = new Map<string, number>();
-    for (const a of enrichedAssignments) {
-      assignmentCounts.set(a.memberId, (assignmentCounts.get(a.memberId) ?? 0) + 1);
-    }
-
-    // Build member summaries
-    const memberSummaries: MemberSummary[] = members.map((m) => ({
-      id: m.id,
-      name: m.name,
-      type: m.memberType,
-      currentPending: m.assignments.length,
-      assignedInPlan: assignmentCounts.get(m.id) ?? 0,
-    }));
-
-    // Calculate fairness details for adults only
-    const adultMembers = members.filter((m) => m.memberType === "ADULT");
-    const adultDistribution: Record<string, number> = {};
-
-    for (const adult of adultMembers) {
-      adultDistribution[adult.name] = assignmentCounts.get(adult.id) ?? 0;
-    }
-
-    const adultCounts = Object.values(adultDistribution);
-    const maxCount = Math.max(...adultCounts, 0);
-    const minCount = Math.min(...adultCounts, 0);
-    const maxDifference = adultCounts.length > 1 ? maxCount - minCount : 0;
-    const isSymmetric = maxDifference <= 2;
-
-    const excludedTasks: ExcludedTask[] = plan.excludedTasks ?? [];
-
-    // Expire previous PENDING previews and COMPLETED plans, then create the new one atomically
-    const expiresAt = new Date(endDate);
-    expiresAt.setHours(23, 59, 59, 999);
-
-    const savedPlan = await prisma.$transaction(async (tx) => {
-      await tx.weeklyPlan.updateMany({
-        where: {
-          householdId: member.householdId,
-          status: { in: ["PENDING", "COMPLETED"] },
-        },
-        data: { status: "EXPIRED" },
-      });
-
-      return tx.weeklyPlan.create({
-        data: {
-          householdId: member.householdId,
-          status: "PENDING",
-          balanceScore: plan.balanceScore,
-          notes: plan.notes,
-          assignments: JSON.parse(JSON.stringify(enrichedAssignments)),
-          durationDays,
-          startDate,
-          excludedTasks: excludedTasks.length > 0 ? JSON.parse(JSON.stringify(excludedTasks)) : undefined,
-          expiresAt,
-        },
-      });
+        await completeJob(jobId, {
+          status: "SUCCESS",
+          resultData,
+          weeklyPlanId: savedPlan.id,
+          durationMs: Date.now() - startTime,
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error("[preview-plan] Background job failed:", errorMessage);
+        await completeJob(jobId, {
+          status: "FAILED",
+          errorMessage,
+          durationMs: Date.now() - startTime,
+        });
+      }
     });
 
-    const response: PlanPreviewResponse = {
-      plan: {
-        id: savedPlan.id,
-        assignments: enrichedAssignments,
-        balanceScore: plan.balanceScore,
-        notes: plan.notes,
-        durationDays,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        excludedTasks,
-      },
-      members: memberSummaries,
-      fairnessDetails: {
-        adultDistribution,
-        isSymmetric,
-        maxDifference,
-      },
+    const response: AiJobTriggerResponse = {
+      started: true,
+      alreadyRunning: false,
+      jobId,
     };
-
     return NextResponse.json(response);
   } catch (error) {
     return handleApiError(error, { route: "/api/ai/preview-plan", method: "POST" });

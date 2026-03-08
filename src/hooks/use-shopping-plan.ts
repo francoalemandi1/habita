@@ -2,8 +2,10 @@
 
 import { useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api-client";
+import { useAiJobStatus } from "@/hooks/use-ai-job-status";
 
 import type { SearchItem, ShoppingPlanResult } from "@/lib/supermarket-search";
+import type { AiJobTriggerResponse } from "@habita/contracts";
 
 // ============================================
 // Hook
@@ -11,35 +13,55 @@ import type { SearchItem, ShoppingPlanResult } from "@/lib/supermarket-search";
 
 /**
  * Handles the shopping plan search lifecycle:
- * trigger → loading → result/error.
+ * trigger → polling → result/error.
  *
- * Simple one-shot search — no caching, no React Query.
- * The user triggers it manually with a list of search terms.
+ * The POST now returns immediately (fire-and-forget).
+ * Polling via useAiJobStatus detects completion and fetches the result.
  */
 export function useShoppingPlan() {
   const [data, setData] = useState<ShoppingPlanResult | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [triggerLoading, setTriggerLoading] = useState(false);
+
+  const { isRunning, refetchStatus } = useAiJobStatus({
+    jobType: "SHOPPING_PLAN",
+    onComplete: async (jobId) => {
+      try {
+        const result = await apiFetch<{
+          resultData: ShoppingPlanResult;
+        }>(`/api/ai/job-result/${jobId}`);
+        setData(result.resultData);
+      } catch {
+        setError("Error al obtener los resultados");
+      }
+    },
+    onError: (errorMessage) => {
+      setError(errorMessage ?? "Error al buscar precios");
+    },
+  });
+
+  const isLoading = triggerLoading || isRunning;
 
   const search = useCallback(async (searchItems: SearchItem[], preferredBankSlugs?: string[]) => {
     if (searchItems.length === 0) return;
 
-    setIsLoading(true);
+    setTriggerLoading(true);
     setError(null);
 
     try {
-      const result = await apiFetch<ShoppingPlanResult>("/api/ai/shopping-plan", {
+      await apiFetch<AiJobTriggerResponse>("/api/ai/shopping-plan", {
         method: "POST",
         body: { searchItems, ...(preferredBankSlugs?.length ? { preferredBankSlugs } : {}) },
       });
-      setData(result);
+      // Trigger an immediate re-fetch of the job status
+      await refetchStatus();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error al buscar precios";
       setError(message);
     } finally {
-      setIsLoading(false);
+      setTriggerLoading(false);
     }
-  }, []);
+  }, [refetchStatus]);
 
   const reset = useCallback(() => {
     setData(null);

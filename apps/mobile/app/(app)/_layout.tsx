@@ -14,6 +14,8 @@ import {
   ShoppingCart,
 } from "lucide-react-native";
 
+import { AiJobWatcher } from "@/components/ai-job-watcher";
+
 import type { LucideIcon } from "lucide-react-native";
 import type { ThemeColors } from "@/theme";
 
@@ -243,42 +245,45 @@ export default function AppLayout() {
   }
 
   return (
-    <Tabs
-      tabBar={(props) => <CustomTabBar {...(props as unknown as TabBarProps)} />}
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      {/* ── Tabs (visible in tab bar) ── */}
-      <Tabs.Screen name="dashboard" options={{ title: "Habita" }} />
-      <Tabs.Screen name="tasks" options={{ title: "Planificá" }} />
-      <Tabs.Screen name="balance" options={{ title: "Registrá" }} />
-      <Tabs.Screen name="compras" options={{ title: "Ahorrá" }} />
+    <>
+      <AiJobWatcher />
+      <Tabs
+        tabBar={(props) => <CustomTabBar {...(props as unknown as TabBarProps)} />}
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        {/* ── Tabs (visible in tab bar) ── */}
+        <Tabs.Screen name="dashboard" options={{ title: "Habita" }} />
+        <Tabs.Screen name="tasks" options={{ title: "Planificá" }} />
+        <Tabs.Screen name="balance" options={{ title: "Registrá" }} />
+        <Tabs.Screen name="compras" options={{ title: "Ahorrá" }} />
 
-      {/* ── "Más" screens (accessible via bottom sheet) ── */}
-      <Tabs.Screen name="descubrir" options={{ href: null, title: "Descubrí" }} />
-      <Tabs.Screen name="cocina" options={{ href: null, title: "Cociná" }} />
+        {/* ── "Más" screens (accessible via bottom sheet) ── */}
+        <Tabs.Screen name="descubrir" options={{ href: null, title: "Descubrí" }} />
+        <Tabs.Screen name="cocina" options={{ href: null, title: "Cociná" }} />
 
-      {/* Profile — hidden from tab bar, accessible via ScreenHeader avatar */}
-      <Tabs.Screen name="profile" options={{ href: null, title: "Perfil" }} />
+        {/* Profile — hidden from tab bar, accessible via ScreenHeader avatar */}
+        <Tabs.Screen name="profile" options={{ href: null, title: "Perfil" }} />
 
-      {/* ── Hidden screens (accessible via router.push) ── */}
-      <Tabs.Screen name="new-task" options={{ href: null, title: "Nueva tarea" }} />
-      <Tabs.Screen name="new-expense" options={{ href: null, title: "Nuevo gasto" }} />
-      <Tabs.Screen name="expense-insights" options={{ href: null, title: "Insights financieros" }} />
-      <Tabs.Screen name="plan" options={{ href: null, title: "Plan semanal" }} />
-      <Tabs.Screen name="transfers" options={{ href: null, title: "Transferencias" }} />
-      <Tabs.Screen name="notifications" options={{ href: null, title: "Notificaciones" }} />
-      <Tabs.Screen name="task-catalog" options={{ href: null, title: "Catálogo de tareas" }} />
-      <Tabs.Screen name="progress" options={{ href: null, title: "Progreso familiar" }} />
-      <Tabs.Screen name="fund" options={{ href: null, title: "Fondo Común" }} />
-      <Tabs.Screen name="services" options={{ href: null, title: "Servicios" }} />
-      <Tabs.Screen name="preferences" options={{ href: null, title: "Mis preferencias" }} />
-      <Tabs.Screen name="rotations" options={{ href: null, title: "Ruleta de tareas" }} />
-      <Tabs.Screen name="suggest-tasks" options={{ href: null, title: "Sugerencias AI" }} />
-      <Tabs.Screen name="grocery-deals" options={{ href: null, title: "Ofertas del super" }} />
-      <Tabs.Screen name="notification-settings" options={{ href: null, title: "Notificaciones push" }} />
-    </Tabs>
+        {/* ── Hidden screens (accessible via router.push) ── */}
+        <Tabs.Screen name="new-task" options={{ href: null, title: "Nueva tarea" }} />
+        <Tabs.Screen name="new-expense" options={{ href: null, title: "Nuevo gasto" }} />
+        <Tabs.Screen name="expense-insights" options={{ href: null, title: "Insights financieros" }} />
+        <Tabs.Screen name="plan" options={{ href: null, title: "Plan semanal" }} />
+        <Tabs.Screen name="transfers" options={{ href: null, title: "Transferencias" }} />
+        <Tabs.Screen name="notifications" options={{ href: null, title: "Notificaciones" }} />
+        <Tabs.Screen name="task-catalog" options={{ href: null, title: "Catálogo de tareas" }} />
+        <Tabs.Screen name="progress" options={{ href: null, title: "Progreso familiar" }} />
+        <Tabs.Screen name="fund" options={{ href: null, title: "Fondo Común" }} />
+        <Tabs.Screen name="services" options={{ href: null, title: "Servicios" }} />
+        <Tabs.Screen name="preferences" options={{ href: null, title: "Mis preferencias" }} />
+        <Tabs.Screen name="rotations" options={{ href: null, title: "Ruleta de tareas" }} />
+        <Tabs.Screen name="suggest-tasks" options={{ href: null, title: "Sugerencias AI" }} />
+        <Tabs.Screen name="grocery-deals" options={{ href: null, title: "Ofertas del super" }} />
+        <Tabs.Screen name="notification-settings" options={{ href: null, title: "Notificaciones push" }} />
+      </Tabs>
+    </>
   );
 }
 

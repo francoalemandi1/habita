@@ -14,7 +14,9 @@ import {
   Zap,
 } from "lucide-react-native";
 import { useCocina } from "@/hooks/use-cocina";
+import { useAiJobStatus } from "@/hooks/use-ai-job-status";
 import { useSavedRecipes, useToggleSaveRecipe } from "@/hooks/use-saved-recipes";
+import { mobileApi } from "@/lib/api";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { useMilestone } from "@/hooks/use-milestone";
 import { useCelebration } from "@/hooks/use-celebration";
@@ -285,13 +287,38 @@ export default function CocinaScreen() {
   const { toggle: toggleSave, isPending: savePending } = useToggleSaveRecipe();
   const savedRecipes = savedRecipesQuery.data;
 
+  // Result from background job
+  const [cocinaResult, setCocinaResult] = useState<{ recipes: Recipe[]; summary: string } | null>(null);
+  const [cocinaError, setCocinaError] = useState<string | null>(null);
+
+  const { isRunning: isJobRunning, refetchStatus } = useAiJobStatus({
+    jobType: "COCINA",
+    onComplete: async (jobId) => {
+      try {
+        const result = await mobileApi.get<{
+          resultData: { recipes: Recipe[]; summary: string; generatedAt: string };
+        }>(`/api/ai/job-result/${jobId}`);
+        setCocinaResult(result.resultData);
+      } catch {
+        setCocinaError("Error al obtener las recetas");
+      }
+    },
+    onError: (errorMessage) => {
+      setCocinaError(errorMessage ?? "Error al generar recetas");
+    },
+  });
+
   const handleGenerate = () => {
     if (!textInput.trim()) return;
-    cocinaM.mutate({ textInput: textInput.trim(), mealType });
+    setCocinaError(null);
+    cocinaM.mutate(
+      { textInput: textInput.trim(), mealType },
+      { onSuccess: () => { void refetchStatus(); } },
+    );
   };
 
-  const recipes = cocinaM.data?.recipes ?? [];
-  const summary = cocinaM.data?.summary;
+  const recipes = cocinaResult?.recipes ?? [];
+  const summary = cocinaResult?.summary;
 
   // Celebrate first recipe generation
   useEffect(() => {
@@ -415,25 +442,25 @@ export default function CocinaScreen() {
                 {/* Actions */}
                 <Button
                   onPress={handleGenerate}
-                  disabled={cocinaM.isPending || !textInput.trim()}
-                  loading={cocinaM.isPending}
+                  disabled={(cocinaM.isPending || isJobRunning) || !textInput.trim()}
+                  loading={(cocinaM.isPending || isJobRunning)}
                 >
-                  {cocinaM.isPending ? "Generando..." : "Sugerir recetas"}
+                  {(cocinaM.isPending || isJobRunning) ? "Generando..." : "Sugerir recetas"}
                 </Button>
               </CardContent>
             </Card>
 
             {/* Error */}
-            {cocinaM.isError ? (
+            {(cocinaM.isError || cocinaError) ? (
               <Card style={styles.errorCard}>
                 <CardContent>
-                  <Text style={styles.errorText}>{getMobileErrorMessage(cocinaM.error)}</Text>
+                  <Text style={styles.errorText}>{cocinaError ?? getMobileErrorMessage(cocinaM.error)}</Text>
                 </CardContent>
               </Card>
             ) : null}
 
             {/* Summary */}
-            {summary && !cocinaM.isPending ? (
+            {summary && !(cocinaM.isPending || isJobRunning) ? (
               <Text style={styles.summaryText}>{summary}</Text>
             ) : null}
 
@@ -454,7 +481,7 @@ export default function CocinaScreen() {
             ) : null}
 
             {/* Empty state */}
-            {!cocinaM.isPending && !cocinaM.isError && recipes.length === 0 && !cocinaM.data ? (
+            {!(cocinaM.isPending || isJobRunning) && !cocinaM.isError && !cocinaError && recipes.length === 0 && !cocinaResult ? (
               <EmptyState
                 icon={<ChefHat size={40} color={colors.mutedForeground} />}
                 title="Tu cocina te espera"

@@ -30,7 +30,7 @@ export default async function ComprasPage() {
               href="/grocery-deals"
               className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              Ofertas del día →
+              Top ofertas →
             </Link>
           )}
         </div>

@@ -8,6 +8,7 @@ import type {
   StoreCluster,
   GroceryDealsResponse,
   GroceryDealsInput,
+  TopDealsResponse,
 } from "@habita/contracts";
 
 export type {
@@ -16,6 +17,7 @@ export type {
   StoreCluster,
   GroceryDealsResponse,
   GroceryDealsInput,
+  TopDealsResponse,
 };
 
 // Rotate through categories daily so the dashboard always shows something fresh
@@ -36,6 +38,17 @@ export function useGroceryDeals() {
   return useMutation({
     mutationFn: async (input: GroceryDealsInput) =>
       mobileApi.post<GroceryDealsResponse>("/api/ai/grocery-deals", input),
+  });
+}
+
+/** Top deals across all categories. Reads from server-side cache. */
+export function useTopDeals() {
+  return useQuery<TopDealsResponse>({
+    queryKey: queryKeys.grocery.topDeals(),
+    queryFn: async () =>
+      mobileApi.get<TopDealsResponse>("/api/ai/grocery-deals/top"),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 

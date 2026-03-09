@@ -33,6 +33,7 @@ export const queryKeys = {
       [...queryKeys.grocery.all(), "product-selection"] as const,
     deals: (category?: string) =>
       [...queryKeys.grocery.all(), "deals", category] as const,
+    topDeals: () => [...queryKeys.grocery.all(), "top-deals"] as const,
   },
   saved: {
     all: () => ["saved"] as const,

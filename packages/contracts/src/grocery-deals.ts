@@ -46,8 +46,20 @@ export const groceryDealsInputSchema = z.object({
   forceRefresh: z.boolean().optional(),
 });
 
+export const topDealProductSchema = productPriceSchema.extend({
+  categoryLabel: z.string(),
+});
+
+export const topDealsResponseSchema = z.object({
+  topDeals: z.array(topDealProductSchema),
+  totalDeals: z.number(),
+  generatedAt: z.string(),
+});
+
 export type GroceryCategory = z.infer<typeof groceryCategorySchema>;
 export type ProductPrice = z.infer<typeof productPriceSchema>;
 export type StoreCluster = z.infer<typeof storeClusterSchema>;
 export type GroceryDealsResponse = z.infer<typeof groceryDealsResponseSchema>;
 export type GroceryDealsInput = z.infer<typeof groceryDealsInputSchema>;
+export type TopDealProduct = z.infer<typeof topDealProductSchema>;
+export type TopDealsResponse = z.infer<typeof topDealsResponseSchema>;

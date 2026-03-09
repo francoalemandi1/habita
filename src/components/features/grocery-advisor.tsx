@@ -15,6 +15,7 @@ import { useMilestone } from "@/hooks/use-milestone";
 import { useCelebration } from "@/hooks/use-celebration";
 import { wasSectionToured } from "@/hooks/use-guided-tour";
 import { ProductSearchInput, normalizeProductTerm } from "@/components/features/product-search-input";
+import { loadSearchItems as loadSavedSearchItems, saveSearchItems } from "@/lib/shopping-cart-storage";
 import { CatalogSheet } from "@/components/features/catalog-sheet";
 import { StoreCartCard } from "@/components/features/store-cart-card";
 import { Button } from "@/components/ui/button";
@@ -72,8 +73,6 @@ export interface AdjustedStoreCart extends Omit<StoreCart, "products"> {
 // Constants
 // ============================================
 
-const LOCAL_STORAGE_SEARCH_ITEMS_KEY = "habita:shopping-search-items";
-const LOCAL_STORAGE_TERMS_KEY = "habita:shopping-terms";
 const MAX_TERMS = 30;
 
 const QUICK_CATEGORIES: Array<{
@@ -89,55 +88,6 @@ const QUICK_CATEGORIES: Array<{
   { key: "CARNES", label: "Carnes", icon: Drumstick, color: "text-red-700 dark:text-red-400", bgColor: "bg-red-100 dark:bg-red-900/30" },
   { key: "FRUTAS_VERDURAS", label: "Frutas", icon: Apple, color: "text-green-700 dark:text-green-400", bgColor: "bg-green-100 dark:bg-green-900/30" },
 ];
-
-function isSearchItem(value: unknown): value is SearchItem {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Record<string, unknown>;
-  return typeof candidate.term === "string" && typeof candidate.quantity === "number";
-}
-
-function loadSavedSearchItems(): SearchItem[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const rawSearchItems = localStorage.getItem(LOCAL_STORAGE_SEARCH_ITEMS_KEY);
-    if (rawSearchItems) {
-      const parsed: unknown = JSON.parse(rawSearchItems);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .filter(isSearchItem)
-          .map((item) => ({
-            term: item.term.trim(),
-            quantity: Math.max(1, Math.floor(item.quantity)),
-          }))
-          .filter((item) => item.term.length > 0);
-      }
-    }
-
-    const rawTerms = localStorage.getItem(LOCAL_STORAGE_TERMS_KEY);
-    if (!rawTerms) return [];
-    const parsed: unknown = JSON.parse(rawTerms);
-    if (Array.isArray(parsed)) {
-      return parsed
-        .filter((term): term is string => typeof term === "string")
-        .map((term) => ({ term, quantity: 1 }));
-    }
-  } catch {
-    // Corrupted data — ignore
-  }
-  return [];
-}
-
-function saveSearchItems(items: SearchItem[]) {
-  try {
-    localStorage.setItem(LOCAL_STORAGE_SEARCH_ITEMS_KEY, JSON.stringify(items));
-    localStorage.setItem(
-      LOCAL_STORAGE_TERMS_KEY,
-      JSON.stringify(items.map((item) => item.term)),
-    );
-  } catch {
-    // localStorage full or unavailable — ignore
-  }
-}
 
 function mergeSearchItems(items: SearchItem[]): SearchItem[] {
   const map = new Map<string, SearchItem>();

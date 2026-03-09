@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { ActivityIndicator, Image, Linking, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -1327,6 +1327,30 @@ export default function ShoppingPlanScreen() {
   const [showComparison, setShowComparison] = useState(false);
   const [catalogInitialCategory, setCatalogInitialCategory] = useState<string | null>(null);
   const [quickAddTerm, setQuickAddTerm] = useState("");
+
+  // Handle addTerms from grocery-deals top offers
+  const params = useLocalSearchParams<{ addTerms?: string }>();
+  const addTermsProcessed = useRef(false);
+  useEffect(() => {
+    if (params.addTerms && !addTermsProcessed.current) {
+      addTermsProcessed.current = true;
+      try {
+        const terms = JSON.parse(params.addTerms) as unknown;
+        if (Array.isArray(terms)) {
+          setItems((prev) => {
+            const existing = new Set(prev.map((i) => i.term.toLowerCase()));
+            const newItems = terms
+              .filter((t): t is string => typeof t === "string" && t.trim().length >= 2)
+              .filter((t) => !existing.has(t.toLowerCase()))
+              .map((t) => ({ term: t.trim(), quantity: 1 }));
+            return [...prev, ...newItems];
+          });
+        }
+      } catch {
+        // Invalid JSON — ignore
+      }
+    }
+  }, [params.addTerms]);
 
   // Auto-trigger promo refresh when no promos exist
   const hasAutoTriggered = useRef(false);

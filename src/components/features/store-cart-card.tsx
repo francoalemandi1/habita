@@ -161,8 +161,9 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between p-4">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+      <div className="p-4">
+        {/* Row 1: Avatar + Name/Badge + Price + Actions */}
+        <div className="flex items-center gap-3">
           <div className="relative shrink-0">
             <StoreLogo storeName={cart.storeName} sizeClass="h-10 w-10" radiusClass="rounded-xl" fallbackFontClass="text-sm" />
             {isBest && (
@@ -176,93 +177,94 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
               </span>
             )}
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold">{cart.storeName}</h3>
-              {isBest && isComplete && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                  Mejor opcion
-                </span>
-              )}
-              {isBest && !isComplete && (
-                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                  Mejor precio
-                </span>
-              )}
-              <a
-                href={mapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-0.5 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                title="Cómo llegar"
-              >
-                <MapPin className="h-2.5 w-2.5" />
-                Cómo llegar
-              </a>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {cart.products.length} de {cart.totalSearched} producto{cart.totalSearched !== 1 ? "s" : ""}
-              {cart.cheapestCount > 0 && (
-                <>
-                  {" · "}
-                  <span className="text-green-600 dark:text-green-400">
-                    {cart.cheapestCount} al mejor precio
-                  </span>
-                </>
-              )}
-            </p>
-          </div>
-        </div>
 
-        {/* Price block + actions */}
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="text-right">
-            {discountedPrice != null ? (
-              <>
-                <div className="text-[11px] tabular-nums text-muted-foreground line-through">
-                  {formatPrice(cart.totalPrice)}
-                </div>
-                <div className="text-lg font-bold tabular-nums text-primary">
-                  {formatPrice(discountedPrice)}
-                </div>
-                <span className="text-[10px] font-medium text-primary">
-                  -{selectedPromo!.discountPercent}% {selectedPromo!.bankDisplayName}
-                </span>
-              </>
-            ) : (
-              <>
-                <div className={cn("text-lg font-bold tabular-nums", isBest || isPinned ? "text-primary" : "text-foreground")}>
-                  {formatPrice(cart.totalPrice)}
-                </div>
-                {savingsPercent != null && savingsPercent !== 0 && (
-                  <span className={cn(
-                    "text-[11px] font-medium",
-                    savingsPercent > 0 ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400",
-                  )}>
-                    {savingsPercent > 0 ? `${savingsPercent}% menos` : `+${Math.abs(savingsPercent)}% vs prom.`}
-                  </span>
-                )}
-              </>
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            <h3 className="flex-1 truncate text-sm font-semibold">{cart.storeName}</h3>
+            {isBest && isComplete && (
+              <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                Mejor opcion
+              </span>
+            )}
+            {isBest && !isComplete && (
+              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                Mejor precio
+              </span>
             )}
           </div>
 
-          {onToggleSave && (
-            <SaveButton
-              isSaved={isSaved ?? false}
-              isPending={isSavePending ?? false}
-              onToggle={onToggleSave}
-              size="md"
-            />
-          )}
-          {/* Collapse toggle — top right */}
-          <button
-            type="button"
-            onClick={() => setIsOpen((v) => !v)}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label={isOpen ? "Ocultar productos" : "Ver productos"}
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="text-right">
+              {discountedPrice != null ? (
+                <>
+                  <div className="text-[11px] tabular-nums text-muted-foreground line-through">
+                    {formatPrice(cart.totalPrice)}
+                  </div>
+                  <div className="text-lg font-bold tabular-nums text-primary">
+                    {formatPrice(discountedPrice)}
+                  </div>
+                  <span className="text-[10px] font-medium text-primary">
+                    -{selectedPromo!.discountPercent}% {selectedPromo!.bankDisplayName}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className={cn("text-lg font-bold tabular-nums", isBest || isPinned ? "text-primary" : "text-foreground")}>
+                    {formatPrice(cart.totalPrice)}
+                  </div>
+                  {savingsPercent != null && savingsPercent !== 0 && (
+                    <span className={cn(
+                      "text-[11px] font-medium",
+                      savingsPercent > 0 ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400",
+                    )}>
+                      {savingsPercent > 0 ? `${savingsPercent}% menos` : `+${Math.abs(savingsPercent)}% vs prom.`}
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+
+            {onToggleSave && (
+              <SaveButton
+                isSaved={isSaved ?? false}
+                isPending={isSavePending ?? false}
+                onToggle={onToggleSave}
+                size="md"
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => setIsOpen((v) => !v)}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label={isOpen ? "Ocultar productos" : "Ver productos"}
+            >
+              <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "rotate-180")} />
+            </button>
+          </div>
+        </div>
+
+        {/* Row 2: Product count + Cómo llegar */}
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 pl-[52px]">
+          <p className="text-xs text-muted-foreground">
+            {cart.products.length} de {cart.totalSearched} producto{cart.totalSearched !== 1 ? "s" : ""}
+            {cart.cheapestCount > 0 && (
+              <>
+                {" · "}
+                <span className="text-green-600 dark:text-green-400">
+                  {cart.cheapestCount} al mejor precio
+                </span>
+              </>
+            )}
+          </p>
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+            title="Cómo llegar"
           >
-            <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "rotate-180")} />
-          </button>
+            <MapPin className="h-2.5 w-2.5" />
+            Cómo llegar
+          </a>
         </div>
       </div>
 

@@ -1,18 +1,16 @@
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import {
   ArrowLeft,
   Check,
   ChevronDown,
-  ChevronUp,
   ExternalLink,
-  RefreshCw,
   ShoppingCart,
   Tag,
 } from "lucide-react-native";
-import { useGroceryDeals, useTopDeals } from "@/hooks/use-grocery-deals";
+import { useTopDeals } from "@/hooks/use-grocery-deals";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { useThemeColors } from "@/hooks/use-theme";
 import { useToast } from "@/components/ui/toast";
@@ -23,226 +21,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { fontFamily, spacing, typography } from "@/theme";
 
 import type { ThemeColors } from "@/theme";
-import type { GroceryCategory, StoreCluster, ProductPrice } from "@/hooks/use-grocery-deals";
 import type { TopDealProduct } from "@habita/contracts";
 
 // ============================================
-// Catalog sub-view (category-based)
-// ============================================
-
-const CATEGORIES: { value: GroceryCategory; label: string; emoji: string }[] = [
-  { value: "almacen", label: "Almacen", emoji: "🛒" },
-  { value: "frutas_verduras", label: "Frutas y Verd.", emoji: "🥦" },
-  { value: "carnes", label: "Carnes", emoji: "🥩" },
-  { value: "lacteos", label: "Lacteos", emoji: "🥛" },
-  { value: "panaderia_dulces", label: "Panaderia", emoji: "🍞" },
-  { value: "bebidas", label: "Bebidas", emoji: "🥤" },
-  { value: "limpieza", label: "Limpieza", emoji: "🧹" },
-  { value: "perfumeria", label: "Perfumeria", emoji: "🧴" },
-];
-
-function CatalogProductRow({ product }: { product: ProductPrice }) {
-  const colors = useThemeColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-
-  const handlePress = () => {
-    if (product.sourceUrl) void Linking.openURL(product.sourceUrl);
-  };
-
-  return (
-    <Pressable
-      onPress={product.sourceUrl ? handlePress : undefined}
-      style={styles.productRow}
-    >
-      <View style={styles.productInfo}>
-        <Text style={styles.productName} numberOfLines={2}>{product.productName}</Text>
-        {product.discount && product.discount !== "0%" ? (
-          <Text style={styles.productDiscount}>↓ {product.discount}</Text>
-        ) : null}
-      </View>
-      <View style={styles.productPrices}>
-        <Text style={styles.productPrice}>{product.price}</Text>
-        {product.originalPrice ? (
-          <Text style={styles.productOriginalPrice}>{product.originalPrice}</Text>
-        ) : null}
-      </View>
-    </Pressable>
-  );
-}
-
-function CatalogStoreCard({ cluster, rank }: { cluster: StoreCluster; rank: number }) {
-  const colors = useThemeColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-  const [expanded, setExpanded] = useState(rank === 0);
-
-  const medals = ["🥇", "🥈", "🥉"];
-
-  return (
-    <Card style={rank === 0 ? styles.topStoreCard : undefined}>
-      <CardContent>
-        <Pressable onPress={() => setExpanded((v) => !v)} style={styles.storeHeader}>
-          <View style={styles.storeHeaderLeft}>
-            <Text style={styles.storeMedal}>{medals[rank] ?? `#${rank + 1}`}</Text>
-            <View>
-              <Text style={styles.storeName}>{cluster.storeName}</Text>
-              <Text style={styles.storeProductCount}>{cluster.productCount} productos</Text>
-            </View>
-          </View>
-          <View style={styles.storeHeaderRight}>
-            {cluster.averageDiscountPercent > 0 ? (
-              <Badge style={styles.discountBadge}>
-                -{cluster.averageDiscountPercent.toFixed(0)}% prom.
-              </Badge>
-            ) : null}
-            {expanded
-              ? <ChevronUp size={16} color={colors.mutedForeground} />
-              : <ChevronDown size={16} color={colors.mutedForeground} />
-            }
-          </View>
-        </Pressable>
-
-        {expanded ? (
-          <View style={styles.storeProducts}>
-            {cluster.products.map((p) => (
-              <CatalogProductRow key={p.productName} product={p} />
-            ))}
-            {cluster.totalEstimatedSavings > 0 ? (
-              <Text style={styles.totalSavings}>
-                Ahorro estimado: ${cluster.totalEstimatedSavings.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-function CatalogView({ onBack }: { onBack: () => void }) {
-  const colors = useThemeColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-  const params = useLocalSearchParams<{ category?: string }>();
-  const initialCategory = (params.category as GroceryCategory | undefined) ?? "almacen";
-
-  const [selectedCategory, setSelectedCategory] = useState<GroceryCategory>(initialCategory);
-  const dealsM = useGroceryDeals();
-
-  const handleSearch = (category: GroceryCategory, forceRefresh = false) => {
-    setSelectedCategory(category);
-    dealsM.mutate({ category, forceRefresh });
-  };
-
-  const clusters = dealsM.data?.clusters ?? [];
-  const recommendation = dealsM.data?.recommendation;
-  const notFound = dealsM.data?.productsNotFound ?? [];
-  const isCached = dealsM.data?.cached ?? false;
-
-  return (
-    <>
-      <View style={styles.header}>
-        <View style={styles.backRow}>
-          <Pressable onPress={onBack} style={styles.backBtn} hitSlop={8}>
-            <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
-          </Pressable>
-          <Text style={[styles.backTitle, { color: colors.text }]}>Catalogo de Ofertas</Text>
-          <View style={styles.backBtn} />
-        </View>
-        <Text style={styles.subtitle}>Precios por categoria en supermercados</Text>
-      </View>
-
-      <ScrollView
-        bounces={false}
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryPills}
-        >
-          {CATEGORIES.map((cat) => {
-            const isActive = selectedCategory === cat.value && !!dealsM.data;
-            return (
-              <Pressable
-                key={cat.value}
-                onPress={() => handleSearch(cat.value)}
-                style={[styles.categoryPill, isActive && styles.categoryPillActive]}
-              >
-                <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
-                <Text style={[styles.categoryLabel, isActive && styles.categoryLabelActive]}>
-                  {cat.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        {dealsM.isPending ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Buscando ofertas...</Text>
-          </View>
-        ) : null}
-
-        {dealsM.isError ? (
-          <Card style={styles.errorCard}>
-            <CardContent><Text style={styles.errorText}>{getMobileErrorMessage(dealsM.error)}</Text></CardContent>
-          </Card>
-        ) : null}
-
-        {!dealsM.isPending && clusters.length > 0 ? (
-          <View style={styles.resultsContainer}>
-            <View style={styles.resultsHeader}>
-              <Text style={styles.cacheLabel}>
-                {isCached ? "Resultados en cache" : "Resultados frescos"}
-              </Text>
-              <Button
-                variant="outline"
-                size="sm"
-                onPress={() => handleSearch(selectedCategory, true)}
-              >
-                <RefreshCw size={14} color={colors.mutedForeground} />
-                Actualizar
-              </Button>
-            </View>
-
-            {recommendation ? (
-              <Card style={styles.recommendationCard}>
-                <CardContent>
-                  <Text style={styles.recommendationText}>{recommendation}</Text>
-                </CardContent>
-              </Card>
-            ) : null}
-
-            {clusters.map((cluster, i) => (
-              <CatalogStoreCard key={cluster.storeName} cluster={cluster} rank={i} />
-            ))}
-
-            {notFound.length > 0 ? (
-              <Card style={styles.notFoundCard}>
-                <CardContent>
-                  <Text style={styles.notFoundText}>Sin resultados: {notFound.join(", ")}</Text>
-                </CardContent>
-              </Card>
-            ) : null}
-          </View>
-        ) : null}
-
-        {!dealsM.isPending && !dealsM.data && !dealsM.isError ? (
-          <EmptyState
-            icon={<Tag size={32} color={colors.mutedForeground} />}
-            title="Elegi una categoria"
-            subtitle="Selecciona una categoria para ver las mejores ofertas del momento."
-          />
-        ) : null}
-      </ScrollView>
-    </>
-  );
-}
-
-// ============================================
-// Top Deals sub-view (default)
+// Top Deals sub-view
 // ============================================
 
 function TopDealRow({
@@ -303,7 +85,7 @@ function TopDealRow({
   );
 }
 
-function TopDealsView({ onShowCatalog }: { onShowCatalog: () => void }) {
+function TopDealsView() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { data, isLoading, error } = useTopDeals();
@@ -380,9 +162,7 @@ function TopDealsView({ onShowCatalog }: { onShowCatalog: () => void }) {
             <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
           </Pressable>
           <Text style={[styles.backTitle, { color: colors.text }]}>Top Ofertas</Text>
-          <Pressable onPress={onShowCatalog} hitSlop={8}>
-            <Text style={styles.catalogLink}>Ver catalogo →</Text>
-          </Pressable>
+          <View style={styles.backBtn} />
         </View>
         <Text style={styles.subtitle}>Mejores descuentos reales en supermercados</Text>
       </View>
@@ -512,15 +292,10 @@ function TopDealsView({ onShowCatalog }: { onShowCatalog: () => void }) {
 export default function GroceryDealsScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const [showCatalog, setShowCatalog] = useState(false);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {showCatalog ? (
-        <CatalogView onBack={() => setShowCatalog(false)} />
-      ) : (
-        <TopDealsView onShowCatalog={() => setShowCatalog(true)} />
-      )}
+      <TopDealsView />
     </SafeAreaView>
   );
 }
@@ -537,43 +312,15 @@ function createStyles(c: ThemeColors) {
     backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
     backTitle: { ...typography.cardTitle },
     subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginTop: 2 },
-    catalogLink: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "600", color: c.primary },
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 100, gap: spacing.md },
-    categoryPills: { gap: spacing.sm, paddingBottom: 4, paddingHorizontal: 0 },
-    categoryPill: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 20, backgroundColor: c.muted },
-    categoryPillActive: { backgroundColor: c.primary },
-    categoryEmoji: { fontFamily: fontFamily.sans, fontSize: 16 },
-    categoryLabel: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "600", color: c.text },
-    categoryLabelActive: { color: "#ffffff" },
     loadingContainer: { alignItems: "center", gap: spacing.sm, paddingTop: 40 },
     loadingText: { fontFamily: fontFamily.sans, color: c.mutedForeground, fontSize: 13 },
     errorCard: { backgroundColor: c.errorBg },
     errorText: { fontFamily: fontFamily.sans, color: c.errorText, fontSize: 13 },
     resultsContainer: { gap: spacing.sm },
-    resultsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     cacheLabel: { fontFamily: fontFamily.sans, color: c.mutedForeground, fontSize: 12 },
-    recommendationCard: { backgroundColor: c.primaryLight, borderLeftWidth: 3, borderLeftColor: c.primary },
-    recommendationText: { fontFamily: fontFamily.sans, fontSize: 13, color: c.infoText },
-    topStoreCard: { borderWidth: 2, borderColor: c.primary },
-    storeHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-    storeHeaderLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-    storeMedal: { fontFamily: fontFamily.sans, fontSize: 20 },
-    storeName: { fontFamily: fontFamily.sans, fontWeight: "700", color: c.text, fontSize: 15 },
-    storeProductCount: { fontFamily: fontFamily.sans, color: c.mutedForeground, fontSize: 12, marginTop: 2 },
-    storeHeaderRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
     discountBadge: { backgroundColor: c.successBg },
-    storeProducts: { marginTop: spacing.sm },
-    totalSavings: { fontFamily: fontFamily.sans, color: c.successText, fontSize: 12, fontWeight: "600", marginTop: spacing.sm },
-    productRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border },
-    productInfo: { flex: 1, marginRight: spacing.sm },
-    productName: { fontFamily: fontFamily.sans, fontSize: 13, color: c.text, fontWeight: "500" },
-    productDiscount: { fontFamily: fontFamily.sans, fontSize: 11, color: c.successText, marginTop: 2 },
-    productPrices: { alignItems: "flex-end" },
-    productPrice: { fontFamily: fontFamily.sans, fontWeight: "700", color: c.text },
-    productOriginalPrice: { fontFamily: fontFamily.sans, fontSize: 11, color: c.mutedForeground, textDecorationLine: "line-through" },
-    notFoundCard: { backgroundColor: c.warningBg },
-    notFoundText: { fontFamily: fontFamily.sans, color: c.warningText, fontSize: 13, fontWeight: "600" },
     // Store group (top deals)
     storeGroupHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md },
     storeGroupLeft: { flex: 1 },

@@ -834,55 +834,38 @@ function StoreCartCard({
       <CardContent>
         {/* Header */}
         <View style={styles.storeCardHeader}>
-          <View style={styles.storeCardInfo}>
+          {/* Row 1: Avatar + Name/Badge + Price + Actions */}
+          <View style={styles.storeHeaderRow1}>
             <StoreAvatar storeName={cart.storeName} />
-            <View style={styles.storeCardMeta}>
-              <View style={styles.storeNameRow}>
-                <Text style={styles.storeCardName}>{cart.storeName}</Text>
-                {isWinner ? (
-                  <View style={styles.winnerBadge}>
-                    <Trophy size={12} color="#d97706" />
-                    <Text style={styles.winnerBadgeText}>Mejor precio</Text>
-                  </View>
-                ) : null}
-                <Pressable
-                  onPress={() => {
-                    void Linking.openURL(mapsUrl);
-                  }}
-                  style={styles.mapsLink}
-                  hitSlop={8}
-                >
-                  <MapPin size={11} color={colors.primary} />
-                  <Text style={styles.mapsLinkText}>Cómo llegar</Text>
-                </Pressable>
-              </View>
-              <Text style={styles.storeCardSub}>
-                {cart.products.length} de {cart.totalSearched} producto{cart.totalSearched !== 1 ? "s" : ""}
-                {cart.cheapestCount > 0 ? (
-                  <Text style={styles.cheapestCountText}> · {cart.cheapestCount} al mejor precio</Text>
-                ) : null}
-              </Text>
+            <View style={styles.storeHeaderNameBlock}>
+              <Text style={styles.storeCardName} numberOfLines={1}>{cart.storeName}</Text>
+              {isWinner ? (
+                <View style={styles.winnerBadge}>
+                  <Trophy size={12} color="#d97706" />
+                  <Text style={styles.winnerBadgeText}>Mejor precio</Text>
+                </View>
+              ) : null}
             </View>
-          </View>
-          <View style={styles.storeCardRight}>
-            {selectedPromo ? (
-              <>
-                <Text style={styles.storeCardTotalStrikethrough}>{formatAmount(baseTotal)}</Text>
-                <Text style={styles.storeCardTotalDiscounted}>{formatAmount(discountedTotal)}</Text>
-              </>
-            ) : (
-              <>
-                <Text style={[styles.storeCardTotal, (isWinner || isPinned) && { color: colors.primary }]}>
-                  {formatAmount(baseTotal)}
-                </Text>
-                {savingsPercent != null && savingsPercent !== 0 ? (
-                  <Text style={[styles.savingsHintText, savingsPercent < 0 && styles.savingsHintTextNeg]}>
-                    {savingsPercent > 0 ? `${savingsPercent}% menos` : `+${Math.abs(savingsPercent)}% vs prom.`}
-                  </Text>
-                ) : null}
-              </>
-            )}
-            <View style={styles.headerActions}>
+            <View style={styles.storeHeaderRightBlock}>
+              <View style={styles.storeCardPriceBlock}>
+                {selectedPromo ? (
+                  <>
+                    <Text style={styles.storeCardTotalStrikethrough}>{formatAmount(baseTotal)}</Text>
+                    <Text style={styles.storeCardTotalDiscounted}>{formatAmount(discountedTotal)}</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={[styles.storeCardTotal, (isWinner || isPinned) && { color: colors.primary }]}>
+                      {formatAmount(baseTotal)}
+                    </Text>
+                    {savingsPercent != null && savingsPercent !== 0 ? (
+                      <Text style={[styles.savingsHintText, savingsPercent < 0 && styles.savingsHintTextNeg]}>
+                        {savingsPercent > 0 ? `${savingsPercent}% menos` : `+${Math.abs(savingsPercent)}% vs prom.`}
+                      </Text>
+                    ) : null}
+                  </>
+                )}
+              </View>
               <Pressable
                 onPress={() => onToggleSave(cart)}
                 hitSlop={8}
@@ -903,6 +886,24 @@ function StoreCartCard({
                 </View>
               </Pressable>
             </View>
+          </View>
+
+          {/* Row 2: Product count + Cómo llegar */}
+          <View style={styles.storeHeaderRow2}>
+            <Text style={styles.storeCardSub}>
+              {cart.products.length} de {cart.totalSearched} producto{cart.totalSearched !== 1 ? "s" : ""}
+              {cart.cheapestCount > 0 ? (
+                <Text style={styles.cheapestCountText}> · {cart.cheapestCount} al mejor precio</Text>
+              ) : null}
+            </Text>
+            <Pressable
+              onPress={() => { void Linking.openURL(mapsUrl); }}
+              style={styles.mapsLink}
+              hitSlop={8}
+            >
+              <MapPin size={11} color={colors.primary} />
+              <Text style={styles.mapsLinkText}>Cómo llegar</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -1211,33 +1212,113 @@ function PaymentMethodPicker({
 }) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filteredOptions = useMemo(() => {
+    if (!search.trim()) return PAYMENT_METHOD_OPTIONS;
+    const q = search.toLowerCase();
+    return PAYMENT_METHOD_OPTIONS.filter((opt) => opt.label.toLowerCase().includes(q));
+  }, [search]);
+
+  const selectedOptions = PAYMENT_METHOD_OPTIONS.filter((opt) =>
+    selectedSlugs.includes(opt.bankSlug),
+  );
 
   return (
     <View style={styles.bankPickerContainer}>
       <Text style={styles.bankPickerLabel}>
         <CreditCard size={13} color={colors.mutedForeground} />{" "}
-        Tus bancos y billeteras
+        ¿Con qué pagás?
       </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.bankPickerScroll}
+
+      {/* Selected chips */}
+      <View style={styles.bankSelectedRow}>
+        {selectedOptions.map((opt) => (
+          <Pressable
+            key={opt.bankSlug}
+            onPress={() => onToggle(opt.bankSlug)}
+            style={[styles.bankChip, styles.bankChipSelected]}
+          >
+            <Text style={[styles.bankChipText, styles.bankChipTextSelected]}>
+              {opt.label}
+            </Text>
+            <X size={12} color={colors.primary} style={{ marginLeft: 4 }} />
+          </Pressable>
+        ))}
+        <Pressable
+          onPress={() => { setSearch(""); setModalVisible(true); }}
+          style={styles.bankAddBtn}
+        >
+          <Plus size={14} color={colors.primary} />
+          <Text style={styles.bankAddBtnText}>
+            {selectedSlugs.length === 0 ? "Agregar banco o billetera" : "Agregar otro"}
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
       >
-        {PAYMENT_METHOD_OPTIONS.map((opt) => {
-          const isSelected = selectedSlugs.includes(opt.bankSlug);
-          return (
-            <Pressable
-              key={opt.bankSlug}
-              onPress={() => onToggle(opt.bankSlug)}
-              style={[styles.bankChip, isSelected && styles.bankChipSelected]}
+        <Pressable
+          style={styles.paymentModalOverlay}
+          onPress={() => setModalVisible(false)}
+        >
+          <Pressable style={styles.paymentModalSheet} onPress={() => {}}>
+            <View style={styles.paymentModalHandle} />
+            <Text style={styles.paymentModalTitle}>Elegí tus medios de pago</Text>
+
+            <StyledTextInput
+              placeholder="Buscar banco o billetera..."
+              value={search}
+              onChangeText={setSearch}
+              autoFocus
+              style={styles.paymentSearchInput}
+            />
+
+            <ScrollView
+              style={styles.paymentOptionsList}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
-              <Text style={[styles.bankChipText, isSelected && styles.bankChipTextSelected]}>
-                {opt.label}
-              </Text>
+              {filteredOptions.map((opt) => {
+                const isSelected = selectedSlugs.includes(opt.bankSlug);
+                return (
+                  <Pressable
+                    key={opt.bankSlug}
+                    onPress={() => onToggle(opt.bankSlug)}
+                    style={styles.paymentOption}
+                  >
+                    <View
+                      style={[
+                        styles.paymentCheckbox,
+                        isSelected && { backgroundColor: colors.primary, borderColor: colors.primary },
+                      ]}
+                    >
+                      {isSelected ? <Check size={12} color="#fff" strokeWidth={3} /> : null}
+                    </View>
+                    <Text style={styles.paymentOptionLabel}>{opt.label}</Text>
+                  </Pressable>
+                );
+              })}
+              {filteredOptions.length === 0 ? (
+                <Text style={styles.paymentNoResults}>Sin resultados</Text>
+              ) : null}
+            </ScrollView>
+
+            <Pressable
+              onPress={() => setModalVisible(false)}
+              style={styles.paymentDoneBtn}
+            >
+              <Text style={styles.paymentDoneBtnText}>Listo</Text>
             </Pressable>
-          );
-        })}
-      </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1595,6 +1676,10 @@ export default function ShoppingPlanScreen() {
         <View style={styles.titleRow}>
           <ShoppingCart size={22} color={colors.primary} strokeWidth={2} />
           <Text style={styles.title}>Ahorrá</Text>
+          <View style={{ flex: 1 }} />
+          <Pressable onPress={() => router.push("/(app)/grocery-deals")} style={styles.topOfertasLink}>
+            <Text style={styles.topOfertasLinkText}>Top ofertas →</Text>
+          </Pressable>
         </View>
         <Text style={styles.subtitle}>Compará precios entre supermercados</Text>
 
@@ -1977,6 +2062,19 @@ function createStyles(c: ThemeColors) {
       ...typography.pageTitle,
       color: c.text,
     },
+    topOfertasLink: {
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: radius.md,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    topOfertasLinkText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "600" as const,
+      color: c.mutedForeground,
+    },
     subtitle: {
       fontFamily: fontFamily.sans,
       fontSize: 14,
@@ -1996,10 +2094,14 @@ function createStyles(c: ThemeColors) {
       color: c.mutedForeground,
       marginBottom: spacing.xs,
     },
-    bankPickerScroll: {
+    bankSelectedRow: {
+      flexDirection: "row" as const,
+      flexWrap: "wrap" as const,
       gap: spacing.xs,
     },
     bankChip: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
       paddingHorizontal: 10,
       paddingVertical: 6,
       borderRadius: radius.full,
@@ -2019,6 +2121,100 @@ function createStyles(c: ThemeColors) {
     bankChipTextSelected: {
       color: c.primary,
       fontWeight: "600" as const,
+    },
+    bankAddBtn: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: c.primary,
+      borderStyle: "dashed" as const,
+    },
+    bankAddBtnText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      fontWeight: "600" as const,
+      color: c.primary,
+    },
+    paymentModalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.4)",
+      justifyContent: "flex-end" as const,
+    },
+    paymentModalSheet: {
+      backgroundColor: c.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.xl,
+      maxHeight: "70%" as unknown as number,
+    },
+    paymentModalHandle: {
+      width: 36,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: c.border,
+      alignSelf: "center" as const,
+      marginTop: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    paymentModalTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 16,
+      fontWeight: "700" as const,
+      color: c.text,
+      marginBottom: spacing.md,
+    },
+    paymentSearchInput: {
+      marginBottom: spacing.sm,
+    },
+    paymentOptionsList: {
+      maxHeight: 320,
+    },
+    paymentOption: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      paddingVertical: spacing.sm + 2,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+    },
+    paymentCheckbox: {
+      width: 22,
+      height: 22,
+      borderRadius: 6,
+      borderWidth: 1.5,
+      borderColor: c.mutedForeground,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    paymentOptionLabel: {
+      fontFamily: fontFamily.sans,
+      fontSize: 15,
+      color: c.text,
+    },
+    paymentNoResults: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      color: c.mutedForeground,
+      textAlign: "center" as const,
+      paddingVertical: spacing.lg,
+    },
+    paymentDoneBtn: {
+      marginTop: spacing.md,
+      paddingVertical: spacing.sm + 2,
+      borderRadius: radius.lg,
+      backgroundColor: c.primary,
+      alignItems: "center" as const,
+    },
+    paymentDoneBtnText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 15,
+      fontWeight: "700" as const,
+      color: "#fff",
     },
     searchCard: {
       marginBottom: spacing.md,
@@ -2242,16 +2438,36 @@ function createStyles(c: ThemeColors) {
       marginBottom: spacing.md,
     },
     storeCardHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
       marginBottom: spacing.md,
     },
-    storeCardInfo: {
-      flexDirection: "row",
-      alignItems: "center",
+    storeHeaderRow1: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
       gap: spacing.sm,
+    },
+    storeHeaderNameBlock: {
       flex: 1,
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.xs,
+      minWidth: 0,
+    },
+    storeHeaderRightBlock: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      flexShrink: 0,
+    },
+    storeCardPriceBlock: {
+      alignItems: "flex-end" as const,
+    },
+    storeHeaderRow2: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      marginTop: 2,
+      marginLeft: 48,
+      flexWrap: "wrap" as const,
     },
     storeAvatar: {
       alignItems: "center",
@@ -2261,28 +2477,21 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamily.sans,
       fontWeight: "800",
     },
-    storeCardMeta: {
-      flex: 1,
-    },
     storeCardName: {
       fontFamily: fontFamily.sans,
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: "700",
       color: c.text,
+      flexShrink: 1,
     },
     storeCardSub: {
       fontFamily: fontFamily.sans,
       fontSize: 12,
       color: c.mutedForeground,
-      marginTop: 2,
-    },
-    storeCardRight: {
-      alignItems: "flex-end",
-      gap: spacing.xs,
     },
     storeCardTotal: {
       fontFamily: fontFamily.sans,
-      fontSize: 20,
+      fontSize: 18,
       fontWeight: "800",
       color: c.text,
     },
@@ -2297,11 +2506,6 @@ function createStyles(c: ThemeColors) {
     },
     savingsHintTextNeg: {
       color: "#d97706",
-    },
-    headerActions: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      gap: spacing.sm,
     },
     productListSection: {
       borderTopWidth: 1,
@@ -2671,12 +2875,6 @@ function createStyles(c: ThemeColors) {
       borderTopLeftRadius: 12,
       borderBottomLeftRadius: 12,
     },
-    storeNameRow: {
-      flexDirection: "row" as const,
-      alignItems: "center" as const,
-      gap: spacing.xs,
-      flexWrap: "wrap" as const,
-    },
     winnerBadge: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
@@ -2899,18 +3097,18 @@ function createStyles(c: ThemeColors) {
     },
     promoDiscountBadge: {
       borderRadius: 6,
-      paddingHorizontal: 6,
-      paddingVertical: 3,
-      backgroundColor: "#dcfce7",
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      backgroundColor: c.successBg,
     },
     promoDiscountBadgeActive: {
       backgroundColor: c.primary,
     },
     promoDiscountText: {
       fontFamily: fontFamily.sans,
-      fontSize: 11,
-      fontWeight: "700" as const,
-      color: "#166534",
+      fontSize: 12,
+      fontWeight: "800" as const,
+      color: c.successText,
     },
     promoDiscountTextActive: {
       color: "#ffffff",
@@ -3040,16 +3238,16 @@ function createPromoStyles(c: ThemeColors) {
       marginTop: 2,
     },
     bestBadge: {
-      backgroundColor: "#dcfce7",
+      backgroundColor: c.successBg,
       borderRadius: 6,
       paddingHorizontal: 8,
-      paddingVertical: 3,
+      paddingVertical: 4,
     },
     bestBadgeText: {
       fontFamily: fontFamily.sans,
       fontSize: 12,
-      fontWeight: "700",
-      color: "#166534",
+      fontWeight: "800",
+      color: c.successText,
     },
     promoList: {
       paddingHorizontal: spacing.md,
@@ -3067,18 +3265,18 @@ function createPromoStyles(c: ThemeColors) {
     },
     discountBadge: {
       borderRadius: 6,
-      paddingHorizontal: 6,
-      paddingVertical: 3,
-      backgroundColor: "#dcfce7",
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      backgroundColor: c.successBg,
     },
     discountBadgeActive: {
       backgroundColor: c.primary,
     },
     discountText: {
       fontFamily: fontFamily.sans,
-      fontSize: 11,
-      fontWeight: "700",
-      color: "#166534",
+      fontSize: 12,
+      fontWeight: "800",
+      color: c.successText,
     },
     discountTextActive: {
       color: "#ffffff",

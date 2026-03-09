@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
+import { Wallet } from "lucide-react";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { FundPage } from "@/components/features/fund-page";
+import { PageHeader } from "@/components/ui/page-header";
+import { spacing } from "@/lib/design-tokens";
 
 export const metadata = {
   title: "Fondo Común",
@@ -18,7 +21,8 @@ export default async function FundServerPage() {
   });
 
   return (
-    <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
+    <div className={spacing.pageContainer}>
+      <PageHeader backButton icon={Wallet} title="Fondo Común" subtitle="Administrá el fondo compartido del hogar." />
       <FundPage allMembers={allMembers} currentMemberId={member.id} />
     </div>
   );

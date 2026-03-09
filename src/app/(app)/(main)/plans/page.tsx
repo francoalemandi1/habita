@@ -19,7 +19,8 @@ import {
 import { cn } from "@/lib/utils";
 import { durationLabel } from "@/lib/plan-duration";
 import { spacing } from "@/lib/design-tokens";
-import { BackButton } from "@/components/ui/back-button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 
 import type { MemberType, WeeklyPlanStatus } from "@prisma/client";
 
@@ -144,29 +145,22 @@ export default async function PlansPage() {
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      {/* Header */}
-      <div className={spacing.pageHeader}>
-        <BackButton />
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
-              <CalendarDays className="h-6 w-6 text-primary" />
-              Planes
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Gestiona la distribución de tareas en tu hogar
-            </p>
-          </div>
-          {!activePlan && (
+      <PageHeader
+        backButton
+        icon={CalendarDays}
+        title="Planes"
+        subtitle="Gestiona la distribución de tareas en tu hogar"
+        actions={
+          !activePlan ? (
             <Button asChild size="sm" className="gap-2">
               <Link href="/plan">
                 <Plus className="h-4 w-4" />
                 Generar plan
               </Link>
             </Button>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       {/* Active plan */}
       {activePlan && (
@@ -184,13 +178,7 @@ export default async function PlansPage() {
             : `Planes anteriores (${pastPlans.length})`}
         </h2>
         {pastPlans.length === 0 ? (
-          <div className="rounded-2xl bg-muted/30 p-8 text-center">
-            <CalendarDays className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-            <p className="font-medium">Acá vas a ver tus planes pasados</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Cuando completes tu primer plan, aparecerá en el historial para que puedas comparar semana a semana.
-            </p>
-          </div>
+          <EmptyState icon={CalendarDays} title="Acá vas a ver tus planes pasados" description="Cuando completes tu primer plan, aparecerá en el historial para que puedas comparar semana a semana." />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
             {pastPlans.map((plan) => (

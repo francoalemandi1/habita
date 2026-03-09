@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, Check, ChevronDown, DollarSign } from "lucide-react-native";
+import { Check, ChevronDown, DollarSign } from "lucide-react-native";
 import { useCreateExpense } from "@/hooks/use-expenses";
 import { useMembers } from "@/hooks/use-members";
 import { useMilestone } from "@/hooks/use-milestone";
@@ -13,7 +13,8 @@ import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { useThemeColors } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
 import { StyledTextInput } from "@/components/ui/text-input";
-import { fontFamily, radius, spacing, typography } from "@/theme";
+import { SecondaryHeader } from "@/components/ui/secondary-header";
+import { fontFamily, radius, spacing } from "@/theme";
 
 import type { ThemeColors } from "@/theme";
 import type { ExpenseCategory, SplitType } from "@habita/contracts";
@@ -272,13 +273,7 @@ export default function NewExpenseScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header with back button */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-          <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Nuevo gasto</Text>
-        <View style={styles.backBtn} />
-      </View>
+      <SecondaryHeader title="Nuevo gasto" />
 
       <ScrollView
         bounces={false}
@@ -482,24 +477,6 @@ function createStyles(c: ThemeColors) {
     container: {
       flex: 1,
       backgroundColor: c.background,
-    },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-    },
-    backBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: c.card,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    headerTitle: {
-      ...typography.cardTitle,
     },
     scrollContent: {
       paddingHorizontal: spacing.lg,

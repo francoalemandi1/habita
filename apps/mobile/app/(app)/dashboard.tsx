@@ -200,43 +200,43 @@ export default function DashboardScreen() {
         {isInitialLoad ? (
           <DashboardSkeleton />
         ) : (
-          <View style={styles.contentGap}>
-            {/* Hero Card */}
-            <HeroCard state={heroState} />
+          <>
+            {/* Zone 1: Status + actions */}
+            <View style={styles.zone}>
+              <HeroCard state={heroState} />
 
-            {/* Briefing Tip */}
-            {briefing?.suggestion ? (
-              <BriefingTip text={briefing.suggestion} />
-            ) : null}
+              {briefing?.suggestion ? (
+                <BriefingTip text={briefing.suggestion} />
+              ) : null}
 
-            {/* Action Alerts */}
-            {incomingTransfers.length > 0 ? (
-              <ActionAlert
-                icon={ArrowRightLeft}
-                text={transferAlertText}
-                iconColor={colors.warningText}
-                bgColor={colors.warningBg}
-                route="/(app)/transfers"
-              />
-            ) : null}
+              {incomingTransfers.length > 0 ? (
+                <ActionAlert
+                  icon={ArrowRightLeft}
+                  text={transferAlertText}
+                  iconColor={colors.warningText}
+                  bgColor={colors.warningBg}
+                  route="/(app)/transfers"
+                />
+              ) : null}
 
-            {/* Balance */}
-            <BalanceCard balance={myBalance} />
+              <BalanceCard balance={myBalance} />
+            </View>
 
-            {/* Household Week Card */}
-            {statsQuery.data ? (
-              <HouseholdWeekCard
-                memberStats={statsQuery.data.memberStats}
-                householdStreak={statsQuery.data.householdStreak}
-                isSolo={isSolo}
-                currentMemberId={myMemberId}
-                onShare={handleShareWeek}
-              />
-            ) : null}
+            {/* Zone 2: Gamification + discovery */}
+            <View style={styles.zone}>
+              {statsQuery.data ? (
+                <HouseholdWeekCard
+                  memberStats={statsQuery.data.memberStats}
+                  householdStreak={statsQuery.data.householdStreak}
+                  isSolo={isSolo}
+                  currentMemberId={myMemberId}
+                  onShare={handleShareWeek}
+                />
+              ) : null}
 
-            {/* Daily Highlight */}
-            <DailyHighlight highlight={highlightState} loading={highlightLoading} />
-          </View>
+              <DailyHighlight highlight={highlightState} loading={highlightLoading} />
+            </View>
+          </>
         )}
 
         {/* Off-screen shareable card for capture */}
@@ -282,8 +282,9 @@ function createStyles(c: ThemeColors) {
       color: c.mutedForeground,
       textTransform: "capitalize",
     },
-    contentGap: {
-      gap: spacing.lg,
+    zone: {
+      gap: spacing.md,
+      marginBottom: spacing.xl,
     },
     bottomPadding: {
       height: 20,

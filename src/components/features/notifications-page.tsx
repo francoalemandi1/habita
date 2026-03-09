@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
 import { notificationStyles, notificationStyleDefault, spacing, typography, iconSize } from "@/lib/design-tokens";
 
 // ─── Notification types & helpers ────────────────────────────────────────────
@@ -154,37 +155,34 @@ export function NotificationsPage() {
 
   return (
     <>
-      <div className={spacing.pageHeader}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className={cn(typography.pageTitle, "flex items-center gap-2")}>
-              <Bell className={`${iconSize.lg} text-primary shrink-0`} />
-              Notificaciones
-            </h1>
-            {unreadCount > 0 && (
+      <PageHeader
+        backButton
+        icon={Bell}
+        title="Notificaciones"
+        actions={
+          unreadCount > 0 ? (
+            <>
               <Badge variant="destructive" className="text-xs">
                 {unreadCount}
               </Badge>
-            )}
-          </div>
-          {unreadCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => void markAllAsRead()}
-              disabled={isMarking}
-            >
-              {isMarking ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <CheckCheck className="h-3.5 w-3.5" />
-              )}
-              Marcar todo como leído
-            </Button>
-          )}
-        </div>
-      </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => void markAllAsRead()}
+                disabled={isMarking}
+              >
+                {isMarking ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <CheckCheck className="h-3.5 w-3.5" />
+                )}
+                Marcar todo como leído
+              </Button>
+            </>
+          ) : undefined
+        }
+      />
 
       {/* Filter tabs */}
       <div className="mb-6 flex items-center rounded-lg border bg-muted p-0.5 w-fit">

@@ -12,8 +12,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { ArrowLeft, Dices, RotateCcw, UserPlus } from "lucide-react-native";
+import { Dices, RotateCcw, UserPlus } from "lucide-react-native";
 import { useRouletteAssign } from "@/hooks/use-roulette";
 import { useHouseholdDetail } from "@/hooks/use-households";
 import { useMembers } from "@/hooks/use-members";
@@ -23,10 +22,11 @@ import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { useThemeColors } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { SecondaryHeader } from "@/components/ui/secondary-header";
 import { StyledTextInput } from "@/components/ui/text-input";
 import { TabBar } from "@/components/ui/tab-bar";
 import { mobileConfig } from "@/lib/config";
-import { fontFamily, spacing, typography } from "@/theme";
+import { fontFamily, spacing } from "@/theme";
 
 import type { ThemeColors } from "@/theme";
 import type { RouletteAssignResult } from "@/hooks/use-roulette";
@@ -300,14 +300,8 @@ export default function RouletteScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
-      <Animated.View style={[styles.header, { opacity: headerFadeIn }]}>
-        <View style={styles.backRow}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-            <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
-          </Pressable>
-          <Text style={[styles.backTitle, { color: colors.text }]}>Ruleta de tareas</Text>
-          <View style={styles.backBtn} />
-        </View>
+      <Animated.View style={{ opacity: headerFadeIn }}>
+        <SecondaryHeader title="Ruleta de tareas" />
         <Text style={styles.subtitle}>Asigná una tarea al azar, sin debates.</Text>
       </Animated.View>
 
@@ -455,11 +449,7 @@ const { width: SCREEN_W } = Dimensions.get("window");
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.background },
-    header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.xs },
-    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-    backTitle: { ...typography.cardTitle },
-    subtitle: { fontFamily: fontFamily.sans, fontSize: 14, color: c.mutedForeground },
+    subtitle: { fontFamily: fontFamily.sans, fontSize: 14, color: c.mutedForeground, paddingHorizontal: spacing.lg },
     scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24 },
 
     section: { marginBottom: spacing.lg },

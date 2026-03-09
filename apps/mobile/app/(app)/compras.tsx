@@ -273,10 +273,11 @@ interface CatalogModalProps {
   addedTerms: Set<string>;
   initialCategory?: string | null;
   onClose: () => void;
+  onConfirm: () => void;
   onToggleItem: (name: string) => void;
 }
 
-function CatalogModal({ visible, addedTerms, initialCategory, onClose, onToggleItem }: CatalogModalProps) {
+function CatalogModal({ visible, addedTerms, initialCategory, onClose, onConfirm, onToggleItem }: CatalogModalProps) {
   const catalog = useProductCatalog();
   const [search, setSearch] = useState("");
   const products = catalog.data?.products ?? [];
@@ -320,7 +321,7 @@ function CatalogModal({ visible, addedTerms, initialCategory, onClose, onToggleI
       <SafeAreaView style={styles.catalogModalContainer}>
         <View style={styles.catalogModalHeader}>
           <Text style={styles.catalogModalTitle}>Catálogo</Text>
-          <Pressable onPress={onClose} hitSlop={8} style={styles.catalogConfirmBtn}>
+          <Pressable onPress={onConfirm} hitSlop={8} style={styles.catalogConfirmBtn}>
             <Text style={styles.catalogConfirmText}>Confirmar</Text>
           </Pressable>
         </View>
@@ -832,8 +833,8 @@ function StoreCartCard({
     <Card style={[styles.storeCard, isWinner && styles.storeCardWinner]}>
       {isWinner ? <View style={styles.winnerAccent} /> : null}
       <CardContent>
-        {/* Header */}
-        <View style={styles.storeCardHeader}>
+        {/* Header — tap anywhere to expand/collapse */}
+        <Pressable onPress={() => setIsOpen((v) => !v)} style={styles.storeCardHeader}>
           {/* Row 1: Avatar + Name/Badge + Price + Actions */}
           <View style={styles.storeHeaderRow1}>
             <StoreAvatar storeName={cart.storeName} />
@@ -877,14 +878,9 @@ function StoreCartCard({
                   <Bookmark size={20} color={colors.mutedForeground} />
                 )}
               </Pressable>
-              <Pressable
-                onPress={() => setIsOpen((v) => !v)}
-                hitSlop={8}
-              >
-                <View style={isOpen ? { transform: [{ rotate: "180deg" }] } : undefined}>
-                  <ChevronDown size={18} color={colors.mutedForeground} />
-                </View>
-              </Pressable>
+              <View style={isOpen ? { transform: [{ rotate: "180deg" }] } : undefined}>
+                <ChevronDown size={18} color={colors.mutedForeground} />
+              </View>
             </View>
           </View>
 
@@ -905,7 +901,7 @@ function StoreCartCard({
               <Text style={styles.mapsLinkText}>Cómo llegar</Text>
             </Pressable>
           </View>
-        </View>
+        </Pressable>
 
         {/* Promo banner */}
         <StorePromoBanner
@@ -1745,15 +1741,15 @@ export default function ShoppingPlanScreen() {
               style={styles.catalogBanner}
             >
               <View style={styles.catalogBannerIcon}>
-                <List size={16} color={colors.primary} />
+                <List size={20} color={colors.primary} />
               </View>
               <View style={styles.catalogBannerContent}>
-                <Text style={styles.catalogBannerTitle}>Ver catálogo de productos</Text>
-                {(catalog.data?.products?.length ?? 0) > 0 ? (
-                  <Text style={styles.catalogBannerCount}>
-                    {catalog.data?.products?.length} productos disponibles
-                  </Text>
-                ) : null}
+                <Text style={styles.catalogBannerTitle}>Elegí productos del catálogo</Text>
+                <Text style={styles.catalogBannerCount}>
+                  {(catalog.data?.products?.length ?? 0) > 0
+                    ? `${catalog.data?.products?.length} productos disponibles`
+                    : "Seleccioná de nuestra lista para buscar precios"}
+                </Text>
               </View>
               <ChevronRight size={16} color={colors.mutedForeground} />
             </Pressable>
@@ -1798,6 +1794,7 @@ export default function ShoppingPlanScreen() {
           addedTerms={addedTerms}
           initialCategory={catalogInitialCategory}
           onClose={() => { setShowCatalog(false); setCatalogInitialCategory(null); }}
+          onConfirm={() => { setShowCatalog(false); setCatalogInitialCategory(null); void runSearch(); }}
           onToggleItem={toggleItemFromCatalog}
         />
 
@@ -2240,13 +2237,15 @@ function createStyles(c: ThemeColors) {
       marginTop: spacing.md,
       padding: spacing.md,
       borderRadius: radius.xl,
-      backgroundColor: `${c.primary}10`,
+      backgroundColor: `${c.primary}12`,
+      borderWidth: 1,
+      borderColor: `${c.primary}30`,
     },
     catalogBannerIcon: {
-      width: 32,
-      height: 32,
-      borderRadius: radius.md,
-      backgroundColor: `${c.primary}18`,
+      width: 40,
+      height: 40,
+      borderRadius: radius.lg,
+      backgroundColor: `${c.primary}20`,
       alignItems: "center" as const,
       justifyContent: "center" as const,
     },
@@ -2343,6 +2342,8 @@ function createStyles(c: ThemeColors) {
       paddingBottom: spacing.sm,
       borderBottomWidth: 1,
       borderBottomColor: c.border,
+      backgroundColor: c.background,
+      zIndex: 1,
     },
     catalogSearchInput: {
       flex: 1,

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, Clock, UserCheck } from "lucide-react-native";
+import { BookOpen, ChevronDown, ChevronUp, Clock, UserCheck } from "lucide-react-native";
 import { useTaskCatalog, useCreateTask, useCreateAssignment } from "@/hooks/use-task-management";
 import { useMembers } from "@/hooks/use-members";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
@@ -12,7 +12,8 @@ import { StyledTextInput } from "@/components/ui/text-input";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useThemeColors } from "@/hooks/use-theme";
-import { fontFamily, spacing, typography } from "@/theme";
+import { SecondaryHeader } from "@/components/ui/secondary-header";
+import { fontFamily, spacing } from "@/theme";
 
 import type { ThemeColors } from "@/theme";
 import type { CatalogTask } from "@/hooks/use-task-management";
@@ -158,14 +159,8 @@ export default function TaskCatalogScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      <SecondaryHeader title="Catálogo de tareas" />
       <View style={styles.header}>
-        <View style={styles.backRow}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-            <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
-          </Pressable>
-          <Text style={[styles.backTitle, { color: colors.text }]}>Cat\u00E1logo de tareas</Text>
-          <View style={styles.backBtn} />
-        </View>
         <StyledTextInput
           value={search}
           onChangeText={setSearch}
@@ -253,10 +248,7 @@ export default function TaskCatalogScreen() {
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.background },
-    header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-    backTitle: { ...typography.cardTitle },
+    header: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
     searchInput: { marginBottom: 0 },
     loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
     scroll: { flex: 1 },

@@ -1,15 +1,14 @@
 import { useMemo } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
 import { usePreferences, useRemovePreference, useSetPreference } from "@/hooks/use-preferences";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { useThemeColors } from "@/hooks/use-theme";
-import { fontFamily, spacing, typography } from "@/theme";
+import { SecondaryHeader } from "@/components/ui/secondary-header";
+import { fontFamily, spacing } from "@/theme";
 
 import type { ThemeColors } from "@/theme";
 import type { MemberPreference, PreferenceValue } from "@/hooks/use-preferences";
@@ -61,13 +60,7 @@ export default function PreferencesScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.backRow}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-          <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
-        </Pressable>
-        <Text style={[styles.backTitle, { color: colors.text }]}>Mis preferencias</Text>
-        <View style={styles.backBtn} />
-      </View>
+      <SecondaryHeader title="Mis preferencias" />
       <ScrollView bounces={false} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={prefsQuery.isRefetching} onRefresh={() => void prefsQuery.refetch()} tintColor={colors.primary} />}
       >
@@ -107,9 +100,6 @@ export default function PreferencesScreen() {
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.background },
-    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-    backTitle: { ...typography.cardTitle },
     scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24 },
     subtitle: { fontFamily: fontFamily.sans, fontSize: 14, color: c.mutedForeground, marginBottom: spacing.md },
     statRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },

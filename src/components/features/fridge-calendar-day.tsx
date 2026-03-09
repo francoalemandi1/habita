@@ -106,7 +106,7 @@ export function FridgeCalendarDay({
       className={cn(
         "min-h-[72px] p-1 notebook-ruled notebook-subdivider",
         isToday && "notebook-today-highlight",
-        !isLast && "border-r border-[#e8e4dc] dark:border-[hsl(220_13%_20%)]",
+        !isLast && "border-r border-border",
       )}
     >
       {isEmpty ? (

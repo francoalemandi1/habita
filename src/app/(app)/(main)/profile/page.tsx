@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { ProfileSettings } from "@/components/features/profile-settings";
 import { SignOutButton } from "@/components/features/sign-out-button";
 import { ChevronRight } from "lucide-react";
-import { spacing, iconSize } from "@/lib/design-tokens";
+import { PageHeader } from "@/components/ui/page-header";
+import { spacing, iconSize, typography } from "@/lib/design-tokens";
 import Link from "next/link";
 
 export default async function ProfilePage() {
@@ -25,14 +26,11 @@ export default async function ProfilePage() {
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      {/* Header */}
-      <h1 className={`${spacing.pageHeader} text-2xl font-bold tracking-tight text-foreground sm:text-3xl`}>
-        Mi Perfil
-      </h1>
+      <PageHeader backButton title="Mi Perfil" />
 
       {/* Mi Hogar Section */}
       <div className={spacing.sectionGap}>
-        <h2 className="mb-2 text-2xl font-bold text-foreground">Mi Hogar</h2>
+        <h2 className={`mb-2 ${typography.sectionTitle}`}>Mi Hogar</h2>
         <Link
           href="/dashboard"
           className="flex items-center justify-between gap-2 rounded-2xl bg-card p-4 shadow-sm"

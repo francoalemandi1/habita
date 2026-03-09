@@ -3,7 +3,8 @@ import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
 import { CocinaClient } from "@/components/features/cocina-client";
-import { spacing, typography } from "@/lib/design-tokens";
+import { PageHeader } from "@/components/ui/page-header";
+import { spacing } from "@/lib/design-tokens";
 
 export default async function CocinaPage() {
   const member = await getCurrentMember();
@@ -19,12 +20,10 @@ export default async function CocinaPage() {
 
   return (
     <div className={spacing.pageContainer}>
-      <div className={spacing.pageHeader}>
-        <h1 className={typography.pageTitle}>Cociná</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Sacá una foto de tu heladera y te sugerimos recetas
-        </p>
-      </div>
+      <PageHeader
+        title="Cociná"
+        subtitle="Sacá una foto de tu heladera y te sugerimos recetas"
+      />
       <CocinaClient aiEnabled={aiEnabled} householdSize={householdSize} />
     </div>
   );

@@ -1,8 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { ArrowLeft, Landmark, Plus, TrendingDown, TrendingUp } from "lucide-react-native";
+import { Landmark, Plus, TrendingDown, TrendingUp } from "lucide-react-native";
 import { useFund, useContributeToFund, useSetupFund } from "@/hooks/use-fund";
 import { useMembers } from "@/hooks/use-members";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
@@ -13,8 +12,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { StyledTextInput } from "@/components/ui/text-input";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SecondaryHeader } from "@/components/ui/secondary-header";
 import { SkeletonCard } from "@/components/ui/skeleton";
-import { fontFamily, radius, spacing, typography } from "@/theme";
+import { fontFamily, radius, spacing } from "@/theme";
 
 import type { ThemeColors } from "@/theme";
 import type { MemberContributionStatus, CreateFundPayload } from "@/hooks/use-fund";
@@ -308,14 +308,8 @@ export default function FundScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      <SecondaryHeader title="Fondo Comun" />
       <View style={styles.header}>
-        <View style={styles.backRow}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-            <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
-          </Pressable>
-          <Text style={[typography.cardTitle, { color: colors.text }]}>Fondo Comun</Text>
-          <View style={styles.backBtn} />
-        </View>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.title}>{fund?.name ?? "Fondo Comun"}</Text>
@@ -521,9 +515,7 @@ export default function FundScreen() {
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.background },
-    header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
-    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+    header: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
     headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
     title: { fontFamily: fontFamily.sans, fontSize: 22, fontWeight: "700", color: c.text },
     subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginTop: 2 },

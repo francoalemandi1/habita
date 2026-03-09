@@ -1,15 +1,15 @@
 import { useMemo } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { ArrowLeft, BarChart3 } from "lucide-react-native";
+import { BarChart3 } from "lucide-react-native";
 import { useExpenseInsights } from "@/hooks/use-expense-insights";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SecondaryHeader } from "@/components/ui/secondary-header";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { useThemeColors } from "@/hooks/use-theme";
-import { fontFamily, spacing, typography } from "@/theme";
+import { fontFamily, spacing } from "@/theme";
 
 import type { ThemeColors } from "@/theme";
 import type { ExpenseInsightsResponse, SpendingTip } from "@habita/contracts";
@@ -44,13 +44,7 @@ export default function ExpenseInsightsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.backRow}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-          <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
-        </Pressable>
-        <Text style={[styles.backTitle, { color: colors.text }]}>Insights financieros</Text>
-        <View style={styles.backBtn} />
-      </View>
+      <SecondaryHeader title="Insights financieros" />
       <ScrollView bounces={false} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} tintColor={colors.primary} />}
       >
@@ -112,9 +106,6 @@ export default function ExpenseInsightsScreen() {
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.background },
-    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-    backTitle: { ...typography.cardTitle },
     scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24 },
     subtitle: { fontFamily: fontFamily.sans, fontSize: 14, color: c.mutedForeground, marginBottom: spacing.md },
     loadingList: { gap: spacing.md },

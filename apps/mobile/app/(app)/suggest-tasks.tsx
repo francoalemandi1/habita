@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
 import { useSuggestTasks } from "@/hooks/use-suggest-tasks";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { useThemeColors } from "@/hooks/use-theme";
@@ -10,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StyledTextInput } from "@/components/ui/text-input";
-import { fontFamily, spacing, typography } from "@/theme";
+import { SecondaryHeader } from "@/components/ui/secondary-header";
+import { fontFamily, spacing } from "@/theme";
 
 import type { ThemeColors } from "@/theme";
 import type { SuggestedTask, TaskCategoryGroup } from "@/hooks/use-suggest-tasks";
@@ -73,13 +72,7 @@ export default function SuggestTasksScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.backRow}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-          <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
-        </Pressable>
-        <Text style={[styles.backTitle, { color: colors.text }]}>Sugerencias de tareas</Text>
-        <View style={styles.backBtn} />
-      </View>
+      <SecondaryHeader title="Sugerencias de tareas" />
       <ScrollView bounces={false} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.subtitle}>Contános sobre tu hogar y te sugerimos el catálogo ideal de tareas.</Text>
         <Card style={styles.formCard}>
@@ -124,9 +117,6 @@ export default function SuggestTasksScreen() {
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.background },
-    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-    backTitle: { ...typography.cardTitle },
     scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24 },
     subtitle: { fontFamily: fontFamily.sans, fontSize: 14, color: c.mutedForeground, marginBottom: spacing.md },
     formCard: { marginBottom: spacing.md },

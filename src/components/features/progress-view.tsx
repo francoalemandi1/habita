@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { TrendingUp, Users, CheckCircle2, Clock, Flame, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { spacing, typography, iconSize } from "@/lib/design-tokens";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 
 import type { StatsResponse } from "@habita/contracts";
 
@@ -43,13 +44,7 @@ export function ProgressView({ currentMemberId }: ProgressViewProps) {
   if (isLoading) {
     return (
       <>
-        <div className={spacing.pageHeader}>
-          <h1 className={cn(typography.pageTitle, "flex items-center gap-2")}>
-            <TrendingUp className={`${iconSize.lg} text-primary shrink-0`} />
-            Progreso
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Ranking semanal del hogar.</p>
-        </div>
+        <PageHeader backButton icon={TrendingUp} title="Progreso" subtitle="Ranking semanal del hogar." />
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
@@ -60,20 +55,8 @@ export function ProgressView({ currentMemberId }: ProgressViewProps) {
   if (!data || data.memberStats.length === 0) {
     return (
       <>
-        <div className={spacing.pageHeader}>
-          <h1 className={cn(typography.pageTitle, "flex items-center gap-2")}>
-            <TrendingUp className={`${iconSize.lg} text-primary shrink-0`} />
-            Progreso
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Ranking semanal del hogar.</p>
-        </div>
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-muted/30 px-6 py-16 text-center">
-          <TrendingUp className="h-10 w-10 text-muted-foreground/50" />
-          <p className="text-lg font-semibold">Sin estadísticas</p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Completá tareas para ver el progreso del hogar.
-          </p>
-        </div>
+        <PageHeader backButton icon={TrendingUp} title="Progreso" subtitle="Ranking semanal del hogar." />
+        <EmptyState icon={TrendingUp} title="Sin estadísticas" description="Completá tareas para ver el progreso del hogar." />
       </>
     );
   }
@@ -84,13 +67,7 @@ export function ProgressView({ currentMemberId }: ProgressViewProps) {
 
   return (
     <>
-      <div className={spacing.pageHeader}>
-        <h1 className={cn(typography.pageTitle, "flex items-center gap-2")}>
-          <TrendingUp className={`${iconSize.lg} text-primary shrink-0`} />
-          Progreso
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">Ranking semanal del hogar.</p>
-      </div>
+      <PageHeader backButton icon={TrendingUp} title="Progreso" subtitle="Ranking semanal del hogar." />
 
       {/* Household totals */}
       <div className="mb-6 grid grid-cols-3 gap-3">

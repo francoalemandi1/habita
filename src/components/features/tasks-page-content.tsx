@@ -1,8 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ListChecks } from "lucide-react";
 import { TaskList } from "@/components/features/task-list";
 import { TaskCatalogPicker } from "@/components/features/task-catalog-picker";
+import { PageHeader } from "@/components/ui/page-header";
 
 import type { Task } from "@prisma/client";
 
@@ -15,20 +17,18 @@ export function TasksPageContent({ tasks }: TasksPageContentProps) {
 
   return (
     <>
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Tareas
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Gestiona las tareas de tu hogar
-          </p>
-        </div>
-        <TaskCatalogPicker
-          existingTaskNames={tasks.map((t) => t.name)}
-          onTasksCreated={() => router.refresh()}
-        />
-      </div>
+      <PageHeader
+        backButton
+        icon={ListChecks}
+        title="Tareas"
+        subtitle="Gestiona las tareas de tu hogar"
+        actions={
+          <TaskCatalogPicker
+            existingTaskNames={tasks.map((t) => t.name)}
+            onTasksCreated={() => router.refresh()}
+          />
+        }
+      />
 
       <TaskList tasks={tasks} />
     </>

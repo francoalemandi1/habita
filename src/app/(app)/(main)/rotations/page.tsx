@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { RotationToggle } from "@/components/features/rotation-toggle";
 import { RefreshCw } from "lucide-react";
-import { spacing } from "@/lib/design-tokens";
+import { PageHeader } from "@/components/ui/page-header";
+import { spacing, typography } from "@/lib/design-tokens";
 
 export default async function RotationsPage() {
   const member = await getCurrentMember();
@@ -55,15 +56,12 @@ export default async function RotationsPage() {
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <div className={spacing.pageHeader}>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-3xl">
-          <RefreshCw className="h-7 w-7" />
-          Rotaciones automáticas
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Configura la generación automática de asignaciones
-        </p>
-      </div>
+      <PageHeader
+        backButton
+        icon={RefreshCw}
+        title="Rotaciones automáticas"
+        subtitle="Configura la generación automática de asignaciones"
+      />
 
       {/* Summary */}
       <div className={`${spacing.sectionGapLg} grid gap-4 sm:grid-cols-3`}>
@@ -97,14 +95,14 @@ export default async function RotationsPage() {
 
       {/* Active rotations */}
       <section className={spacing.sectionGapXl}>
-        <h2 className="mb-4 text-xl font-semibold">Rotaciones configuradas</h2>
+        <h2 className={`mb-4 ${typography.sectionTitle}`}>Rotaciones configuradas</h2>
         <RotationsList rotations={rotations} />
       </section>
 
       {/* Tasks without rotation */}
       {tasksWithoutRotation.length > 0 && (
         <section>
-          <h2 className="mb-4 text-xl font-semibold">Tareas sin rotación</h2>
+          <h2 className={`mb-4 ${typography.sectionTitle}`}>Tareas sin rotación</h2>
           <p className="mb-4 text-muted-foreground">
             Estas tareas recurrentes no tienen rotación activa. Activa una para
             generar asignaciones automáticas.

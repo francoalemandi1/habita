@@ -5,6 +5,8 @@ import { Sparkles, ChevronDown, ChevronUp, Clock, Loader2, Lightbulb } from "luc
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";
 import { FREQUENCY_LABELS } from "@/lib/constants";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { spacing, typography, iconSize } from "@/lib/design-tokens";
 
 import type { SuggestTasksInput, SuggestTasksResponse, TaskCategoryGroup, SuggestedTask } from "@habita/contracts";
@@ -99,15 +101,7 @@ export function SuggestTasksView() {
 
   return (
     <>
-      <div className={spacing.pageHeader}>
-        <h1 className={cn(typography.pageTitle, "flex items-center gap-2")}>
-          <Sparkles className={`${iconSize.lg} text-primary shrink-0`} />
-          Sugerencias de Tareas
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Contanos sobre tu hogar y te sugerimos el catálogo ideal.
-        </p>
-      </div>
+      <PageHeader backButton icon={Sparkles} title="Sugerencias de Tareas" subtitle="Contanos sobre tu hogar y te sugerimos el catálogo ideal." />
 
       {/* Form */}
       <div className="mb-4 space-y-4 rounded-xl border bg-card p-4">
@@ -244,13 +238,7 @@ export function SuggestTasksView() {
 
       {/* Empty state */}
       {!isPending && !data && !error && (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-muted/30 px-6 py-16 text-center">
-          <span className="text-5xl">🏠</span>
-          <p className="text-lg font-semibold">Tu catálogo personalizado</p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Configurá tu hogar y generamos un catálogo de tareas personalizado.
-          </p>
-        </div>
+        <EmptyState emoji="🏠" title="Tu catálogo personalizado" description="Configurá tu hogar y generamos un catálogo de tareas personalizado." />
       )}
     </>
   );

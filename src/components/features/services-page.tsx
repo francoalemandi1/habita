@@ -19,6 +19,8 @@ import { ServiceDialog } from "@/components/features/service-dialog";
 import { Button } from "@/components/ui/button";
 import { frequencyLabel } from "@/lib/service-utils";
 import { CATEGORY_ICONS, CATEGORY_COLORS } from "@/lib/expense-constants";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { iconSize, spacing, typography } from "@/lib/design-tokens";
 
 import type { SerializedService, MemberOption } from "@/types/expense";
@@ -68,15 +70,7 @@ export function ServicesPage({ allMembers, currentMemberId }: ServicesPageProps)
   if (isLoading) {
     return (
       <>
-        <div className={spacing.pageHeader}>
-          <h1 className={cn(typography.pageTitle, "flex items-center gap-2")}>
-            <Receipt className={`${iconSize.lg} text-primary shrink-0`} />
-            Servicios
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Gestión de servicios y gastos recurrentes del hogar.
-          </p>
-        </div>
+        <PageHeader backButton icon={Receipt} title="Servicios" subtitle="Gestión de servicios y gastos recurrentes del hogar." />
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
@@ -88,23 +82,18 @@ export function ServicesPage({ allMembers, currentMemberId }: ServicesPageProps)
 
   return (
     <>
-      <div className={spacing.pageHeader}>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className={cn(typography.pageTitle, "flex items-center gap-2")}>
-              <Receipt className={`${iconSize.lg} text-primary shrink-0`} />
-              Servicios
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Gestión de servicios y gastos recurrentes del hogar.
-            </p>
-          </div>
+      <PageHeader
+        backButton
+        icon={Receipt}
+        title="Servicios"
+        subtitle="Gestión de servicios y gastos recurrentes del hogar."
+        actions={
           <Button size="sm" className="gap-1.5" onClick={() => setShowCreateDialog(true)}>
             <Plus className={iconSize.sm} />
             Nuevo
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {overdueCount > 0 && (
         <div className="mb-6 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/30">
@@ -116,17 +105,12 @@ export function ServicesPage({ allMembers, currentMemberId }: ServicesPageProps)
       )}
 
       {!hasServices ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-muted/30 px-6 py-16 text-center">
-          <Receipt className="h-10 w-10 text-muted-foreground/50" />
-          <p className="text-lg font-semibold">Sin servicios</p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Agregá servicios recurrentes como luz, gas, internet para llevar un control de vencimientos.
-          </p>
+        <EmptyState icon={Receipt} title="Sin servicios" description="Agregá servicios recurrentes como luz, gas, internet para llevar un control de vencimientos.">
           <Button size="sm" className="mt-2 gap-1.5" onClick={() => setShowCreateDialog(true)}>
             <Plus className={iconSize.sm} />
             Agregar servicio
           </Button>
-        </div>
+        </EmptyState>
       ) : (
         <div className="space-y-6">
           {activeServices.length > 0 && (

@@ -332,103 +332,56 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Hero card */}
-      <div className={spacing.sectionGap}>
+      {/* ── Zone 1: Status + actions ── */}
+      <div className="mb-8 space-y-4">
+        {/* Hero card */}
         <DashboardHeroCard state={heroState} />
-      </div>
 
-      {/* Household week card (gamification) */}
-      <div className={spacing.sectionGap}>
-        <DashboardWeekCard
-          memberStats={memberStats}
-          householdStreak={householdStreak}
-          isSolo={isSolo}
-          currentMemberId={member.id}
-        />
-      </div>
-
-      {/* Plan status */}
-      {aiEnabled && (
-        <div className={spacing.sectionGap}>
-          <PlanStatusCard
-            plan={activePlan ? {
-              id: activePlan.id,
-              status: activePlan.status,
-              balanceScore: activePlan.balanceScore,
-              assignments: activePlan.assignments as Array<{
-                taskName: string;
-                memberName: string;
-                memberType: MemberType;
-                reason: string;
-              }>,
-              durationDays: activePlan.durationDays,
-              createdAt: activePlan.createdAt,
-              appliedAt: activePlan.appliedAt,
-              expiresAt: activePlan.expiresAt,
-            } : null}
-            aiEnabled={aiEnabled}
-            memberCount={members.length}
-            allAssignmentsDone={activePlan?.status === "APPLIED" && planPendingAssignments.length === 0}
-            pendingAssignments={planPendingAssignments.map((a) => ({
-              id: a.id,
-              taskName: a.task.name,
-              memberName: a.member.name,
-              dueDate: a.dueDate,
-            }))}
-          />
-          <div className="mt-2 border-t border-black/5 pt-2">
-            <Link
-              href="/plans"
-              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <CalendarDays className={iconSize.xs} />
-              Ver planes
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* Transfers */}
-      <div className={spacing.sectionGap}>
-        <PendingTransfers transfers={transfers} currentMemberId={member.id} />
-      </div>
-
-      {/* Calendario semanal */}
-      <div className={spacing.sectionGap}>
-        {hasAppliedPlan ? (
-          <FridgeCalendarView
-            initialAssignments={serializedAssignments}
-            members={members}
-            initialWeekStart={monday.toISOString()}
-            hideBackButton
-          />
-        ) : (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
-              <CalendarDays className={`${iconSize.xl} text-muted-foreground`} />
-              <p className="text-sm font-medium">Calendario semanal</p>
-              <p className="text-sm text-muted-foreground">
-                Generá y aplicá un plan para ver las tareas de la semana
-              </p>
+        {/* Plan status */}
+        {aiEnabled && (
+          <div>
+            <PlanStatusCard
+              plan={activePlan ? {
+                id: activePlan.id,
+                status: activePlan.status,
+                balanceScore: activePlan.balanceScore,
+                assignments: activePlan.assignments as Array<{
+                  taskName: string;
+                  memberName: string;
+                  memberType: MemberType;
+                  reason: string;
+                }>,
+                durationDays: activePlan.durationDays,
+                createdAt: activePlan.createdAt,
+                appliedAt: activePlan.appliedAt,
+                expiresAt: activePlan.expiresAt,
+              } : null}
+              aiEnabled={aiEnabled}
+              memberCount={members.length}
+              allAssignmentsDone={activePlan?.status === "APPLIED" && planPendingAssignments.length === 0}
+              pendingAssignments={planPendingAssignments.map((a) => ({
+                id: a.id,
+                taskName: a.task.name,
+                memberName: a.member.name,
+                dueDate: a.dueDate,
+              }))}
+            />
+            <div className="mt-2 border-t border-black/5 pt-2">
               <Link
-                href="/plan"
-                className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                href="/plans"
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
-                Crear plan
-                <ChevronRight className="h-4 w-4" />
+                <CalendarDays className={iconSize.xs} />
+                Ver planes
               </Link>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
-      </div>
 
-      {/* Daily highlight */}
-      <div className={spacing.sectionGap}>
-        <DashboardDailyHighlight highlight={dailyHighlight} />
-      </div>
+        {/* Transfers */}
+        <PendingTransfers transfers={transfers} currentMemberId={member.id} />
 
-      {/* Balance de gastos */}
-      <div className={spacing.sectionGap}>
+        {/* Balance de gastos */}
         <Link
           href="/balance"
           className={`group flex items-center gap-3 rounded-2xl px-4 py-3 shadow-sm transition-all hover:shadow-md active:scale-[0.99] ${
@@ -472,6 +425,49 @@ export default async function DashboardPage() {
           </div>
           <ChevronRight className={`${iconSize.sm} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
         </Link>
+      </div>
+
+      {/* ── Zone 2: Calendar ── */}
+      <div className="mb-8">
+        {hasAppliedPlan ? (
+          <FridgeCalendarView
+            initialAssignments={serializedAssignments}
+            members={members}
+            initialWeekStart={monday.toISOString()}
+            hideBackButton
+          />
+        ) : (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
+              <CalendarDays className={`${iconSize.xl} text-muted-foreground`} />
+              <p className="text-sm font-medium">Calendario semanal</p>
+              <p className="text-sm text-muted-foreground">
+                Generá y aplicá un plan para ver las tareas de la semana
+              </p>
+              <Link
+                href="/plan"
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                Crear plan
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* ── Zone 3: Gamification + discovery ── */}
+      <div className="space-y-4">
+        {/* Household week card */}
+        <DashboardWeekCard
+          memberStats={memberStats}
+          householdStreak={householdStreak}
+          isSolo={isSolo}
+          currentMemberId={member.id}
+        />
+
+        {/* Daily highlight */}
+        <DashboardDailyHighlight highlight={dailyHighlight} />
       </div>
 
     </div>

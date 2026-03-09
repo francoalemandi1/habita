@@ -12,7 +12,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import {
   AlertTriangle,
-  ArrowLeft,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
@@ -39,7 +38,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StyledTextInput } from "@/components/ui/text-input";
 import { EmptyState } from "@/components/ui/empty-state";
-import { fontFamily, spacing, typography } from "@/theme";
+import { SecondaryHeader } from "@/components/ui/secondary-header";
+import { fontFamily, spacing } from "@/theme";
 
 import type { PlanAssignment, PlanPreviewResponse, TaskFrequency } from "@habita/contracts";
 import type { ThemeColors } from "@/theme";
@@ -244,14 +244,8 @@ export default function WeeklyPlanScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
+      <SecondaryHeader title="Plan semanal" />
       <View style={styles.header}>
-        <View style={styles.backRow}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-            <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
-          </Pressable>
-          <Text style={[styles.backTitle, { color: colors.text }]}>Plan semanal</Text>
-          <View style={styles.backBtn} />
-        </View>
         <Text style={styles.subtitle}>
           {plan
             ? "Revisá y aplicá el plan propuesto."
@@ -837,10 +831,7 @@ export default function WeeklyPlanScreen() {
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.background },
-    header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
-    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-    backTitle: { ...typography.cardTitle, color: c.text },
+    header: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
     subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginTop: 2 },
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 32, gap: spacing.sm },

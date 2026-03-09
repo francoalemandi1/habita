@@ -160,8 +160,8 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
         <div className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full bg-primary/40" />
       )}
 
-      {/* Header */}
-      <div className="p-4">
+      {/* Header — click anywhere to expand/collapse */}
+      <div className="cursor-pointer p-4" onClick={() => setIsOpen((v) => !v)}>
         {/* Row 1: Avatar + Name/Badge + Price + Actions */}
         <div className="flex items-center gap-3">
           <div className="relative shrink-0">
@@ -224,21 +224,16 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
             </div>
 
             {onToggleSave && (
-              <SaveButton
-                isSaved={isSaved ?? false}
-                isPending={isSavePending ?? false}
-                onToggle={onToggleSave}
-                size="md"
-              />
+              <div onClick={(e) => e.stopPropagation()}>
+                <SaveButton
+                  isSaved={isSaved ?? false}
+                  isPending={isSavePending ?? false}
+                  onToggle={onToggleSave}
+                  size="md"
+                />
+              </div>
             )}
-            <button
-              type="button"
-              onClick={() => setIsOpen((v) => !v)}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label={isOpen ? "Ocultar productos" : "Ver productos"}
-            >
-              <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "rotate-180")} />
-            </button>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", isOpen && "rotate-180")} />
           </div>
         </div>
 
@@ -259,6 +254,7 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
             href={mapsUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
             className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
             title="Cómo llegar"
           >

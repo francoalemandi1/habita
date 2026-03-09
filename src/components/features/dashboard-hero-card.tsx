@@ -36,16 +36,10 @@ function pickByHour(options: string[]): string {
 
 function getColorClasses(priority: HeroPriority) {
   switch (priority) {
-    case "today":
-      return { bg: "bg-primary/10", accent: "text-primary", btn: "bg-primary text-white hover:bg-primary/90" };
     case "transfers":
       return { bg: "bg-amber-50 dark:bg-amber-950/30", accent: "text-amber-700 dark:text-amber-400", btn: "bg-amber-600 text-white hover:bg-amber-700" };
-    case "balance-owed":
-      return { bg: "bg-green-50 dark:bg-green-950/30", accent: "text-green-700 dark:text-green-400", btn: "bg-green-600 text-white hover:bg-green-700" };
-    case "balance-owing":
-      return { bg: "bg-red-50 dark:bg-red-950/30", accent: "text-red-700 dark:text-red-400", btn: "bg-red-600 text-white hover:bg-red-700" };
-    case "all-clear":
-      return { bg: "bg-green-50 dark:bg-green-950/30", accent: "text-green-700 dark:text-green-400", btn: "" };
+    default:
+      return { bg: "bg-primary/[0.06] dark:bg-primary/[0.10]", accent: "text-primary", btn: "bg-primary text-white hover:bg-primary/90" };
   }
 }
 
@@ -114,16 +108,16 @@ export function DashboardHeroCard({ state }: DashboardHeroCardProps) {
   return (
     <Link
       href={state.ctaRoute}
-      className={`block rounded-2xl px-6 py-5 transition-all hover:shadow-md active:scale-[0.99] ${colors.bg} animate-fade-in`}
+      className={`block rounded-2xl px-5 py-4 transition-all hover:shadow-md active:scale-[0.99] ${colors.bg} animate-fade-in`}
     >
-      <p className={`font-handwritten text-3xl ${colors.accent}`}>
+      <p className={`font-handwritten text-2xl ${colors.accent}`}>
         {state.headline}
       </p>
       <p className="mt-1 text-sm font-medium text-foreground">
         {state.label}
       </p>
       {showButton ? (
-        <span className={`mt-4 inline-block rounded-full px-5 py-2 text-sm font-semibold transition-colors ${colors.btn}`}>
+        <span className={`mt-3 inline-block rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${colors.btn}`}>
           {state.ctaLabel}
         </span>
       ) : (

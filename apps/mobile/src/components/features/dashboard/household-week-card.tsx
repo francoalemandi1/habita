@@ -212,8 +212,8 @@ function createStyles(c: ThemeColors) {
       borderRadius: radius.xl,
       borderWidth: 1,
       borderColor: c.border,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.xl,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.lg,
       alignItems: "center",
     },
     header: {
@@ -234,9 +234,9 @@ function createStyles(c: ThemeColors) {
     },
     bigNumber: {
       fontFamily: fontFamily.handwritten,
-      fontSize: 52,
+      fontSize: 40,
       fontWeight: "700",
-      lineHeight: 56,
+      lineHeight: 44,
     },
     pointsLabel: {
       fontFamily: fontFamily.sans,
@@ -246,22 +246,22 @@ function createStyles(c: ThemeColors) {
     },
     // Tier badge
     tierBadge: {
-      marginTop: spacing.md,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.xs + 2,
+      marginTop: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
       borderRadius: radius.full,
     },
     tierBadgeText: {
       fontFamily: fontFamily.handwritten,
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: "600",
     },
     // Progress bar
     progressSection: {
       width: "100%",
-      marginTop: spacing.md,
+      marginTop: spacing.sm,
       alignItems: "center",
-      gap: 4,
+      gap: 2,
     },
     progressTrack: {
       width: "60%",
@@ -283,8 +283,8 @@ function createStyles(c: ThemeColors) {
     avatarRow: {
       flexDirection: "row",
       justifyContent: "center",
-      gap: spacing.xl,
-      marginTop: spacing.xl,
+      gap: spacing.lg,
+      marginTop: spacing.lg,
       flexWrap: "wrap",
     },
     avatarItem: {
@@ -299,25 +299,25 @@ function createStyles(c: ThemeColors) {
       height: 18,
     },
     avatar: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       alignItems: "center",
       justifyContent: "center",
     },
     avatarLeader: {
-      width: 50,
-      height: 50,
-      borderRadius: 25,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
     },
     avatarInitial: {
       fontFamily: fontFamily.sans,
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: "700",
     },
     avatarPoints: {
       fontFamily: fontFamily.sans,
-      fontSize: 15,
+      fontSize: 14,
       fontWeight: "700",
     },
     avatarName: {
@@ -336,7 +336,7 @@ function createStyles(c: ThemeColors) {
     },
     streakText: {
       fontFamily: fontFamily.sans,
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: "600",
     },
   });

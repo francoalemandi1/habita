@@ -214,11 +214,11 @@ export function PlanStatusCard({
     return (
       <Link
         href="/plan"
-        className={`group block rounded-2xl bg-brand-lime ${spacing.cardPaddingCompact} shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+        className={`group block rounded-2xl bg-primary/5 ${spacing.cardPaddingCompact} shadow-sm transition-all duration-200 hover:bg-primary/[0.07] hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
       >
         <div className="flex items-center gap-3">
-          <div className="shrink-0 rounded-full bg-brand-success-dark/20 p-2">
-            <CheckCheck className={`${iconSize.lg} text-brand-success-dark`} />
+          <div className="shrink-0 rounded-full bg-primary/10 p-2">
+            <CheckCheck className={`${iconSize.lg} text-primary`} />
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-medium text-foreground">
@@ -243,15 +243,15 @@ export function PlanStatusCard({
       <>
         <Link
           href="/plan"
-          className={`group block rounded-2xl bg-green-50 ${spacing.cardPaddingCompact} shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.99] dark:bg-green-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+          className={`group block rounded-2xl bg-primary/5 ${spacing.cardPaddingCompact} shadow-sm transition-all duration-200 hover:bg-primary/[0.07] hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
         >
           <div className="flex items-center gap-3">
-            <div className="shrink-0 rounded-full bg-green-100 dark:bg-green-900 p-2">
-              <CheckCheck className={`${iconSize.lg} text-green-600`} />
+            <div className="shrink-0 rounded-full bg-primary/10 p-2">
+              <CheckCheck className={`${iconSize.lg} text-primary`} />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="font-medium text-green-800 dark:text-green-200">
+                <p className="font-medium text-foreground">
                   Plan aplicado
                 </p>
                 {householdCopy.showEquityBadge && (
@@ -260,7 +260,7 @@ export function PlanStatusCard({
                   </Badge>
                 )}
               </div>
-              <p className="mt-0.5 text-sm text-green-600 dark:text-green-400 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              <p className="mt-0.5 text-sm text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                 <span>
                   Plan de {durationLabel(plan.durationDays ?? 7)} · {householdCopy.planMembersSummary(taskCount, uniqueMemberCount)}
                 </span>
@@ -274,7 +274,7 @@ export function PlanStatusCard({
               <Button
                 size="sm"
                 variant="outline"
-                className="gap-1.5 border-green-200 text-green-700 hover:bg-green-100 hover:text-green-800 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-900"
+                className="gap-1.5 border-primary/20 text-primary hover:bg-primary/10 hover:text-primary dark:border-primary/30"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();

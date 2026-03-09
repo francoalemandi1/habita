@@ -54,9 +54,7 @@ const INGREDIENTS_COLLAPSED_LIMIT = 6;
 
 function autoDetectMealType(): MealType {
   const hour = new Date().getHours();
-  if (hour < 10) return "merienda";
   if (hour < 15) return "almuerzo";
-  if (hour < 19) return "merienda";
   return "cena";
 }
 

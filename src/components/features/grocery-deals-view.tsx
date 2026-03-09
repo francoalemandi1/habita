@@ -16,6 +16,8 @@ import { addSearchItems } from "@/lib/shopping-cart-storage";
 import { StoreLogo } from "@/components/ui/store-logo";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { spacing, typography, iconSize } from "@/lib/design-tokens";
 
 import type { TopDealProduct } from "@habita/contracts";
@@ -166,17 +168,7 @@ function TopDealsView({ householdCity }: { householdCity: string | null }) {
 
   return (
     <>
-      <div className={spacing.pageHeader}>
-        <div>
-          <h1 className={cn(typography.pageTitle, "flex items-center gap-2")}>
-            <Tag className={`${iconSize.lg} text-primary shrink-0`} />
-            Top Ofertas
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Mejores descuentos reales{householdCity ? ` en ${householdCity}` : ""}
-          </p>
-        </div>
-      </div>
+      <PageHeader backButton icon={Tag} title="Top Ofertas" subtitle={`Mejores descuentos reales${householdCity ? ` en ${householdCity}` : ""}`} />
 
       {/* Loading */}
       {isLoading && (
@@ -195,13 +187,7 @@ function TopDealsView({ householdCity }: { householdCity: string | null }) {
 
       {/* Empty */}
       {!isLoading && !error && deals.length === 0 && (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-muted/30 px-6 py-16 text-center">
-          <Tag className="h-10 w-10 text-muted-foreground/50" />
-          <p className="text-lg font-semibold">Sin ofertas disponibles</p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Todavia no hay datos de precios para tu zona. Volve a intentar mas tarde.
-          </p>
-        </div>
+        <EmptyState icon={Tag} title="Sin ofertas disponibles" description="Todavia no hay datos de precios para tu zona. Volve a intentar mas tarde." />
       )}
 
       {/* Deals grouped by store */}

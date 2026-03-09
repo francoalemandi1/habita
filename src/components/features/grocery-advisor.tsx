@@ -587,9 +587,16 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
         }),
       );
       saveSearchItems(next);
+      // Auto-trigger search with the merged items
+      if (next.length > 0) {
+        setTimeout(() => {
+          search(next, paymentMethods.map((m) => m.bankSlug));
+          setLastSearchedTerms(new Set(next.map((i) => normalizeProductTerm(i.term))));
+        }, 0);
+      }
       return next;
     });
-  }, []);
+  }, [search, paymentMethods]);
 
   const handleSearch = useCallback(() => {
     if (searchItems.length === 0) return;
@@ -1029,18 +1036,18 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
       <button
         type="button"
         onClick={() => setCatalogOpen(true)}
-        className="flex w-full items-center gap-3 rounded-xl bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10"
+        className="flex w-full items-center gap-3 rounded-xl border border-primary/20 bg-primary/10 px-4 py-3.5 text-left transition-colors hover:bg-primary/15"
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-          <ListPlus className="h-4 w-4 text-primary" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
+          <ListPlus className="h-5 w-5 text-primary" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">Ver catálogo de productos</p>
-          {(catalogData?.products?.length ?? 0) > 0 && (
-            <p className="text-xs text-muted-foreground">
-              {catalogData?.products?.length} productos disponibles
-            </p>
-          )}
+          <p className="text-sm font-semibold">Elegí productos del catálogo</p>
+          <p className="text-xs text-muted-foreground">
+            {(catalogData?.products?.length ?? 0) > 0
+              ? `${catalogData?.products?.length} productos disponibles`
+              : "Seleccioná de nuestra lista para buscar precios"}
+          </p>
         </div>
         <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
       </button>

@@ -16,32 +16,23 @@ interface DailyHighlightProps {
 }
 
 function getHighlightConfig(type: HighlightType, c: ThemeColors) {
-  switch (type) {
-    case "deal":
-      return {
-        emoji: "🏷️",
-        bg: c.infoBg,
-        border: `${c.infoText}20`,
-        accent: c.infoText,
-        emojiBg: `${c.infoText}18`,
-      };
-    case "event":
-      return {
-        emoji: "🎭",
-        bg: `${c.lavender}15`,
-        border: `${c.lavender}30`,
-        accent: c.purpleDark,
-        emojiBg: `${c.lavender}25`,
-      };
-    case "recipe":
-      return {
-        emoji: "👨‍🍳",
-        bg: `${c.orange}10`,
-        border: `${c.orange}25`,
-        accent: c.orange,
-        emojiBg: `${c.orange}15`,
-      };
+  if (type === "recipe") {
+    return {
+      emoji: "👨‍🍳",
+      bg: c.muted,
+      border: c.border,
+      accent: c.mutedForeground,
+      emojiBg: `${c.mutedForeground}12`,
+    };
   }
+  // deal + event share primary tints
+  return {
+    emoji: type === "deal" ? "🏷️" : "🎭",
+    bg: `${c.primary}08`,
+    border: `${c.primary}20`,
+    accent: c.primary,
+    emojiBg: `${c.primary}15`,
+  };
 }
 
 export function DailyHighlight({ highlight, loading }: DailyHighlightProps) {
@@ -121,15 +112,15 @@ function createStyles(c: ThemeColors) {
       paddingVertical: spacing.lg,
     },
     emojiCircle: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       alignItems: "center",
       justifyContent: "center",
       marginBottom: spacing.md,
     },
     emoji: {
-      fontSize: 24,
+      fontSize: 20,
     },
     categoryLabel: {
       fontFamily: fontFamily.sans,

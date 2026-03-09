@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import { useExpenseInsights } from "@/hooks/use-expense-insights";
 import { formatAmount } from "@/components/features/expense-shared";
 import { CATEGORY_ICONS, CATEGORY_LABELS } from "@/lib/expense-constants";
-import { spacing, typography, iconSize } from "@/lib/design-tokens";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 
 import type { ExpenseCategory } from "@prisma/client";
 import type { MonthStatus, SpendingTip } from "@/lib/expense-insights";
@@ -51,13 +52,7 @@ export function ExpenseInsightsView() {
   if (isLoading) {
     return (
       <>
-        <div className={spacing.pageHeader}>
-          <h1 className={cn(typography.pageTitle, "flex items-center gap-2")}>
-            <BarChart3 className={`${iconSize.lg} text-primary shrink-0`} />
-            Análisis de Gastos
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Cómo estás este mes.</p>
-        </div>
+        <PageHeader backButton icon={BarChart3} title="Análisis de Gastos" subtitle="Cómo estás este mes." />
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
@@ -68,20 +63,8 @@ export function ExpenseInsightsView() {
   if (!data || data.thisMonthExpenseCount === 0) {
     return (
       <>
-        <div className={spacing.pageHeader}>
-          <h1 className={cn(typography.pageTitle, "flex items-center gap-2")}>
-            <BarChart3 className={`${iconSize.lg} text-primary shrink-0`} />
-            Análisis de Gastos
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Cómo estás este mes.</p>
-        </div>
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-muted/30 px-6 py-16 text-center">
-          <BarChart3 className="h-10 w-10 text-muted-foreground/50" />
-          <p className="text-lg font-semibold">Sin datos aún</p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Registrá gastos para ver un análisis de tus finanzas del mes.
-          </p>
-        </div>
+        <PageHeader backButton icon={BarChart3} title="Análisis de Gastos" subtitle="Cómo estás este mes." />
+        <EmptyState icon={BarChart3} title="Sin datos aún" description="Registrá gastos para ver un análisis de tus finanzas del mes." />
       </>
     );
   }
@@ -90,13 +73,7 @@ export function ExpenseInsightsView() {
 
   return (
     <>
-      <div className={spacing.pageHeader}>
-        <h1 className={cn(typography.pageTitle, "flex items-center gap-2")}>
-          <BarChart3 className={`${iconSize.lg} text-primary shrink-0`} />
-          Análisis de Gastos
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">Cómo estás este mes.</p>
-      </div>
+      <PageHeader backButton icon={BarChart3} title="Análisis de Gastos" subtitle="Cómo estás este mes." />
 
       {/* Month status */}
       <div className={cn("mb-4 rounded-xl border p-4", sc.bg, sc.border)}>

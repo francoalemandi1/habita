@@ -19,6 +19,20 @@ pnpm build            # prisma generate + next build
 pnpm db:push          # Schema → DB local (solo dev)
 pnpm db:deploy        # Aplicar migraciones (producción)
 ```
+
+### Mobile — build shareable (APK via URL)
+
+```bash
+cd apps/mobile && eas build --profile preview --platform android
+```
+
+Genera un APK hosteado en expo.dev con URL compartible. El perfil `preview` apunta a `habita.casa` (prod). `--non-interactive` omite preguntas del CLI (útil en CI).
+
+```bash
+cd apps/mobile && eas build --profile preview --platform ios
+```
+
+Genera un `.ipa` para iOS (requiere Apple Developer account y certificates configurados en EAS). Ambos builds quedan en expo.dev con URL compartible.
 s
 ## Reglas críticas
 

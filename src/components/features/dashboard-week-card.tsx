@@ -107,7 +107,7 @@ export function DashboardWeekCard({
 
   return (
     <Card className="animate-fade-in">
-      <CardContent className="flex flex-col items-center py-6 px-5">
+      <CardContent className="flex flex-col items-center py-5 px-4">
         {/* Header */}
         <div className="flex w-full items-center justify-between mb-3">
           <span className="text-sm font-semibold text-muted-foreground">Esta semana</span>
@@ -121,19 +121,19 @@ export function DashboardWeekCard({
         </div>
 
         {/* Big number */}
-        <p className="font-handwritten text-5xl font-bold text-primary leading-tight">
+        <p className="font-handwritten text-4xl font-bold text-primary leading-tight">
           {householdTotal}
         </p>
         <p className="text-sm text-muted-foreground mt-0.5">puntos</p>
 
         {/* Tier badge */}
-        <span className={`mt-3 inline-flex items-center gap-1 rounded-full px-4 py-1 font-handwritten text-lg font-semibold ${getTierBadgeClasses(tier.colorKey)}`}>
+        <span className={`mt-2 inline-flex items-center gap-1 rounded-full px-3 py-0.5 font-handwritten text-base font-semibold ${getTierBadgeClasses(tier.colorKey)}`}>
           {tier.emoji} {tier.label}
         </span>
 
         {/* Progress bar */}
         {nextTier && (
-          <div className="mt-3 flex w-3/5 flex-col items-center gap-1">
+          <div className="mt-2 flex w-3/5 flex-col items-center gap-0.5">
             <Progress
               value={progressValue}
               className="h-1 bg-muted"
@@ -146,7 +146,7 @@ export function DashboardWeekCard({
 
         {/* Ranked members */}
         {ranked.length > 1 && (
-          <div className="mt-5 flex flex-wrap justify-center gap-6">
+          <div className="mt-4 flex flex-wrap justify-center gap-4">
             {ranked.map((member, rankIndex) => {
               const isMe = member.id === currentMemberId;
               const isLeader = rankIndex === 0 && member.points.total > 0;
@@ -164,7 +164,7 @@ export function DashboardWeekCard({
                   {/* Avatar */}
                   <div
                     className={`flex items-center justify-center rounded-full font-bold ${
-                      isLeader ? "h-[50px] w-[50px] text-lg" : "h-11 w-11 text-base"
+                      isLeader ? "h-11 w-11 text-base" : "h-10 w-10 text-sm"
                     } ${isMe ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
                     style={{ backgroundColor: bgColor, color: textColor }}
                   >
@@ -182,21 +182,21 @@ export function DashboardWeekCard({
           </div>
         )}
 
-        {/* Streak */}
-        {householdStreak > 0 && (
-          <span className="mt-4 inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-            🔥 {streakText}
-          </span>
-        )}
-
-        {/* Full stats link */}
-        <Link
-          href="/progress"
-          className="mt-4 inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Ver progreso completo
-          <ChevronRight className="h-3 w-3" />
-        </Link>
+        {/* Streak + progress link */}
+        <div className="mt-3 flex w-full items-center justify-between px-2">
+          {householdStreak > 0 ? (
+            <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+              🔥 {streakText}
+            </span>
+          ) : <div />}
+          <Link
+            href="/progress"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Ver progreso
+            <ChevronRight className="h-3 w-3" />
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );

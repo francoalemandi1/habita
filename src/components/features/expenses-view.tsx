@@ -17,6 +17,7 @@ import { useFund } from "@/hooks/use-fund";
 import { useServices } from "@/hooks/use-services";
 import { ServicesManagement } from "@/components/features/services-management";
 import { ServiceDialog } from "@/components/features/service-dialog";
+import { PageHeader } from "@/components/ui/page-header";
 import { spacing } from "@/lib/design-tokens";
 import { cn } from "@/lib/utils";
 
@@ -313,11 +314,7 @@ export function ExpensesView({
 
   return (
     <>
-      <div className={spacing.pageHeader}>
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Registrá</h1>
-        </div>
-      </div>
+      <PageHeader title="Registrá" />
 
       {/* Quick-add dialog (externally controlled) */}
       <AddExpenseDialog

@@ -16,18 +16,10 @@ interface HeroCardProps {
 }
 
 function getColorScheme(priority: HeroPriority, c: ThemeColors) {
-  switch (priority) {
-    case "today":
-      return { bg: c.primaryLight, accent: c.primary, btnBg: c.primary, btnText: "#ffffff" };
-    case "transfers":
-      return { bg: c.warningBg, accent: c.warningText, btnBg: c.warningText, btnText: "#ffffff" };
-    case "balance-owed":
-      return { bg: c.successBg, accent: c.successText, btnBg: c.successText, btnText: "#ffffff" };
-    case "balance-owing":
-      return { bg: c.errorBg, accent: c.errorText, btnBg: c.errorText, btnText: "#ffffff" };
-    case "all-clear":
-      return { bg: c.successBg, accent: c.successText, btnBg: c.successText, btnText: "#ffffff" };
+  if (priority === "transfers") {
+    return { bg: c.warningBg, accent: c.warningText, btnBg: c.warningText, btnText: "#ffffff" };
   }
+  return { bg: c.primaryLight, accent: c.primary, btnBg: c.primary, btnText: "#ffffff" };
 }
 
 export function HeroCard({ state, loading }: HeroCardProps) {
@@ -94,12 +86,12 @@ function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     card: {
       borderRadius: radius.xl,
-      paddingHorizontal: spacing.xl,
-      paddingVertical: spacing.xl,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.lg,
     },
     headline: {
       fontFamily: fontFamily.handwritten,
-      fontSize: 28,
+      fontSize: 24,
     },
     label: {
       fontFamily: fontFamily.sans,

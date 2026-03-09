@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const mealTypeSchema = z.enum(["almuerzo", "cena", "merienda", "libre"]);
+export const mealTypeSchema = z.enum(["almuerzo", "cena", "libre"]);
 
 export const difficultySchema = z.enum(["facil", "media", "dificil"]);
 

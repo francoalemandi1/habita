@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { ArrowLeft, Bell, CheckCheck } from "lucide-react-native";
+import { Bell, CheckCheck } from "lucide-react-native";
 import { useMarkAllNotificationsRead, useNotifications } from "@/hooks/use-notifications";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { useThemeColors } from "@/hooks/use-theme";
@@ -12,7 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { TabBar } from "@/components/ui/tab-bar";
-import { fontFamily, spacing, typography } from "@/theme";
+import { SecondaryHeader } from "@/components/ui/secondary-header";
+import { fontFamily, spacing } from "@/theme";
 
 import type { ThemeColors } from "@/theme";
 
@@ -29,13 +29,7 @@ export default function NotificationsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.headerOuter}>
-        <View style={styles.backRow}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-            <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
-          </Pressable>
-          <Text style={[styles.backTitle, { color: colors.text }]}>Notificaciones</Text>
-          <View style={styles.backBtn} />
-        </View>
+        <SecondaryHeader title="Notificaciones" />
         <View style={styles.header}>
           <View>
             {unreadCount > 0 ? (
@@ -124,11 +118,8 @@ export default function NotificationsScreen() {
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.background },
-    headerOuter: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-    backTitle: { ...typography.cardTitle },
-    header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    headerOuter: { paddingBottom: spacing.sm },
+    header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: spacing.lg },
     subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginTop: 2 },
     tabBar: { marginHorizontal: spacing.lg, marginBottom: spacing.sm },
     scroll: { flex: 1 },

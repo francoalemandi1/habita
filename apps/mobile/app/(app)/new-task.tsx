@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft } from "lucide-react-native";
 import { useMembers } from "@/hooks/use-members";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { useCreateAssignment, useCreateTask } from "@/hooks/use-task-management";
@@ -10,7 +9,8 @@ import { useThemeColors } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StyledTextInput } from "@/components/ui/text-input";
-import { fontFamily, spacing, typography } from "@/theme";
+import { SecondaryHeader } from "@/components/ui/secondary-header";
+import { fontFamily, spacing } from "@/theme";
 
 import type { ThemeColors } from "@/theme";
 import type { TaskFrequency } from "@habita/contracts";
@@ -63,13 +63,7 @@ export default function NewTaskScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.backRow}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-          <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
-        </Pressable>
-        <Text style={[styles.backTitle, { color: colors.text }]}>Nueva tarea</Text>
-        <View style={styles.backBtn} />
-      </View>
+      <SecondaryHeader title="Nueva tarea" />
       <ScrollView bounces={false} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.subtitle}>Creá y asigná una tarea en un solo paso.</Text>
         <Card style={styles.card}>
@@ -105,9 +99,6 @@ export default function NewTaskScreen() {
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.background },
-    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
-    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-    backTitle: { ...typography.cardTitle },
     scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24 },
     subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginBottom: spacing.md },
     card: { marginBottom: spacing.md },

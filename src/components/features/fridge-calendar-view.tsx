@@ -345,7 +345,7 @@ export function FridgeCalendarView({
   return (
     <div className={spacing.contentStackCompact}>
       {/* Notebook calendar container */}
-      <div className="notebook-paper notebook-binding notebook-border relative overflow-hidden rounded-lg">
+      <div className="notebook-paper notebook-binding notebook-border relative overflow-hidden rounded-2xl">
         {/* Header strip */}
         <div className="notebook-header relative flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
           {/* Left nav */}
@@ -475,7 +475,7 @@ export function FridgeCalendarView({
                   return (
                     <div
                       key={day.date.toISOString()}
-                      className={`flex justify-center py-1.5 ${i < numCols - 1 ? "border-r border-[#e8e4dc] dark:border-[hsl(220_13%_20%)]" : ""}`}
+                      className={`flex justify-center py-1.5 ${i < numCols - 1 ? "border-r border-border" : ""}`}
                     >
                       <span
                         className={`handwritten-note flex h-8 w-8 items-center justify-center text-xl font-semibold ${

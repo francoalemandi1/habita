@@ -5,7 +5,8 @@ import { PreferencesManager } from "@/components/features/preferences-manager";
 import { AbsencesManager } from "@/components/features/absences-manager";
 import { OccupationLevelSelector } from "@/components/features/availability-manager";
 import { Settings } from "lucide-react";
-import { spacing } from "@/lib/design-tokens";
+import { PageHeader } from "@/components/ui/page-header";
+import { spacing, typography } from "@/lib/design-tokens";
 
 import type { OccupationLevel } from "@/lib/validations/member";
 
@@ -45,20 +46,17 @@ export default async function PreferencesPage() {
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <div className={spacing.pageHeader}>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-3xl">
-          <Settings className="h-7 w-7" />
-          Preferencias
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Configura tus preferencias, nivel de ocupación y ausencias
-        </p>
-      </div>
+      <PageHeader
+        backButton
+        icon={Settings}
+        title="Preferencias"
+        subtitle="Configura tus preferencias, nivel de ocupación y ausencias"
+      />
 
       <div className="space-y-12">
         {/* Task preferences section */}
         <section>
-          <h2 className="mb-4 text-xl font-semibold">Preferencias de tareas</h2>
+          <h2 className={`mb-4 ${typography.sectionTitle}`}>Preferencias de tareas</h2>
           <p className="mb-6 text-muted-foreground">
             Las tareas preferidas tienen +20 puntos en el algoritmo de asignación.
             Las no deseadas tienen -20 puntos. Esto influye en qué tareas te son asignadas.
@@ -68,7 +66,7 @@ export default async function PreferencesPage() {
 
         {/* Occupation level section */}
         <section>
-          <h2 className="mb-4 text-xl font-semibold">Nivel de ocupación</h2>
+          <h2 className={`mb-4 ${typography.sectionTitle}`}>Nivel de ocupación</h2>
           <p className="mb-6 text-muted-foreground">
             Indicá qué tan ocupado/a estás. La IA usará esta información
             para distribuir la carga de tareas de forma más justa.
@@ -81,7 +79,7 @@ export default async function PreferencesPage() {
 
         {/* Absences section */}
         <section>
-          <h2 className="mb-4 text-xl font-semibold">Ausencias</h2>
+          <h2 className={`mb-4 ${typography.sectionTitle}`}>Ausencias</h2>
           <p className="mb-6 text-muted-foreground">
             Durante tus ausencias no se te asignarán nuevas tareas. Las tareas
             pendientes seguirán asignadas a ti.

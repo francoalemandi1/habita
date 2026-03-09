@@ -21,7 +21,7 @@ const MAX_IMAGE_BASE64_SIZE = 1_400_000; // ~1MB decoded
 const bodySchema = z.object({
   textInput: z.string().max(2000).default(""),
   images: z.array(z.string()).max(3).default([]),
-  mealType: z.enum(["almuerzo", "cena", "merienda", "libre"]),
+  mealType: z.enum(["almuerzo", "cena", "libre"]),
 });
 
 // ============================================

@@ -4,10 +4,8 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   Bookmark,
   ChefHat,
-  Camera,
   Mic,
   MicOff,
-  X,
   Loader2,
   Clock,
   Users,
@@ -53,14 +51,9 @@ interface CocinaClientProps {
 // Constants
 // ============================================
 
-const MAX_IMAGES = 3;
-const MAX_IMAGE_DIMENSION = 1024;
-const JPEG_QUALITY = 0.8;
-
 const MEAL_OPTIONS: { key: MealType; label: string }[] = [
   { key: "almuerzo", label: "Almuerzo" },
   { key: "cena", label: "Cena" },
-  { key: "merienda", label: "Merienda" },
   { key: "libre", label: "Libre" },
 ];
 
@@ -76,47 +69,8 @@ const DIFFICULTY_CONFIG: Record<string, { label: string; color: string }> = {
 
 function autoDetectMealType(): MealType {
   const hour = new Date().getHours();
-  if (hour < 10) return "merienda";
   if (hour < 15) return "almuerzo";
-  if (hour < 19) return "merienda";
   return "cena";
-}
-
-function resizeImage(file: File, maxDimension: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-
-      let { width, height } = img;
-      if (width > maxDimension || height > maxDimension) {
-        const ratio = Math.min(maxDimension / width, maxDimension / height);
-        width = Math.round(width * ratio);
-        height = Math.round(height * ratio);
-      }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        reject(new Error("Canvas context not available"));
-        return;
-      }
-      ctx.drawImage(img, 0, 0, width, height);
-      const base64 = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
-      resolve(base64);
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Error al cargar la imagen"));
-    };
-
-    img.src = url;
-  });
 }
 
 /** Check if Web Speech API is available */
@@ -137,7 +91,6 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
 
   // Persisted across navigation via sessionStorage
   const [textInput, setTextInput] = useSessionStorageState("cocina-text", "");
-  const [images, setImages] = useSessionStorageState<string[]>("cocina-images", []);
   const [mealType, setMealType] = useSessionStorageState<MealType>("cocina-meal", autoDetectMealType());
 
   // Guardados
@@ -176,16 +129,13 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
     setHasSpeechApi(isSpeechRecognitionAvailable());
   // eslint-disable-next-line react-hooks/set-state-in-effect
   }, []);
-  const [imageError, setImageError] = useState<string | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const canSubmit = useMemo(
-    () => (textInput.trim().length > 0 || images.length > 0) && !isGenerating,
-    [textInput, images, isGenerating]
+    () => textInput.trim().length > 0 && !isGenerating,
+    [textInput, isGenerating]
   );
 
   // Scroll to results only when a NEW generation completes
@@ -199,28 +149,6 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cocinaResult]);
-
-  // ---- Image handling ----
-  const handleImageUpload = useCallback(async (files: FileList | null) => {
-    if (!files) return;
-
-    const remaining = MAX_IMAGES - images.length;
-    const filesToProcess = Array.from(files).slice(0, remaining);
-
-    try {
-      const resized = await Promise.all(
-        filesToProcess.map((file) => resizeImage(file, MAX_IMAGE_DIMENSION))
-      );
-      setImages((prev) => [...prev, ...resized].slice(0, MAX_IMAGES));
-      setImageError(null);
-    } catch {
-      setImageError("Error al procesar una imagen. Intenta con otra.");
-    }
-  }, [images.length, setImages]);
-
-  const removeImage = useCallback((index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
-  }, [setImages]);
 
   // ---- Audio recording (Web Speech API) ----
   const toggleRecording = useCallback(() => {
@@ -268,10 +196,10 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
     if (!canSubmit) return;
     setCocinaError(null);
     mutation.mutate(
-      { textInput: textInput.trim(), images, mealType },
+      { textInput: textInput.trim(), images: [], mealType },
       { onSuccess: () => { void refetchStatus(); } },
     );
-  }, [canSubmit, textInput, images, mealType, mutation, refetchStatus]);
+  }, [canSubmit, textInput, mealType, mutation, refetchStatus]);
 
   // ---- AI not enabled ----
   if (!aiEnabled) {
@@ -291,9 +219,8 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
       {isFirstVisitCocina && !wasSectionToured("cocina") && (
         <SectionGuideCard
           steps={[
-            { icon: <Camera className="h-4 w-4" />, title: "Sacá una foto", description: "Fotografiá tu heladera o alacena" },
+            { icon: <ChefHat className="h-4 w-4" />, title: "Contá qué tenés", description: "Escribí los ingredientes que tenés a mano" },
             { icon: <Sparkles className="h-4 w-4" />, title: "La IA sugiere recetas", description: "Recetas personalizadas con lo que tenés" },
-            { icon: <ChefHat className="h-4 w-4" />, title: "Cociná y compartí", description: "Seguí los pasos y disfrutá" },
           ]}
           onDismiss={dismissCocina}
         />
@@ -358,74 +285,31 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
           </p>
         </div>
 
-        {/* Image upload */}
-        <div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={images.length >= MAX_IMAGES}
-              className="flex items-center gap-1.5 rounded-full bg-muted/60 px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <Camera className={iconSize.sm} />
-              Adjuntar fotos ({images.length}/{MAX_IMAGES})
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(e) => handleImageUpload(e.target.files)}
-            />
-
-            {/* Audio button */}
-            {hasSpeechApi && (
-              <button
-                type="button"
-                onClick={toggleRecording}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  isRecording
-                    ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 animate-pulse"
-                    : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                {isRecording ? (
-                  <>
-                    <MicOff className={iconSize.sm} />
-                    Detener
-                  </>
-                ) : (
-                  <>
-                    <Mic className={iconSize.sm} />
-                    Dictar
-                  </>
-                )}
-              </button>
+        {/* Audio button */}
+        {hasSpeechApi && (
+          <button
+            type="button"
+            onClick={toggleRecording}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              isRecording
+                ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 animate-pulse"
+                : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
-          </div>
-
-          {/* Image previews */}
-          {images.length > 0 && (
-            <div className="mt-2 flex gap-2">
-              {images.map((img, index) => (
-                <div key={index} className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img} alt={`Ingrediente ${index + 1}`} className="h-full w-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => removeImage(index)}
-                    className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-label="Eliminar imagen"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+          >
+            {isRecording ? (
+              <>
+                <MicOff className={iconSize.sm} />
+                Detener
+              </>
+            ) : (
+              <>
+                <Mic className={iconSize.sm} />
+                Dictar
+              </>
+            )}
+          </button>
+        )}
 
         {/* Meal type selector */}
         <div>
@@ -474,14 +358,6 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
           Porciones adaptadas a {householdSize} persona{householdSize > 1 ? "s" : ""}
         </p>
       </div>
-
-      {/* Image error */}
-      {imageError && (
-        <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">
-          <AlertTriangle className={iconSize.sm} />
-          {imageError}
-        </div>
-      )}
 
       {/* Error */}
       {(mutation.error || cocinaError) && (

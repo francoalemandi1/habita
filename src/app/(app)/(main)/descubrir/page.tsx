@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { resolveCityId } from "@/lib/events/city-normalizer";
 import { eventRowToRelaxEvent } from "@/lib/events/event-mapper";
 import { DescubrirClient } from "@/components/features/descubrir-client";
-import { spacing, typography } from "@/lib/design-tokens";
+import { PageHeader } from "@/components/ui/page-header";
+import { spacing } from "@/lib/design-tokens";
 
 export default async function DescubrirPage() {
   const member = await getCurrentMember();
@@ -29,14 +30,10 @@ export default async function DescubrirPage() {
 
   return (
     <div className={spacing.pageContainer}>
-      <div className={spacing.pageHeader}>
-        <h1 className={typography.pageTitle}>
-          {cityName ? `Descubrí ${cityName}` : "Descubrí"}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {todayLabel}
-        </p>
-      </div>
+      <PageHeader
+        title={cityName ? `Descubrí ${cityName}` : "Descubrí"}
+        subtitle={todayLabel}
+      />
       <DescubrirClient
         hasHouseholdLocation={hasLocation}
         householdCity={cityName}

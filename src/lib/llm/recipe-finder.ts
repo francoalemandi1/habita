@@ -33,7 +33,7 @@ export interface RecipeResult {
   summary: string;
 }
 
-export type MealType = "almuerzo" | "cena" | "merienda" | "libre";
+export type MealType = "almuerzo" | "cena" | "libre";
 
 export interface RecipeFinderOptions {
   textInput: string;
@@ -69,7 +69,6 @@ const recipeSchema = z.object({
 const MEAL_TYPE_LABELS: Record<MealType, string> = {
   almuerzo: "almuerzo",
   cena: "cena",
-  merienda: "merienda",
   libre: "cualquier momento del dia",
 };
 

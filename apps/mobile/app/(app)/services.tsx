@@ -1,17 +1,17 @@
 import { useMemo, useState } from "react";
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { AlertCircle, ArrowLeft, Layers, Trash2, Zap } from "lucide-react-native";
+import { AlertCircle, Layers, Trash2, Zap } from "lucide-react-native";
 import { useServices, useGenerateServiceExpense, useDeleteService } from "@/hooks/use-services";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SecondaryHeader } from "@/components/ui/secondary-header";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { useThemeColors } from "@/hooks/use-theme";
-import { fontFamily, spacing, typography } from "@/theme";
+import { fontFamily, spacing } from "@/theme";
 
 import type { ThemeColors } from "@/theme";
 import type { SerializedService } from "@/hooks/use-services";
@@ -170,14 +170,8 @@ export default function ServicesScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      <SecondaryHeader title="Servicios" />
       <View style={styles.header}>
-        <View style={styles.backRow}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-            <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
-          </Pressable>
-          <Text style={[styles.backTitle, { color: colors.text }]}>Servicios</Text>
-          <View style={styles.backBtn} />
-        </View>
         <Text style={styles.subtitle}>Suscripciones y gastos recurrentes del hogar</Text>
       </View>
 
@@ -268,10 +262,7 @@ export default function ServicesScreen() {
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.background },
-    header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs },
-    backRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
-    backTitle: { ...typography.cardTitle },
+    header: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
     subtitle: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground, marginTop: 2 },
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: 24, gap: spacing.sm },

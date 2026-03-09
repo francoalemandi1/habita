@@ -23,32 +23,23 @@ interface DashboardDailyHighlightProps {
 }
 
 function getHighlightConfig(type: HighlightType) {
-  switch (type) {
-    case "deal":
-      return {
-        emoji: "🏷️",
-        emojiBg: "bg-green-100 dark:bg-green-900/40",
-        border: "border-green-200 dark:border-green-800/40",
-        categoryColor: "text-green-700 dark:text-green-400",
-        btnBg: "bg-green-600 hover:bg-green-700 text-white",
-      };
-    case "event":
-      return {
-        emoji: "🎭",
-        emojiBg: "bg-violet-100 dark:bg-violet-900/40",
-        border: "border-violet-200 dark:border-violet-800/40",
-        categoryColor: "text-violet-700 dark:text-violet-400",
-        btnBg: "bg-violet-600 hover:bg-violet-700 text-white",
-      };
-    case "recipe":
-      return {
-        emoji: "👨‍🍳",
-        emojiBg: "bg-orange-100 dark:bg-orange-900/40",
-        border: "border-orange-200 dark:border-orange-800/40",
-        categoryColor: "text-orange-700 dark:text-orange-400",
-        btnBg: "bg-orange-600 hover:bg-orange-700 text-white",
-      };
+  if (type === "recipe") {
+    return {
+      emoji: "👨‍🍳",
+      emojiBg: "bg-muted",
+      border: "border-border",
+      categoryColor: "text-muted-foreground",
+      btnBg: "bg-foreground/10 hover:bg-foreground/15 text-foreground",
+    };
   }
+  // deal + event share primary tints
+  return {
+    emoji: type === "deal" ? "🏷️" : "🎭",
+    emojiBg: "bg-primary/10 dark:bg-primary/15",
+    border: "border-primary/15 dark:border-primary/20",
+    categoryColor: "text-primary",
+    btnBg: "bg-primary hover:bg-primary/90 text-white",
+  };
 }
 
 function getMealLabel(): string {
@@ -98,11 +89,11 @@ export function DashboardDailyHighlight({ highlight }: DashboardDailyHighlightPr
   return (
     <Link
       href={highlight.ctaRoute}
-      className={`block rounded-2xl border p-5 transition-all hover:shadow-md active:scale-[0.99] animate-fade-in ${config.border}`}
+      className={`block rounded-2xl border p-4 transition-all hover:shadow-md active:scale-[0.99] animate-fade-in ${config.border}`}
     >
       <div className="flex items-start gap-4">
         {/* Emoji circle */}
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-2xl ${config.emojiBg}`}>
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl ${config.emojiBg}`}>
           {config.emoji}
         </div>
 
@@ -120,7 +111,7 @@ export function DashboardDailyHighlight({ highlight }: DashboardDailyHighlightPr
             {highlight.subtitle}
           </p>
           {/* CTA */}
-          <span className={`mt-3 inline-block rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${config.btnBg}`}>
+          <span className={`mt-2 inline-block rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${config.btnBg}`}>
             {highlight.ctaLabel}
           </span>
         </div>

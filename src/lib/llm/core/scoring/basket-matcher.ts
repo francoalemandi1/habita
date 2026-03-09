@@ -12,7 +12,7 @@ import {
 } from "@/lib/llm/core/basket/habita-basket";
 
 import type { BasketItem } from "@/lib/llm/core/basket/habita-basket";
-import type { StoreCluster, ProductPrice } from "@/lib/llm/grocery-advisor";
+import type { StoreCluster, ProductPrice } from "@/lib/grocery-deals-scraper";
 
 // ============================================
 // Types

@@ -6,8 +6,11 @@ import { handleApiError } from "@/lib/api-response";
 import { resolveCityId } from "@/lib/events/city-normalizer";
 import { eventRowToRelaxEvent } from "@/lib/events/event-mapper";
 import { generateRelaxSuggestions } from "@/lib/llm/relax-finder";
+import { normalizeCity } from "@/lib/grocery-deals-scraper";
 
 import type { NextRequest } from "next/server";
+
+const RESTAURANT_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const bodySchema = z.object({
   section: z.enum(["activities", "restaurants"]),
@@ -51,8 +54,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Restaurants: on-demand LLM search (no pipeline/DB)
+    // Restaurants: city-level cache with LLM fallback
     if (section === "restaurants") {
+      const normalized = normalizeCity(city);
+
+      // Check city cache (unless forceRefresh)
+      if (!validation.data.forceRefresh) {
+        const cached = await prisma.restaurantCacheCity.findFirst({
+          where: {
+            city: normalized,
+            expiresAt: { gt: new Date() },
+          },
+        });
+
+        if (cached) {
+          const restaurants = cached.restaurants as unknown as Record<string, unknown>[];
+          return NextResponse.json({
+            events: restaurants,
+            summary: cached.summary,
+            generatedAt: cached.generatedAt.toISOString(),
+            cached: true,
+          });
+        }
+      }
+
+      // Cache miss — generate via LLM pipeline
       const result = await generateRelaxSuggestions({
         city,
         country: validation.data.country ?? household.country ?? "AR",
@@ -82,10 +108,31 @@ export async function POST(request: NextRequest) {
         tags: [],
       }));
 
+      // Store in city cache
+      const now = new Date();
+      await prisma.restaurantCacheCity.upsert({
+        where: { city: normalized },
+        create: {
+          city: normalized,
+          restaurants: JSON.parse(JSON.stringify(events)),
+          summary: result.summary,
+          restaurantCount: events.length,
+          generatedAt: now,
+          expiresAt: new Date(now.getTime() + RESTAURANT_CACHE_TTL_MS),
+        },
+        update: {
+          restaurants: JSON.parse(JSON.stringify(events)),
+          summary: result.summary,
+          restaurantCount: events.length,
+          generatedAt: now,
+          expiresAt: new Date(now.getTime() + RESTAURANT_CACHE_TTL_MS),
+        },
+      });
+
       return NextResponse.json({
         events,
         summary: result.summary,
-        generatedAt: new Date().toISOString(),
+        generatedAt: now.toISOString(),
         cached: false,
       });
     }

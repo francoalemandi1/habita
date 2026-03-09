@@ -154,8 +154,6 @@ model Household {
   assignments  Assignment[]
   rotations    TaskRotation[]
   weeklyPlans          WeeklyPlan[]
-  relaxSuggestions     RelaxSuggestion[]
-  dealCache            DealCache[]
   planFeedbacks        PlanFeedback[]
   expenses             Expense[]
   productExclusions    HouseholdProductExclusion[]
@@ -525,25 +523,6 @@ model WhatsAppLink {
 }
 
 // ============================================
-// RELAX SUGGESTIONS MODEL
-// ============================================
-
-model RelaxSuggestion {
-  id          String   @id @default(cuid())
-  householdId String
-  locationKey String   // "lat_rounded:lng_rounded" e.g. "-34.6:-58.4"
-  sectionType String   @default("culture") // "culture" | "restaurants" | "weekend"
-  suggestions Json     // Array of RelaxEvent objects
-  generatedAt DateTime @default(now())
-  expiresAt   DateTime // generatedAt + 24h
-
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-
-  @@index([householdId, locationKey, sectionType, expiresAt])
-  @@map("cultural_suggestions")
-}
-
-// ============================================
 // GROCERY ADVISOR MODELS
 // ============================================
 
@@ -571,20 +550,32 @@ model ProductCatalog {
   @@map("product_catalog")
 }
 
-model DealCache {
-  id          String          @id @default(cuid())
-  householdId String
-  locationKey String          // "lat.toFixed(1):lng.toFixed(1)"
-  category    GroceryCategory
-  deals       Json            // StoreCluster[] serializado
-  summary     String          // Recomendación: "Comprá en Carrefour..."
-  generatedAt DateTime        @default(now())
-  expiresAt   DateTime
+model DealCacheCity {
+  id           String          @id @default(cuid())
+  city         String
+  category     GroceryCategory
+  deals        Json
+  summary      String
+  productCount Int             @default(0)
+  generatedAt  DateTime        @default(now())
+  expiresAt    DateTime
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  @@unique([city, category])
+  @@index([city, category, expiresAt])
+  @@map("deal_cache_city")
+}
 
-  @@index([householdId, locationKey, category, expiresAt])
-  @@map("deal_cache")
+model RestaurantCacheCity {
+  id              String   @id @default(cuid())
+  city            String   @unique
+  restaurants     Json
+  summary         String
+  restaurantCount Int      @default(0)
+  generatedAt     DateTime @default(now())
+  expiresAt       DateTime
+
+  @@index([city, expiresAt])
+  @@map("restaurant_cache_city")
 }
 
 model HouseholdProductExclusion {

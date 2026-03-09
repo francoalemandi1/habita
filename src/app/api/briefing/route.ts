@@ -162,10 +162,10 @@ export async function GET() {
           monthlyTarget: true,
         },
       }),
-      // Daily deals count scoped to household
-      prisma.dealCache.count({
+      // Daily deals count scoped to city
+      prisma.dealCacheCity.count({
         where: {
-          householdId: member.householdId,
+          city: (household?.city ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(),
           expiresAt: { gte: now },
         },
       }),

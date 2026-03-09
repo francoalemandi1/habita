@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 
 import type { GeolocationResult } from "@/hooks/use-geolocation";
-import type { GroceryTab, GroceryAdvisorResult } from "@/lib/llm/grocery-advisor";
+import type { GroceryTab, GroceryAdvisorResult } from "@/lib/grocery-deals-scraper";
 
 // ============================================
 // Types
@@ -21,7 +21,8 @@ interface UseGroceryDealsOptions {
   location: GeolocationResult | null;
   isGeoLoading: boolean;
   hasHouseholdLocation: boolean;
-  aiEnabled: boolean;
+  /** @deprecated No longer required — feature works without AI */
+  aiEnabled?: boolean;
   /** External gate for lazy-loading (only fetch when tab is visited) */
   enabled?: boolean;
   /** Server-side pre-fetched data */
@@ -92,7 +93,7 @@ export function useGroceryDeals({
 }: UseGroceryDealsOptions) {
   const hasGeo = !!(location && location.latitude !== 0 && location.longitude !== 0);
   const isLocationReady = !isGeoLoading && (hasGeo || hasHouseholdLocation);
-  const isEnabled = aiEnabled && isLocationReady && externalEnabled;
+  const isEnabled = isLocationReady && externalEnabled;
 
   const locationRef = useRef(location);
   useEffect(() => {

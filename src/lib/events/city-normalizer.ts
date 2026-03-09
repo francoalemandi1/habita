@@ -124,3 +124,57 @@ function levenshtein(a: string, b: string): number {
 export function resetCityIndex(): void {
   cityIndex = null;
 }
+
+// ============================================
+// Auto-creation of CulturalCity rows
+// ============================================
+
+const CITY_PROVINCE_MAP: Record<string, string> = {
+  "buenos aires": "Buenos Aires",
+  "caba": "CABA",
+  "capital federal": "CABA",
+  "cordoba": "Córdoba",
+  "rosario": "Santa Fe",
+  "mendoza": "Mendoza",
+  "san miguel de tucuman": "Tucumán",
+  "tucuman": "Tucumán",
+  "la plata": "Buenos Aires",
+  "mar del plata": "Buenos Aires",
+  "salta": "Salta",
+  "santa fe": "Santa Fe",
+  "san juan": "San Juan",
+  "resistencia": "Chaco",
+  "corrientes": "Corrientes",
+  "posadas": "Misiones",
+  "neuquen": "Neuquén",
+  "bahia blanca": "Buenos Aires",
+  "san luis": "San Luis",
+  "rio cuarto": "Córdoba",
+  "villa maria": "Córdoba",
+  "parana": "Entre Ríos",
+};
+
+function inferProvince(cityName: string): string | null {
+  const normalized = normalizeText(cityName);
+  return CITY_PROVINCE_MAP[normalized] ?? null;
+}
+
+/**
+ * Ensure a CulturalCity row exists for the given city name.
+ * Auto-creates with inferred province if not found.
+ * Returns the city ID.
+ */
+export async function ensureCulturalCity(cityName: string): Promise<string> {
+  const existingId = await resolveCityId(cityName);
+  if (existingId) return existingId;
+
+  const province = inferProvince(cityName) ?? "(auto-descubierta)";
+  const created = await prisma.culturalCity.upsert({
+    where: { name_province: { name: cityName, province } },
+    create: { name: cityName, province },
+    update: {},
+  });
+
+  resetCityIndex();
+  return created.id;
+}

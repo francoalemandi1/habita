@@ -4,7 +4,6 @@ import { handleApiError } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
 import { getWeekMonday } from "@/lib/calendar-utils";
 import { createNotificationForMembers } from "@/lib/notification-service";
-import { sendPlanAppliedToAdults } from "@/lib/email-service";
 
 import type { NextRequest } from "next/server";
 
@@ -206,27 +205,6 @@ export async function POST(request: NextRequest) {
         actionUrl: "/my-tasks",
       }
     );
-
-    // Email summary to adults
-    const adultMembers = await prisma.member.findMany({
-      where: { householdId: member.householdId, isActive: true, memberType: "ADULT" },
-      select: { user: { select: { email: true } } },
-    });
-
-    const adultEmails = adultMembers
-      .filter((m) => m.user.email)
-      .map((m) => ({ email: m.user.email }));
-
-    await sendPlanAppliedToAdults(adultEmails, {
-      householdName: member.household.name,
-      assignmentsCount: assignmentsToCreate.length,
-      assignments: assignmentsToCreate.map((a) => {
-        const taskName = tasks.find((t) => t.id === a.taskId)?.name ?? "";
-        const memberName = members.find((m) => m.id === a.memberId)?.name ?? "";
-        return { taskName, memberName };
-      }),
-      appliedByMemberName: member.name,
-    });
 
     return NextResponse.json({
       success: true,

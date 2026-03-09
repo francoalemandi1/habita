@@ -1,5 +1,5 @@
 import type { RelaxSection } from "@/lib/events/types";
-import type { GroceryTab } from "@/lib/llm/grocery-advisor";
+import type { GroceryTab } from "@/lib/grocery-deals-scraper";
 import { queryKeys as sharedKeys } from "@habita/contracts";
 
 export const queryKeys = {

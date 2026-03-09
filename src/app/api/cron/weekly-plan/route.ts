@@ -4,7 +4,6 @@ import { autoAssignAllTasks } from "@/lib/assignment-algorithm";
 import { isAIEnabled } from "@/lib/llm/provider";
 import { getLocalDayOfWeek } from "@/lib/llm/regional-context";
 import { deliverNotificationToMembers } from "@/lib/push-delivery";
-import { formatLocalDate, sendPlanSummaryToAdults } from "@/lib/email-service";
 
 import type { NextRequest } from "next/server";
 
@@ -82,22 +81,6 @@ export async function POST(request: NextRequest) {
             householdTimezone: household.timezone,
           });
 
-          // Email summary to adults
-          const adultMembers = await prisma.member.findMany({
-            where: { householdId: household.id, isActive: true, memberType: "ADULT" },
-            select: { name: true, user: { select: { email: true } } },
-          });
-
-          const adultEmails = adultMembers
-            .filter((m) => m.user.email)
-            .map((m) => ({ email: m.user.email, memberName: m.name }));
-
-          await sendPlanSummaryToAdults(adultEmails, {
-            householdName: household.name,
-            balanceScore: result.balanceScore ?? 0,
-            assignments: result.details,
-            localDateLabel: formatLocalDate(now, household.timezone),
-          });
         }
       } catch (error) {
         console.error(`Weekly plan failed for household ${household.name}:`, error);

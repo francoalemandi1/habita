@@ -149,7 +149,7 @@ interface RankedMatch {
   unitInfo: ProductUnitInfo | null;
 }
 
-interface TermResult {
+export interface TermResult {
   product: VtexProduct;
   unitInfo: ProductUnitInfo | null;
   alternatives: AlternativeProduct[];
@@ -180,7 +180,7 @@ function normalizeSearchItems(searchInput: string[] | SearchItem[]): SearchItem[
  * Score, filter, and rank products for a search term.
  * Returns the best product (by price/unit) plus up to 3 alternatives.
  */
-function pickRankedMatches(searchTerm: string, products: VtexProduct[]): TermResult | null {
+export function pickRankedMatches(searchTerm: string, products: VtexProduct[]): TermResult | null {
   if (products.length === 0) return null;
 
   const normalizedTerm = normalize(searchTerm);

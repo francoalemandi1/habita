@@ -12,7 +12,7 @@
  */
 
 import type { StoreScore } from "@/lib/llm/core/scoring/store-scorer";
-import type { StoreCluster } from "@/lib/llm/grocery-advisor";
+import type { StoreCluster } from "@/lib/grocery-deals-scraper";
 
 // ============================================
 // Types

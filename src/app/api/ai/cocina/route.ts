@@ -5,7 +5,7 @@ import { requireMember } from "@/lib/session";
 import { isAIEnabled } from "@/lib/llm/provider";
 import { generateRecipeSuggestions } from "@/lib/llm/recipe-finder";
 import { handleApiError } from "@/lib/api-response";
-import { findRunningJob, markJobRunning, completeJob } from "@/lib/ai-jobs";
+import { findRunningJob, findRecentSuccessfulJob, markJobRunning, completeJob } from "@/lib/ai-jobs";
 
 import type { NextRequest } from "next/server";
 import type { AiJobTriggerResponse } from "@habita/contracts";
@@ -64,6 +64,24 @@ export async function POST(request: NextRequest) {
           { error: "Una de las imagenes es demasiado grande. El maximo es 1MB por imagen." },
           { status: 400 }
         );
+      }
+    }
+
+    // Return cached result for identical text-only requests (12h TTL)
+    if (textInput.trim() && images.length === 0) {
+      const cached = await findRecentSuccessfulJob(
+        member.householdId,
+        "COCINA",
+        { textInput: textInput.trim(), mealType },
+        12 * 60 * 60 * 1000,
+      );
+      if (cached) {
+        const response: AiJobTriggerResponse = {
+          started: false,
+          alreadyRunning: false,
+          jobId: cached.id,
+        };
+        return NextResponse.json(response);
       }
     }
 

@@ -93,6 +93,35 @@ export async function completeJob(
   });
 }
 
+/**
+ * Find a recent successful job matching the given input fields.
+ * Uses JSONB containment (`@>`) so partial matches work (e.g. match textInput + mealType
+ * without needing to match imageCount).
+ */
+export async function findRecentSuccessfulJob(
+  householdId: string,
+  jobType: AiJobType,
+  inputMatcher: Record<string, unknown>,
+  maxAgeMs: number,
+): Promise<{ id: string; resultData: unknown } | null> {
+  const since = new Date(Date.now() - maxAgeMs);
+  const matcherJson = JSON.stringify(inputMatcher);
+
+  const rows = await prisma.$queryRaw<Array<{ id: string; resultData: unknown }>>`
+    SELECT "id", "resultData"
+    FROM "ai_job_logs"
+    WHERE "householdId" = ${householdId}
+      AND "jobType" = ${jobType}::"AiJobType"
+      AND "status" = 'SUCCESS'::"AiJobStatus"
+      AND "completedAt" >= ${since}
+      AND "inputData" @> ${matcherJson}::jsonb
+    ORDER BY "completedAt" DESC
+    LIMIT 1
+  `;
+
+  return rows[0] ?? null;
+}
+
 /** Get the latest job status for a household + job type (within the last hour). */
 export async function getLatestJobStatus(householdId: string, jobType: AiJobType) {
   const since = new Date(Date.now() - STATUS_WINDOW_MS);

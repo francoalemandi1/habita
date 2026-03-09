@@ -523,7 +523,7 @@ export async function POST(request: NextRequest) {
       },
       events: {
         expiredEvents: expireResult.expiredEvents,
-        deletedSuggestions: expireResult.deletedSuggestions,
+        deletedRestaurantCache: expireResult.deletedRestaurantCache,
       },
       mobileAuth: {
         revokedExpired: mobileAuthCleanup.revokedExpired,

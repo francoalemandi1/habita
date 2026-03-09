@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
-import { isAIEnabled } from "@/lib/llm/provider";
-import { generateGroceryDeals } from "@/lib/llm/grocery-advisor";
+import { generateGroceryDealsScraper, normalizeCity } from "@/lib/grocery-deals-scraper";
 import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
-import type { GroceryAdvisorResult } from "@/lib/llm/grocery-advisor";
+import type { GroceryCategory } from "@prisma/client";
+import type { GroceryAdvisorResult } from "@/lib/grocery-deals-scraper";
 
 // ============================================
 // Constants
@@ -20,7 +20,7 @@ const VALID_CATEGORIES = [
   "frutas_verduras", "bebidas", "limpieza", "perfumeria",
 ] as const;
 
-const TAB_TO_DB_CATEGORY = {
+const TAB_TO_DB_CATEGORY: Record<(typeof VALID_CATEGORIES)[number], GroceryCategory> = {
   almacen: "ALMACEN",
   panaderia_dulces: "PANADERIA_DULCES",
   lacteos: "LACTEOS",
@@ -29,7 +29,7 @@ const TAB_TO_DB_CATEGORY = {
   bebidas: "BEBIDAS",
   limpieza: "LIMPIEZA",
   perfumeria: "PERFUMERIA",
-} as const;
+};
 
 // ============================================
 // Schema
@@ -37,6 +37,7 @@ const TAB_TO_DB_CATEGORY = {
 
 const bodySchema = z.object({
   category: z.enum(VALID_CATEGORIES),
+  // lat/lng kept for backward compatibility but no longer used
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   city: z.string().optional(),
@@ -51,18 +52,12 @@ const bodySchema = z.object({
 
 /**
  * POST /api/ai/grocery-deals
- * Generate or return cached grocery deals for a category and location.
+ * Return cached or generate grocery deals for a category and city.
+ * Uses direct supermarket scrapers — no AI/LLM required.
  */
 export async function POST(request: NextRequest) {
   try {
     const member = await requireMember();
-
-    if (!isAIEnabled()) {
-      return NextResponse.json(
-        { error: "Las funciones de IA no están configuradas" },
-        { status: 503 }
-      );
-    }
 
     const body: unknown = await request.json();
     const validation = bodySchema.safeParse(body);
@@ -76,33 +71,25 @@ export async function POST(request: NextRequest) {
     const { category, forceRefresh } = validation.data;
     const household = member.household;
 
-    // Resolve location: request body > household fallback
-    const latitude = validation.data.latitude ?? household.latitude;
-    const longitude = validation.data.longitude ?? household.longitude;
     const city = validation.data.city ?? household.city;
-    const country = validation.data.country ?? household.country;
-    const timezone = validation.data.timezone ?? household.timezone;
-
-    if (!latitude || !longitude || !city || !country || !timezone) {
+    if (!city) {
       return NextResponse.json(
-        { error: "No se pudo determinar la ubicación. Activá la geolocalización o configurá la ubicación del hogar." },
+        { error: "No se pudo determinar la ciudad. Configurá la ubicación del hogar." },
         { status: 400 }
       );
     }
 
-    const locationKey = `${latitude.toFixed(1)}:${longitude.toFixed(1)}`;
+    const normalized = normalizeCity(city);
     const dbCategory = TAB_TO_DB_CATEGORY[category];
 
-    // Check cache
+    // Check shared city cache
     if (!forceRefresh) {
-      const cached = await prisma.dealCache.findFirst({
+      const cached = await prisma.dealCacheCity.findFirst({
         where: {
-          householdId: member.householdId,
-          locationKey,
+          city: normalized,
           category: dbCategory,
           expiresAt: { gt: new Date() },
         },
-        orderBy: { generatedAt: "desc" },
       });
 
       if (cached) {
@@ -115,15 +102,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate new deals
-    const result = await generateGroceryDeals({
-      category,
-      city,
-      country,
-      latitude,
-      longitude,
-      timezone,
-    });
+    // Cache miss — generate on demand with scrapers
+    const result = await generateGroceryDealsScraper(category, city);
 
     if (!result || result.clusters.length === 0) {
       return NextResponse.json(
@@ -132,15 +112,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Store in cache
+    // Store in shared city cache
     const now = new Date();
-    await prisma.dealCache.create({
-      data: {
-        householdId: member.householdId,
-        locationKey,
+    await prisma.dealCacheCity.upsert({
+      where: { city_category: { city: normalized, category: dbCategory } },
+      create: {
+        city: normalized,
         category: dbCategory,
         deals: JSON.parse(JSON.stringify(result)),
         summary: result.recommendation,
+        productCount: result.clusters.reduce((s, c) => s + c.productCount, 0),
+        generatedAt: now,
+        expiresAt: new Date(now.getTime() + CACHE_TTL_MS),
+      },
+      update: {
+        deals: JSON.parse(JSON.stringify(result)),
+        summary: result.recommendation,
+        productCount: result.clusters.reduce((s, c) => s + c.productCount, 0),
         generatedAt: now,
         expiresAt: new Date(now.getTime() + CACHE_TTL_MS),
       },

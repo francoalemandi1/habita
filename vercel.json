@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/process",
-      "schedule": "0 9 * * *"
+      "schedule": "0 7 * * *"
     },
     {
       "path": "/api/cron/weekly-plan",
@@ -10,15 +10,15 @@
     },
     {
       "path": "/api/rotations/process",
-      "schedule": "0 8 * * *"
+      "schedule": "0 7 * * *"
     },
     {
-      "path": "/api/cron/weekly-insights",
-      "schedule": "0 20 * * 0"
+      "path": "/api/cron/events/ingest",
+      "schedule": "0 7 * * *"
     },
     {
-      "path": "/api/cron/events/ingest?city=C%C3%B3rdoba",
-      "schedule": "0 15 * * *"
+      "path": "/api/cron/grocery-deals",
+      "schedule": "0 7 * * *"
     }
   ]
 }

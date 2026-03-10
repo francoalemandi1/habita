@@ -108,7 +108,7 @@ function createStyles(c: ThemeColors) {
       borderColor: c.border,
       borderRadius: radius.lg,
       marginTop: 4,
-      shadowColor: "#000",
+      shadowColor: c.text,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
       shadowRadius: 4,

@@ -52,7 +52,7 @@ function TopDealRow({
           isSelected && { backgroundColor: colors.primary, borderColor: colors.primary },
         ]}
       >
-        {isSelected ? <Check size={12} color="#fff" strokeWidth={3} /> : null}
+        {isSelected ? <Check size={12} color={colors.white} strokeWidth={3} /> : null}
       </View>
 
       {/* Product name + category */}
@@ -268,7 +268,7 @@ function TopDealsView() {
       {selected.size > 0 ? (
         <View style={styles.floatingBtnContainer}>
           <Button onPress={handleAddToCart} style={styles.floatingBtn}>
-            <ShoppingCart size={18} color="#fff" />
+            <ShoppingCart size={18} color={colors.white} />
             <Text style={styles.floatingBtnText}>
               Agregar {selected.size} al carrito
             </Text>
@@ -356,7 +356,7 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamily.sans,
       fontSize: 15,
       fontWeight: "700",
-      color: "#fff",
+      color: c.white,
     },
   });
 }

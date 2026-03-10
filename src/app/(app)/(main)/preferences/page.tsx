@@ -50,7 +50,7 @@ export default async function PreferencesPage() {
         backButton
         icon={Settings}
         title="Preferencias"
-        subtitle="Configura tus preferencias, nivel de ocupación y ausencias"
+        subtitle="Configurá tus preferencias, nivel de ocupación y ausencias"
       />
 
       <div className="space-y-12">

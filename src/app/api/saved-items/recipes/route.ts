@@ -16,6 +16,7 @@ export async function GET() {
     const savedRecipes = await prisma.savedRecipe.findMany({
       where: { memberId: member.id, householdId: member.householdId },
       orderBy: { savedAt: "desc" },
+      take: 100,
     });
 
     return NextResponse.json(savedRecipes);
@@ -32,7 +33,14 @@ export async function POST(request: Request) {
   try {
     const member = await requireMember();
     const body = await request.json();
-    const data = saveRecipeSchema.parse(body);
+    const validation = saveRecipeSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Datos inválidos", details: validation.error.flatten().fieldErrors },
+        { status: 400 },
+      );
+    }
+    const data = validation.data;
 
     const contentHash = computeRecipeHash(data.title, data.ingredients);
 
@@ -82,6 +90,7 @@ export async function DELETE(request: Request) {
 
     const existing = await prisma.savedRecipe.findFirst({
       where: { id, memberId: member.id },
+      select: { id: true },
     });
 
     if (!existing) {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { requireMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { markNotificationsAsRead, markAllNotificationsAsRead } from "@/lib/notification-service";
@@ -59,19 +60,30 @@ export async function GET(request: NextRequest) {
  * Mark notifications as read.
  * Body: { ids: string[] } or { all: true }
  */
+const markReadBodySchema = z.union([
+  z.object({ all: z.literal(true) }),
+  z.object({ ids: z.array(z.string()).min(1) }),
+]);
+
 export async function PATCH(request: NextRequest) {
   try {
     const member = await requireMember();
-    const body = (await request.json()) as { ids?: string[]; all?: boolean };
+    const body: unknown = await request.json();
+
+    const parsed = markReadBodySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Datos inválidos" },
+        { status: 400 }
+      );
+    }
 
     let updatedCount = 0;
 
-    if (body.all) {
+    if ("all" in parsed.data) {
       updatedCount = await markAllNotificationsAsRead(member.id);
-    } else if (body.ids && Array.isArray(body.ids) && body.ids.length > 0) {
-      updatedCount = await markNotificationsAsRead(member.id, body.ids);
     } else {
-      return NextResponse.json({ error: "Provide 'ids' array or 'all: true'" }, { status: 400 });
+      updatedCount = await markNotificationsAsRead(member.id, parsed.data.ids);
     }
 
     return NextResponse.json({ updated: updatedCount });

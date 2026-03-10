@@ -48,6 +48,7 @@ export async function GET() {
       where: { householdId: member.householdId },
       include: { paidBy: { select: { id: true, name: true } } },
       orderBy: [{ isActive: "desc" }, { nextDueDate: "asc" }],
+      take: 100,
     });
 
     return NextResponse.json(services.map(serializeService));
@@ -77,6 +78,7 @@ export async function POST(request: NextRequest) {
 
     const paidByMember = await prisma.member.findFirst({
       where: { id: data.paidById, householdId: member.householdId, isActive: true },
+      select: { id: true },
     });
 
     if (!paidByMember) {

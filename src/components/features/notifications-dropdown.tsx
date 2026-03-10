@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { notificationStyles, notificationStyleDefault, spacing, iconSize } from "@/lib/design-tokens";
+import { apiFetch } from "@/lib/api-client";
 
 interface Notification {
   id: string;
@@ -102,20 +103,17 @@ export function NotificationsDropdown() {
 
   const fetchNotifications = useCallback(async () => {
     try {
-      const response = await fetch("/api/notifications");
-      if (response.ok) {
-        const data = (await response.json()) as {
-          notifications: Notification[];
-          unreadCount: number;
-        };
-        // Ocultar logros/nivel en la home (sin eliminar código ni datos)
-        const visible = data.notifications.filter(
-          (n) => n.type !== "ACHIEVEMENT_UNLOCKED" && n.type !== "LEVEL_UP"
-        );
-        const visibleUnread = visible.filter((n) => !n.isRead).length;
-        setNotifications(visible);
-        setUnreadCount(visibleUnread);
-      }
+      const data = await apiFetch<{
+        notifications: Notification[];
+        unreadCount: number;
+      }>("/api/notifications");
+      // Ocultar logros/nivel en la home (sin eliminar código ni datos)
+      const visible = data.notifications.filter(
+        (n) => n.type !== "ACHIEVEMENT_UNLOCKED" && n.type !== "LEVEL_UP"
+      );
+      const visibleUnread = visible.filter((n) => !n.isRead).length;
+      setNotifications(visible);
+      setUnreadCount(visibleUnread);
     } catch {
       // Silently fail
     } finally {
@@ -135,18 +133,15 @@ export function NotificationsDropdown() {
 
     markingAsReadRef.current = true;
 
-    fetch("/api/notifications", {
+    apiFetch("/api/notifications", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ all: true }),
+      body: { all: true },
     })
-      .then((res) => {
-        if (res.ok) {
-          setUnreadCount(0);
-          setNotifications((prev) =>
-            prev.map((n) => (n.isRead ? n : { ...n, isRead: true }))
-          );
-        }
+      .then(() => {
+        setUnreadCount(0);
+        setNotifications((prev) =>
+          prev.map((n) => (n.isRead ? n : { ...n, isRead: true }))
+        );
       })
       .catch(() => {
         // Silently fail — will retry next time

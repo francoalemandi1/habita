@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RefreshCw, Trash2 } from "lucide-react";
+import { apiFetch } from "@/lib/api-client";
 
 import type { TaskFrequency } from "@prisma/client";
 
@@ -54,18 +55,10 @@ export function RotationToggle({ taskId, taskName, currentRotation }: RotationTo
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/rotations", {
+      await apiFetch("/api/rotations", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId, frequency }),
+        body: { taskId, frequency },
       });
-
-      const data: unknown = await response.json();
-
-      if (!response.ok) {
-        const errorData = data as { error?: string };
-        throw new Error(errorData.error ?? "Error al crear rotación");
-      }
 
       setOpen(false);
       router.refresh();
@@ -83,18 +76,10 @@ export function RotationToggle({ taskId, taskName, currentRotation }: RotationTo
     setIsLoading(true);
 
     try {
-      const response = await fetch(`/api/rotations/${currentRotation.id}`, {
+      await apiFetch(`/api/rotations/${currentRotation.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ frequency }),
+        body: { frequency },
       });
-
-      const data: unknown = await response.json();
-
-      if (!response.ok) {
-        const errorData = data as { error?: string };
-        throw new Error(errorData.error ?? "Error al actualizar rotación");
-      }
 
       setOpen(false);
       router.refresh();
@@ -112,13 +97,9 @@ export function RotationToggle({ taskId, taskName, currentRotation }: RotationTo
     setIsLoading(true);
 
     try {
-      const response = await fetch(`/api/rotations/${currentRotation.id}`, {
+      await apiFetch(`/api/rotations/${currentRotation.id}`, {
         method: "DELETE",
       });
-
-      if (!response.ok) {
-        throw new Error("Error al eliminar rotación");
-      }
 
       setOpen(false);
       router.refresh();

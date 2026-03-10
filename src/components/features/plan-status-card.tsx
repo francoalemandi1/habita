@@ -30,6 +30,7 @@ import { durationLabel } from "@/lib/plan-duration";
 import { spacing, iconSize } from "@/lib/design-tokens";
 import { PlanFeedbackDialog } from "@/components/features/plan-feedback-dialog";
 import { isSoloHousehold, getHouseholdCopy } from "@/lib/household-mode";
+import { apiFetch } from "@/lib/api-client";
 
 import type { WeeklyPlanStatus, MemberType } from "@prisma/client";
 
@@ -45,7 +46,7 @@ interface PendingAssignment {
   id: string;
   taskName: string;
   memberName: string;
-  dueDate: Date;
+  dueDate: string;
 }
 
 interface PlanStatusCardProps {
@@ -55,9 +56,9 @@ interface PlanStatusCardProps {
     balanceScore: number;
     assignments: PlanAssignment[];
     durationDays?: number;
-    createdAt: Date;
-    appliedAt: Date | null;
-    expiresAt: Date;
+    createdAt: string;
+    appliedAt: string | null;
+    expiresAt: string;
   } | null;
   aiEnabled: boolean;
   memberCount?: number;
@@ -71,7 +72,7 @@ function getScoreColor(score: number): string {
   return "text-red-600";
 }
 
-function formatTimeRemaining(expiresAt: Date): string {
+function formatTimeRemaining(expiresAt: string): string {
   const now = new Date();
   const diffMs = new Date(expiresAt).getTime() - now.getTime();
   if (diffMs <= 0) return "Vencido";
@@ -118,18 +119,11 @@ export function PlanStatusCard({
     if (!plan) return;
     setIsFinalizing(true);
     try {
-      const response = await fetch(`/api/plans/${plan.id}/finalize`, {
+      const data = await apiFetch<{ completed: number; rewardsGenerated: boolean }>(`/api/plans/${plan.id}/finalize`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assignmentIds: Array.from(selectedIds) }),
+        body: { assignmentIds: Array.from(selectedIds) },
       });
 
-      if (!response.ok) {
-        const data = await response.json() as { error?: string };
-        throw new Error(data.error ?? "Error finalizando el plan");
-      }
-
-      const data = await response.json() as { completed: number; rewardsGenerated: boolean };
       setShowFinalizeModal(false);
       const completedLabel = `${data.completed} tarea${data.completed !== 1 ? "s" : ""} completada${data.completed !== 1 ? "s" : ""}`;
       toast.success("Plan finalizado", completedLabel);

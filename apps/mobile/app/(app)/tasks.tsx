@@ -283,7 +283,7 @@ function AssignmentCard({
           style={[
             styles.assignmentTitle,
             isCompleted && styles.assignmentTitleCompleted,
-            { color: isCompleted ? "#166534" : scheme.text },
+            { color: isCompleted ? colors.successText : scheme.text },
           ]}
           numberOfLines={2}
         >
@@ -324,7 +324,7 @@ function AssignmentCard({
               style={[
                 styles.actionBtn,
                 {
-                  backgroundColor: "rgba(22, 101, 52, 0.1)",
+                  backgroundColor: `${colors.successText}1A`,
                   opacity: isMutating ? 0.6 : 1,
                 },
               ]}
@@ -1135,7 +1135,7 @@ function createStyles(c: ThemeColors) {
     },
     assignmentTitleCompleted: {
       textDecorationLine: "line-through",
-      textDecorationColor: "rgba(74, 222, 128, 0.5)",
+      textDecorationColor: `${c.successText}80`,
     },
     assignmentDesc: {
       fontFamily: fontFamily.sans,
@@ -1200,7 +1200,7 @@ function createStyles(c: ThemeColors) {
       width: 24,
       height: 24,
       borderRadius: 12,
-      backgroundColor: "rgba(22, 163, 74, 0.15)",
+      backgroundColor: `${c.successText}26`,
       alignItems: "center",
       justifyContent: "center",
       flexShrink: 0,
@@ -1213,9 +1213,9 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamily.sans,
       fontSize: 14,
       fontWeight: "500",
-      color: "#166534",
+      color: c.successText,
       textDecorationLine: "line-through",
-      textDecorationColor: "rgba(74, 222, 128, 0.5)",
+      textDecorationColor: `${c.successText}80`,
     },
     completedFreq: {
       fontFamily: fontFamily.sans,
@@ -1314,7 +1314,7 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamily.sans,
       fontSize: 13,
       fontWeight: "600",
-      color: "#ffffff",
+      color: c.white,
     },
     rouletteCta: {
       flexDirection: "row",
@@ -1384,7 +1384,7 @@ function createStyles(c: ThemeColors) {
       marginBottom: 2,
     },
     dayLabelSelected: {
-      color: "#ffffff",
+      color: c.white,
     },
     dayNumber: {
       fontFamily: fontFamily.sans,
@@ -1393,7 +1393,7 @@ function createStyles(c: ThemeColors) {
       color: c.text,
     },
     dayNumberSelected: {
-      color: "#ffffff",
+      color: c.white,
     },
     dayDot: {
       width: 4,
@@ -1405,7 +1405,7 @@ function createStyles(c: ThemeColors) {
       backgroundColor: c.primary,
     },
     dayDotSelected: {
-      backgroundColor: "#ffffff",
+      backgroundColor: c.white,
     },
     dayDotHidden: {
       backgroundColor: "transparent",

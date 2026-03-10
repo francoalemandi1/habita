@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.sans,
     fontSize: 16,
     fontWeight: "700",
-    color: "#ffffff",
+    color: colors.white,
   },
   joinLink: {
     alignItems: "center",

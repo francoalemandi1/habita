@@ -15,7 +15,7 @@ export async function POST() {
 
     if (!isAIEnabled()) {
       return NextResponse.json(
-        { error: "AI features not configured. Set GOOGLE_GENERATIVE_AI_API_KEY or ANTHROPIC_API_KEY." },
+        { error: "AI features not configured. Set DEEPSEEK_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY." },
         { status: 503 }
       );
     }

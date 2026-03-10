@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 
-import { queryKeys } from "@habita/contracts";
+import { queryKeys, POLL_INTERVAL_MS } from "@habita/contracts";
 import type { BankPromo, PromoPipelineStatus } from "@habita/contracts";
 
 export type { BankPromo, PromoPipelineStatus };
@@ -37,7 +37,7 @@ export function usePromoPipelineStatus() {
     queryFn: async () => mobileApi.get<PromoPipelineStatus>("/api/promos/pipeline-status"),
     refetchInterval: (query) => {
       // Poll every 3s while running, stop when done
-      return query.state.data?.isRunning ? 3000 : false;
+      return query.state.data?.isRunning ? POLL_INTERVAL_MS : false;
     },
   });
 }

@@ -17,9 +17,9 @@ interface HeroCardProps {
 
 function getColorScheme(priority: HeroPriority, c: ThemeColors) {
   if (priority === "transfers") {
-    return { bg: c.warningBg, accent: c.warningText, btnBg: c.warningText, btnText: "#ffffff" };
+    return { bg: c.warningBg, accent: c.warningText, btnBg: c.warningText, btnText: c.white };
   }
-  return { bg: c.primaryLight, accent: c.primary, btnBg: c.primary, btnText: "#ffffff" };
+  return { bg: c.primaryLight, accent: c.primary, btnBg: c.primary, btnText: c.white };
 }
 
 export function HeroCard({ state, loading }: HeroCardProps) {

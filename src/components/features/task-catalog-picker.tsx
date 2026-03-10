@@ -22,6 +22,7 @@ import {
 import { CatalogTaskItem } from "@/components/features/onboarding/catalog-task-item";
 import { useToast } from "@/components/ui/toast";
 import { Plus, Search, X, ChevronDown, Loader2 } from "lucide-react";
+import { apiFetch } from "@/lib/api-client";
 
 import type { CatalogTaskItemData } from "@/components/features/onboarding/catalog-task-item";
 import type { MemberType } from "@prisma/client";
@@ -152,9 +153,7 @@ function CatalogPickerContent({
 
   const fetchCatalog = async () => {
     try {
-      const response = await fetch("/api/tasks/catalog");
-      if (!response.ok) return;
-      const data = (await response.json()) as { categories: CatalogCategory[] };
+      const data = await apiFetch<{ categories: CatalogCategory[] }>("/api/tasks/catalog");
       setCategories(data.categories);
     } catch {
       // Silently fail — user can still add custom tasks
@@ -259,20 +258,18 @@ function CatalogPickerContent({
         const weight = catalogTask?.defaultWeight ?? 2;
 
         try {
-          const response = await fetch("/api/tasks", {
+          await apiFetch("/api/tasks", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+            body: {
               name: taskName,
               frequency,
               weight,
               estimatedMinutes: catalogTask?.estimatedMinutes ?? undefined,
-            }),
+            },
           });
-          if (response.ok) created++;
-          else continue; // Skip plan assignment if task creation failed
+          created++;
         } catch {
-          continue;
+          continue; // Skip plan assignment if task creation failed
         }
       }
 

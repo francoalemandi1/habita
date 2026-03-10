@@ -284,15 +284,6 @@ export async function GET() {
 
     return NextResponse.json(briefing);
   } catch (error) {
-    console.error("GET /api/briefing error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Error getting briefing" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/briefing", method: "GET" });
   }
 }

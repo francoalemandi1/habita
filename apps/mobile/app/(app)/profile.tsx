@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { router } from "expo-router";
 import type { RelativePathString } from "expo-router";
-import { Alert, Pressable, ScrollView, StyleSheet, Share, Text, View } from "react-native";
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Share, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Bell, Check, ChevronRight, HelpCircle, Home, LogOut, Moon, Monitor, Sun, User, UserPlus } from "lucide-react-native";
 import type { ReactNode } from "react";
@@ -149,7 +149,7 @@ export default function SettingsScreen() {
           await hydrate();
         },
         onError: (err) => {
-          Alert.alert("Error", getMobileErrorMessage(err));
+          Alert.alert("Ocurrió un error", getMobileErrorMessage(err));
         },
       },
     );
@@ -163,7 +163,9 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScreenHeader />
-      <ScrollView bounces={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView bounces={false} contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={householdQuery.isRefetching} onRefresh={() => void householdQuery.refetch()} tintColor={colors.primary} />}
+      >
         <Text style={[styles.title, { color: colors.text }]}>Ajustes</Text>
 
         {/* Profile section */}
@@ -312,7 +314,7 @@ export default function SettingsScreen() {
             onPress={() => void handleLogout()}
             style={styles.logoutButton}
           >
-            <LogOut size={16} color="#ffffff" />
+            <LogOut size={16} color={colors.white} />
             Cerrar sesión
           </Button>
         </View>
@@ -438,7 +440,7 @@ function createStyles(c: ThemeColors) {
     },
     profileAvatarText: {
       fontFamily: fontFamily.sans,
-      color: "#ffffff",
+      color: c.white,
       fontSize: 20,
       fontWeight: "700",
     },

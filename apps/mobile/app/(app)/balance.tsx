@@ -228,11 +228,18 @@ function resolveHeroState(data: InsightsData): HeroState {
   return "full";
 }
 
-const STATUS_CONFIG: Record<MonthStatus, { iconColor: string; bg: string; headline: string }> = {
-  stable: { iconColor: "#16a34a", bg: "#f0fdf4", headline: "Dentro de tu promedio" },
-  well_below: { iconColor: "#16a34a", bg: "#f0fdf4", headline: "Vas muy bien este mes" },
-  above_average: { iconColor: "#d97706", bg: "#fffbeb", headline: "Estás gastando más de lo habitual" },
+const STATUS_HEADLINES: Record<MonthStatus, string> = {
+  stable: "Dentro de tu promedio",
+  well_below: "Vas muy bien este mes",
+  above_average: "Estás gastando más de lo habitual",
 };
+
+function getStatusConfig(status: MonthStatus, c: ThemeColors): { iconColor: string; bg: string; headline: string } {
+  if (status === "above_average") {
+    return { iconColor: c.warningText, bg: c.warningBg, headline: STATUS_HEADLINES[status] };
+  }
+  return { iconColor: c.successText, bg: c.successBg, headline: STATUS_HEADLINES[status] };
+}
 
 function TrendBadge({ trend, percent }: { trend: "up" | "down" | "flat"; percent: number }) {
   const colors = useThemeColors();
@@ -277,11 +284,11 @@ function FinancialPulseCard({ data }: { data: InsightsData }) {
 
   if (heroState === "no_this_month") {
     return (
-      <View style={[styles.heroCard, { backgroundColor: colors.warningBg, borderColor: "#fde68a", borderWidth: 1 }]}>
+      <View style={[styles.heroCard, { backgroundColor: colors.warningBg, borderColor: `${colors.warningText}40`, borderWidth: 1 }]}>
         <View style={styles.heroAlertRow}>
-          <Info size={16} color="#b45309" style={{ marginTop: 2, flexShrink: 0 }} />
+          <Info size={16} color={colors.warningText} style={{ marginTop: 2, flexShrink: 0 }} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.heroAlertTitle, { color: "#78350f" }]}>
+            <Text style={[styles.heroAlertTitle, { color: colors.warningText }]}>
               Este mes aún no registraste gastos
             </Text>
             <Text style={[styles.heroAlertSubtitle, { color: colors.warningText }]}>
@@ -309,7 +316,7 @@ function FinancialPulseCard({ data }: { data: InsightsData }) {
   }
 
   // no_history or full
-  const config = STATUS_CONFIG[data.monthStatus];
+  const config = getStatusConfig(data.monthStatus, colors);
 
   return (
     <View style={[styles.heroCard, { backgroundColor: config.bg }]}>
@@ -384,8 +391,8 @@ function SpendingTips({ tips }: { tips: Array<{ id: string; emoji: string; messa
 
   const severityStyles: Record<string, { bg: string; borderColor: string; labelColor: string }> = {
     info: { bg: `${colors.muted}4D`, borderColor: `${colors.border}66`, labelColor: colors.mutedForeground },
-    alerta: { bg: colors.warningBg, borderColor: "#fde68a", labelColor: colors.warningText },
-    critica: { bg: colors.errorBg, borderColor: "#fecaca", labelColor: "#991b1b" },
+    alerta: { bg: colors.warningBg, borderColor: `${colors.warningText}40`, labelColor: colors.warningText },
+    critica: { bg: colors.errorBg, borderColor: `${colors.errorText}40`, labelColor: colors.errorText },
   };
 
   return (
@@ -419,7 +426,7 @@ function UpcomingServicesNotice({ count, cost }: { count: number; cost: number }
   if (count === 0) return null;
   return (
     <View style={styles.servicesNotice}>
-      <Zap size={14} color="#d97706" style={{ marginTop: 2, flexShrink: 0 }} />
+      <Zap size={14} color={colors.warningText} style={{ marginTop: 2, flexShrink: 0 }} />
       <Text style={styles.servicesNoticeText}>
         Tenés {count} servicio{count !== 1 ? "s" : ""} que vence{count !== 1 ? "n" : ""} pronto (~{formatAmount(cost)})
       </Text>
@@ -728,7 +735,7 @@ function FundTabContent() {
           setContributeNotes("");
           Alert.alert("¡Listo!", "Tu aporte quedó registrado.");
         },
-        onError: (err) => Alert.alert("Error", getMobileErrorMessage(err)),
+        onError: (err) => Alert.alert("Ocurrió un error", getMobileErrorMessage(err)),
       },
     );
   };
@@ -759,7 +766,7 @@ function FundTabContent() {
       },
       {
         onSuccess: () => setShowSetup(false),
-        onError: (err) => Alert.alert("Error", getMobileErrorMessage(err)),
+        onError: (err) => Alert.alert("Ocurrió un error", getMobileErrorMessage(err)),
       },
     );
   };
@@ -885,7 +892,7 @@ function FundTabContent() {
 
       {/* My contribution CTA */}
       {myStatus ? (
-        <View style={[fundStyles.myCta, myStatus.pending > 0 ? { backgroundColor: colors.warningBg, borderColor: "#fde68a" } : { backgroundColor: colors.successBg, borderColor: "#bbf7d0" }]}>
+        <View style={[fundStyles.myCta, myStatus.pending > 0 ? { backgroundColor: colors.warningBg, borderColor: `${colors.warningText}40` } : { backgroundColor: colors.successBg, borderColor: `${colors.successText}40` }]}>
           <View style={{ flex: 1 }}>
             <Text style={fundStyles.myCtaTitle}>Tu cuota este mes</Text>
             <Text style={fundStyles.myCtaSub}>
@@ -894,7 +901,7 @@ function FundTabContent() {
           </View>
           {myStatus.pending > 0 ? (
             <Pressable onPress={() => { setContributeAmount(String(myStatus.pending)); setShowContribute(true); }} style={fundStyles.contributeBtn}>
-              <Plus size={14} color="#fff" />
+              <Plus size={14} color={colors.white} />
               <Text style={fundStyles.contributeBtnText}>Aportar</Text>
             </Pressable>
           ) : (
@@ -1018,8 +1025,8 @@ function SaldosTabContent({ currentMemberId }: { currentMemberId: string }) {
     <View style={saldosStyles.container}>
       {/* Hero balance banner */}
       <View style={[saldosStyles.heroBanner,
-        netBalance > 0.01 ? { backgroundColor: colors.successBg, borderColor: "#bbf7d0" }
-        : netBalance < -0.01 ? { backgroundColor: colors.errorBg, borderColor: "#fecaca" }
+        netBalance > 0.01 ? { backgroundColor: colors.successBg, borderColor: `${colors.successText}40` }
+        : netBalance < -0.01 ? { backgroundColor: colors.errorBg, borderColor: `${colors.errorText}40` }
         : { backgroundColor: `${colors.muted}66`, borderColor: colors.border }
       ]}>
         {Math.abs(netBalance) <= 0.01 ? (
@@ -1222,7 +1229,7 @@ export default function ExpensesScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Registrá</Text>
         <Pressable onPress={() => router.push("/(app)/new-expense")} style={styles.addBtn} hitSlop={4}>
-          <Plus size={16} color="#ffffff" strokeWidth={2.5} />
+          <Plus size={16} color={colors.white} strokeWidth={2.5} />
           <Text style={styles.addBtnText}>Nuevo gasto</Text>
         </Pressable>
       </View>
@@ -1438,7 +1445,7 @@ function createStyles(c: ThemeColors) {
     },
     addBtnText: {
       fontFamily: fontFamily.sans,
-      color: "#ffffff",
+      color: c.white,
       fontWeight: "600",
       fontSize: 13,
     },
@@ -1828,7 +1835,7 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamily.sans,
       fontSize: 13,
       fontWeight: "600" as const,
-      color: "#ffffff",
+      color: c.white,
     },
   });
 }
@@ -1845,7 +1852,7 @@ function createFundStyles(c: ThemeColors) {
       borderWidth: 1,
       borderColor: c.border,
     },
-    balanceNegative: { backgroundColor: c.errorBg, borderColor: "#fca5a5" },
+    balanceNegative: { backgroundColor: c.errorBg, borderColor: `${c.errorText}40` },
     balanceLabel: { fontFamily: fontFamily.sans, fontSize: 13, color: c.mutedForeground },
     balanceAmount: { fontFamily: fontFamily.sans, fontSize: 32, fontWeight: "800", marginTop: 4 },
     progressWrap: { marginTop: spacing.sm },
@@ -1876,7 +1883,7 @@ function createFundStyles(c: ThemeColors) {
       paddingHorizontal: spacing.md,
       paddingVertical: 8,
     },
-    contributeBtnText: { fontFamily: fontFamily.sans, color: "#fff", fontWeight: "600", fontSize: 13 },
+    contributeBtnText: { fontFamily: fontFamily.sans, color: c.white, fontWeight: "600", fontSize: 13 },
     paidBadge: { backgroundColor: c.successBg, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
     paidBadgeText: { fontFamily: fontFamily.sans, color: c.successText, fontWeight: "700", fontSize: 13 },
     sectionTitle: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "700", color: c.text, marginBottom: spacing.sm },

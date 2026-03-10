@@ -17,6 +17,7 @@ export async function GET() {
     const savedCarts = await prisma.savedCart.findMany({
       where: { memberId: member.id, householdId: member.householdId },
       orderBy: { savedAt: "desc" },
+      take: 100,
     });
 
     return NextResponse.json(savedCarts);
@@ -33,7 +34,14 @@ export async function POST(request: Request) {
   try {
     const member = await requireMember();
     const body = await request.json();
-    const data = saveCartSchema.parse(body);
+    const validation = saveCartSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Datos inválidos", details: validation.error.flatten().fieldErrors },
+        { status: 400 },
+      );
+    }
+    const data = validation.data;
 
     const saved = await prisma.savedCart.create({
       data: {
@@ -71,6 +79,7 @@ export async function DELETE(request: Request) {
 
     const existing = await prisma.savedCart.findFirst({
       where: { id, memberId: member.id },
+      select: { id: true },
     });
 
     if (!existing) {

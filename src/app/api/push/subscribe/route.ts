@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
 
 import type { NextRequest } from "next/server";
 
-interface SubscribeBody {
-  endpoint: string;
-  keys: {
-    p256dh: string;
-    auth: string;
-  };
-}
+const subscribeBodySchema = z.object({
+  endpoint: z.string().min(1),
+  keys: z.object({
+    p256dh: z.string().min(1),
+    auth: z.string().min(1),
+  }),
+});
+
+const unsubscribeBodySchema = z.object({
+  endpoint: z.string().min(1),
+});
 
 /**
  * POST /api/push/subscribe
@@ -22,26 +27,15 @@ export async function POST(request: NextRequest) {
     const member = await requireMember();
     const body: unknown = await request.json();
 
-    if (
-      typeof body !== "object" ||
-      body === null ||
-      !("endpoint" in body) ||
-      !("keys" in body)
-    ) {
+    const parsed = subscribeBodySchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid subscription data" },
+        { error: "Datos inválidos" },
         { status: 400 }
       );
     }
 
-    const { endpoint, keys } = body as SubscribeBody;
-
-    if (!endpoint || !keys?.p256dh || !keys?.auth) {
-      return NextResponse.json(
-        { error: "Missing subscription fields" },
-        { status: 400 }
-      );
-    }
+    const { endpoint, keys } = parsed.data;
 
     // Upsert: update if endpoint already exists, create otherwise
     await prisma.pushSubscription.upsert({
@@ -61,16 +55,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("POST /api/push/subscribe error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Error saving subscription" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/push/subscribe", method: "POST" });
   }
 }
 
@@ -83,14 +68,15 @@ export async function DELETE(request: NextRequest) {
     const member = await requireMember();
     const body: unknown = await request.json();
 
-    if (typeof body !== "object" || body === null || !("endpoint" in body)) {
+    const parsed = unsubscribeBodySchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Missing endpoint" },
+        { error: "Datos inválidos" },
         { status: 400 }
       );
     }
 
-    const { endpoint } = body as { endpoint: string };
+    const { endpoint } = parsed.data;
 
     await prisma.pushSubscription.deleteMany({
       where: {
@@ -101,15 +87,6 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("DELETE /api/push/subscribe error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json(
-      { error: "Error removing subscription" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/push/subscribe", method: "DELETE" });
   }
 }

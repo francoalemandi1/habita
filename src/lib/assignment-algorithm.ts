@@ -471,6 +471,7 @@ export async function autoAssignAllTasks(
   const batchContext = await loadBatchScoreContext(householdId, taskIds, now);
 
   const details: Array<{ taskName: string; memberName: string }> = [];
+  const createData: Array<{ taskId: string; memberId: string; householdId: string; dueDate: Date }> = [];
 
   for (const task of tasksToAssign) {
     let scores = calculateScoresFromContext(batchContext, task.id, now);
@@ -485,15 +486,16 @@ export async function autoAssignAllTasks(
     const best = scores[0];
     if (!best) continue;
 
-    try {
-      const dueDate = computeDueDateForFrequency(task.frequency as TaskFrequency, now);
-      await prisma.assignment.create({
-        data: { taskId: task.id, memberId: best.memberId, householdId, dueDate },
-      });
+    const dueDate = computeDueDateForFrequency(task.frequency as TaskFrequency, now);
+    createData.push({ taskId: task.id, memberId: best.memberId, householdId, dueDate });
+    details.push({ taskName: task.name, memberName: best.memberName });
+  }
 
-      details.push({ taskName: task.name, memberName: best.memberName });
+  if (createData.length > 0) {
+    try {
+      await prisma.assignment.createMany({ data: createData });
     } catch (error) {
-      console.error(`Failed to assign task ${task.name}:`, error);
+      console.error("Failed to batch create assignments:", error);
     }
   }
 

@@ -21,7 +21,7 @@ export function TasksPageContent({ tasks }: TasksPageContentProps) {
         backButton
         icon={ListChecks}
         title="Tareas"
-        subtitle="Gestiona las tareas de tu hogar"
+        subtitle="Gestioná las tareas de tu hogar"
         actions={
           <TaskCatalogPicker
             existingTaskNames={tasks.map((t) => t.name)}

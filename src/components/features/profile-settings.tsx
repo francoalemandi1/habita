@@ -20,6 +20,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { resetAllGuides } from "@/hooks/use-first-visit";
+import { apiFetch } from "@/lib/api-client";
 
 import type { MemberType } from "@prisma/client";
 
@@ -119,16 +120,10 @@ export function ProfileSettings({
 
     setIsSavingName(true);
     try {
-      const response = await fetch("/api/members/me", {
+      await apiFetch("/api/members/me", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed }),
+        body: { name: trimmed },
       });
-
-      if (!response.ok) {
-        const data = await response.json() as { error?: string };
-        throw new Error(data.error ?? "Error al guardar");
-      }
 
       toast.success("Nombre actualizado", `Tu nombre ahora es ${trimmed}`);
       setIsEditingName(false);
@@ -151,16 +146,10 @@ export function ProfileSettings({
 
     setIsSavingHousehold(true);
     try {
-      const response = await fetch("/api/households", {
+      await apiFetch("/api/households", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed }),
+        body: { name: trimmed },
       });
-
-      if (!response.ok) {
-        const data = await response.json() as { error?: string };
-        throw new Error(data.error ?? "Error al guardar");
-      }
 
       toast.success("Hogar actualizado", `El hogar ahora se llama ${trimmed}`);
       setIsEditingHousehold(false);
@@ -181,10 +170,9 @@ export function ProfileSettings({
 
     setIsDetectingLocation(true);
     try {
-      const response = await fetch("/api/households", {
+      await apiFetch("/api/households", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           location: {
             latitude: geoLocation.latitude,
             longitude: geoLocation.longitude,
@@ -192,13 +180,8 @@ export function ProfileSettings({
             country: geoLocation.country,
             city: geoLocation.city,
           },
-        }),
+        },
       });
-
-      if (!response.ok) {
-        const data = await response.json() as { error?: string };
-        throw new Error(data.error ?? "Error al guardar ubicación");
-      }
 
       const locationLabel = [geoLocation.city, geoLocation.country].filter(Boolean).join(", ");
       toast.success("Ubicación actualizada", locationLabel || geoLocation.timezone);
@@ -216,16 +199,10 @@ export function ProfileSettings({
 
     setIsSavingPlanningDay(true);
     try {
-      const response = await fetch("/api/households", {
+      await apiFetch("/api/households", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planningDay }),
+        body: { planningDay },
       });
-
-      if (!response.ok) {
-        const data = await response.json() as { error?: string };
-        throw new Error(data.error ?? "Error al guardar");
-      }
 
       toast.success(
         "Día de planificación actualizado",

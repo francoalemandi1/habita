@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { Check, Loader2, Circle, ChevronRight, PartyPopper } from "lucide-react";
 import { PlanFeedbackDialog } from "@/components/features/plan-feedback-dialog";
+import { apiFetch } from "@/lib/api-client";
 
 interface ChecklistAssignment {
   id: string;
@@ -43,37 +44,29 @@ export function DailyChecklist({ assignments: initialAssignments, completedToday
     setCompletingIds((prev) => new Set(prev).add(assignmentId));
 
     try {
-      const response = await fetch(`/api/assignments/${assignmentId}/complete`, {
+      const data = await apiFetch<CompleteResponse>(`/api/assignments/${assignmentId}/complete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: {},
       });
 
-      if (response.ok) {
-        const data = (await response.json()) as CompleteResponse;
-        setCompletedIds((prev) => new Set(prev).add(assignmentId));
-        setCompletedToday((prev) => prev + 1);
-        toast.success("Completada");
+      setCompletedIds((prev) => new Set(prev).add(assignmentId));
+      setCompletedToday((prev) => prev + 1);
+      toast.success("Completada");
 
-        if (data.planFinalized) {
-          toast.success("Plan finalizado", "Todas las tareas del plan fueron completadas.");
-          if (data.finalizedPlanId) {
-            setFeedbackPlanId(data.finalizedPlanId);
-          }
+      if (data.planFinalized) {
+        toast.success("Plan finalizado", "Todas las tareas del plan fueron completadas.");
+        if (data.finalizedPlanId) {
+          setFeedbackPlanId(data.finalizedPlanId);
         }
-
-        // Delay refresh to let animation play
-        setTimeout(() => {
-          setAssignments((prev) => prev.filter((a) => a.id !== assignmentId));
-          router.refresh();
-        }, 600);
-        return;
       }
 
-      const errorData = (await response.json()) as { error?: string };
-      toast.error("Error", errorData.error ?? "No se pudo completar la tarea");
-    } catch {
-      toast.error("Error", "No se pudo completar la tarea");
+      // Delay refresh to let animation play
+      setTimeout(() => {
+        setAssignments((prev) => prev.filter((a) => a.id !== assignmentId));
+        router.refresh();
+      }, 600);
+    } catch (err) {
+      toast.error("Error", err instanceof Error ? err.message : "No se pudo completar la tarea");
     } finally {
       setCompletingIds((prev) => {
         const next = new Set(prev);

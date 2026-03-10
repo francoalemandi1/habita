@@ -33,7 +33,7 @@ cd apps/mobile && eas build --profile preview --platform ios
 ```
 
 Genera un `.ipa` para iOS (requiere Apple Developer account y certificates configurados en EAS). Ambos builds quedan en expo.dev con URL compartible.
-s
+
 ## Reglas críticas
 
 ### Data isolation
@@ -109,6 +109,19 @@ Agregar Zod schemas en `packages/contracts/src/` para cada endpoint nuevo. Nombr
 ### Domain logic
 `packages/domain/`: `inferExpenseSubcategory()` (240+ keywords AR), `parseProductUnit()` (g/kg/ml/L regex).
 
+### AI background jobs
+Operaciones AI async (LLM, scraping) usan fire-and-forget con polling:
+`markJobRunning()` → `after()` ejecuta → `completeJob()` → cliente pollea `/api/ai/job-status`.
+Hook compartido: `useAiJobStatus()` (web y mobile). Ver skill `ai-background-job.md`.
+
+### Query keys (React Query)
+- Compartidos web+mobile: `packages/contracts/src/query-keys.ts`
+- Web-only: `src/lib/query-keys.ts` (extiende los compartidos)
+
+### UI estandarizada (web)
+- `PageHeader` (`src/components/ui/page-header.tsx`) — título + subtítulo + ícono + acciones
+- `EmptyState` (`src/components/ui/empty-state.tsx`) — ícono/emoji + título + descripción + children
+
 ## Migraciones (CRÍTICO)
 
 - **NUNCA** modificar `schema.prisma` sin migración antes de commitear
@@ -120,11 +133,34 @@ Agregar Zod schemas en `packages/contracts/src/` para cada endpoint nuevo. Nombr
 ## Skills
 
 Skills disponibles en `.claude/skills/`:
+
+### Creación
 - `new-api-endpoint.md` — Crear endpoint API completo
-- `prisma-migration.md` — Procedimiento de migración paso a paso
-- `new-mobile-screen.md` — Nueva pantalla mobile con todos los patrones
 - `new-web-page.md` — Nueva página web (server + client components)
-- `full-feature.md` — Feature completa (contract → API → web → mobile)
-- `deploy-checklist.md` — Checklist pre-deploy
+- `new-mobile-screen.md` — Nueva pantalla mobile con todos los patrones
 - `new-shared-package.md` — Nuevo paquete compartido en el monorepo
+- `full-feature.md` — Feature completa (contract → API → web → mobile)
+- `ai-background-job.md` — Operación AI async con fire-and-forget + polling
+- `cron-job.md` — Job programado con Vercel Cron
+
+### Operaciones
+- `prisma-migration.md` — Procedimiento de migración paso a paso
+- `deploy-checklist.md` — Checklist pre-deploy
+
+### Debugging
 - `debug-mobile-auth.md` — Diagnosticar problemas de auth mobile
+- `debug-prisma-performance.md` — Anti-patterns y optimización de queries Prisma
+
+### Dominio
+- `expense-management.md` — Splits, settlements, balances y precisión Decimal
+
+## Rules (contextuales)
+
+Reglas en `.claude/rules/` se cargan automáticamente según el path del archivo que se esté editando:
+
+- `api-routes.md` — `src/app/api/**` — Auth, data isolation, error handling, Prisma patterns
+- `mobile-screens.md` — `apps/mobile/**` — Theme, ScrollView, SafeAreaView, mobileApi
+- `prisma-schema.md` — `prisma/schema.prisma` — Nullable fields, migraciones, Decimal
+- `shared-packages.md` — `packages/**` — Platform-agnostic, sin imports de @/*, next/*, react-native
+- `web-components.md` — `src/components/**`, `src/app/**/*.tsx` — PageHeader, EmptyState, design tokens
+- `data-isolation.md` — `src/app/api/**`, `src/lib/**` — householdId filtering, requireMember()

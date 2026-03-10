@@ -33,7 +33,7 @@ function getVariantStyles(c: ThemeColors): Record<ToastVariant, { bg: string; te
   return {
     default: { bg: c.text, text: c.background },
     success: { bg: c.successBg, text: c.successText },
-    error: { bg: c.destructive, text: "#ffffff" },
+    error: { bg: c.destructive, text: c.white },
     warning: { bg: c.warningBg, text: c.warningText },
     celebration: { bg: c.primaryLight, text: c.primary },
   };
@@ -72,7 +72,7 @@ function ToastItem({
     <Animated.View
       style={[
         styles.toast,
-        { backgroundColor: v.bg },
+        { backgroundColor: v.bg, shadowColor: colors.text },
         { transform: [{ translateY }], opacity },
       ]}
     >
@@ -173,7 +173,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     gap: spacing.sm,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,

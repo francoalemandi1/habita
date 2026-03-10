@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ThumbsUp, ThumbsDown, X } from "lucide-react";
+import { apiFetch } from "@/lib/api-client";
 
 import type { MemberPreference, Task } from "@prisma/client";
 
@@ -39,16 +40,14 @@ export function PreferencesManager({ preferences, tasks }: PreferencesManagerPro
 
     setIsLoading(true);
     try {
-      const response = await fetch("/api/preferences", {
+      await apiFetch("/api/preferences", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ taskId: selectedTaskId, preference }),
       });
-
-      if (response.ok) {
-        setSelectedTaskId("");
-        router.refresh();
-      }
+      setSelectedTaskId("");
+      router.refresh();
+    } catch {
+      // Silently fail — user can retry
     } finally {
       setIsLoading(false);
     }
@@ -57,13 +56,12 @@ export function PreferencesManager({ preferences, tasks }: PreferencesManagerPro
   const handleRemovePreference = async (taskId: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/preferences?taskId=${taskId}`, {
+      await apiFetch(`/api/preferences?taskId=${taskId}`, {
         method: "DELETE",
       });
-
-      if (response.ok) {
-        router.refresh();
-      }
+      router.refresh();
+    } catch {
+      // Silently fail — user can retry
     } finally {
       setIsLoading(false);
     }
@@ -79,7 +77,7 @@ export function PreferencesManager({ preferences, tasks }: PreferencesManagerPro
         <CardHeader>
           <CardTitle>Agregar preferencia</CardTitle>
           <CardDescription>
-            Selecciona una tarea y marca si te gusta o no
+            Seleccioná una tarea y marcá si te gusta o no
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -93,7 +91,7 @@ export function PreferencesManager({ preferences, tasks }: PreferencesManagerPro
                 <SelectValue placeholder={
                   availableTasks.length === 0
                     ? "Ya configuraste todas las tareas"
-                    : "Selecciona una tarea"
+                    : "Seleccioná una tarea"
                 } />
               </SelectTrigger>
               <SelectContent>

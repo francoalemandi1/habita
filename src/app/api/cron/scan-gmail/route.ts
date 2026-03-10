@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getGmailAccessToken } from "@/lib/gmail/token";
 import { scanGmailForServices } from "@/lib/gmail/scanner";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -11,16 +12,16 @@ import type { NextRequest } from "next/server";
  * Protected by CRON_SECRET.
  */
 export async function POST(request: NextRequest) {
-  try {
-    const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret) {
-      return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-    }
-    const authHeader = request.headers.get("authorization");
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
+  }
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
+  try {
     const connections = await prisma.gmailConnection.findMany({
       select: { userId: true },
     });
@@ -88,10 +89,6 @@ export async function POST(request: NextRequest) {
       totalConnections: connections.length,
     });
   } catch (error) {
-    console.error("[scan-gmail] Cron error:", error);
-    return NextResponse.json(
-      { error: "Internal error" },
-      { status: 500 },
-    );
+    return handleApiError(error, { route: "/api/cron/scan-gmail", method: "POST" });
   }
 }

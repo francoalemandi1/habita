@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamily, radius } from "@/theme";
+import { palette } from "@habita/design-tokens";
 
 import type { ThemeColors } from "@/theme";
 
@@ -23,7 +24,7 @@ function createStyles(c: ThemeColors) {
       paddingHorizontal: 8,
       paddingVertical: 2,
       zIndex: 10,
-      shadowColor: "#000",
+      shadowColor: c.text,
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.1,
       shadowRadius: 2,
@@ -33,7 +34,7 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamily.sans,
       fontSize: 10,
       fontWeight: "700",
-      color: "#ffffff",
+      color: palette.white,
     },
   });
 }

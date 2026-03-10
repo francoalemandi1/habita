@@ -5,6 +5,10 @@ import { z } from "zod";
 import type { LLMProvider } from "./types";
 import { DEFAULT_LLM_TIMEOUT_MS } from "./types";
 
+if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+  console.warn("[LLM] GOOGLE_GENERATIVE_AI_API_KEY is not set — Gemini provider will fail at runtime");
+}
+
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
 });

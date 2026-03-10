@@ -154,7 +154,7 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamily.sans,
       fontSize: 13,
       fontWeight: "600",
-      color: "#ffffff",
+      color: c.white,
     },
   });
 }

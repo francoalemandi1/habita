@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: "%s | Habita",
   },
   description:
-    "Gestiona las tareas del hogar de forma colaborativa y divertida. Asigna tareas, gana puntos, sube de nivel y motiva a toda la familia.",
+    "Gestioná las tareas del hogar de forma colaborativa y divertida. Asigná tareas, ganá puntos, subí de nivel y motivá a toda la familia.",
   keywords: [
     "tareas del hogar",
     "gestión familiar",

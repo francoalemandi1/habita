@@ -59,14 +59,14 @@ const splashStyles = StyleSheet.create({
   iconText: {
     fontSize: 40,
     fontWeight: "800",
-    color: "#fff",
+    color: colors.white,
     letterSpacing: -1,
   },
   brand: {
     fontFamily: "DMSans",
     fontSize: 44,
     fontWeight: "800",
-    color: "#d2ffa0",
+    color: colors.lime,
     letterSpacing: -1,
   },
   tagline: {

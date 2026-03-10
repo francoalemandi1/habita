@@ -89,7 +89,7 @@ export default function NotificationSettingsScreen() {
                         false: colors.muted,
                         true: colors.primary,
                       }}
-                      thumbColor="#ffffff"
+                      thumbColor={colors.white}
                     />
                   </View>
                 ))

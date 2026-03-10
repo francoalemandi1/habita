@@ -34,28 +34,28 @@ export async function POST(request: NextRequest) {
     } = validation.data;
     const householdId = member.householdId;
 
-    // Verify the target member belongs to the same household
-    const targetMember = await prisma.member.findFirst({
-      where: { id: memberId, householdId, isActive: true },
-      select: { id: true, name: true, avatarUrl: true, memberType: true },
-    });
-
-    if (!targetMember) {
-      return NextResponse.json(
-        { error: "Miembro no encontrado", code: "NOT_FOUND" },
-        { status: 404 },
-      );
-    }
-
     let resolvedTaskId: string;
     let taskName: string;
 
     if (taskId) {
-      // Existing task — verify it belongs to the household
-      const task = await prisma.task.findFirst({
-        where: { id: taskId, householdId, isActive: true },
-        select: { id: true, name: true },
-      });
+      // Existing task — verify member + task belong to household (parallel)
+      const [targetMemberResult, task] = await Promise.all([
+        prisma.member.findFirst({
+          where: { id: memberId, householdId, isActive: true },
+          select: { id: true, name: true, avatarUrl: true, memberType: true },
+        }),
+        prisma.task.findFirst({
+          where: { id: taskId, householdId, isActive: true },
+          select: { id: true, name: true },
+        }),
+      ]);
+
+      if (!targetMemberResult) {
+        return NextResponse.json(
+          { error: "Miembro no encontrado", code: "NOT_FOUND" },
+          { status: 404 },
+        );
+      }
 
       if (!task) {
         return NextResponse.json(
@@ -67,7 +67,19 @@ export async function POST(request: NextRequest) {
       resolvedTaskId = task.id;
       taskName = task.name;
     } else {
-      // Custom task — create with catalog defaults if provided, else sensible defaults
+      // Custom task — need to verify member first, then create task
+      const targetMemberResult = await prisma.member.findFirst({
+        where: { id: memberId, householdId, isActive: true },
+        select: { id: true, name: true, avatarUrl: true, memberType: true },
+      });
+
+      if (!targetMemberResult) {
+        return NextResponse.json(
+          { error: "Miembro no encontrado", code: "NOT_FOUND" },
+          { status: 404 },
+        );
+      }
+
       const newTask = await prisma.task.create({
         data: {
           name: customTaskName!,
@@ -87,7 +99,7 @@ export async function POST(request: NextRequest) {
     const existingAssignment = await prisma.assignment.findFirst({
       where: {
         taskId: resolvedTaskId,
-        memberId: targetMember.id,
+        memberId,
         householdId,
         status: { in: ["PENDING", "IN_PROGRESS"] },
       },
@@ -111,7 +123,7 @@ export async function POST(request: NextRequest) {
     const assignment = await prisma.assignment.create({
       data: {
         taskId: resolvedTaskId,
-        memberId: targetMember.id,
+        memberId,
         householdId,
         dueDate: endOfToday,
         notes: "Asignado por ruleta",

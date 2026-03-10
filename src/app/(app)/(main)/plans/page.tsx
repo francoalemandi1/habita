@@ -149,7 +149,7 @@ export default async function PlansPage() {
         backButton
         icon={CalendarDays}
         title="Planes"
-        subtitle="Gestiona la distribución de tareas en tu hogar"
+        subtitle="Gestioná la distribución de tareas en tu hogar"
         actions={
           !activePlan ? (
             <Button asChild size="sm" className="gap-2">

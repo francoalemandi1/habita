@@ -20,12 +20,12 @@ interface BadgeProps {
 
 function getVariantStyles(c: ThemeColors): Record<BadgeVariant, { bg: string; text: string; border?: string }> {
   return {
-    default: { bg: c.primary, text: "#ffffff" },
+    default: { bg: c.primary, text: c.white },
     secondary: { bg: c.muted, text: c.mutedForeground },
-    destructive: { bg: c.destructive, text: "#ffffff" },
+    destructive: { bg: c.destructive, text: c.white },
     outline: { bg: "transparent", text: c.text, border: c.border },
-    success: { bg: c.success, text: "#ffffff" },
-    warning: { bg: c.warning, text: "#ffffff" },
+    success: { bg: c.success, text: c.white },
+    warning: { bg: c.warning, text: c.white },
   };
 }
 

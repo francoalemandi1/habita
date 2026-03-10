@@ -352,9 +352,9 @@ export default async function DashboardPage() {
                   reason: string;
                 }>,
                 durationDays: activePlan.durationDays,
-                createdAt: activePlan.createdAt,
-                appliedAt: activePlan.appliedAt,
-                expiresAt: activePlan.expiresAt,
+                createdAt: activePlan.createdAt.toISOString(),
+                appliedAt: activePlan.appliedAt?.toISOString() ?? null,
+                expiresAt: activePlan.expiresAt.toISOString(),
               } : null}
               aiEnabled={aiEnabled}
               memberCount={members.length}
@@ -363,7 +363,7 @@ export default async function DashboardPage() {
                 id: a.id,
                 taskName: a.task.name,
                 memberName: a.member.name,
-                dueDate: a.dueDate,
+                dueDate: a.dueDate.toISOString(),
               }))}
             />
             <div className="mt-2 border-t border-black/5 pt-2">

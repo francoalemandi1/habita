@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { DailyBriefing } from "./daily-briefing";
+import { apiFetch } from "@/lib/api-client";
 
 interface BriefingData {
   greeting: string;
@@ -16,9 +17,7 @@ export function DailyBriefingWrapper() {
   useEffect(() => {
     const fetchBriefing = async () => {
       try {
-        const response = await fetch("/api/briefing");
-        if (!response.ok) return;
-        const data = (await response.json()) as BriefingData;
+        const data = await apiFetch<BriefingData>("/api/briefing");
         setBriefing(data);
       } catch {
         // Silently skip on error

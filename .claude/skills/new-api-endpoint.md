@@ -29,15 +29,38 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: Request) {
   try {
     const member = await requireMember();
-    const householdId = member.householdId;
 
     const data = await prisma.model.findMany({
-      where: { householdId },
+      where: { householdId: member.householdId },
     });
 
     return NextResponse.json({ data });
   } catch (error) {
     return handleApiError(error, { route: "/api/<feature>", method: "GET" });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const member = await requireMember();
+    const body = await request.json();
+
+    // Validar input con Zod
+    const validation = createXInputSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Datos inválidos", details: validation.error.flatten().fieldErrors },
+        { status: 400 },
+      );
+    }
+
+    const created = await prisma.model.create({
+      data: { ...validation.data, householdId: member.householdId },
+    });
+
+    return NextResponse.json(created, { status: 201 });
+  } catch (error) {
+    return handleApiError(error, { route: "/api/<feature>", method: "POST" });
   }
 }
 ```

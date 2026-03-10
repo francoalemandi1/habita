@@ -9,6 +9,10 @@ import { generateText } from "ai";
 import type { LLMProvider } from "./types";
 import { DEFAULT_LLM_TIMEOUT_MS } from "./types";
 
+if (!process.env.DEEPSEEK_API_KEY) {
+  console.warn("[LLM] DEEPSEEK_API_KEY is not set — DeepSeek provider will fail at runtime");
+}
+
 const deepseek = createDeepSeek({ apiKey: process.env.DEEPSEEK_API_KEY });
 
 const MODEL = "deepseek-chat";
@@ -32,7 +36,15 @@ export const deepseekProvider: LLMProvider = {
         prompt: options.prompt,
         abortSignal: controller.signal,
       });
-      return JSON.parse(result.text) as T;
+      try {
+        return JSON.parse(result.text) as T;
+      } catch {
+        const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]) as T;
+        }
+        throw new Error("Failed to parse DeepSeek response as JSON");
+      }
     } finally {
       clearTimeout(timeout);
     }

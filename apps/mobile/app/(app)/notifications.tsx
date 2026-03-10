@@ -97,7 +97,7 @@ export default function NotificationsScreen() {
                 <View style={styles.notifHeader}>
                   <Text style={styles.notifTitle}>{notification.title}</Text>
                   {!notification.isRead ? (
-                    <Badge bgColor={colors.primary} textColor="#ffffff">
+                    <Badge bgColor={colors.primary} textColor={colors.white}>
                       Nueva
                     </Badge>
                   ) : null}

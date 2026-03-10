@@ -20,11 +20,11 @@ interface ButtonProps extends Omit<PressableProps, "children" | "style"> {
 
 function getVariantStyles(c: ThemeColors): Record<ButtonVariant, { bg: string; text: string; border?: string }> {
   return {
-    default: { bg: c.primary, text: "#ffffff" },
+    default: { bg: c.primary, text: c.white },
     outline: { bg: "transparent", text: c.text, border: c.border },
     ghost: { bg: "transparent", text: c.text },
-    destructive: { bg: c.destructive, text: "#ffffff" },
-    success: { bg: c.success, text: "#ffffff" },
+    destructive: { bg: c.destructive, text: c.white },
+    success: { bg: c.success, text: c.white },
   };
 }
 

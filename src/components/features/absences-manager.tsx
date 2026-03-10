@@ -6,7 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Calendar, Trash2, Plus } from "lucide-react";
+import { apiFetch } from "@/lib/api-client";
 
 import type { MemberAbsence } from "@prisma/client";
 
@@ -43,22 +45,14 @@ export function AbsencesManager({ absences }: AbsencesManagerProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/absences", {
+      await apiFetch("/api/absences", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           startDate: new Date(startDate).toISOString(),
           endDate: new Date(endDate).toISOString(),
           reason: reason || undefined,
-        }),
+        },
       });
-
-      const data: unknown = await response.json();
-
-      if (!response.ok) {
-        const errorData = data as { error?: string };
-        throw new Error(errorData.error ?? "Error al crear ausencia");
-      }
 
       setIsAdding(false);
       setStartDate("");
@@ -75,13 +69,12 @@ export function AbsencesManager({ absences }: AbsencesManagerProps) {
   const handleDeleteAbsence = async (absenceId: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/absences/${absenceId}`, {
+      await apiFetch(`/api/absences/${absenceId}`, {
         method: "DELETE",
       });
-
-      if (response.ok) {
-        router.refresh();
-      }
+      router.refresh();
+    } catch {
+      // Silently fail
     } finally {
       setIsLoading(false);
     }
@@ -181,9 +174,11 @@ export function AbsencesManager({ absences }: AbsencesManagerProps) {
         </CardHeader>
         <CardContent>
           {upcomingAbsences.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No tienes ausencias programadas
-            </p>
+            <EmptyState
+              icon={Calendar}
+              title="Sin ausencias programadas"
+              description="Registrá los días que no vas a estar disponible para tareas."
+            />
           ) : (
             <div className="space-y-3">
               {upcomingAbsences.map((absence) => (

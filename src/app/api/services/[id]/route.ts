@@ -56,6 +56,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (data.paidById && data.paidById !== existing.paidById) {
       const paidByMember = await prisma.member.findFirst({
         where: { id: data.paidById, householdId: member.householdId, isActive: true },
+        select: { id: true },
       });
       if (!paidByMember) {
         return NextResponse.json(
@@ -112,6 +113,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
     const existing = await prisma.service.findFirst({
       where: { id, householdId: member.householdId },
+      select: { id: true },
     });
 
     if (!existing) {

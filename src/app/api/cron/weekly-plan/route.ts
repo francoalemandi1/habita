@@ -4,8 +4,11 @@ import { autoAssignAllTasks } from "@/lib/assignment-algorithm";
 import { isAIEnabled } from "@/lib/llm/provider";
 import { getLocalDayOfWeek } from "@/lib/llm/regional-context";
 import { deliverNotificationToMembers } from "@/lib/push-delivery";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
+
+export const maxDuration = 300;
 
 interface HouseholdPlanResult {
   householdId: string;
@@ -22,16 +25,16 @@ interface HouseholdPlanResult {
  * Runs every 6 hours to cover all timezones. Protected by CRON_SECRET.
  */
 export async function POST(request: NextRequest) {
-  try {
-    const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret) {
-      return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-    }
-    const authHeader = request.headers.get("authorization");
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
+  }
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
+  try {
     const now = new Date();
 
     // Only process households with a configured planning day and timezone
@@ -114,11 +117,7 @@ export async function POST(request: NextRequest) {
       timestamp: now.toISOString(),
     });
   } catch (error) {
-    console.error("POST /api/cron/weekly-plan error:", error);
-    return NextResponse.json(
-      { error: "Error processing weekly plan" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/cron/weekly-plan", method: "POST" });
   }
 }
 
@@ -136,13 +135,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const aiEnabled = isAIEnabled();
+  try {
+    const aiEnabled = isAIEnabled();
 
-  return NextResponse.json({
-    status: "ready",
-    endpoint: "POST /api/cron/weekly-plan",
-    description: "Generates task distribution for households on their configured planning day",
-    aiEnabled,
-    schedule: "Every 6 hours (covers all timezones)",
-  });
+    return NextResponse.json({
+      status: "ready",
+      endpoint: "POST /api/cron/weekly-plan",
+      description: "Generates task distribution for households on their configured planning day",
+      aiEnabled,
+      schedule: "Every 6 hours (covers all timezones)",
+    });
+  } catch (error) {
+    return handleApiError(error, { route: "/api/cron/weekly-plan", method: "GET" });
+  }
 }

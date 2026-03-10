@@ -93,7 +93,7 @@ function ServiceCard({ service, onGenerate, onDelete, isGenerating }: ServiceCar
               disabled={!service.lastAmount || isGenerating}
               onPress={() => onGenerate(service)}
             >
-              <Zap size={14} color="#fff" />
+              <Zap size={14} color={colors.white} />
               Generar
             </Button>
             <Button variant="outline" size="sm" onPress={() => onDelete(service)}>
@@ -140,7 +140,7 @@ export default function ServicesScreen() {
               },
               onError: (error) => {
                 setGeneratingId(null);
-                Alert.alert("Error", getMobileErrorMessage(error));
+                Alert.alert("Ocurrió un error", getMobileErrorMessage(error));
               },
             });
           },
@@ -160,7 +160,7 @@ export default function ServicesScreen() {
           style: "destructive",
           onPress: () => {
             deleteM.mutate(service.id, {
-              onError: (error) => Alert.alert("Error", getMobileErrorMessage(error)),
+              onError: (error) => Alert.alert("Ocurrió un error", getMobileErrorMessage(error)),
             });
           },
         },

@@ -12,7 +12,9 @@ Cuando se agrega una nueva página en `src/app/`.
 import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { PageHeader } from "@/components/ui/page-header";
 import { spacing } from "@/lib/design-tokens";
+import { MiIcon } from "lucide-react";
 
 export default async function NombrePage() {
   const member = await getCurrentMember();
@@ -24,10 +26,12 @@ export default async function NombrePage() {
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <div className={spacing.pageHeader}>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Título</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">Subtítulo</p>
-      </div>
+      <PageHeader
+        title="Título"
+        subtitle="Subtítulo"
+        icon={MiIcon}
+        actions={<Button>Acción</Button>}
+      />
 
       <div className={spacing.sectionGap}>
         <NombreClient data={serializedData} />
@@ -79,7 +83,24 @@ export function NombreClient({ data }: NombreClientProps) {
 - [ ] Textos en español argentino
 - [ ] `pnpm typecheck` al finalizar
 
-### 5. Si necesita React Query (client-side fetching)
+### 5. Empty states
+```typescript
+import { EmptyState } from "@/components/ui/empty-state";
+import { MiIcon } from "lucide-react";
+
+// Con ícono Lucide
+<EmptyState icon={MiIcon} title="Sin datos" description="Descripción de qué hacer">
+  <Button>Acción</Button>
+</EmptyState>
+
+// Con emoji
+<EmptyState emoji="🎉" title="Sin datos" description="..." />
+```
+
+### 6. Loading state
+Crear `src/app/(app)/(main)/<nombre>/loading.tsx` con skeleton que refleje el layout de la página.
+
+### 7. Si necesita React Query (client-side fetching)
 Crear hook en `src/hooks/use-<feature>.ts`:
 ```typescript
 "use client";
@@ -87,4 +108,5 @@ import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 ```
-Agregar query key en `src/lib/query-keys.ts`.
+Query keys compartidos con mobile → `packages/contracts/src/query-keys.ts`.
+Query keys web-only → `src/lib/query-keys.ts`.

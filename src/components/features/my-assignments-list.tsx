@@ -13,6 +13,7 @@ import { CheckCircle, ClipboardList, Clock, Check, Loader2, ArrowRight, Undo2, G
 import { assignmentCardColors, spacing, iconSize } from "@/lib/design-tokens";
 import { PlanFeedbackDialog } from "@/components/features/plan-feedback-dialog";
 import { getHouseholdCopy } from "@/lib/household-mode";
+import { apiFetch } from "@/lib/api-client";
 
 import type { Assignment, Task } from "@prisma/client";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
@@ -130,22 +131,15 @@ export function MyAssignmentsList({
       if (!targetMember || toMemberId === currentMemberId) return;
 
       try {
-        const response = await fetch("/api/transfers", {
+        await apiFetch("/api/transfers", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ assignmentId, toMemberId }),
+          body: { assignmentId, toMemberId },
         });
 
-        if (response.ok) {
-          toast.success("Transferencia solicitada", `Enviada a ${targetMember.name}`);
-          router.refresh();
-          return;
-        }
-
-        const errorData = (await response.json()) as { error?: string };
-        toast.error("Error", errorData.error ?? "No se pudo transferir la tarea");
-      } catch {
-        toast.error("Error", "No se pudo transferir la tarea");
+        toast.success("Transferencia solicitada", `Enviada a ${targetMember.name}`);
+        router.refresh();
+      } catch (err) {
+        toast.error("Error", err instanceof Error ? err.message : "No se pudo transferir la tarea");
       }
     },
     [members, currentMemberId, router, toast],
@@ -385,20 +379,14 @@ function SwipeableCard({
 
   const handleSwipeComplete = useCallback(async () => {
     try {
-      const response = await fetch(`/api/assignments/${assignment.id}/complete`, {
+      await apiFetch(`/api/assignments/${assignment.id}/complete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: {},
       });
 
-      if (response.ok) {
-        toast.success("Tarea completada");
-        onCompleted(assignment.id);
-        router.refresh();
-        return;
-      }
-
-      toast.error("Error", "No se pudo completar la tarea");
+      toast.success("Tarea completada");
+      onCompleted(assignment.id);
+      router.refresh();
     } catch {
       toast.error("Error", "No se pudo completar la tarea");
     }
@@ -512,33 +500,24 @@ function AssignmentCard({
   const handleComplete = async () => {
     setIsCompleting(true);
     try {
-      const response = await fetch(`/api/assignments/${assignment.id}/complete`, {
+      const data = await apiFetch<CompleteResponse>(`/api/assignments/${assignment.id}/complete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: {},
       });
 
-      if (response.ok) {
-        const data = (await response.json()) as CompleteResponse;
+      toast.success("Tarea completada");
 
-        toast.success("Tarea completada");
-
-        if (data.planFinalized) {
-          toast.success("Plan finalizado", "Todas las tareas del plan fueron completadas.");
-          if (data.finalizedPlanId) {
-            setFeedbackPlanId(data.finalizedPlanId);
-          }
+      if (data.planFinalized) {
+        toast.success("Plan finalizado", "Todas las tareas del plan fueron completadas.");
+        if (data.finalizedPlanId) {
+          setFeedbackPlanId(data.finalizedPlanId);
         }
-
-        onCompleted(assignment.id);
-        router.refresh();
-        return;
       }
 
-      const errorData = (await response.json()) as { error?: string };
-      toast.error("Error", errorData.error ?? "No se pudo completar la tarea");
-    } catch {
-      toast.error("Error", "No se pudo completar la tarea");
+      onCompleted(assignment.id);
+      router.refresh();
+    } catch (err) {
+      toast.error("Error", err instanceof Error ? err.message : "No se pudo completar la tarea");
     } finally {
       setIsCompleting(false);
     }
@@ -547,21 +526,15 @@ function AssignmentCard({
   const handleUncomplete = async () => {
     setIsUncompleting(true);
     try {
-      const response = await fetch(`/api/assignments/${assignment.id}/uncomplete`, {
+      await apiFetch(`/api/assignments/${assignment.id}/uncomplete`, {
         method: "POST",
       });
 
-      if (response.ok) {
-        toast.success("Tarea desmarcada", "La tarea volvió a pendiente");
-        onUncompleted(assignment.id);
-        router.refresh();
-        return;
-      }
-
-      const errorData = (await response.json()) as { error?: string };
-      toast.error("Error", errorData.error ?? "No se pudo desmarcar la tarea");
-    } catch {
-      toast.error("Error", "No se pudo desmarcar la tarea");
+      toast.success("Tarea desmarcada", "La tarea volvió a pendiente");
+      onUncompleted(assignment.id);
+      router.refresh();
+    } catch (err) {
+      toast.error("Error", err instanceof Error ? err.message : "No se pudo desmarcar la tarea");
     } finally {
       setIsUncompleting(false);
     }
@@ -702,21 +675,15 @@ function CompletedAssignmentCard({
   const handleUncomplete = async () => {
     setIsUncompleting(true);
     try {
-      const response = await fetch(`/api/assignments/${assignment.id}/uncomplete`, {
+      await apiFetch(`/api/assignments/${assignment.id}/uncomplete`, {
         method: "POST",
       });
 
-      if (response.ok) {
-        toast.success("Tarea desmarcada", "La tarea volvió a pendiente");
-        onUncompleted(assignment.id);
-        router.refresh();
-        return;
-      }
-
-      const errorData = (await response.json()) as { error?: string };
-      toast.error("Error", errorData.error ?? "No se pudo desmarcar la tarea");
-    } catch {
-      toast.error("Error", "No se pudo desmarcar la tarea");
+      toast.success("Tarea desmarcada", "La tarea volvió a pendiente");
+      onUncompleted(assignment.id);
+      router.refresh();
+    } catch (err) {
+      toast.error("Error", err instanceof Error ? err.message : "No se pudo desmarcar la tarea");
     } finally {
       setIsUncompleting(false);
     }

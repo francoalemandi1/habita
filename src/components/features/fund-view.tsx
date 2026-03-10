@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { CATEGORY_ICONS, CATEGORY_LABELS } from "@/lib/expense-constants";
 import { iconSize } from "@/lib/design-tokens";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatAmount } from "@/components/features/expense-shared";
 import { FundSetupDialog } from "@/components/features/fund-setup-dialog";
 import { FundContributeDialog } from "@/components/features/fund-contribute-dialog";
@@ -185,23 +186,20 @@ function FundExpenseRow({ expense }: { expense: SerializedFundExpense }) {
 
 function FundEmptyState({ onSetup }: { onSetup: () => void }) {
   return (
-    <div className="rounded-2xl border border-dashed border-muted-foreground/30 px-6 py-10 text-center">
-      <Wallet className="mx-auto h-10 w-10 text-muted-foreground" />
-      <p className="mt-3 text-sm font-medium text-foreground">
-        Configurá el fondo común
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Cada miembro aporta su cuota mensual y los gastos del hogar se pagan del fondo
-      </p>
+    <EmptyState
+      icon={Wallet}
+      title="Configurá el fondo común"
+      description="Cada miembro aporta su cuota mensual y los gastos del hogar se pagan del fondo."
+    >
       <button
         type="button"
         onClick={onSetup}
-        className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90"
+        className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90"
       >
         <Plus className="h-4 w-4" />
         Crear fondo
       </button>
-    </div>
+    </EmptyState>
   );
 }
 

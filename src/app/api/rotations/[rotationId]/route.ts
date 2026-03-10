@@ -71,6 +71,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         id: rotationId,
         householdId: member.householdId,
       },
+      select: { id: true },
     });
 
     if (!existingRotation) {
@@ -124,6 +125,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
         id: rotationId,
         householdId: member.householdId,
       },
+      select: { id: true },
     });
 
     if (!existingRotation) {

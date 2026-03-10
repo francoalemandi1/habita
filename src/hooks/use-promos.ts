@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
+import { POLL_INTERVAL_MS } from "@habita/contracts";
 
 import type { BankPromo } from "@prisma/client";
 
@@ -15,13 +16,6 @@ interface PipelineStatusResponse {
   isRunning: boolean;
   startedAt: string | null;
 }
-
-// ============================================
-// Constants
-// ============================================
-
-/** Poll every 3 seconds while pipeline is running. */
-const POLL_INTERVAL_MS = 3_000;
 
 // ============================================
 // usePromos — fetch bank promos for the household

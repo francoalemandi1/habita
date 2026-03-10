@@ -102,27 +102,29 @@ export async function POST(request: NextRequest) {
 
     const { taskId, memberId, dueDate, notes } = validation.data;
 
-    // Verify task belongs to household
-    const task = await prisma.task.findFirst({
-      where: {
-        id: taskId,
-        householdId: member.householdId,
-        isActive: true,
-      },
-    });
+    // Verify task + member belong to household (parallel — independent queries)
+    const [task, targetMember] = await Promise.all([
+      prisma.task.findFirst({
+        where: {
+          id: taskId,
+          householdId: member.householdId,
+          isActive: true,
+        },
+        select: { id: true },
+      }),
+      prisma.member.findFirst({
+        where: {
+          id: memberId,
+          householdId: member.householdId,
+          isActive: true,
+        },
+        select: { id: true },
+      }),
+    ]);
 
     if (!task) {
       return NextResponse.json({ error: "Tarea no encontrada" }, { status: 404 });
     }
-
-    // Verify member belongs to household
-    const targetMember = await prisma.member.findFirst({
-      where: {
-        id: memberId,
-        householdId: member.householdId,
-        isActive: true,
-      },
-    });
 
     if (!targetMember) {
       return NextResponse.json({ error: "Miembro no encontrado" }, { status: 404 });

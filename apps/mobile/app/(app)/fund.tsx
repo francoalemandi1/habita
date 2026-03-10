@@ -293,7 +293,7 @@ export default function FundScreen() {
           Alert.alert("Listo!", "Tu aporte quedo registrado.");
         },
         onError: (error) => {
-          Alert.alert("Error", getMobileErrorMessage(error));
+          Alert.alert("Ocurrió un error", getMobileErrorMessage(error));
         },
       },
     );
@@ -302,7 +302,7 @@ export default function FundScreen() {
   const handleSetup = (payload: CreateFundPayload) => {
     setupM.mutate(payload, {
       onSuccess: () => setShowSetup(false),
-      onError: (error) => Alert.alert("Error", getMobileErrorMessage(error)),
+      onError: (error) => Alert.alert("Ocurrió un error", getMobileErrorMessage(error)),
     });
   };
 
@@ -406,7 +406,7 @@ export default function FundScreen() {
                     </View>
                     {myStatus.pending > 0 ? (
                       <Button size="sm" onPress={() => setShowContribute(true)}>
-                        <Plus size={14} color="#fff" />
+                        <Plus size={14} color={colors.white} />
                         Aportar {formatAmount(myStatus.pending)}
                       </Button>
                     ) : (

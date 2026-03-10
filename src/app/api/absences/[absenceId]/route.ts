@@ -34,6 +34,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         id: absenceId,
         memberId: member.id,
       },
+      select: { id: true },
     });
 
     if (!existingAbsence) {
@@ -66,6 +67,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
         id: absenceId,
         memberId: member.id,
       },
+      select: { id: true },
     });
 
     if (!existingAbsence) {

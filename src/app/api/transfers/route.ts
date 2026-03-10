@@ -71,16 +71,33 @@ export async function POST(request: NextRequest) {
 
     const { assignmentId, toMemberId, reason } = validation.data;
 
-    // Verify assignment belongs to current member
-    const assignment = await prisma.assignment.findFirst({
-      where: {
-        id: assignmentId,
-        memberId: member.id,
-        householdId: member.householdId,
-        status: { in: ["PENDING", "IN_PROGRESS"] },
-      },
-      select: { id: true },
-    });
+    // Verify assignment, target member, and no pending transfer (parallel — independent queries)
+    const [assignment, targetMember, existingTransfer] = await Promise.all([
+      prisma.assignment.findFirst({
+        where: {
+          id: assignmentId,
+          memberId: member.id,
+          householdId: member.householdId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+        },
+        select: { id: true },
+      }),
+      prisma.member.findFirst({
+        where: {
+          id: toMemberId,
+          householdId: member.householdId,
+          isActive: true,
+        },
+        select: { id: true },
+      }),
+      prisma.taskTransfer.findFirst({
+        where: {
+          assignmentId,
+          status: "PENDING",
+        },
+        select: { id: true },
+      }),
+    ]);
 
     if (!assignment) {
       return NextResponse.json(
@@ -88,16 +105,6 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-
-    // Verify target member exists in same household
-    const targetMember = await prisma.member.findFirst({
-      where: {
-        id: toMemberId,
-        householdId: member.householdId,
-        isActive: true,
-      },
-      select: { id: true },
-    });
 
     if (!targetMember) {
       return NextResponse.json(
@@ -112,15 +119,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Check if there's already a pending transfer for this assignment
-    const existingTransfer = await prisma.taskTransfer.findFirst({
-      where: {
-        assignmentId,
-        status: "PENDING",
-      },
-      select: { id: true },
-    });
 
     if (existingTransfer) {
       return NextResponse.json(

@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
     // Check if rotation already exists
     const existingRotation = await prisma.taskRotation.findUnique({
       where: { taskId },
+      select: { id: true },
     });
 
     if (existingRotation) {

@@ -33,7 +33,7 @@ export function BalanceCard({ balance }: BalanceCardProps) {
       ]}
     >
       <View style={[styles.iconWrap, { backgroundColor: accentColor }]}>
-        <Wallet size={16} color="#ffffff" />
+        <Wallet size={16} color={colors.white} />
       </View>
       <View style={styles.textWrap}>
         <Text style={[styles.label, { color: colors.text }]}>{label}</Text>

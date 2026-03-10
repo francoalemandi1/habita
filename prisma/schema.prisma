@@ -982,6 +982,7 @@ model SavedEvent {
 
   @@unique([memberId, culturalEventId])
   @@index([memberId])
+  @@index([householdId])
   @@index([memberId, startDate])
   @@map("saved_events")
 }
@@ -1006,6 +1007,7 @@ model SavedRecipe {
 
   @@unique([memberId, contentHash])
   @@index([memberId])
+  @@index([householdId])
   @@map("saved_recipes")
 }
 
@@ -1025,6 +1027,7 @@ model SavedCart {
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@index([memberId])
+  @@index([householdId])
   @@map("saved_carts")
 }
 

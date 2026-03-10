@@ -8,7 +8,7 @@ import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
-import { spacing, contrastText } from "@/lib/design-tokens";
+import { contrastText } from "@/lib/design-tokens";
 import { getMemberColor, getInitial } from "@/lib/member-utils";
 import {
   CheckCircle2,
@@ -44,7 +44,7 @@ import { cn } from "@/lib/utils";
 import { computeDurationDays, MAX_PLAN_DURATION_DAYS, validateDateRange, durationLabel } from "@/lib/plan-duration";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { TaskCatalogPicker } from "@/components/features/task-catalog-picker";
-import { BackButton } from "@/components/ui/back-button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { getTaskIcon, getTaskCategoryMeta } from "@/data/onboarding-catalog";
@@ -88,11 +88,11 @@ interface StoredPlan {
   notes: string[];
   assignments: PlanAssignment[];
   durationDays: number;
-  startDate: Date | null;
+  startDate: string | null;
   excludedTasks: ExcludedTask[];
-  createdAt: Date;
-  appliedAt: Date | null;
-  expiresAt: Date;
+  createdAt: string;
+  appliedAt: string | null;
+  expiresAt: string;
 }
 
 interface PlanPreviewResponse {
@@ -249,11 +249,11 @@ export function PlanPageClient({
           notes: data.plan.notes,
           assignments: data.plan.assignments,
           durationDays: data.plan.durationDays,
-          startDate: new Date(data.plan.startDate),
+          startDate: new Date(data.plan.startDate).toISOString(),
           excludedTasks: data.plan.excludedTasks,
-          createdAt: new Date(),
+          createdAt: new Date().toISOString(),
           appliedAt: null,
-          expiresAt: new Date(data.plan.endDate),
+          expiresAt: new Date(data.plan.endDate).toISOString(),
         };
 
         setPlan(newPlan);
@@ -420,7 +420,7 @@ export function PlanPageClient({
           `Se asignaron ${result.assignmentsCreated} tareas`
         );
         setPlan((prev) =>
-          prev ? { ...prev, status: "APPLIED", appliedAt: new Date() } : null
+          prev ? { ...prev, status: "APPLIED", appliedAt: new Date().toISOString() } : null
         );
         router.refresh();
       } else if (result.assignmentsCreated === 0) {
@@ -641,32 +641,21 @@ export function PlanPageClient({
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
       {/* Header */}
-      <div className={spacing.pageHeader}>
-        <BackButton />
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
-              <CalendarDays className="h-6 w-6 text-primary shrink-0" />
-              {isSolo ? "Plan Semanal" : "Plan de Distribución"}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {isGenerating
-                ? "Generando plan..."
-                : plan
-                  ? plan.status === "APPLIED"
-                    ? "Plan aplicado"
-                    : "Revisa y aprueba el plan propuesto"
-                  : householdCopy.planMembersSummary(tasks.length, members.length)}
-            </p>
-            <Link
-              href="/plans"
-              className="mt-2 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <History className="h-3.5 w-3.5" />
-              Ver historial de planes
-            </Link>
-          </div>
-          {plan?.status === "PENDING" && (
+      <PageHeader
+        backButton
+        icon={CalendarDays}
+        title={isSolo ? "Plan Semanal" : "Plan de Distribución"}
+        subtitle={
+          isGenerating
+            ? "Generando plan..."
+            : plan
+              ? plan.status === "APPLIED"
+                ? "Plan aplicado"
+                : "Revisa y aprueba el plan propuesto"
+              : householdCopy.planMembersSummary(tasks.length, members.length)
+        }
+        actions={
+          plan?.status === "PENDING" ? (
             <Button
               onClick={handleGeneratePlan}
               disabled={isGenerating}
@@ -681,8 +670,17 @@ export function PlanPageClient({
               )}
               Regenerar
             </Button>
-          )}
-        </div>
+          ) : undefined
+        }
+      />
+      <div className="-mt-4 mb-6">
+        <Link
+          href="/plans"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <History className="h-3.5 w-3.5" />
+          Ver historial de planes
+        </Link>
       </div>
 
       {/* Loading state */}

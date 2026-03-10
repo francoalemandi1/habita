@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/toast";
 import { ArrowRightLeft, Check, X } from "lucide-react";
+import { apiFetch } from "@/lib/api-client";
 
 interface Transfer {
   id: string;
@@ -72,22 +73,18 @@ export function PendingTransfers({ transfers, currentMemberId }: PendingTransfer
   const handleRespond = async (transferId: string, action: "ACCEPT" | "REJECT") => {
     setLoadingId(transferId);
     try {
-      const response = await fetch(`/api/transfers/${transferId}`, {
+      await apiFetch(`/api/transfers/${transferId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: { action },
       });
-
-      if (response.ok) {
-        if (action === "ACCEPT") {
-          toast.success("Transferencia aceptada", "La tarea ha sido asignada a ti");
-        } else {
-          toast.info("Transferencia rechazada", "La tarea sigue asignada al solicitante");
-        }
-        router.refresh();
+      if (action === "ACCEPT") {
+        toast.success("Transferencia aceptada", "La tarea ha sido asignada a ti");
       } else {
-        toast.error("Error", "No se pudo procesar la transferencia");
+        toast.info("Transferencia rechazada", "La tarea sigue asignada al solicitante");
       }
+      router.refresh();
+    } catch {
+      toast.error("Error", "No se pudo procesar la transferencia");
     } finally {
       setLoadingId(null);
       setRejectConfirm(null);
@@ -97,13 +94,12 @@ export function PendingTransfers({ transfers, currentMemberId }: PendingTransfer
   const handleCancel = async (transferId: string) => {
     setLoadingId(transferId);
     try {
-      const response = await fetch(`/api/transfers/${transferId}`, {
+      await apiFetch(`/api/transfers/${transferId}`, {
         method: "DELETE",
       });
-
-      if (response.ok) {
-        router.refresh();
-      }
+      router.refresh();
+    } catch {
+      // Silently fail
     } finally {
       setLoadingId(null);
     }

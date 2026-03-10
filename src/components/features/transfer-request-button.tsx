@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { ArrowRightLeft } from "lucide-react";
+import { apiFetch } from "@/lib/api-client";
 
 interface Member {
   id: string;
@@ -56,22 +57,14 @@ export function TransferRequestButton({
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/transfers", {
+      await apiFetch("/api/transfers", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           assignmentId,
           toMemberId: selectedMemberId,
           reason: reason || undefined,
-        }),
+        },
       });
-
-      const data: unknown = await response.json();
-
-      if (!response.ok) {
-        const errorData = data as { error?: string };
-        throw new Error(errorData.error ?? "Error al solicitar transferencia");
-      }
 
       setOpen(false);
       setSelectedMemberId("");
@@ -113,7 +106,7 @@ export function TransferRequestButton({
               disabled={isLoading}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Selecciona un miembro" />
+                <SelectValue placeholder="Seleccioná un miembro" />
               </SelectTrigger>
               <SelectContent>
                 {availableMembers.map((member) => (

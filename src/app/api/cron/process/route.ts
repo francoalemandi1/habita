@@ -7,7 +7,10 @@ import { calculateNextDueDate, formatPeriod } from "@/lib/service-utils";
 import { expirePastEvents } from "@/lib/events/expire-events";
 import { cleanupExpiredMobileAuthSessions } from "@/lib/mobile-auth";
 import { deliverNotification, deliverNotificationToMembers } from "@/lib/push-delivery";
+import { handleApiError } from "@/lib/api-response";
 import type { NextRequest } from "next/server";
+
+export const maxDuration = 120;
 
 /** Auto-generate invoices + expenses for services with autoGenerate=true and nextDueDate <= now. */
 async function processServiceBilling(): Promise<{ generated: number; errors: number }> {
@@ -128,6 +131,7 @@ async function processProactiveNotifications(): Promise<{
         createdAt: { gte: sevenDaysAgo },
         metadata: { path: ["serviceId"], equals: service.id },
       },
+      select: { id: true },
     });
 
     if (existingNotification) continue;
@@ -484,16 +488,16 @@ async function processDealAlerts(): Promise<number> {
  * Protegido por CRON_SECRET.
  */
 export async function POST(request: NextRequest) {
-  try {
-    const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret) {
-      return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-    }
-    const authHeader = request.headers.get("authorization");
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
+  }
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
+  try {
     const [absenceResult, cleanupResult, billingResult, expireResult, mobileAuthCleanup, proactiveResult, culturalResult, dealResult] = await Promise.all([
       processAbsenceRedistribution(),
       cleanupOldNotifications(),
@@ -539,11 +543,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("POST /api/cron/process error:", error);
-    return NextResponse.json(
-      { error: "Error processing cron job" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/cron/process", method: "POST" });
   }
 }
 
@@ -561,10 +561,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  return NextResponse.json({
-    status: "ready",
-    endpoint: "POST /api/cron/process",
-    description:
-      "Redistribuye asignaciones por ausencias, limpia notificaciones y sesiones mobile expiradas, genera facturas de servicios, envía notificaciones proactivas",
-  });
+  try {
+    return NextResponse.json({
+      status: "ready",
+      endpoint: "POST /api/cron/process",
+      description:
+        "Redistribuye asignaciones por ausencias, limpia notificaciones y sesiones mobile expiradas, genera facturas de servicios, envía notificaciones proactivas",
+    });
+  } catch (error) {
+    return handleApiError(error, { route: "/api/cron/process", method: "GET" });
+  }
 }

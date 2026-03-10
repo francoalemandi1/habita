@@ -4,12 +4,7 @@ import { mobileApi } from "@/lib/api";
 import { queryKeys } from "@habita/contracts";
 
 import type { AiJobStatusResponse, AiJobType } from "@habita/contracts";
-
-// ============================================
-// Constants
-// ============================================
-
-const POLL_INTERVAL_MS = 3_000;
+import { POLL_INTERVAL_MS } from "@habita/contracts";
 
 // ============================================
 // Hook

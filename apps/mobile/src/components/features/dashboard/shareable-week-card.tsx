@@ -6,6 +6,7 @@ import {
   cyclingColors,
   cyclingTextColors,
   fontFamily,
+  palette,
   radius,
   spacing,
 } from "@/theme";
@@ -32,8 +33,8 @@ function getMemberInitial(name: string): string {
 }
 
 function getMemberColor(index: number): { bg: string; text: string } {
-  const bg = cyclingColors[index % cyclingColors.length] ?? "#5260fe";
-  const text = cyclingTextColors[index % cyclingTextColors.length] ?? "#ffffff";
+  const bg = cyclingColors[index % cyclingColors.length] ?? palette.primary;
+  const text = cyclingTextColors[index % cyclingTextColors.length] ?? palette.white;
   return { bg, text };
 }
 

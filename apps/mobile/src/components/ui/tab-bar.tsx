@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { useThemeColors } from "@/hooks/use-theme";
+import { palette } from "@habita/design-tokens";
 import { fontFamily, radius, spacing } from "@/theme";
 
 import type { ThemeColors } from "@/theme";
@@ -77,7 +78,7 @@ function TabItem({
           staticStyles.tabInner,
           isActive && {
             backgroundColor: colors.card,
-            shadowColor: "#000",
+            shadowColor: colors.text,
             shadowOffset: { width: 0, height: 1 },
             shadowOpacity: 0.08,
             shadowRadius: 2,
@@ -196,6 +197,6 @@ const staticStyles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#ffffff",
+    color: palette.white,
   },
 });

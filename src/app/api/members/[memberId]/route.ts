@@ -141,6 +141,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         });
 
         for (const plan of activePlans) {
+          if (!Array.isArray(plan.assignments)) continue;
           const assignments = plan.assignments as Array<{ memberId: string; [key: string]: unknown }>;
           const filtered = assignments.filter((a) => a.memberId !== memberId);
           if (filtered.length !== assignments.length) {

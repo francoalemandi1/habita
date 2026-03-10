@@ -492,7 +492,7 @@ function ProductRow({
           onPress={() => onSetOverride(storeName, product.searchTerm, { replacement: cheaperAlt })}
           style={styles.cheaperAltBtn}
         >
-          <ArrowDownRight size={12} color="#059669" />
+          <ArrowDownRight size={12} color={colors.successText} />
           <Text style={styles.cheaperAltName} numberOfLines={1}>
             {cheaperAlt.productName}
           </Text>
@@ -842,7 +842,7 @@ function StoreCartCard({
               <Text style={styles.storeCardName} numberOfLines={1}>{cart.storeName}</Text>
               {isWinner ? (
                 <View style={styles.winnerBadge}>
-                  <Trophy size={12} color="#d97706" />
+                  <Trophy size={12} color={colors.warningText} />
                   <Text style={styles.winnerBadgeText}>Mejor precio</Text>
                 </View>
               ) : null}
@@ -1295,7 +1295,7 @@ function PaymentMethodPicker({
                         isSelected && { backgroundColor: colors.primary, borderColor: colors.primary },
                       ]}
                     >
-                      {isSelected ? <Check size={12} color="#fff" strokeWidth={3} /> : null}
+                      {isSelected ? <Check size={12} color={colors.white} strokeWidth={3} /> : null}
                     </View>
                     <Text style={styles.paymentOptionLabel}>{opt.label}</Text>
                   </Pressable>
@@ -1761,8 +1761,8 @@ export default function ShoppingPlanScreen() {
               style={styles.searchButton}
             >
               {hasResults && newItems.length > 0
-                ? <RefreshCw size={16} color="#ffffff" />
-                : <Search size={16} color="#ffffff" />
+                ? <RefreshCw size={16} color={colors.white} />
+                : <Search size={16} color={colors.white} />
               }
               {hasResults && newItems.length > 0 ? "Actualizar búsqueda" : "Buscar precios"}
             </Button>
@@ -1839,7 +1839,7 @@ export default function ShoppingPlanScreen() {
                       ]}
                     >
                       <StoreAvatar storeName={cart.storeName} size={20} />
-                      {isWinner && isSelected ? <Trophy size={12} color="#fbbf24" /> : null}
+                      {isWinner && isSelected ? <Trophy size={12} color={colors.white} /> : null}
                       <Text style={[
                         styles.comparisonChipPrice,
                         isSelected && isWinner && styles.comparisonChipPriceWinner,
@@ -1905,7 +1905,7 @@ export default function ShoppingPlanScreen() {
                 disabled={!quickAddTerm.trim()}
                 hitSlop={6}
               >
-                <Plus size={16} color={quickAddTerm.trim() ? "#ffffff" : colors.mutedForeground} />
+                <Plus size={16} color={quickAddTerm.trim() ? colors.white : colors.mutedForeground} />
               </Pressable>
             </View>
 
@@ -2013,7 +2013,7 @@ export default function ShoppingPlanScreen() {
                           size="sm"
                           onPress={() => void deleteSavedCart.mutateAsync(savedCart.id)}
                         >
-                          <Trash2 size={13} color="#ffffff" />
+                          <Trash2 size={13} color={colors.white} />
                           Eliminar
                         </Button>
                       </View>
@@ -2211,7 +2211,7 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamily.sans,
       fontSize: 15,
       fontWeight: "700" as const,
-      color: "#fff",
+      color: c.white,
     },
     searchCard: {
       marginBottom: spacing.md,
@@ -2334,7 +2334,7 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamily.sans,
       fontSize: 14,
       fontWeight: "700" as const,
-      color: "#ffffff",
+      color: c.white,
     },
     catalogSearchRow: {
       paddingHorizontal: spacing.lg,
@@ -2402,21 +2402,21 @@ function createStyles(c: ThemeColors) {
       fontWeight: "600" as const,
     },
     errorCard: {
-      backgroundColor: "#fee2e2",
+      backgroundColor: c.errorBg,
       marginBottom: spacing.md,
     },
     errorText: {
       fontFamily: fontFamily.sans,
-      color: "#b91c1c",
+      color: c.errorText,
       fontSize: 14,
     },
     warningCard: {
-      backgroundColor: "#fffbeb",
+      backgroundColor: c.warningBg,
       marginBottom: spacing.md,
     },
     warningText: {
       fontFamily: fontFamily.sans,
-      color: "#92400e",
+      color: c.warningText,
       fontSize: 14,
     },
     section: {
@@ -2497,16 +2497,16 @@ function createStyles(c: ThemeColors) {
       color: c.text,
     },
     cheapestCountText: {
-      color: "#16a34a",
+      color: c.successText,
     },
     savingsHintText: {
       fontFamily: fontFamily.sans,
       fontSize: 11,
       fontWeight: "500" as const,
-      color: "#16a34a",
+      color: c.successText,
     },
     savingsHintTextNeg: {
-      color: "#d97706",
+      color: c.warningText,
     },
     productListSection: {
       borderTopWidth: 1,
@@ -2521,7 +2521,7 @@ function createStyles(c: ThemeColors) {
       marginTop: spacing.xs,
     },
     missingBanner: {
-      backgroundColor: "#fffbeb",
+      backgroundColor: c.warningBg,
       borderRadius: radius.md,
       padding: spacing.sm,
       marginTop: spacing.sm,
@@ -2530,12 +2530,12 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamily.sans,
       fontSize: 12,
       fontWeight: "600" as const,
-      color: "#92400e",
+      color: c.warningText,
     },
     missingText: {
       fontFamily: fontFamily.sans,
       fontSize: 11,
-      color: "#a16207",
+      color: c.warningText,
       marginTop: 2,
     },
     productRow: {
@@ -2569,7 +2569,7 @@ function createStyles(c: ThemeColors) {
     productRowRec: {
       fontFamily: fontFamily.sans,
       fontSize: 11,
-      color: "#92400e",
+      color: c.warningText,
       marginTop: 4,
     },
     productRowPrice: {
@@ -2584,7 +2584,7 @@ function createStyles(c: ThemeColors) {
     },
     productRowAmountCheapest: {
       fontFamily: fontFamily.sans,
-      color: "#065f46",
+      color: c.successText,
     },
     productRowButtons: {
       flexDirection: "row",
@@ -2634,7 +2634,7 @@ function createStyles(c: ThemeColors) {
       color: c.primary,
     },
     savingsFooter: {
-      backgroundColor: "#dcfce7",
+      backgroundColor: c.successBg,
       borderRadius: radius.xl,
       padding: spacing.md,
       marginTop: spacing.sm,
@@ -2643,7 +2643,7 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamily.sans,
       fontSize: 13,
       fontWeight: "500" as const,
-      color: "#166534",
+      color: c.successText,
     },
     cardActionsRow: {
       flexDirection: "row" as const,
@@ -2705,7 +2705,7 @@ function createStyles(c: ThemeColors) {
       color: c.text,
     },
     comparisonChipPriceWinner: {
-      color: "#ffffff",
+      color: c.white,
     },
     comparisonSection: {
       marginBottom: spacing.sm,
@@ -2880,7 +2880,7 @@ function createStyles(c: ThemeColors) {
       flexDirection: "row" as const,
       alignItems: "center" as const,
       gap: 4,
-      backgroundColor: "#fffbeb",
+      backgroundColor: c.warningBg,
       paddingHorizontal: 6,
       paddingVertical: 2,
       borderRadius: 6,
@@ -2900,7 +2900,7 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamily.sans,
       fontSize: 11,
       fontWeight: "700" as const,
-      color: "#d97706",
+      color: c.warningText,
     },
     storeCardTotalStrikethrough: {
       fontFamily: fontFamily.sans,
@@ -2912,7 +2912,7 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamily.sans,
       fontSize: 20,
       fontWeight: "800" as const,
-      color: "#059669",
+      color: c.successText,
     },
     /* --- Compact action bar (C5) --- */
     productRowActions: {
@@ -2946,12 +2946,12 @@ function createStyles(c: ThemeColors) {
       justifyContent: "center" as const,
     },
     iconActionBtnActive: {
-      backgroundColor: "#16a34a",
-      borderColor: "#16a34a",
+      backgroundColor: c.successText,
+      borderColor: c.successText,
     },
     iconActionBtnWarning: {
-      backgroundColor: "#fffbeb",
-      borderColor: "#fcd34d",
+      backgroundColor: c.warningBg,
+      borderColor: c.warningText,
     },
     productRowUnit: {
       fontFamily: fontFamily.sans,
@@ -2967,7 +2967,7 @@ function createStyles(c: ThemeColors) {
     cheaperAltHint: {
       fontFamily: fontFamily.sans,
       fontSize: 11,
-      color: "#059669",
+      color: c.successText,
       marginTop: 4,
     },
     cheaperAltBtn: {
@@ -2975,7 +2975,7 @@ function createStyles(c: ThemeColors) {
       alignItems: "center" as const,
       gap: 4,
       marginTop: 4,
-      backgroundColor: "#dcfce7",
+      backgroundColor: c.successBg,
       paddingHorizontal: 8,
       paddingVertical: 4,
       borderRadius: radius.sm,
@@ -2983,14 +2983,14 @@ function createStyles(c: ThemeColors) {
     cheaperAltName: {
       fontFamily: fontFamily.sans,
       fontSize: 11,
-      color: "#059669",
+      color: c.successText,
       flex: 1,
     },
     cheaperAltPrice: {
       fontFamily: fontFamily.sans,
       fontSize: 11,
       fontWeight: "700" as const,
-      color: "#059669",
+      color: c.successText,
     },
     replaceToggleBtn: {
       paddingHorizontal: spacing.xs,
@@ -3045,7 +3045,7 @@ function createStyles(c: ThemeColors) {
       color: c.text,
     },
     alternativeItemPriceCheaper: {
-      color: "#059669",
+      color: c.successText,
     },
     /* --- Promo banner (C1) --- */
     promoBanner: {
@@ -3112,7 +3112,7 @@ function createStyles(c: ThemeColors) {
       color: c.successText,
     },
     promoDiscountTextActive: {
-      color: "#ffffff",
+      color: c.white,
     },
     promoItemBody: {
       flex: 1,
@@ -3280,7 +3280,7 @@ function createPromoStyles(c: ThemeColors) {
       color: c.successText,
     },
     discountTextActive: {
-      color: "#ffffff",
+      color: c.white,
     },
     promoBody: {
       flex: 1,

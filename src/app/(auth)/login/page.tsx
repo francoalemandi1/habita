@@ -17,7 +17,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </div>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Bienvenido a Habita</h1>
         <p className="mt-2 text-muted-foreground">
-          Gestiona las tareas del hogar en familia y diviértete subiendo de nivel
+          Gestioná las tareas del hogar en familia y divertite subiendo de nivel
         </p>
       </div>
 

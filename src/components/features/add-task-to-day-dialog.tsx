@@ -23,6 +23,7 @@ import { Search, X, Plus, ChevronDown, Loader2 } from "lucide-react";
 import { CatalogTaskItem } from "@/components/features/onboarding/catalog-task-item";
 import { cn } from "@/lib/utils";
 import { cyclingColors, contrastText } from "@/lib/design-tokens";
+import { apiFetch } from "@/lib/api-client";
 import { ONBOARDING_CATALOG } from "@/data/onboarding-catalog";
 
 import type { CatalogTaskItemData } from "@/components/features/onboarding/catalog-task-item";
@@ -241,18 +242,14 @@ export function AddTaskToDayDialog({
         const catalogTask = allTasks.find(
           (t) => t.name.toLowerCase() === selectedTaskName.toLowerCase()
         );
-        const response = await fetch("/api/tasks", {
+        await apiFetch("/api/tasks", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          body: {
             name: selectedTaskName,
             frequency: (catalogTask?.defaultFrequency ?? "weekly").toUpperCase(),
             weight: catalogTask?.defaultWeight ?? 2,
-          }),
+          },
         });
-        if (!response.ok) {
-          throw new Error("No se pudo crear la tarea");
-        }
       }
 
       onAddTask({

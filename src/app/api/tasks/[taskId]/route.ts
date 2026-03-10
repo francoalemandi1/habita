@@ -60,6 +60,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         id: taskId,
         householdId: member.householdId,
       },
+      select: { id: true },
     });
 
     if (!existingTask) {
@@ -92,6 +93,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
         id: taskId,
         householdId: member.householdId,
       },
+      select: { id: true },
     });
 
     if (!existingTask) {

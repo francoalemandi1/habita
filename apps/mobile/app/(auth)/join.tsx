@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.sans,
     fontSize: 12,
     fontWeight: "700",
-    color: "#fff",
+    color: colors.white,
   },
   infoItemText: {
     fontFamily: fontFamily.sans,

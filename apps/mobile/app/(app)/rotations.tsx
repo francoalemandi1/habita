@@ -281,7 +281,7 @@ export default function RouletteScreen() {
         setPhase("result");
       },
       onError: (err) => {
-        Alert.alert("Error", getMobileErrorMessage(err));
+        Alert.alert("Ocurrió un error", getMobileErrorMessage(err));
         setPhase("idle");
       },
     });
@@ -371,7 +371,7 @@ export default function RouletteScreen() {
                       disabled={phase !== "idle"}
                     >
                       <View style={[styles.memberInitial, { backgroundColor: isActive ? colors.primary : colors.muted }]}>
-                        <Text style={[styles.memberInitialText, { color: isActive ? "#fff" : colors.mutedForeground }]}>
+                        <Text style={[styles.memberInitialText, { color: isActive ? colors.white : colors.mutedForeground }]}>
                           {m.name.charAt(0).toUpperCase()}
                         </Text>
                       </View>
@@ -403,7 +403,7 @@ export default function RouletteScreen() {
               style={styles.spinButton}
               size="lg"
             >
-              <Dices size={20} color="#ffffff" />
+              <Dices size={20} color={colors.white} />
               {phase === "spinning" ? "Girando..." : "Girar la ruleta"}
             </Button>
           </>
@@ -494,7 +494,7 @@ function createStyles(c: ThemeColors) {
       borderBottomColor: `${c.border}60`,
     },
     slotDot: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", flexShrink: 0 },
-    slotDotText: { fontFamily: fontFamily.sans, fontSize: 16, fontWeight: "800", color: "#ffffff" },
+    slotDotText: { fontFamily: fontFamily.sans, fontSize: 16, fontWeight: "800", color: c.white },
     slotName: { fontFamily: fontFamily.sans, fontSize: 18, fontWeight: "700", color: c.text, flex: 1 },
     slotHighlight: {
       position: "absolute",

@@ -96,7 +96,7 @@ function AssignSheet({ task, onClose }: AssignSheetProps) {
               onPress={() => setSelectedMemberId(member.id)}
               style={styles.memberButton}
             >
-              <UserCheck size={14} color={member.id === selectedMemberId ? "#fff" : colors.mutedForeground} />
+              <UserCheck size={14} color={member.id === selectedMemberId ? colors.white : colors.mutedForeground} />
               {member.name}
             </Button>
           ))}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Home, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiFetch } from "@/lib/api-client";
 
 interface HouseholdOption {
   id: string;
@@ -30,12 +31,13 @@ export function HouseholdSwitcher({
     if (householdId === currentHouseholdId) return;
     setSwitching(true);
     try {
-      const res = await fetch("/api/households/switch", {
+      await apiFetch("/api/households/switch", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ householdId }),
+        body: { householdId },
       });
-      if (res.ok) router.refresh();
+      router.refresh();
+    } catch {
+      // Silently fail
     } finally {
       setSwitching(false);
     }

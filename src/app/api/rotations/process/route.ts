@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { processRotations } from "@/lib/rotation-generator";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -11,17 +12,16 @@ import type { NextRequest } from "next/server";
  * For security in production, add API key validation.
  */
 export async function POST(request: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
+  }
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
-    const authHeader = request.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (!cronSecret) {
-      return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-    }
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const rotationResult = await processRotations();
 
     return NextResponse.json({
@@ -34,11 +34,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("POST /api/rotations/process error:", error);
-    return NextResponse.json(
-      { error: "Error processing rotations" },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: "/api/rotations/process", method: "POST" });
   }
 }
 

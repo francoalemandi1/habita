@@ -262,32 +262,25 @@ export function FridgeCalendarView({
       if (completingId) return;
       setCompletingId(assignmentId);
       try {
-        const response = await fetch(`/api/assignments/${assignmentId}/complete`, {
+        const data = await apiFetch<CompleteResponse>(`/api/assignments/${assignmentId}/complete`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
+          body: {},
         });
-        if (response.ok) {
-          const data = (await response.json()) as CompleteResponse;
-          setAssignments((prev) =>
-            prev.map((a) =>
-              a.id === assignmentId
-                ? { ...a, status: "COMPLETED" as const, completedAt: new Date().toISOString() }
-                : a,
-            ),
-          );
-          toast.success("Tarea completada");
-          if (data.planFinalized) {
-            toast.success("Todas las tareas del plan fueron completadas.");
-            if (data.finalizedPlanId) setFeedbackPlanId(data.finalizedPlanId);
-          }
-          router.refresh();
-        } else {
-          const errorData = (await response.json()) as { error?: string };
-          toast.error(errorData.error ?? "No se pudo completar la tarea");
+        setAssignments((prev) =>
+          prev.map((a) =>
+            a.id === assignmentId
+              ? { ...a, status: "COMPLETED" as const, completedAt: new Date().toISOString() }
+              : a,
+          ),
+        );
+        toast.success("Tarea completada");
+        if (data.planFinalized) {
+          toast.success("Todas las tareas del plan fueron completadas.");
+          if (data.finalizedPlanId) setFeedbackPlanId(data.finalizedPlanId);
         }
-      } catch {
-        toast.error("No se pudo completar la tarea");
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "No se pudo completar la tarea");
       } finally {
         setCompletingId(null);
       }
@@ -300,25 +293,20 @@ export function FridgeCalendarView({
       if (completingId) return;
       setCompletingId(assignmentId);
       try {
-        const response = await fetch(`/api/assignments/${assignmentId}/uncomplete`, {
+        await apiFetch(`/api/assignments/${assignmentId}/uncomplete`, {
           method: "POST",
         });
-        if (response.ok) {
-          setAssignments((prev) =>
-            prev.map((a) =>
-              a.id === assignmentId
-                ? { ...a, status: "PENDING" as const, completedAt: null }
-                : a,
-            ),
-          );
-          toast.success("La tarea volvió a pendiente");
-          router.refresh();
-        } else {
-          const errorData = (await response.json()) as { error?: string };
-          toast.error(errorData.error ?? "No se pudo desmarcar la tarea");
-        }
-      } catch {
-        toast.error("No se pudo desmarcar la tarea");
+        setAssignments((prev) =>
+          prev.map((a) =>
+            a.id === assignmentId
+              ? { ...a, status: "PENDING" as const, completedAt: null }
+              : a,
+          ),
+        );
+        toast.success("La tarea volvió a pendiente");
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "No se pudo desmarcar la tarea");
       } finally {
         setCompletingId(null);
       }

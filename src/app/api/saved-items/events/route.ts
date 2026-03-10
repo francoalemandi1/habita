@@ -16,6 +16,7 @@ export async function GET() {
     const savedEvents = await prisma.savedEvent.findMany({
       where: { memberId: member.id, householdId: member.householdId },
       orderBy: [{ startDate: "asc" }, { savedAt: "desc" }],
+      take: 100,
     });
 
     return NextResponse.json(savedEvents);
@@ -32,7 +33,14 @@ export async function POST(request: Request) {
   try {
     const member = await requireMember();
     const body = await request.json();
-    const data = saveEventSchema.parse(body);
+    const validation = saveEventSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Datos inválidos", details: validation.error.flatten().fieldErrors },
+        { status: 400 },
+      );
+    }
+    const data = validation.data;
 
     const saved = await prisma.savedEvent.upsert({
       where: {
@@ -88,6 +96,7 @@ export async function DELETE(request: Request) {
     // Verify ownership before deleting
     const existing = await prisma.savedEvent.findFirst({
       where: { id, memberId: member.id },
+      select: { id: true },
     });
 
     if (!existing) {

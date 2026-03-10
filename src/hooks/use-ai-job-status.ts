@@ -6,13 +6,7 @@ import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 
 import type { AiJobStatusResponse, AiJobType } from "@habita/contracts";
-
-// ============================================
-// Constants
-// ============================================
-
-/** Poll every 3 seconds while a job is running. */
-const POLL_INTERVAL_MS = 3_000;
+import { POLL_INTERVAL_MS } from "@habita/contracts";
 
 // ============================================
 // Hook

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { runPipeline } from "@/lib/events/pipeline/run-pipeline";
 import { findRunningPipeline } from "@/lib/events/pipeline/persistence";
 import { ensureCulturalCity } from "@/lib/events/city-normalizer";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -30,23 +31,23 @@ async function discoverActiveCities(): Promise<string[]> {
 }
 
 export async function POST(request: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json(
+      { error: "CRON_SECRET not configured" },
+      { status: 503 },
+    );
+  }
+
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 },
+    );
+  }
+
   try {
-    const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret) {
-      return NextResponse.json(
-        { error: "CRON_SECRET not configured" },
-        { status: 503 },
-      );
-    }
-
-    const authHeader = request.headers.get("authorization");
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 },
-      );
-    }
-
     const city = request.nextUrl.searchParams.get("city");
     const country = request.nextUrl.searchParams.get("country") ?? "AR";
 
@@ -114,10 +115,6 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("POST /api/cron/events/ingest error:", error);
-    return NextResponse.json(
-      { error: "Error processing event ingestion" },
-      { status: 500 },
-    );
+    return handleApiError(error, { route: "/api/cron/events/ingest", method: "POST" });
   }
 }

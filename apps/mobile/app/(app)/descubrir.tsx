@@ -296,8 +296,8 @@ function EventCard({
             ) : null}
             {dateInfo ? (
               <Badge
-                bgColor={dateInfo.isUrgent ? "#fef9c3" : "#f0f9ff"}
-                textColor={dateInfo.isUrgent ? "#d97706" : "#0369a1"}
+                bgColor={dateInfo.isUrgent ? colors.warningBg : colors.infoBg}
+                textColor={dateInfo.isUrgent ? colors.warningText : colors.infoText}
               >
                 {dateInfo.label}
               </Badge>
@@ -360,8 +360,8 @@ function EventCard({
             ) : null}
             {priceLabel ? (
               <Badge
-                bgColor={priceLabel === "Gratis" ? colors.successBg : "#f0f9ff"}
-                textColor={priceLabel === "Gratis" ? colors.successText : "#0369a1"}
+                bgColor={priceLabel === "Gratis" ? colors.successBg : colors.infoBg}
+                textColor={priceLabel === "Gratis" ? colors.successText : colors.infoText}
               >
                 {priceLabel}
               </Badge>
@@ -433,7 +433,7 @@ function RecommendedSection({
   return (
     <View style={styles.recommendedSection}>
       <View style={styles.sectionHeaderRow}>
-        <Star size={16} color="#d97706" fill="#d97706" />
+        <Star size={16} color={colors.warningText} fill={colors.warningText} />
         <Text style={styles.sectionTitle}>Recomendados para vos</Text>
       </View>
       <ScrollView
@@ -892,7 +892,7 @@ function createStyles(c: ThemeColors) {
       color: c.mutedForeground,
     },
     filterPillTextActive: {
-      color: "#ffffff",
+      color: c.white,
       fontWeight: "600",
     },
     filterDivider: {

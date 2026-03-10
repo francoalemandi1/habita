@@ -42,11 +42,13 @@ import type { SavedRecipe, SaveRecipeInput } from "@/hooks/use-saved-recipes";
 // ─── constants ──────────────────────────────────────────────────────────────
 
 
-const DIFFICULTY_CONFIG: Record<Recipe["difficulty"], { label: string; bg: string; text: string }> = {
-  facil: { label: "Fácil", bg: "#dcfce7", text: "#16a34a" },
-  media: { label: "Media", bg: "#fef9c3", text: "#d97706" },
-  dificil: { label: "Difícil", bg: "#fee2e2", text: "#b91c1c" },
-};
+function getDifficultyConfig(c: ThemeColors): Record<Recipe["difficulty"], { label: string; bg: string; text: string }> {
+  return {
+    facil: { label: "Fácil", bg: c.successBg, text: c.successText },
+    media: { label: "Media", bg: c.warningBg, text: c.warningText },
+    dificil: { label: "Difícil", bg: c.errorBg, text: c.errorText },
+  };
+}
 
 const INGREDIENTS_COLLAPSED_LIMIT = 6;
 
@@ -58,9 +60,9 @@ function autoDetectMealType(): MealType {
   return "cena";
 }
 
-function getSpeedBadge(minutes: number): { label: string; bg: string; text: string } | null {
-  if (minutes <= 15) return { label: "Rápida", bg: "#dcfce7", text: "#16a34a" };
-  if (minutes <= 30) return { label: "Media", bg: "#dbeafe", text: "#2563eb" };
+function getSpeedBadge(minutes: number, c: ThemeColors): { label: string; bg: string; text: string } | null {
+  if (minutes <= 15) return { label: "Rápida", bg: c.successBg, text: c.successText };
+  if (minutes <= 30) return { label: "Media", bg: c.infoBg, text: c.infoText };
   if (minutes >= 60) return { label: "Elaborada", bg: "#f3e8ff", text: "#7c3aed" };
   return null;
 }
@@ -129,8 +131,9 @@ function RecipeCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAllIngredients, setShowAllIngredients] = useState(false);
 
-  const diffConfig = DIFFICULTY_CONFIG[recipe.difficulty as Recipe["difficulty"]] ?? DIFFICULTY_CONFIG.media;
-  const speedBadge = getSpeedBadge(recipe.prepTimeMinutes);
+  const difficultyConfig = getDifficultyConfig(colors);
+  const diffConfig = difficultyConfig[recipe.difficulty as Recipe["difficulty"]] ?? difficultyConfig.media;
+  const speedBadge = getSpeedBadge(recipe.prepTimeMinutes, colors);
 
   const visibleIngredients = showAllIngredients
     ? recipe.ingredients
@@ -258,7 +261,7 @@ function RecipeCard({
         {/* Tip */}
         {recipe.tip ? (
           <View style={styles.tip}>
-            <Zap size={13} color="#d97706" style={{ flexShrink: 0, marginTop: 1 }} />
+            <Zap size={13} color={colors.warningText} style={{ flexShrink: 0, marginTop: 1 }} />
             <Text style={styles.tipText}>{recipe.tip}</Text>
           </View>
         ) : null}
@@ -684,7 +687,7 @@ function createStyles(c: ThemeColors) {
       gap: 4,
     },
     ingredientPill: {
-      backgroundColor: "#ecfdf5",
+      backgroundColor: c.successBg,
       borderRadius: radius.full,
       paddingHorizontal: 8,
       paddingVertical: 3,
@@ -692,7 +695,7 @@ function createStyles(c: ThemeColors) {
     ingredientPillText: {
       fontFamily: fontFamily.sans,
       fontSize: 11,
-      color: "#065f46",
+      color: c.successText,
     },
     ingredientMorePill: {
       backgroundColor: `${c.muted}99`,
@@ -715,11 +718,11 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamily.sans,
       fontSize: 12,
       fontWeight: "500",
-      color: "#d97706",
+      color: c.warningText,
       marginBottom: 6,
     },
     missingPill: {
-      backgroundColor: "#fffbeb",
+      backgroundColor: c.warningBg,
       borderRadius: radius.full,
       paddingHorizontal: 8,
       paddingVertical: 3,
@@ -782,7 +785,7 @@ function createStyles(c: ThemeColors) {
     tip: {
       flexDirection: "row",
       gap: 6,
-      backgroundColor: "#fffbeb",
+      backgroundColor: c.warningBg,
       borderRadius: radius.lg,
       padding: spacing.sm,
       marginTop: spacing.sm,

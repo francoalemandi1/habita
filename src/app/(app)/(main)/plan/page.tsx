@@ -23,11 +23,11 @@ interface StoredPlan {
   notes: string[];
   assignments: PlanAssignment[];
   durationDays: number;
-  startDate: Date | null;
+  startDate: string | null;
   excludedTasks: ExcludedTask[];
-  createdAt: Date;
-  appliedAt: Date | null;
-  expiresAt: Date;
+  createdAt: string;
+  appliedAt: string | null;
+  expiresAt: string;
 }
 
 export default async function PlanPage() {
@@ -110,11 +110,11 @@ export default async function PlanPage() {
       notes: existingPlan.notes,
       assignments: migratedAssignments,
       durationDays: existingPlan.durationDays,
-      startDate: existingPlan.startDate,
+      startDate: existingPlan.startDate?.toISOString() ?? null,
       excludedTasks: (existingPlan.excludedTasks as unknown as ExcludedTask[]) ?? [],
-      createdAt: existingPlan.createdAt,
-      appliedAt: existingPlan.appliedAt,
-      expiresAt: existingPlan.expiresAt,
+      createdAt: existingPlan.createdAt.toISOString(),
+      appliedAt: existingPlan.appliedAt?.toISOString() ?? null,
+      expiresAt: existingPlan.expiresAt.toISOString(),
     };
   }
 

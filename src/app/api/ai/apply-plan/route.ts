@@ -4,20 +4,21 @@ import { handleApiError } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
 import { getWeekMonday } from "@/lib/calendar-utils";
 import { createNotificationForMembers } from "@/lib/notification-service";
+import { z } from "zod";
 
 import type { NextRequest } from "next/server";
 
-interface AssignmentToApply {
-  taskName: string;
-  memberId: string;
-  memberName?: string;
-  dayOfWeek?: number;
-}
-
-interface ApplyPlanBody {
-  planId?: string;
-  assignments: AssignmentToApply[];
-}
+const applyPlanSchema = z.object({
+  planId: z.string().optional(),
+  assignments: z.array(
+    z.object({
+      taskName: z.string(),
+      memberId: z.string(),
+      memberName: z.string().optional(),
+      dayOfWeek: z.number().int().min(0).max(6).optional(),
+    }),
+  ),
+});
 
 /**
  * POST /api/ai/apply-plan
@@ -29,20 +30,15 @@ export async function POST(request: NextRequest) {
     const member = await requireMember();
 
     const body: unknown = await request.json();
-
-    if (
-      typeof body !== "object" ||
-      body === null ||
-      !("assignments" in body) ||
-      !Array.isArray((body as ApplyPlanBody).assignments)
-    ) {
+    const validation = applyPlanSchema.safeParse(body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: "Invalid request body. Expected { assignments: [...] }" },
-        { status: 400 }
+        { error: "Datos inválidos", details: validation.error.flatten().fieldErrors },
+        { status: 400 },
       );
     }
 
-    const { assignments, planId } = body as ApplyPlanBody;
+    const { assignments, planId } = validation.data;
 
     if (assignments.length === 0) {
       return NextResponse.json({

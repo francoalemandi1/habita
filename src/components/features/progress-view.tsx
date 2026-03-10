@@ -5,6 +5,7 @@ import { TrendingUp, Users, CheckCircle2, Clock, Flame, Loader2 } from "lucide-r
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { apiFetch } from "@/lib/api-client";
 
 import type { StatsResponse } from "@habita/contracts";
 
@@ -26,10 +27,8 @@ export function ProgressView({ currentMemberId }: ProgressViewProps) {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch("/api/stats");
-      if (res.ok) {
-        setData((await res.json()) as StatsResponse);
-      }
+      const data = await apiFetch<StatsResponse>("/api/stats");
+      setData(data);
     } catch {
       // Silently fail
     } finally {

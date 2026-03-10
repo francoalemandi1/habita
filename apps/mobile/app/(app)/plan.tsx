@@ -864,7 +864,7 @@ function createStyles(c: ThemeColors) {
     memberChips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
     memberChip: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: c.card, borderRadius: 20, paddingLeft: 4, paddingRight: 10, paddingVertical: 4, borderWidth: 1, borderColor: `${c.primary}20` },
     memberInitial: { width: 26, height: 26, borderRadius: 13, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },
-    memberInitialText: { fontFamily: fontFamily.sans, fontSize: 11, fontWeight: "700", color: "#ffffff" },
+    memberInitialText: { fontFamily: fontFamily.sans, fontSize: 11, fontWeight: "700", color: c.white },
     memberChipName: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "500", color: c.text },
 
     // Tasks detail modal
@@ -881,7 +881,7 @@ function createStyles(c: ThemeColors) {
     modalAddRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: `${c.primary}06` },
     modalAddInput: { flex: 1, marginBottom: 0 },
     modalAddConfirm: { paddingHorizontal: spacing.sm, paddingVertical: 8, borderRadius: 8, backgroundColor: c.primary },
-    modalAddConfirmText: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "700", color: "#ffffff" },
+    modalAddConfirmText: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "700", color: c.white },
     modalAddCancel: { padding: 4 },
     modalScroll: { flex: 1 },
     modalScrollContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: 32, gap: 1 },
@@ -970,7 +970,7 @@ function createStyles(c: ThemeColors) {
     assignmentMeta: { fontFamily: fontFamily.sans, fontSize: 12, color: c.mutedForeground },
     memberRowInline: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
     memberDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: c.primary, alignItems: "center", justifyContent: "center" },
-    memberDotText: { fontFamily: fontFamily.sans, fontSize: 9, fontWeight: "700", color: "#ffffff" },
+    memberDotText: { fontFamily: fontFamily.sans, fontSize: 9, fontWeight: "700", color: c.white },
 
     // Member fallback card
     memberCard: { overflow: "hidden" },

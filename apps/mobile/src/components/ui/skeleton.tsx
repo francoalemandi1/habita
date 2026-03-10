@@ -64,7 +64,7 @@ export function SkeletonCard({ lines = 3, style }: SkeletonCardProps) {
           backgroundColor: colors.card,
           borderRadius: radius.xl,
           padding: 16,
-          shadowColor: "#000",
+          shadowColor: colors.text,
           shadowOffset: { width: 0, height: 1 },
           shadowOpacity: 0.05,
           shadowRadius: 3,

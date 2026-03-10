@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
+import { handleApiError } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
 
 import type { NextRequest } from "next/server";
@@ -38,13 +39,7 @@ export async function GET() {
 
     return NextResponse.json({ preferences });
   } catch (error) {
-    console.error("GET /api/notification-preferences error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error loading preferences" }, { status: 500 });
+    return handleApiError(error, { route: "/api/notification-preferences", method: "GET" });
   }
 }
 
@@ -81,12 +76,6 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("PATCH /api/notification-preferences error:", error);
-
-    if (error instanceof Error && error.message === "Not a member of any household") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: "Error saving preference" }, { status: 500 });
+    return handleApiError(error, { route: "/api/notification-preferences", method: "PATCH" });
   }
 }

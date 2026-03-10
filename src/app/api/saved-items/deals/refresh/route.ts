@@ -37,7 +37,14 @@ export async function POST(request: Request) {
   try {
     const member = await requireMember();
     const body = await request.json();
-    const { savedCartId } = refreshCartSchema.parse(body);
+    const validation = refreshCartSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Datos inválidos", details: validation.error.flatten().fieldErrors },
+        { status: 400 },
+      );
+    }
+    const { savedCartId } = validation.data;
 
     // Find the saved cart
     const savedCart = await prisma.savedCart.findFirst({

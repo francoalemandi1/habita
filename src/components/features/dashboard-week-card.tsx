@@ -11,7 +11,7 @@ import {
   getTierLabel,
   getNextTier,
 } from "@/lib/points-utils";
-import { cyclingColors, cyclingTextColors, contrastText } from "@/lib/design-tokens";
+import { cyclingColors, cyclingTextColors, contrastText, palette } from "@/lib/design-tokens";
 
 import type { TierColorKey } from "@/lib/points-utils";
 
@@ -150,8 +150,8 @@ export function DashboardWeekCard({
             {ranked.map((member, rankIndex) => {
               const isMe = member.id === currentMemberId;
               const isLeader = rankIndex === 0 && member.points.total > 0;
-              const bgColor = cyclingColors[member.originalIndex % cyclingColors.length] ?? "#5260fe";
-              const textColor = cyclingTextColors[member.originalIndex % cyclingTextColors.length] ?? "#ffffff";
+              const bgColor = cyclingColors[member.originalIndex % cyclingColors.length] ?? palette.primary;
+              const textColor = cyclingTextColors[member.originalIndex % cyclingTextColors.length] ?? palette.white;
 
               return (
                 <div key={member.id} className="flex flex-col items-center gap-0.5">

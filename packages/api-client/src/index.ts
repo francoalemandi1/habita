@@ -108,7 +108,11 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     if (response.status === 401) {
       let shouldRetry = false;
       if (options.onAuthFailure) {
-        shouldRetry = Boolean(await options.onAuthFailure());
+        try {
+          shouldRetry = Boolean(await options.onAuthFailure());
+        } catch {
+          // Auth refresh failed — fall through to unauthorized handling
+        }
       }
 
       if (shouldRetry) {
@@ -116,8 +120,10 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       }
 
       if (response.status === 401) {
-        if (options.onUnauthorized) {
-          await options.onUnauthorized();
+        try {
+          await options.onUnauthorized?.();
+        } catch {
+          // Ignore errors from unauthorized handler
         }
         throw new ApiError("Unauthorized", 401, "UNAUTHORIZED");
       }

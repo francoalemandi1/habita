@@ -25,6 +25,7 @@ export async function GET() {
           include: { member: { select: { id: true, name: true } } },
         },
       },
+      take: 500,
     });
 
     const balances = calculateBalances(expenses);

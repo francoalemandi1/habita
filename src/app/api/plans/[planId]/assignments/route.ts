@@ -98,6 +98,7 @@ export async function PATCH(
           householdId: member.householdId,
           status: { in: ["PENDING", "IN_PROGRESS"] },
         },
+        select: { id: true },
       });
 
       if (existingAssignment) {

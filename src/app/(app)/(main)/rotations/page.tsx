@@ -60,7 +60,7 @@ export default async function RotationsPage() {
         backButton
         icon={RefreshCw}
         title="Rotaciones automáticas"
-        subtitle="Configura la generación automática de asignaciones"
+        subtitle="Configurá la generación automática de asignaciones"
       />
 
       {/* Summary */}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
 
@@ -99,7 +100,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(`${baseUrl}/balance?gmailConnected=true`);
   } catch (error) {
-    console.error("Gmail callback error:", error);
-    return NextResponse.redirect(`${baseUrl}/balance?gmailError=internal`);
+    return handleApiError(error, { route: "/api/gmail/callback", method: "GET" });
   }
 }

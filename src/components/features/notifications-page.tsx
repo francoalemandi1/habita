@@ -21,7 +21,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { notificationStyles, notificationStyleDefault, spacing, typography, iconSize } from "@/lib/design-tokens";
+import { apiFetch } from "@/lib/api-client";
 
 // ─── Notification types & helpers ────────────────────────────────────────────
 
@@ -107,15 +109,12 @@ export function NotificationsPage() {
       const url = filter === "unread"
         ? "/api/notifications?unreadOnly=true"
         : "/api/notifications";
-      const response = await fetch(url);
-      if (response.ok) {
-        const data = (await response.json()) as {
-          notifications: Notification[];
-          unreadCount: number;
-        };
-        setNotifications(data.notifications);
-        setUnreadCount(data.unreadCount);
-      }
+      const data = await apiFetch<{
+        notifications: Notification[];
+        unreadCount: number;
+      }>(url);
+      setNotifications(data.notifications);
+      setUnreadCount(data.unreadCount);
     } catch {
       // Silently fail
     } finally {
@@ -133,17 +132,14 @@ export function NotificationsPage() {
   const markAllAsRead = async () => {
     setIsMarking(true);
     try {
-      const res = await fetch("/api/notifications", {
+      await apiFetch("/api/notifications", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ all: true }),
+        body: { all: true },
       });
-      if (res.ok) {
-        setUnreadCount(0);
-        setNotifications((prev) =>
-          prev.map((n) => (n.isRead ? n : { ...n, isRead: true }))
-        );
-      }
+      setUnreadCount(0);
+      setNotifications((prev) =>
+        prev.map((n) => (n.isRead ? n : { ...n, isRead: true }))
+      );
     } catch {
       // Silently fail
     } finally {
@@ -215,16 +211,12 @@ export function NotificationsPage() {
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : displayed.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-muted/30 px-6 py-16 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/50">
-            <Bell className={`${iconSize.lg} text-muted-foreground`} />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {filter === "unread"
-              ? "No tenés notificaciones sin leer"
-              : "No tenés notificaciones"}
-          </p>
-        </div>
+        <EmptyState
+          icon={Bell}
+          title={filter === "unread"
+            ? "No tenés notificaciones sin leer"
+            : "No tenés notificaciones"}
+        />
       ) : (
         <div className="space-y-2">
           {displayed.map((notification) => {

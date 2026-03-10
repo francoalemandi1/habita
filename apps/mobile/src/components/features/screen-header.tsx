@@ -115,7 +115,7 @@ function createStyles(c: ThemeColors) {
     badgeText: {
       fontSize: 8,
       fontWeight: "700",
-      color: "#ffffff",
+      color: c.white,
     },
   });
 }

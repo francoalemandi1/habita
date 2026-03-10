@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     if (!isAIEnabled()) {
       return NextResponse.json(
-        { error: "AI features not configured. Set OPENROUTER_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY or ANTHROPIC_API_KEY." },
+        { error: "AI features not configured. Set DEEPSEEK_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY." },
         { status: 503 }
       );
     }

@@ -58,9 +58,9 @@ const MEAL_OPTIONS: { key: MealType; label: string }[] = [
 ];
 
 const DIFFICULTY_CONFIG: Record<string, { label: string; color: string }> = {
-  facil: { label: "Facil", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" },
+  facil: { label: "Fácil", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" },
   media: { label: "Media", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" },
-  dificil: { label: "Dificil", color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" },
+  dificil: { label: "Difícil", color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" },
 };
 
 // ============================================
@@ -416,7 +416,7 @@ function RecipeCard({ recipe, savedRecipes, savedRecipeId }: RecipeCardProps) {
   const [contentHash, setContentHash] = useState<string | null>(null);
   const [shareLabel, setShareLabel] = useState<string | null>(null);
   const { toggle, isPending: isSaveToggling } = useToggleSaveRecipe();
-  const difficultyConfig = DIFFICULTY_CONFIG[recipe.difficulty] ?? { label: "Facil", color: "bg-emerald-100 text-emerald-700" };
+  const difficultyConfig = DIFFICULTY_CONFIG[recipe.difficulty] ?? { label: "Fácil", color: "bg-emerald-100 text-emerald-700" };
   const speedBadge = getSpeedBadge(recipe.prepTimeMinutes);
 
   // Compute content hash async for "is saved" check

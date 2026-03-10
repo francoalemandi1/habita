@@ -22,7 +22,7 @@ export default async function CocinaPage() {
     <div className={spacing.pageContainer}>
       <PageHeader
         title="Cociná"
-        subtitle="Sacá una foto de tu heladera y te sugerimos recetas"
+        subtitle="Contanos qué tenés en la heladera y te sugerimos recetas"
       />
       <CocinaClient aiEnabled={aiEnabled} householdSize={householdSize} />
     </div>

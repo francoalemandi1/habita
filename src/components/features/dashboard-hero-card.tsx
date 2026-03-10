@@ -95,9 +95,9 @@ export function computeHeroState(input: {
   return {
     priority: "all-clear",
     headline: pickByHour(ALL_CLEAR_HEADLINES),
-    label: "No tenés tareas pendientes. ¡Disfrutá!",
-    ctaLabel: "Explorar",
-    ctaRoute: "/tasks",
+    label: "No tenés pendientes. ¡Disfrutá el día!",
+    ctaLabel: "Ver ofertas",
+    ctaRoute: "/compras",
   };
 }
 

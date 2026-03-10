@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   MapPin,
   Receipt,
+  ShoppingCart,
 } from "lucide-react-native";
 import { colors, fontFamily, radius, spacing } from "@/theme";
 
@@ -20,6 +21,7 @@ interface FeaturePill {
 const FEATURES: FeaturePill[] = [
   { icon: ClipboardCheck, label: "Tareas con IA" },
   { icon: Receipt,        label: "Gastos compartidos" },
+  { icon: ShoppingCart,   label: "Ahorrá en el super" },
   { icon: ChefHat,        label: "Recetas" },
   { icon: MapPin,         label: "Eventos y salidas" },
 ];
@@ -88,10 +90,10 @@ export default function WelcomeScreen() {
             { opacity: heroOpacity, transform: [{ translateY: heroY }] },
           ]}
         >
-          <Text style={styles.headline}>Tu hogar,{"\n"}en orden.</Text>
+          <Text style={styles.headline}>Tu hogar,{"\n"}coordinado.</Text>
           <Text style={styles.subheadline}>
-            Organizá tareas, controlá gastos, cociná con lo que tenés y descubrí
-            planes cerca tuyo — todo en un solo lugar.
+            Tareas, gastos, compras, recetas y salidas — todo lo que tu casa
+            necesita, en un solo lugar.
           </Text>
         </Animated.View>
 

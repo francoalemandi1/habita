@@ -187,7 +187,7 @@ function TopDealsView({ householdCity }: { householdCity: string | null }) {
 
       {/* Empty */}
       {!isLoading && !error && deals.length === 0 && (
-        <EmptyState icon={Tag} title="Sin ofertas disponibles" description="Todavia no hay datos de precios para tu zona. Volve a intentar mas tarde." />
+        <EmptyState icon={Tag} title="Sin ofertas disponibles" description="Todavía no hay datos de precios para tu zona. Volvé a intentar más tarde." />
       )}
 
       {/* Deals grouped by store */}

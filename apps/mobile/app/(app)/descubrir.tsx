@@ -680,7 +680,7 @@ function EventsTab() {
               steps={[
                 { label: "Buscá eventos culturales en tu ciudad" },
                 { label: "Filtrá por categoría o fecha" },
-                { label: "Guardá tus favoritos con el corazón" },
+                { label: "Guardá tus favoritos con el marcador" },
               ]}
             />
           ) : activeCategory ? (

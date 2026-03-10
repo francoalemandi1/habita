@@ -13,8 +13,8 @@ import {
   ChefHat,
   MapPin,
   Receipt,
-  Package,
-  Sun,
+  ShoppingCart,
+  Bell,
   Loader2,
   MapPinned,
 } from "lucide-react";
@@ -243,7 +243,7 @@ function OnboardingContent() {
               >
                 <p className="text-base font-semibold text-foreground">Vivo solo/a</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Habita organiza tus tareas, te sugiere recetas y planes para salir
+                  Tareas, compras, recetas y más — todo tu hogar en un solo lugar
                 </p>
               </button>
               <button
@@ -257,7 +257,7 @@ function OnboardingContent() {
               >
                 <p className="text-base font-semibold text-foreground">Vivo con más personas</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Repartan tareas, gastos y organicen el hogar juntos
+                  Tareas, gastos, compras y más — coordiná el hogar en equipo
                 </p>
               </button>
             </div>
@@ -339,10 +339,10 @@ function OnboardingContent() {
     const FEATURES = [
       { icon: <ClipboardList className="size-4" />, label: "Tareas con IA" },
       { icon: <Receipt className="size-4" />, label: "Gastos compartidos" },
+      { icon: <ShoppingCart className="size-4" />, label: "Ahorrá en el super" },
       { icon: <ChefHat className="size-4" />, label: "Recetas personalizadas" },
       { icon: <MapPin className="size-4" />, label: "Eventos y salidas" },
-      { icon: <Sun className="size-4" />, label: "Briefing diario" },
-      { icon: <Package className="size-4" />, label: "Inventario inteligente" },
+      { icon: <Bell className="size-4" />, label: "Notificaciones inteligentes" },
     ];
 
     return (
@@ -356,7 +356,7 @@ function OnboardingContent() {
                 Hábita
               </h1>
               <p className="mt-3 flex items-center justify-center gap-1.5 text-base text-background/90 sm:text-lg">
-                Tu hogar, organizado de punta a punta
+                Tu hogar, coordinado
                 <Sparkles className="size-4 text-brand-lime" />
               </p>
             </div>

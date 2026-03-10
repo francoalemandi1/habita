@@ -186,7 +186,7 @@ function TopDealsView() {
           <EmptyState
             icon={<Tag size={32} color={colors.mutedForeground} />}
             title="Sin ofertas disponibles"
-            subtitle="Todavia no hay datos de precios para tu zona. Volve a intentar mas tarde."
+            subtitle="Todavía no hay datos de precios para tu zona. Volvé a intentar más tarde."
           />
         ) : null}
 

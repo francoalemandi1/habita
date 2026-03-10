@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     if (!isAIEnabled()) {
       return NextResponse.json(
-        { error: "Las funciones de IA no estan configuradas" },
+        { error: "Las funciones de IA no están configuradas" },
         { status: 503 }
       );
     }
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const validation = bodySchema.safeParse(body);
     if (!validation.success) {
       return NextResponse.json(
-        { error: validation.error.errors[0]?.message ?? "Datos invalidos" },
+        { error: validation.error.errors[0]?.message ?? "Datos inválidos" },
         { status: 400 }
       );
     }
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     if (!textInput.trim() && images.length === 0) {
       return NextResponse.json(
-        { error: "Escribi que ingredientes tenes o adjunta fotos de tu heladera" },
+        { error: "Escribí qué ingredientes tenés o adjuntá fotos de tu heladera" },
         { status: 400 }
       );
     }
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     for (const img of images) {
       if (img.length > MAX_IMAGE_BASE64_SIZE) {
         return NextResponse.json(
-          { error: "Una de las imagenes es demasiado grande. El maximo es 1MB por imagen." },
+          { error: "Una de las imágenes es demasiado grande. El máximo es 1MB por imagen." },
           { status: 400 }
         );
       }

@@ -222,7 +222,7 @@ export default function DashboardScreen() {
               <BalanceCard balance={myBalance} />
             </View>
 
-            {/* Zone 2: Gamification + discovery */}
+            {/* Zone 2: Weekly progress + discovery */}
             <View style={styles.zone}>
               {statsQuery.data ? (
                 <HouseholdWeekCard

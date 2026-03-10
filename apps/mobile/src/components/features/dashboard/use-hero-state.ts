@@ -129,9 +129,9 @@ export function useHeroState({
       state: {
         priority: "all-clear" as const,
         headline: pickByHour(ALL_CLEAR_HEADLINES),
-        label: "No tenés tareas pendientes. ¡Disfrutá!",
-        ctaLabel: "Explorar",
-        ctaRoute: "/(app)/tasks",
+        label: "No tenés pendientes. ¡Disfrutá el día!",
+        ctaLabel: "Ver ofertas",
+        ctaRoute: "/(app)/compras",
       },
       loading: false,
     };

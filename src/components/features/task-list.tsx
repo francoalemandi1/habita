@@ -46,7 +46,7 @@ export function TaskList({ tasks }: TaskListProps) {
         steps={[
           { label: "Elegí o creá tareas para tu hogar" },
           { label: "La IA las distribuye entre los miembros" },
-          { label: "Completá tareas y ganá XP" },
+          { label: "Completá tareas y llevá el control" },
         ]}
         action={
           <p className="text-sm text-muted-foreground">
@@ -64,7 +64,7 @@ export function TaskList({ tasks }: TaskListProps) {
           steps={[
             { icon: <ClipboardList className="h-4 w-4" />, title: "Habita sugiere tareas", description: "Elegí del catálogo o creá las tuyas" },
             { icon: <Sparkles className="h-4 w-4" />, title: "La IA las distribuye", description: "Se reparten según disponibilidad y preferencias" },
-            { icon: <Star className="h-4 w-4" />, title: "Completá y ganá XP", description: "Subí de nivel completando tareas" },
+            { icon: <Star className="h-4 w-4" />, title: "Seguí tu progreso", description: "Completá tareas y mirá cómo avanza tu semana" },
           ]}
           onDismiss={dismissTareas}
         />

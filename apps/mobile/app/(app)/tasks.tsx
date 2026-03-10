@@ -727,7 +727,7 @@ export default function TasksScreen() {
               steps={[
                 { label: "Habita sugiere tareas para tu hogar" },
                 { label: "Aceptá o personalizá las sugerencias" },
-                { label: "Completá tareas para ganar XP" },
+                { label: "Completá tareas y llevá el control" },
               ]}
             />
           </ScrollView>
@@ -979,8 +979,8 @@ export default function TasksScreen() {
               },
               {
                 icon: <Star size={16} color={colors.primary} />,
-                title: "Completá y ganá XP",
-                description: "Subí de nivel completando tareas a tiempo",
+                title: "Seguí tu progreso",
+                description: "Completá tareas y mirá cómo avanza tu semana",
               },
             ]}
             onDismiss={dismissGuide}

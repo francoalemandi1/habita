@@ -155,7 +155,7 @@ export default function OnboardingScreen() {
               <View style={styles.optionTextWrap}>
                 <Text style={styles.optionTitle}>Vivo solo/a</Text>
                 <Text style={styles.optionDesc}>
-                  Organizá tus tareas, recetas y planes para salir
+                  Tareas, compras, recetas y más — todo tu hogar en un solo lugar
                 </Text>
               </View>
             </Pressable>
@@ -170,7 +170,7 @@ export default function OnboardingScreen() {
               <View style={styles.optionTextWrap}>
                 <Text style={styles.optionTitle}>Vivo con más personas</Text>
                 <Text style={styles.optionDesc}>
-                  Repartan tareas, gastos y organicen el hogar juntos
+                  Tareas, gastos, compras y más — coordiná el hogar en equipo
                 </Text>
               </View>
             </Pressable>

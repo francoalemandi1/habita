@@ -456,7 +456,7 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {/* ── Zone 3: Gamification + discovery ── */}
+      {/* ── Zone 3: Weekly progress + discovery ── */}
       <div className="space-y-4">
         {/* Household week card */}
         <DashboardWeekCard

@@ -20,7 +20,7 @@ export function DashboardWelcomeCard() {
         {
           icon: <ClipboardList className="h-4 w-4" />,
           title: "Organizá tu hogar",
-          description: "Creá tareas, generá un plan semanal y ganá XP completándolas",
+          description: "Creá tareas, generá un plan semanal y seguí el progreso",
         },
         {
           icon: <Sparkles className="h-4 w-4" />,

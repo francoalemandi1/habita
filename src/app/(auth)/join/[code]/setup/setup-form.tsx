@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";
+import { HabitaLogo } from "@/components/ui/habita-logo";
 
 import type { OccupationLevel } from "@/lib/validations/member";
 
@@ -47,8 +48,8 @@ export function SetupForm({ householdName, memberId }: SetupFormProps) {
   return (
     <>
       <div className="mb-6 text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 text-4xl">
-          🏠
+        <div className="mx-auto mb-4">
+          <HabitaLogo size={64} className="rounded-2xl" />
         </div>
         <h1 className="text-2xl font-bold tracking-tight">
           Bienvenido a {householdName}

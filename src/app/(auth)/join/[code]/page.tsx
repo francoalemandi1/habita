@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { auth, signIn } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
+import { HabitaLogo } from "@/components/ui/habita-logo";
 import { JoinForm } from "./join-form";
 import { MobileJoinRedirect } from "./mobile-join-redirect";
 
@@ -68,8 +69,8 @@ export default async function JoinPage({ params }: JoinPageProps) {
     return (
       <div className="rounded-2xl border-2 border-border/60 bg-card p-6 shadow-lg sm:p-8">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 text-4xl">
-            🏠
+          <div className="mx-auto mb-4">
+            <HabitaLogo size={64} className="rounded-2xl" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">
             Unite a {household.name}

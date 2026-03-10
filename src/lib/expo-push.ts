@@ -5,7 +5,7 @@ import type { NotificationType } from "@prisma/client";
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
-const MAX_PUSH_PER_DAY = 3;
+const MAX_PUSH_PER_DAY = 6;
 const QUIET_HOURS_START = 21; // 21:00
 const QUIET_HOURS_END = 8; // 08:00
 const COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 hours
@@ -108,7 +108,11 @@ function getStartOfLocalDay(timezone: string | null | undefined): Date {
   const tz = timezone ?? "America/Argentina/Buenos_Aires";
   const now = new Date();
   const localDateStr = now.toLocaleDateString("en-CA", { timeZone: tz }); // YYYY-MM-DD
-  return new Date(`${localDateStr}T00:00:00`);
+  // Compute midnight in the target timezone by measuring the UTC offset
+  const utcMidnight = new Date(`${localDateStr}T00:00:00Z`);
+  const midnightInTz = new Date(utcMidnight.toLocaleString("en-US", { timeZone: tz }));
+  const offsetMs = utcMidnight.getTime() - midnightInTz.getTime();
+  return new Date(utcMidnight.getTime() + offsetMs);
 }
 
 async function canSendPush(

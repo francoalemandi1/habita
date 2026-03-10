@@ -1,5 +1,5 @@
 import { Stack } from "expo-router";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, Image, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -26,9 +26,10 @@ function BrandedSplash() {
     <View style={splashStyles.container}>
       <StatusBar style="light" />
       <Animated.View style={[splashStyles.center, { opacity: fadeIn, transform: [{ scale: scaleIn }] }]}>
-        <View style={splashStyles.iconWrap}>
-          <Text style={splashStyles.iconText}>H</Text>
-        </View>
+        <Image
+          source={require("../assets/logo-96.png")}
+          style={splashStyles.logo}
+        />
         <Text style={splashStyles.brand}>Habita</Text>
         <Text style={splashStyles.tagline}>Tu hogar, organizado</Text>
       </Animated.View>
@@ -47,20 +48,11 @@ const splashStyles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  iconWrap: {
+  logo: {
     width: 80,
     height: 80,
     borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
     marginBottom: 8,
-  },
-  iconText: {
-    fontSize: 40,
-    fontWeight: "800",
-    color: colors.white,
-    letterSpacing: -1,
   },
   brand: {
     fontFamily: "DMSans",

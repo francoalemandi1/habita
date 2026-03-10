@@ -68,7 +68,7 @@ export default async function PreferencesPage() {
         <section>
           <h2 className={`mb-4 ${typography.sectionTitle}`}>Nivel de ocupación</h2>
           <p className="mb-6 text-muted-foreground">
-            Indicá qué tan ocupado/a estás. La IA usará esta información
+            Indicá qué tan ocupado/a estás. Habita usa esta información
             para distribuir la carga de tareas de forma más justa.
           </p>
           <OccupationLevelSelector

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { HabitaLogo } from "@/components/ui/habita-logo";
 
 interface MobileJoinRedirectProps {
   householdName: string;
@@ -45,8 +46,8 @@ export function MobileJoinRedirect({
   return (
     <div className="rounded-2xl border-2 border-border/60 bg-card p-6 shadow-lg sm:p-8">
       <div className="mb-6 text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 text-4xl">
-          🏠
+        <div className="mx-auto mb-4">
+          <HabitaLogo size={64} className="rounded-2xl" />
         </div>
         <h1 className="text-2xl font-bold tracking-tight">
           Unite a {householdName}

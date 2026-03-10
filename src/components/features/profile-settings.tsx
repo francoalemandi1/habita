@@ -394,7 +394,7 @@ export function ProfileSettings({
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                La ubicación mejora las sugerencias de la IA con clima y contexto local
+                La ubicación mejora las sugerencias con clima y contexto local
               </p>
             </div>
           )}

@@ -19,7 +19,7 @@ interface FeaturePill {
 }
 
 const FEATURES: FeaturePill[] = [
-  { icon: ClipboardCheck, label: "Tareas con IA" },
+  { icon: ClipboardCheck, label: "Tareas automáticas" },
   { icon: Receipt,        label: "Gastos compartidos" },
   { icon: ShoppingCart,   label: "Ahorrá en el super" },
   { icon: ChefHat,        label: "Recetas" },

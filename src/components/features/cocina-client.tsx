@@ -206,9 +206,9 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/20 px-6 py-12 text-center">
         <Info className="h-10 w-10 text-foreground-tertiary" />
-        <h3 className="mt-3 text-sm font-semibold">IA no disponible</h3>
+        <h3 className="mt-3 text-sm font-semibold">Función no disponible</h3>
         <p className="mt-1 max-w-xs text-xs text-muted-foreground">
-          Las funciones de inteligencia artificial no estan configuradas. Contacta al administrador.
+          Las sugerencias de recetas no están configuradas. Contactá al administrador.
         </p>
       </div>
     );
@@ -220,7 +220,7 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
         <SectionGuideCard
           steps={[
             { icon: <ChefHat className="h-4 w-4" />, title: "Contá qué tenés", description: "Escribí los ingredientes que tenés a mano" },
-            { icon: <Sparkles className="h-4 w-4" />, title: "La IA sugiere recetas", description: "Recetas personalizadas con lo que tenés" },
+            { icon: <Sparkles className="h-4 w-4" />, title: "Habita sugiere recetas", description: "Recetas personalizadas con lo que tenés" },
           ]}
           onDismiss={dismissCocina}
         />

@@ -43,7 +43,7 @@ const SLIDES: OnboardingSlide[] = [
   {
     icon: ClipboardCheck,
     title: "Organizá las tareas\ndel hogar",
-    subtitle: "Distribuí tareas de forma justa con IA.\nCada miembro sabe qué le toca.",
+    subtitle: "Distribuí tareas de forma justa y automática.\nCada miembro sabe qué le toca.",
     color: colors.white,
   },
   {

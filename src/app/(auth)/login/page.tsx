@@ -1,5 +1,6 @@
 import { signIn } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { HabitaLogo } from "@/components/ui/habita-logo";
 
 interface LoginPageProps {
   searchParams: Promise<{ callbackUrl?: string }>;
@@ -12,8 +13,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <div className="rounded-2xl border-2 border-border/60 bg-card p-6 shadow-lg sm:p-8">
       <div className="mb-6 text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 text-4xl">
-          🏠
+        <div className="mx-auto mb-4">
+          <HabitaLogo size={64} className="rounded-2xl" />
         </div>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Bienvenido a Habita</h1>
         <p className="mt-2 text-muted-foreground">

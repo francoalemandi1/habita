@@ -9,16 +9,10 @@
     "ios": {
       "bundleIdentifier": "casa.habita.app",
       "associatedDomains": [
-        "applinks:habita.casa",
         "applinks:habita.casa"
       ],
       "infoPlist": {
         "CFBundleURLTypes": [
-          {
-            "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.615232460202-r8buqnl4jgo1894drai2h4l9qiegutte"
-            ]
-          },
           {
             "CFBundleURLSchemes": [
               "com.googleusercontent.apps.615232460202-r8buqnl4jgo1894drai2h4l9qiegutte"

@@ -970,7 +970,7 @@ export default function TasksScreen() {
               {
                 icon: <Sparkles size={16} color={colors.primary} />,
                 title: "Habita sugiere tareas",
-                description: "La IA analiza tu hogar y propone qué hacer",
+                description: "Habita analiza tu hogar y propone qué hacer",
               },
               {
                 icon: <Users size={16} color={colors.primary} />,

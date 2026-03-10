@@ -8,15 +8,17 @@ import {
   CheckCircle2,
   Sparkles,
   ArrowRight,
-  Home,
+  LayoutDashboard,
+  UserPlus,
   ClipboardList,
   ChevronDown,
   Receipt,
-  Brain,
+  CalendarCheck,
   ChefHat,
   MapPin,
   ShoppingCart,
 } from "lucide-react";
+import { HabitaLogo } from "@/components/ui/habita-logo";
 
 export function LandingContent() {
   return (
@@ -24,15 +26,15 @@ export function LandingContent() {
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="container flex min-h-[60vh] flex-col items-center justify-center px-4 py-12 text-center sm:min-h-[65vh] sm:py-20">
-          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-brand-lavender-light sm:h-24 sm:w-24">
-            <span className="text-5xl sm:text-6xl">🏠</span>
+          <div className="mb-6">
+            <HabitaLogo size={96} className="rounded-2xl" />
           </div>
           <h1 className="mb-3 text-4xl font-bold tracking-tight text-foreground sm:mb-4 sm:text-5xl lg:text-6xl">
             Tu hogar, coordinado
           </h1>
           <p className="mb-6 max-w-2xl text-base text-muted-foreground sm:mb-8 sm:text-lg lg:text-xl">
             Tareas, gastos, compras, recetas y salidas: todo lo que tu casa
-            necesita, en un solo lugar. Gratis y con inteligencia artificial.
+            necesita, en un solo lugar. Gratis y automático.
           </p>
           <div className="flex w-full max-w-xs flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
             <Button asChild size="lg" className="w-full sm:w-auto">
@@ -55,9 +57,9 @@ export function LandingContent() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <FeatureCard
                 index={0}
-                icon={<Brain className="h-7 w-7" />}
+                icon={<CalendarCheck className="h-7 w-7" />}
                 title="Semanas que se organizan solas"
-                description="La IA arma el plan semanal, distribuye tareas y rota responsabilidades. Vos solo aprobás."
+                description="Habita arma el plan semanal, distribuye tareas y rota responsabilidades. Vos solo aprobás."
                 bg="bg-brand-lavender-light/50"
                 iconBg="bg-brand-lavender"
               />
@@ -89,13 +91,13 @@ export function LandingContent() {
                 index={4}
                 icon={<ChefHat className="h-7 w-7" />}
                 title="De la heladera a la mesa"
-                description="Sacale una foto a lo que tenés o contale a la IA. En segundos tenés recetas concretas para cocinar hoy."
+                description="Sacale una foto a lo que tenés o contale qué hay en tu heladera. En segundos tenés recetas concretas para cocinar hoy."
                 bg="bg-brand-cream/40"
                 iconBg="bg-brand-cream"
               />
               <FeatureCard
                 index={5}
-                icon={<Home className="h-7 w-7" />}
+                icon={<LayoutDashboard className="h-7 w-7" />}
                 title="Todo tu hogar en un vistazo"
                 description="Un dashboard con tareas del día, gastos pendientes, briefing diario y notificaciones. Sin saltar entre apps."
                 bg="bg-brand-lime/40"
@@ -120,7 +122,7 @@ export function LandingContent() {
               <StepCard
                 index={0}
                 number={1}
-                icon={<Home className="h-6 w-6" />}
+                icon={<UserPlus className="h-6 w-6" />}
                 title="Creá tu hogar"
                 description="Registrate gratis con Google e invitá a los que viven con vos."
                 bg="bg-brand-lavender-light"
@@ -138,7 +140,7 @@ export function LandingContent() {
                 number={3}
                 icon={<Sparkles className="h-6 w-6" />}
                 title="Habita coordina todo"
-                description="Planes semanales, comparación de precios, recetas y sugerencias de salidas. La IA se encarga."
+                description="Planes semanales, comparación de precios, recetas y sugerencias de salidas. Habita se encarga."
                 bg="bg-brand-cream"
               />
             </div>
@@ -146,7 +148,7 @@ export function LandingContent() {
         </section>
       </ScrollReveal>
 
-      {/* AI-Powered Section */}
+      {/* Automation Section */}
       <ScrollReveal>
         <section className="py-12 sm:py-20">
           <div className="container px-4">
@@ -154,13 +156,13 @@ export function LandingContent() {
               <div>
                 <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-brand-lavender-light px-4 py-2 text-sm font-semibold text-brand-purple-dark">
                   <Sparkles className="h-4 w-4" />
-                  Potenciado por IA
+                  Coordinación automática
                 </div>
                 <h2 className="mb-4 text-2xl font-bold sm:text-3xl">
-                  Inteligencia artificial al servicio de tu casa
+                  Tu casa se organiza sola
                 </h2>
                 <p className="mb-6 text-muted-foreground sm:text-lg">
-                  Habita usa IA para ahorrarte tiempo y decisiones: planifica la
+                  Habita te ahorra tiempo y decisiones: planifica la
                   semana, sugiere recetas, encuentra ofertas y te recomienda
                   planes para salir.
                 </p>
@@ -214,7 +216,7 @@ export function LandingContent() {
                   <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-lavender">
-                        <span className="text-xl">🤖</span>
+                        <span className="text-xl">📋</span>
                       </div>
                       <div>
                         <p className="font-medium">Plan semanal generado</p>
@@ -439,7 +441,7 @@ const FAQ_ITEMS = [
   {
     question: "¿Cómo funciona la asignación automática de tareas?",
     answer:
-      "La IA considera la carga de cada miembro, sus preferencias, disponibilidad y rotaciones previas. Genera un plan semanal que podés revisar y ajustar antes de aplicar.",
+      "Habita considera la carga de cada miembro, sus preferencias, disponibilidad y rotaciones previas. Genera un plan semanal que podés revisar y ajustar antes de aplicar.",
   },
   {
     question: "¿Cómo funciona el comparador de precios?",

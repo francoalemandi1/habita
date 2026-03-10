@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     if (!isAIEnabled()) {
       return NextResponse.json(
-        { error: "Las funciones de IA no están configuradas" },
+        { error: "Las sugerencias de recetas no están configuradas" },
         { status: 503 }
       );
     }

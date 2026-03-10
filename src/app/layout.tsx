@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: "%s | Habita",
   },
   description:
-    "Coordiná tu hogar en un solo lugar: tareas con IA, gastos compartidos, comparador de precios, recetas y actividades. Gratis para toda la familia.",
+    "Coordiná tu hogar en un solo lugar: tareas automáticas, gastos compartidos, comparador de precios, recetas y actividades. Gratis para toda la familia.",
   keywords: [
     "coordinación del hogar",
     "tareas del hogar",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     "comparar precios supermercados",
     "gestión familiar",
     "organización del hogar",
-    "recetas con IA",
+    "recetas personalizadas",
     "familia",
   ],
   authors: [{ name: "Habita" }],
@@ -48,13 +48,13 @@ export const metadata: Metadata = {
     siteName: "Habita",
     title: "Habita - Coordinación del Hogar",
     description:
-      "Tareas, gastos, compras, recetas y salidas: todo tu hogar coordinado con IA. Gratis.",
+      "Tareas, gastos, compras, recetas y salidas: todo tu hogar coordinado en un solo lugar. Gratis.",
   },
   twitter: {
     card: "summary_large_image",
     title: "Habita - Coordinación del Hogar",
     description:
-      "Tareas, gastos, compras, recetas y salidas: todo tu hogar coordinado con IA. Gratis.",
+      "Tareas, gastos, compras, recetas y salidas: todo tu hogar coordinado en un solo lugar. Gratis.",
   },
   robots: {
     index: true,

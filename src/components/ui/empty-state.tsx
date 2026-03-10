@@ -4,6 +4,8 @@ import type { LucideIcon } from "lucide-react";
 
 interface EmptyStateProps {
   icon?: LucideIcon;
+  /** Use a custom ReactNode as icon (e.g. HabitaLogo) */
+  customIcon?: React.ReactNode;
   /** Use emoji instead of a Lucide icon */
   emoji?: string;
   title: string;
@@ -14,6 +16,7 @@ interface EmptyStateProps {
 
 export function EmptyState({
   icon: Icon,
+  customIcon,
   emoji,
   title,
   description,
@@ -28,6 +31,7 @@ export function EmptyState({
       )}
     >
       {Icon && <Icon className="h-10 w-10 text-muted-foreground/50" />}
+      {customIcon}
       {emoji && <span className="text-5xl">{emoji}</span>}
       <p className="text-lg font-semibold">{title}</p>
       {description && (

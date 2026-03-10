@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";
 import { FREQUENCY_LABELS } from "@/lib/constants";
 import { EmptyState } from "@/components/ui/empty-state";
+import { HabitaLogo } from "@/components/ui/habita-logo";
 import { PageHeader } from "@/components/ui/page-header";
 import { spacing, typography, iconSize } from "@/lib/design-tokens";
 
@@ -238,7 +239,7 @@ export function SuggestTasksView() {
 
       {/* Empty state */}
       {!isPending && !data && !error && (
-        <EmptyState emoji="🏠" title="Tu catálogo personalizado" description="Configurá tu hogar y generamos un catálogo de tareas personalizado." />
+        <EmptyState customIcon={<HabitaLogo size={48} className="rounded-xl" />} title="Tu catálogo personalizado" description="Configurá tu hogar y generamos un catálogo de tareas personalizado." />
       )}
     </>
   );

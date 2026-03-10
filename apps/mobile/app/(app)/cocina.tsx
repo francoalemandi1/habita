@@ -389,7 +389,7 @@ export default function CocinaScreen() {
               },
               {
                 icon: <Sparkles size={16} color={colors.primary} />,
-                title: "La IA sugiere recetas",
+                title: "Habita sugiere recetas",
                 description: "Recetas personalizadas con lo que ya tenés",
               },
               {

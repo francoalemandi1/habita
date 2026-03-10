@@ -25,7 +25,7 @@ type StepId = "features" | "householdType" | "setup" | "creating" | "invite" | "
 
 const LOADING_MESSAGES_SOLO = [
   "Preparando tu hogar...",
-  "Configurando la IA...",
+  "Configurando todo...",
   "Casi listo...",
 ];
 
@@ -337,7 +337,7 @@ function OnboardingContent() {
   /* ─── Step: features (intro splash) ─── */
   if (step === "features") {
     const FEATURES = [
-      { icon: <ClipboardList className="size-4" />, label: "Tareas con IA" },
+      { icon: <ClipboardList className="size-4" />, label: "Tareas automáticas" },
       { icon: <Receipt className="size-4" />, label: "Gastos compartidos" },
       { icon: <ShoppingCart className="size-4" />, label: "Ahorrá en el super" },
       { icon: <ChefHat className="size-4" />, label: "Recetas personalizadas" },

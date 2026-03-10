@@ -1,5 +1,6 @@
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { mobileApi } from "./api";
 import { getOrCreateDeviceId } from "./storage";
@@ -35,8 +36,9 @@ export async function registerForPushNotifications(): Promise<boolean> {
     return false;
   }
 
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
   const tokenData = await Notifications.getExpoPushTokenAsync({
-    projectId: "a3d7e0b6-2f7c-4a38-b53f-4b9c54f4f14d",
+    projectId: projectId ?? "a3d7e0b6-2f7c-4a38-b53f-4b9c54f4f14d",
   });
 
   const deviceId = await getOrCreateDeviceId();

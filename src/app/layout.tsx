@@ -20,17 +20,19 @@ const indieFlower = Indie_Flower({
 
 export const metadata: Metadata = {
   title: {
-    default: "Habita - Gestión de Tareas del Hogar",
+    default: "Habita - Coordinación del Hogar",
     template: "%s | Habita",
   },
   description:
-    "Gestioná las tareas del hogar de forma colaborativa y divertida. Asigná tareas, ganá puntos, subí de nivel y motivá a toda la familia.",
+    "Coordiná tu hogar en un solo lugar: tareas con IA, gastos compartidos, comparador de precios, recetas y actividades. Gratis para toda la familia.",
   keywords: [
+    "coordinación del hogar",
     "tareas del hogar",
+    "gastos compartidos",
+    "comparar precios supermercados",
     "gestión familiar",
-    "organización",
-    "gamificación",
-    "tareas domésticas",
+    "organización del hogar",
+    "recetas con IA",
     "familia",
   ],
   authors: [{ name: "Habita" }],
@@ -42,17 +44,17 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    locale: "es_ES",
+    locale: "es_AR",
     siteName: "Habita",
-    title: "Habita - Gestión de Tareas del Hogar",
+    title: "Habita - Coordinación del Hogar",
     description:
-      "La forma divertida y colaborativa de gestionar las tareas del hogar para toda la familia.",
+      "Tareas, gastos, compras, recetas y salidas: todo tu hogar coordinado con IA. Gratis.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Habita - Gestión de Tareas del Hogar",
+    title: "Habita - Coordinación del Hogar",
     description:
-      "La forma divertida y colaborativa de gestionar las tareas del hogar para toda la familia.",
+      "Tareas, gastos, compras, recetas y salidas: todo tu hogar coordinado con IA. Gratis.",
   },
   robots: {
     index: true,

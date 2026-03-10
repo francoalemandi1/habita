@@ -11,10 +11,11 @@ import {
   Home,
   ClipboardList,
   ChevronDown,
-  Scale,
+  Receipt,
   Brain,
   ChefHat,
   MapPin,
+  ShoppingCart,
 } from "lucide-react";
 
 export function LandingContent() {
@@ -27,11 +28,11 @@ export function LandingContent() {
             <span className="text-5xl sm:text-6xl">🏠</span>
           </div>
           <h1 className="mb-3 text-4xl font-bold tracking-tight text-foreground sm:mb-4 sm:text-5xl lg:text-6xl">
-            Dejá de pelear por quién lava los platos
+            Tu hogar, coordinado
           </h1>
           <p className="mb-6 max-w-2xl text-base text-muted-foreground sm:mb-8 sm:text-lg lg:text-xl">
-            Habita distribuye las tareas del hogar con IA, te sugiere qué cocinar
-            con lo que tenés, y te recomienda actividades para disfrutar en familia.
+            Tareas, gastos, compras, recetas y salidas: todo lo que tu casa
+            necesita, en un solo lugar. Gratis y con inteligencia artificial.
           </p>
           <div className="flex w-full max-w-xs flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
             <Button asChild size="lg" className="w-full sm:w-auto">
@@ -54,41 +55,49 @@ export function LandingContent() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <FeatureCard
                 index={0}
-                icon={<Scale className="h-7 w-7" />}
-                title="Asignación justa"
-                description="Un algoritmo distribuye las tareas según disponibilidad, preferencias y carga actual. Nadie elige, todos colaboran."
-                bg="bg-brand-lime/50"
-                iconBg="bg-brand-lime"
-              />
-              <FeatureCard
-                index={1}
                 icon={<Brain className="h-7 w-7" />}
-                title="Plan semanal con IA"
-                description="Generá el plan de la semana en 2 minutos. La IA distribuye las tareas automáticamente."
+                title="Semanas que se organizan solas"
+                description="La IA arma el plan semanal, distribuye tareas y rota responsabilidades. Vos solo aprobás."
                 bg="bg-brand-lavender-light/50"
                 iconBg="bg-brand-lavender"
               />
               <FeatureCard
+                index={1}
+                icon={<Receipt className="h-7 w-7" />}
+                title="Cuentas claras, convivencia sana"
+                description="Registrá gastos compartidos, llevá los balances al día y liquidá deudas entre miembros en un toque."
+                bg="bg-brand-lime/50"
+                iconBg="bg-brand-lime"
+              />
+              <FeatureCard
                 index={2}
-                icon={<ChefHat className="h-7 w-7" />}
-                title="¿Qué como hoy?"
-                description="Sacale una foto a tu heladera o contanos qué tenés. La IA te sugiere recetas concretas para cocinar."
+                icon={<ShoppingCart className="h-7 w-7" />}
+                title="Comprá mejor, gastá menos"
+                description="Compará precios entre supermercados, armá tu carrito inteligente y aprovechá las mejores ofertas y promos bancarias."
                 bg="bg-brand-cream/60"
                 iconBg="bg-brand-tan"
               />
               <FeatureCard
                 index={3}
                 icon={<MapPin className="h-7 w-7" />}
-                title="Planes para disfrutar"
-                description="¿Terminaron las tareas? Habita te sugiere eventos, restaurantes y actividades cerca tuyo."
+                title="Planes para disfrutar juntos"
+                description="Eventos, restaurantes y actividades culturales cerca tuyo, actualizados automáticamente para tu ciudad."
                 bg="bg-brand-lavender-light/40"
                 iconBg="bg-brand-lavender-light"
               />
               <FeatureCard
                 index={4}
-                icon={<Scale className="h-7 w-7" />}
-                title="Gastos compartidos"
-                description="Registrá gastos del hogar, dividí entre miembros y llevá las cuentas claras."
+                icon={<ChefHat className="h-7 w-7" />}
+                title="De la heladera a la mesa"
+                description="Sacale una foto a lo que tenés o contale a la IA. En segundos tenés recetas concretas para cocinar hoy."
+                bg="bg-brand-cream/40"
+                iconBg="bg-brand-cream"
+              />
+              <FeatureCard
+                index={5}
+                icon={<Home className="h-7 w-7" />}
+                title="Todo tu hogar en un vistazo"
+                description="Un dashboard con tareas del día, gastos pendientes, briefing diario y notificaciones. Sin saltar entre apps."
                 bg="bg-brand-lime/40"
                 iconBg="bg-brand-lime"
               />
@@ -113,23 +122,23 @@ export function LandingContent() {
                 number={1}
                 icon={<Home className="h-6 w-6" />}
                 title="Creá tu hogar"
-                description="Registrate gratis y creá tu grupo familiar en segundos."
+                description="Registrate gratis con Google e invitá a los que viven con vos."
                 bg="bg-brand-lavender-light"
               />
               <StepCard
                 index={1}
                 number={2}
                 icon={<ClipboardList className="h-6 w-6" />}
-                title="Agregá tareas"
-                description="Elegí del catálogo o creá las tuyas. Configurá frecuencia y listo."
+                title="Configurá lo que necesites"
+                description="Agregá tareas, registrá gastos, armá tu lista de compras. Usá lo que te sirva."
                 bg="bg-brand-lime"
               />
               <StepCard
                 index={2}
                 number={3}
                 icon={<Sparkles className="h-6 w-6" />}
-                title="Habita hace el resto"
-                description="Asigna tareas con IA, organiza tu semana y te sugiere qué cocinar."
+                title="Habita coordina todo"
+                description="Planes semanales, comparación de precios, recetas y sugerencias de salidas. La IA se encarga."
                 bg="bg-brand-cream"
               />
             </div>
@@ -148,25 +157,29 @@ export function LandingContent() {
                   Potenciado por IA
                 </div>
                 <h2 className="mb-4 text-2xl font-bold sm:text-3xl">
-                  Más que un organizador de tareas
+                  Inteligencia artificial al servicio de tu casa
                 </h2>
                 <p className="mb-6 text-muted-foreground sm:text-lg">
-                  Habita usa inteligencia artificial para hacerte la vida más
-                  fácil: desde planificar la semana hasta decidir qué cocinar
-                  o a dónde salir.
+                  Habita usa IA para ahorrarte tiempo y decisiones: planifica la
+                  semana, sugiere recetas, encuentra ofertas y te recomienda
+                  planes para salir.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-success-dark" />
-                    <span>Foto de la heladera y te sugiere recetas</span>
+                    <span>Planes semanales con tareas distribuidas en segundos</span>
                   </li>
                   <li className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-success-dark" />
-                    <span>Eventos, restaurantes y actividades cerca tuyo</span>
+                    <span>Foto de la heladera → recetas listas para cocinar</span>
                   </li>
                   <li className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-success-dark" />
-                    <span>Planes semanales generados en segundos</span>
+                    <span>Comparación de precios entre supermercados con un clic</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-success-dark" />
+                    <span>Eventos y actividades actualizados para tu ciudad</span>
                   </li>
                 </ul>
               </div>
@@ -188,12 +201,12 @@ export function LandingContent() {
                   <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-lime">
-                        <span className="text-xl">🎯</span>
+                        <span className="text-xl">🛒</span>
                       </div>
                       <div>
-                        <p className="font-medium">&ldquo;¿A dónde vamos hoy?&rdquo;</p>
+                        <p className="font-medium">&ldquo;Lista del super para 4 personas&rdquo;</p>
                         <p className="text-sm text-muted-foreground">
-                          Eventos y planes para toda la familia
+                          Comparamos 6 supermercados, ahorrás hasta 30%
                         </p>
                       </div>
                     </div>
@@ -228,7 +241,7 @@ export function LandingContent() {
             <div className="grid gap-4 sm:grid-cols-3">
               <TestimonialCard
                 index={0}
-                quote="Habita decide quién hace qué y nadie puede quejarse. El algoritmo es justo y se nota."
+                quote="Desde que usamos Habita dejamos de discutir por plata. Los gastos se registran y cada uno sabe cuánto debe. Cero drama."
                 name="Martín"
                 role="Papá de 2"
                 emoji="🧔"
@@ -236,15 +249,15 @@ export function LandingContent() {
               />
               <TestimonialCard
                 index={1}
-                quote="Le saqué una foto a la heladera y me sugirió 3 recetas con lo que tenía. Ya no sé qué haría sin Habita."
-                name="Laura"
+                quote="La primera vez que armé el carrito y comparé precios me ahorré casi 15 lucas. Ahora no compro sin Habita."
+                name="Caro"
                 role="Mamá de 3"
                 emoji="👩"
                 bg="bg-brand-lime/30"
               />
               <TestimonialCard
                 index={2}
-                quote="Los fines de semana Habita nos sugiere a dónde salir. Con mis roommates funciona perfecto."
+                quote="Tareas, compras, gastos: todo en un lugar. Con mis roommates funciona bárbaro, cada uno sabe qué le toca."
                 name="Nico"
                 role="26 años"
                 emoji="😎"
@@ -273,10 +286,10 @@ export function LandingContent() {
       <section className="rounded-t-[32px] bg-primary py-12 text-primary-foreground sm:py-20">
         <div className="container px-4 text-center">
           <h2 className="mb-3 text-2xl font-bold sm:mb-4 sm:text-3xl">
-            Comienza a organizar tu hogar hoy
+            Empezá a coordinar tu hogar hoy
           </h2>
           <p className="mb-6 text-base opacity-90 sm:mb-8 sm:text-lg">
-            Es gratis y solo toma un minuto configurarlo.
+            Gratis, en un minuto, y con toda la familia.
           </p>
           <Button
             asChild
@@ -295,7 +308,7 @@ export function LandingContent() {
       {/* Footer */}
       <footer className="bg-primary py-6 text-primary-foreground/70 sm:py-8">
         <div className="container px-4 text-center text-sm">
-          <p>Habita — Gestión colaborativa de tareas del hogar</p>
+          <p>Habita — Coordinación integral del hogar</p>
         </div>
       </footer>
     </main>
@@ -419,9 +432,19 @@ const FAQ_ITEMS = [
       "Sí, Habita es completamente gratis. No tiene planes pagos ni funciones bloqueadas.",
   },
   {
-    question: "¿Cómo funciona la asignación automática?",
+    question: "¿Qué puedo hacer con Habita?",
     answer:
-      "El algoritmo considera la carga actual de cada miembro, sus preferencias, disponibilidad y la última vez que hicieron cada tarea. Así se asegura de que la distribución sea justa para todos.",
+      "Coordinar tareas del hogar con planes semanales, registrar y dividir gastos compartidos, comparar precios entre supermercados, encontrar recetas con lo que tenés y descubrir actividades para salir. Todo desde una sola app.",
+  },
+  {
+    question: "¿Cómo funciona la asignación automática de tareas?",
+    answer:
+      "La IA considera la carga de cada miembro, sus preferencias, disponibilidad y rotaciones previas. Genera un plan semanal que podés revisar y ajustar antes de aplicar.",
+  },
+  {
+    question: "¿Cómo funciona el comparador de precios?",
+    answer:
+      "Armás tu lista de compras, Habita busca cada producto en varios supermercados y te muestra el mejor precio por ítem y por carrito total. También te muestra ofertas y promos bancarias vigentes.",
   },
   {
     question: "¿Cuántos miembros puedo agregar?",
@@ -432,11 +455,6 @@ const FAQ_ITEMS = [
     question: "¿Funciona para roommates o solo familias?",
     answer:
       "Funciona para cualquier grupo que comparta un hogar: familias, parejas, roommates, etc.",
-  },
-  {
-    question: "¿Qué hace la IA de Habita?",
-    answer:
-      "La IA genera planes semanales distribuyendo tareas equitativamente, te sugiere recetas con lo que tenés en la heladera (podés mandarle una foto), y te recomienda eventos y actividades cerca tuyo para disfrutar en familia.",
   },
   {
     question: "¿Mis datos están seguros?",

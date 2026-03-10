@@ -7,18 +7,6 @@
     {
       "path": "/api/cron/weekly-plan",
       "schedule": "0 7 * * 1"
-    },
-    {
-      "path": "/api/rotations/process",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/cron/events/ingest",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/cron/grocery-deals",
-      "schedule": "0 7 * * *"
     }
   ]
 }

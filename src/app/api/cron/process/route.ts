@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { processAbsenceRedistribution } from "@/lib/absence-redistribution";
 import { cleanupOldNotifications } from "@/lib/notification-service";
 import { prisma } from "@/lib/prisma";
@@ -7,10 +7,11 @@ import { calculateNextDueDate, formatPeriod } from "@/lib/service-utils";
 import { expirePastEvents } from "@/lib/events/expire-events";
 import { cleanupExpiredMobileAuthSessions } from "@/lib/mobile-auth";
 import { deliverNotification, deliverNotificationToMembers } from "@/lib/push-delivery";
+import { processRotations } from "@/lib/rotation-generator";
 import { handleApiError } from "@/lib/api-response";
 import type { NextRequest } from "next/server";
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 /** Auto-generate invoices + expenses for services with autoGenerate=true and nextDueDate <= now. */
 async function processServiceBilling(): Promise<{ generated: number; errors: number }> {
@@ -498,7 +499,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const [absenceResult, cleanupResult, billingResult, expireResult, mobileAuthCleanup, proactiveResult, culturalResult, dealResult] = await Promise.all([
+    const [absenceResult, cleanupResult, billingResult, expireResult, mobileAuthCleanup, proactiveResult, culturalResult, dealResult, rotationResult] = await Promise.all([
       processAbsenceRedistribution(),
       cleanupOldNotifications(),
       processServiceBilling(),
@@ -507,7 +508,34 @@ export async function POST(request: NextRequest) {
       processProactiveNotifications(),
       processCulturalRecommendations(),
       processDealAlerts(),
+      processRotations(),
     ]);
+
+    // Fire-and-forget: trigger events ingest and grocery-deals in background
+    // Each gets its own serverless invocation to avoid timeout
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000";
+
+    after(async () => {
+      try {
+        await fetch(`${baseUrl}/api/cron/events/ingest`, {
+          method: "POST",
+          headers: { authorization: `Bearer ${cronSecret}` },
+        });
+      } catch (err) {
+        console.error("[cron/process] Failed to trigger events/ingest:", err);
+      }
+
+      try {
+        await fetch(`${baseUrl}/api/cron/grocery-deals`, {
+          method: "POST",
+          headers: { authorization: `Bearer ${cronSecret}` },
+        });
+      } catch (err) {
+        console.error("[cron/process] Failed to trigger grocery-deals:", err);
+      }
+    });
 
     return NextResponse.json({
       success: true,
@@ -533,6 +561,11 @@ export async function POST(request: NextRequest) {
         revokedExpired: mobileAuthCleanup.revokedExpired,
         deletedOldRevoked: mobileAuthCleanup.deletedOldRevoked,
       },
+      rotations: {
+        processed: rotationResult.processed,
+        generated: rotationResult.generated,
+        errors: rotationResult.errors,
+      },
       proactiveNotifications: {
         serviceDueSoon: proactiveResult.serviceDueSoon,
         taskReminder: proactiveResult.taskReminder,
@@ -540,6 +573,7 @@ export async function POST(request: NextRequest) {
         culturalRecommendation: culturalResult,
         dealAlert: dealResult,
       },
+      triggeredInBackground: ["events/ingest", "grocery-deals"],
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

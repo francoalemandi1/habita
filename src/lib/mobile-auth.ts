@@ -5,8 +5,8 @@ import type { MobileAuthSession } from "@prisma/client";
 
 const ACCESS_TOKEN_PREFIX = "mob_at_";
 const REFRESH_TOKEN_PREFIX = "mob_rt_";
-const ACCESS_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
-const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 90; // 90 days
+const ACCESS_TOKEN_TTL_SECONDS = 60 * 60 * 24; // 1 day
+const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 function tokenExpiresIn(seconds: number): Date {
   return new Date(Date.now() + seconds * 1000);
@@ -17,9 +17,9 @@ function createToken(prefix: string): string {
 }
 
 function getMobileTokenSecret(): string {
-  const secret = process.env.MOBILE_TOKEN_SECRET ?? process.env.NEXTAUTH_SECRET;
-  if (!secret) {
-    throw new Error("MOBILE_TOKEN_SECRET or NEXTAUTH_SECRET must be configured");
+  const secret = process.env.MOBILE_TOKEN_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error("MOBILE_TOKEN_SECRET must be configured with at least 32 characters");
   }
   return secret;
 }
@@ -114,11 +114,8 @@ export async function resolveMobileAccessTokenUserId(token: string): Promise<str
 
   const session = await prisma.mobileAuthSession.findUnique({
     where: { tokenHash },
-    select: {
-      userId: true,
-      tokenKind: true,
-      expiresAt: true,
-      revokedAt: true,
+    include: {
+      user: { select: { sessionInvalidatedAt: true } },
     },
   });
 
@@ -126,6 +123,15 @@ export async function resolveMobileAccessTokenUserId(token: string): Promise<str
   if (session.tokenKind !== "ACCESS") return null;
   if (session.revokedAt) return null;
   if (isExpired(session.expiresAt)) {
+    await prisma.mobileAuthSession.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return null;
+  }
+
+  // Check if all sessions were invalidated after this token was issued
+  if (session.user.sessionInvalidatedAt && session.issuedAt < session.user.sessionInvalidatedAt) {
     await prisma.mobileAuthSession.updateMany({
       where: { tokenHash, revokedAt: null },
       data: { revokedAt: new Date() },
@@ -252,6 +258,68 @@ export async function revokeMobileTokens(input: {
     data: { revokedAt: now },
   });
 }
+
+// ─── Auth Code (short-lived, for deep link callback) ────────────────
+
+const AUTH_CODE_TTL_MS = 60_000; // 60 seconds
+
+/**
+ * Create a short-lived, signed auth code for the mobile OAuth callback.
+ * Returned in the deep link URL instead of actual tokens.
+ */
+export function createMobileAuthCode(userId: string): string {
+  const payload = JSON.stringify({
+    sub: userId,
+    exp: Date.now() + AUTH_CODE_TTL_MS,
+    purpose: "mobile_auth_code",
+  });
+  const payloadB64 = Buffer.from(payload).toString("base64url");
+  const signature = createHmac("sha256", getMobileTokenSecret()).update(payload).digest("base64url");
+  return `${payloadB64}.${signature}`;
+}
+
+/**
+ * Verify a mobile auth code. Returns the userId if valid, null otherwise.
+ */
+export function verifyMobileAuthCode(code: string): string | null {
+  const dotIndex = code.indexOf(".");
+  if (dotIndex === -1) return null;
+
+  const payloadB64 = code.slice(0, dotIndex);
+  const signature = code.slice(dotIndex + 1);
+
+  let payload: string;
+  try {
+    payload = Buffer.from(payloadB64, "base64url").toString("utf8");
+  } catch {
+    return null;
+  }
+
+  const expectedSignature = createHmac("sha256", getMobileTokenSecret()).update(payload).digest("base64url");
+  if (signature !== expectedSignature) return null;
+
+  try {
+    const data = JSON.parse(payload) as { sub?: string; exp?: number; purpose?: string };
+    if (data.purpose !== "mobile_auth_code") return null;
+    if (typeof data.exp !== "number" || Date.now() > data.exp) return null;
+    if (typeof data.sub !== "string" || !data.sub) return null;
+    return data.sub;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Revoke all sessions for a user ─────────────────────────────────
+
+export async function revokeAllUserMobileSessions(userId: string): Promise<number> {
+  const result = await prisma.mobileAuthSession.updateMany({
+    where: { userId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+  return result.count;
+}
+
+// ─── Cleanup ────────────────────────────────────────────────────────
 
 export async function cleanupExpiredMobileAuthSessions(): Promise<{
   revokedExpired: number;

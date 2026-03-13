@@ -71,6 +71,10 @@ export const queryKeys = {
   households: {
     all: () => ["households"] as const,
   },
+  household: {
+    all: () => ["household"] as const,
+    healthScore: () => [...queryKeys.household.all(), "health-score"] as const,
+  },
   stats: {
     all: () => ["stats"] as const,
     briefing: () => [...queryKeys.stats.all(), "briefing"] as const,

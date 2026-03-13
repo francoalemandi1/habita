@@ -4,7 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
 import { CURRENT_HOUSEHOLD_COOKIE } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
+import { verifyCsrfOrigin } from "@/lib/csrf";
 import { z } from "zod";
+
+import type { NextRequest } from "next/server";
 
 const switchSchema = z.object({
   householdId: z.string().min(1, "householdId es requerido"),
@@ -14,8 +17,10 @@ const switchSchema = z.object({
  * POST /api/households/switch
  * Set current household (cookie). User must be a member of that household.
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const csrfBlocked = verifyCsrfOrigin(request);
+    if (csrfBlocked) return csrfBlocked;
     const userId = await requireAuth();
     const body: unknown = await request.json();
     const parsed = switchSchema.safeParse(body);
@@ -48,6 +53,7 @@ export async function POST(request: Request) {
     cookieStore.set(CURRENT_HOUSEHOLD_COOKIE, householdId, {
       path: "/",
       maxAge: 60 * 60 * 24 * 365, // 1 year
+      httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
     });

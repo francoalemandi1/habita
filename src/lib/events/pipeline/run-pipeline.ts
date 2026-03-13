@@ -1,9 +1,9 @@
 /**
  * Pipeline orchestrator — single linear flow.
  *
- * 1. Tavily search (URLs + markdown)
- * 2. Domain filter (deterministic blocklist)
- * 3. Convert Tavily rawContent → pages
+ * 1. Tavily search (URLs + markdown) + dedicated scrapers (parallel)
+ * 2. Domain filter (deterministic blocklist, Tavily only)
+ * 3. Convert Tavily rawContent → pages, merge with scraper pages (dedup)
  * 4. DeepSeek extractor (1 call per page, parallel)
  * 5. Deterministic filter (date + wrongLocation)
  * 6. DeepSeek curator (batch scoring + highlights)
@@ -16,6 +16,7 @@ import { filterDomains } from "./domain-filter";
 import { extractEventsFromPages } from "./extract-events";
 import { filterEvents } from "./validate-events";
 import { curateEvents } from "./curate-events";
+import { runScrapers } from "./scrapers";
 import {
   processEvent,
   detectCategory,
@@ -38,6 +39,8 @@ interface PipelineOptions {
   country: string;
   /** Pre-created RUNNING log ID (fire-and-forget flow). When absent, uses logIngestion (cron flow). */
   runningLogId?: string;
+  /** Use reduced query set for smaller cities to save Tavily credits. */
+  compact?: boolean;
 }
 
 /**
@@ -46,7 +49,7 @@ interface PipelineOptions {
  */
 export async function runPipeline(options: PipelineOptions): Promise<IngestionOutcome> {
   const startTime = Date.now();
-  const { city, country, runningLogId } = options;
+  const { city, country, runningLogId, compact } = options;
 
   /** Persist outcome: update existing RUNNING row or create new log entry. */
   const persistOutcome = async (outcome: IngestionOutcome) => {
@@ -64,49 +67,62 @@ export async function runPipeline(options: PipelineOptions): Promise<IngestionOu
     const timings: Record<string, number> = {};
     let stageStart = Date.now();
 
-    // Stage 1: Discover URLs + content via Tavily
-    const discoveredUrls = await discoverUrls(city, country);
-    timings["1-discover"] = Date.now() - stageStart;
-    if (discoveredUrls.length === 0) {
+    // Stage 1: Discover URLs (Tavily) + scrape platforms (parallel)
+    const [discoveredUrls, scraperPages] = await Promise.all([
+      discoverUrls(city, country, compact),
+      runScrapers(city),
+    ]);
+    timings["1-discover+scrape"] = Date.now() - stageStart;
+
+    if (discoveredUrls.length === 0 && scraperPages.length === 0) {
       logTimings(timings);
       const outcome = buildOutcome(source.id, "external-pipeline", "PARTIAL", startTime, {
-        errorMessage: "Tavily returned no URLs",
+        errorMessage: "Tavily returned no URLs and scrapers returned no pages",
       });
       await persistOutcome(outcome);
       return outcome;
     }
 
-    // Stage 2: Filter domains (deterministic blocklist)
+    // Stage 2: Filter domains (Tavily only — scrapers are already curated)
     stageStart = Date.now();
     const filteredUrls = filterDomains(discoveredUrls);
     timings["2-filter-domains"] = Date.now() - stageStart;
     console.log(`[pipeline] ${filteredUrls.length}/${discoveredUrls.length} URLs after domain filtering`);
 
-    if (filteredUrls.length === 0) {
-      logTimings(timings);
-      const outcome = buildOutcome(source.id, "external-pipeline", "PARTIAL", startTime, {
-        errorMessage: "All discovered URLs were filtered out",
-      });
-      await persistOutcome(outcome);
-      return outcome;
-    }
-
-    // Stage 3: Convert Tavily raw content to pages
+    // Stage 3: Convert Tavily raw content to pages + merge with scraper pages
     stageStart = Date.now();
-    const pages: CrawledPage[] = filteredUrls
+    const tavilyPages: CrawledPage[] = filteredUrls
       .filter((u) => u.rawContent && u.rawContent.length > 0)
       .map((u) => ({
         url: u.url,
         domain: extractDomain(u.url),
         markdown: u.rawContent!,
       }));
-    timings["3-convert"] = Date.now() - stageStart;
-    console.log(`[pipeline] ${pages.length}/${filteredUrls.length} URLs have markdown content`);
 
-    if (pages.length === 0) {
+    // Dedup by URL: scraper pages first (direct fetch > Tavily rawContent)
+    const seenUrls = new Set<string>();
+    const mergedPages: CrawledPage[] = [];
+
+    for (const page of scraperPages) {
+      if (!seenUrls.has(page.url)) {
+        seenUrls.add(page.url);
+        mergedPages.push(page);
+      }
+    }
+    for (const page of tavilyPages) {
+      if (!seenUrls.has(page.url)) {
+        seenUrls.add(page.url);
+        mergedPages.push(page);
+      }
+    }
+
+    timings["3-convert+merge"] = Date.now() - stageStart;
+    console.log(`[pipeline] ${mergedPages.length} pages (${scraperPages.length} scraped + ${tavilyPages.length} tavily, deduped)`);
+
+    if (mergedPages.length === 0) {
       logTimings(timings);
       const outcome = buildOutcome(source.id, "external-pipeline", "PARTIAL", startTime, {
-        errorMessage: "Tavily returned no raw content for any URL",
+        errorMessage: "No content from Tavily or scrapers",
       });
       await persistOutcome(outcome);
       return outcome;
@@ -114,7 +130,7 @@ export async function runPipeline(options: PipelineOptions): Promise<IngestionOu
 
     // Stage 4: Extract events via DeepSeek (1 call per page, parallel)
     stageStart = Date.now();
-    const extractions = await extractEventsFromPages(pages, city);
+    const extractions = await extractEventsFromPages(mergedPages, city);
     timings["4-extract"] = Date.now() - stageStart;
 
     const allExtracted: ExtractedEvent[] = extractions.flatMap((e) => e.events);

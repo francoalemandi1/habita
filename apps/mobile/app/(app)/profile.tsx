@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { router } from "expo-router";
 import type { RelativePathString } from "expo-router";
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Share, Text, View } from "react-native";
+import { Alert, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Share, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Bell, Check, ChevronRight, HelpCircle, Home, LogOut, Moon, Monitor, Sun, User, UserPlus } from "lucide-react-native";
+import { Bell, Check, ChevronRight, HelpCircle, Home, LogOut, Moon, Monitor, Shield, Sun, User, UserPlus } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { useUpdateMember } from "@/hooks/use-member-profile";
@@ -302,6 +302,16 @@ export default function SettingsScreen() {
                 Alert.alert("Guías reiniciadas", "Las guías aparecerán la próxima vez que entres a cada sección.");
               });
             }}
+            last
+          />
+        </SectionCard>
+
+        {/* Legal */}
+        <SectionCard title="LEGAL">
+          <SettingsRow
+            icon={<Shield size={16} color={colors.mutedForeground} />}
+            label="Política de privacidad"
+            onPress={() => void Linking.openURL("https://habita.casa/privacidad")}
             last
           />
         </SectionCard>

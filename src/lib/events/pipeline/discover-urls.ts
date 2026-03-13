@@ -69,7 +69,8 @@ const EXCLUDED_DOMAINS = [
 // Query templates (from master prompt)
 // ============================================
 
-function buildQueries(city: string): string[] {
+/** Full query set for larger cities (7 queries = 14 Tavily credits) */
+function buildFullQueries(city: string): string[] {
   return [
     `${city} secretaría de cultura sitio oficial`,
     `${city} agenda cultural oficial`,
@@ -78,6 +79,16 @@ function buildQueries(city: string): string[] {
     `${city} museo exposiciones agenda`,
     `${city} espacio cultural independiente`,
     `${city} sala cultural agenda`,
+  ];
+}
+
+/** Reduced query set for smaller cities (4 queries = 8 Tavily credits) */
+function buildCompactQueries(city: string): string[] {
+  return [
+    `${city} agenda cultural oficial`,
+    `${city} cartelera cine y teatro programación`,
+    `${city} recitales shows música en vivo`,
+    `${city} qué hacer actividades culturales`,
   ];
 }
 
@@ -104,10 +115,12 @@ const TICKET_RESULTS_PER_PLATFORM = 5;
 /**
  * Discover candidate URLs for cultural events in a city.
  * Runs multiple Tavily queries in parallel, deduplicates by URL, returns top N.
+ * @param compact Use reduced query set (4 instead of 7) for smaller cities to save Tavily credits.
  */
 export async function discoverUrls(
   city: string,
-  country: string
+  country: string,
+  compact = false,
 ): Promise<DiscoveredUrl[]> {
   const apiKey = process.env.TAVILY_API_KEY;
   if (!apiKey) {
@@ -116,7 +129,7 @@ export async function discoverUrls(
   }
 
   const client = tavily({ apiKey });
-  const queries = buildQueries(city);
+  const queries = compact ? buildCompactQueries(city) : buildFullQueries(city);
   const countryCode = ISO_TO_TAVILY_COUNTRY[country.toUpperCase()];
 
   // Run search queries + ticket platform searches in parallel

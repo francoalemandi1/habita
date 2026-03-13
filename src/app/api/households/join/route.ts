@@ -6,6 +6,8 @@ import { CURRENT_HOUSEHOLD_COOKIE } from "@/lib/session";
 import { joinHouseholdWithMemberSchema } from "@/lib/validations/household";
 import { sendWelcomeEmail } from "@/lib/email-service";
 import { handleApiError } from "@/lib/api-response";
+import { applyRateLimit } from "@/lib/rate-limit";
+import { verifyCsrfOrigin } from "@/lib/csrf";
 import { deliverNotificationToMembers } from "@/lib/push-delivery";
 
 import type { NextRequest } from "next/server";
@@ -23,6 +25,12 @@ const MEMBER_TYPE_MAP: Record<string, MemberType> = {
  */
 export async function POST(request: NextRequest) {
   try {
+    const csrfBlocked = verifyCsrfOrigin(request);
+    if (csrfBlocked) return csrfBlocked;
+
+    const rateLimited = await applyRateLimit(request, "sensitive");
+    if (rateLimited) return rateLimited;
+
     const userId = await requireAuth();
     const body: unknown = await request.json();
 
@@ -59,6 +67,7 @@ export async function POST(request: NextRequest) {
       cookieStore.set(CURRENT_HOUSEHOLD_COOKIE, household.id, {
         path: "/",
         maxAge: 60 * 60 * 24 * 365,
+        httpOnly: true,
         sameSite: "lax",
         secure: process.env.NODE_ENV === "production",
       });
@@ -75,6 +84,12 @@ export async function POST(request: NextRequest) {
     });
 
     const nameToUse = memberName?.trim() || user?.name?.trim() || "Usuario";
+    if (memberType && !(memberType in MEMBER_TYPE_MAP)) {
+      return NextResponse.json(
+        { error: "Tipo de miembro inválido" },
+        { status: 400 },
+      );
+    }
     const prismaMemberType: MemberType =
       memberType ? MEMBER_TYPE_MAP[memberType] ?? "ADULT" : "ADULT";
 
@@ -118,6 +133,7 @@ export async function POST(request: NextRequest) {
     cookieStore.set(CURRENT_HOUSEHOLD_COOKIE, household.id, {
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
+      httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
     });

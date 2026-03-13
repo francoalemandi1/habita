@@ -2,8 +2,9 @@ import { useMemo, useState, useCallback } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Check, ChevronDown, DollarSign } from "lucide-react-native";
+import { Check, ChevronDown, DollarSign, Wallet } from "lucide-react-native";
 import { useCreateExpense } from "@/hooks/use-expenses";
+import { useFund } from "@/hooks/use-fund";
 import { useMembers } from "@/hooks/use-members";
 import { useMilestone } from "@/hooks/use-milestone";
 import { useCelebration } from "@/hooks/use-celebration";
@@ -16,8 +17,23 @@ import { StyledTextInput } from "@/components/ui/text-input";
 import { SecondaryHeader } from "@/components/ui/secondary-header";
 import { fontFamily, radius, spacing } from "@/theme";
 
+import { inferExpenseSubcategory } from "@habita/domain";
+
 import type { ThemeColors } from "@/theme";
 import type { ExpenseCategory, SplitType } from "@habita/contracts";
+import type { ExpenseSubcategory } from "@habita/domain";
+
+const SUBCATEGORY_LABELS: Record<ExpenseSubcategory, string> = {
+  GENERAL: "General",
+  SUPERMARKET: "Supermercado",
+  KIOSCO: "Kiosco",
+  DELIVERY: "Delivery",
+  RESTAURANT: "Restaurante",
+  STREAMING: "Streaming",
+  PHARMACY: "Farmacia",
+  FUEL: "Combustible",
+  TRANSPORT_APP: "App de transporte",
+};
 
 // ─── Category inference (mirrors web's inferCategory) ────────────────────────
 
@@ -121,15 +137,18 @@ function inferCategory(title: string): ExpenseCategory | null {
 const CATEGORIES: Array<{ value: ExpenseCategory; label: string; emoji: string }> = [
   { value: "GROCERIES", label: "Supermercado", emoji: "\uD83D\uDED2" },
   { value: "FOOD", label: "Comida", emoji: "\uD83C\uDF54" },
-  { value: "RENT", label: "Alquiler", emoji: "\uD83C\uDFE0" },
   { value: "UTILITIES", label: "Servicios", emoji: "\u26A1" },
   { value: "TRANSPORT", label: "Transporte", emoji: "\uD83D\uDE97" },
   { value: "HEALTH", label: "Salud", emoji: "\u2764\uFE0F" },
   { value: "HOME", label: "Hogar", emoji: "\uD83D\uDD27" },
-  { value: "ENTERTAINMENT", label: "Entrete.", emoji: "\uD83C\uDFAC" },
-  { value: "EDUCATION", label: "Educacion", emoji: "\uD83D\uDCDA" },
+  // secondary (shown when expanded)
+  { value: "RENT", label: "Alquiler", emoji: "\uD83C\uDFE0" },
+  { value: "ENTERTAINMENT", label: "Entretenimiento", emoji: "\uD83C\uDFAC" },
+  { value: "EDUCATION", label: "Educación", emoji: "\uD83D\uDCDA" },
   { value: "OTHER", label: "Otros", emoji: "\uD83D\uDCE6" },
 ];
+
+const PRIMARY_CATEGORY_COUNT = 6;
 
 const SPLIT_OPTIONS: Array<{ value: SplitType; label: string; icon: string }> = [
   { value: "EQUAL", label: "Partes iguales", icon: "\u00F7" },
@@ -147,9 +166,10 @@ export default function NewExpenseScreen() {
   const { trackAction } = usePushOptIn();
   const createExpense = useCreateExpense();
   const { data: membersData } = useMembers();
+  const { data: fund } = useFund();
   const members = membersData?.members ?? [];
 
-  const params = useLocalSearchParams<{ prefillTitle?: string; prefillAmount?: string; prefillCategory?: string }>();
+  const params = useLocalSearchParams<{ prefillTitle?: string; prefillAmount?: string; prefillCategory?: string; prefillNotes?: string }>();
 
   const initialCategory = (params.prefillCategory as ExpenseCategory | undefined) ??
     (params.prefillTitle ? (inferCategory(params.prefillTitle) ?? "OTHER") : "OTHER");
@@ -164,14 +184,23 @@ export default function NewExpenseScreen() {
   const [paidById, setPaidById] = useState<string | null>(null);
   const [showPayerSelect, setShowPayerSelect] = useState(false);
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
-  const [notes, setNotes] = useState("");
-  const [showNotes, setShowNotes] = useState(false);
+  const [chargeToFund, setChargeToFund] = useState(false);
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const [notes, setNotes] = useState(params.prefillNotes ?? "");
+  const [showNotes, setShowNotes] = useState(!!params.prefillNotes);
   const [error, setError] = useState<string | null>(null);
+
+  const activeFund = fund?.isActive ? fund : null;
+  const isFundCategory = activeFund
+    ? (activeFund.fundCategories as string[]).includes(category)
+    : false;
 
   const myMemberId = useMemo(
     () => me?.members.find((m) => m.householdId === activeHouseholdId)?.id ?? me?.members[0]?.id ?? "",
     [me, activeHouseholdId],
   );
+
+  const inferredSubcategory = inferExpenseSubcategory(title, category);
 
   const effectivePaidById = paidById ?? myMemberId;
   const selectedPayer = members.find((m) => m.id === effectivePaidById);
@@ -183,15 +212,23 @@ export default function NewExpenseScreen() {
     if (inferred) {
       setCategory(inferred);
       setCategoryAutoSet(true);
+      const idx = CATEGORIES.findIndex((c) => c.value === inferred);
+      if (idx >= PRIMARY_CATEGORY_COUNT) setShowAllCategories(true);
+      if (activeFund && (activeFund.fundCategories as string[]).includes(inferred)) {
+        setChargeToFund(true);
+      }
     } else if (categoryAutoSet) {
       setCategory("OTHER");
       setCategoryAutoSet(false);
     }
-  }, [categoryAutoSet]);
+  }, [categoryAutoSet, activeFund]);
 
   const handleCategorySelect = useCallback((cat: ExpenseCategory) => {
     setCategory(cat);
     setCategoryAutoSet(false);
+    // Auto-expand if a secondary category is selected (e.g. via prefill)
+    const idx = CATEGORIES.findIndex((c) => c.value === cat);
+    if (idx >= PRIMARY_CATEGORY_COUNT) setShowAllCategories(true);
   }, []);
 
   const handleSubmit = async () => {
@@ -235,6 +272,7 @@ export default function NewExpenseScreen() {
         splitType,
         splits,
         notes: notes.trim() || undefined,
+        chargeToFund: chargeToFund && isFundCategory ? true : undefined,
       });
       const wasFirst = await expenseMilestone.complete();
       if (wasFirst) celebrate("first-expense");
@@ -283,12 +321,19 @@ export default function NewExpenseScreen() {
       >
         {/* Description */}
         <StyledTextInput
-          label="Descripcion"
+          label="Descripción"
           placeholder="ej: Supermercado Coto..."
           value={title}
           onChangeText={handleTitleChange}
           autoFocus
         />
+        {title.length > 0 && inferredSubcategory !== "GENERAL" && (
+          <View style={styles.subcategoryBadge}>
+            <Text style={styles.subcategoryBadgeText}>
+              {SUBCATEGORY_LABELS[inferredSubcategory]}
+            </Text>
+          </View>
+        )}
 
         {/* Amount */}
         <View style={styles.fieldGap}>
@@ -304,9 +349,9 @@ export default function NewExpenseScreen() {
 
         {/* Category chips */}
         <View style={styles.fieldGap}>
-          <Text style={styles.sectionLabel}>Categoria</Text>
+          <Text style={styles.sectionLabel}>Categoría</Text>
           <View style={styles.chipGrid}>
-            {CATEGORIES.map((cat) => {
+            {CATEGORIES.slice(0, showAllCategories ? CATEGORIES.length : PRIMARY_CATEGORY_COUNT).map((cat) => {
               const isActive = category === cat.value;
               return (
                 <Pressable
@@ -321,6 +366,15 @@ export default function NewExpenseScreen() {
                 </Pressable>
               );
             })}
+            <Pressable
+              onPress={() => setShowAllCategories(!showAllCategories)}
+              style={styles.chip}
+            >
+              <Text style={styles.chipEmoji}>{showAllCategories ? "▲" : "▼"}</Text>
+              <Text style={styles.chipText}>
+                {showAllCategories ? "Menos" : "Más"}
+              </Text>
+            </Pressable>
           </View>
         </View>
 
@@ -369,28 +423,36 @@ export default function NewExpenseScreen() {
         {!isSolo && (
           <View style={styles.fieldGap}>
             <Text style={styles.sectionLabel}>Como se divide</Text>
-            <View style={styles.splitRow}>
-              {SPLIT_OPTIONS.map((opt) => {
-                const isActive = splitType === opt.value;
-                return (
-                  <Pressable
-                    key={opt.value}
-                    onPress={() => setSplitType(opt.value)}
-                    style={[styles.chip, isActive && styles.chipActive, styles.splitChip]}
-                  >
-                    <Text style={[styles.chipText, { fontWeight: "700" }]}>{opt.icon}</Text>
-                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            {chargeToFund ? (
+              <View style={styles.splitDisabledHint}>
+                <Text style={styles.splitDisabledHintText}>
+                  Los gastos del fondo común no se dividen entre miembros
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.splitRow}>
+                {SPLIT_OPTIONS.map((opt) => {
+                  const isActive = splitType === opt.value;
+                  return (
+                    <Pressable
+                      key={opt.value}
+                      onPress={() => setSplitType(opt.value)}
+                      style={[styles.chip, isActive && styles.chipActive, styles.splitChip]}
+                    >
+                      <Text style={[styles.chipText, { fontWeight: "700" }]}>{opt.icon}</Text>
+                      <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
           </View>
         )}
 
         {/* Custom split amounts */}
-        {!isSolo && splitType === "CUSTOM" && (
+        {!isSolo && !chargeToFund && splitType === "CUSTOM" && (
           <View style={styles.fieldGap}>
             <View style={styles.customSplitHeader}>
               <Text style={styles.sectionLabel}>Monto por miembro</Text>
@@ -428,6 +490,24 @@ export default function NewExpenseScreen() {
                 </Text>
               </View>
             )}
+          </View>
+        )}
+
+        {/* Charge to fund toggle */}
+        {activeFund && isFundCategory && (
+          <View style={styles.fieldGap}>
+            <Pressable
+              onPress={() => setChargeToFund(!chargeToFund)}
+              style={[styles.fundToggle, chargeToFund && styles.fundToggleActive]}
+            >
+              <Wallet size={16} color={chargeToFund ? colors.primary : colors.mutedForeground} />
+              <Text style={[styles.fundToggleText, chargeToFund && styles.fundToggleTextActive]}>
+                Cargar al fondo común
+              </Text>
+              <View style={[styles.fundToggleCheck, chargeToFund && styles.fundToggleCheckActive]}>
+                {chargeToFund && <Check size={10} color={colors.white} strokeWidth={3} />}
+              </View>
+            </Pressable>
           </View>
         )}
 
@@ -664,6 +744,69 @@ function createStyles(c: ThemeColors) {
     },
     submitBtn: {
       marginTop: spacing.xl,
+    },
+    subcategoryBadge: {
+      alignSelf: "flex-start" as const,
+      marginTop: 6,
+      backgroundColor: c.primaryLight,
+      borderRadius: radius.full,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+    },
+    subcategoryBadgeText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      fontWeight: "600" as const,
+      color: c.primary,
+    },
+    splitDisabledHint: {
+      borderRadius: radius.lg,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 10,
+      backgroundColor: c.muted,
+    },
+    splitDisabledHintText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      color: c.mutedForeground,
+    },
+    // Fund toggle
+    fundToggle: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      borderWidth: 1.5,
+      borderColor: c.border,
+      borderRadius: radius.xl,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 12,
+      backgroundColor: c.card,
+    },
+    fundToggleActive: {
+      borderColor: `${c.primary}50`,
+      backgroundColor: `${c.primary}08`,
+    },
+    fundToggleText: {
+      flex: 1,
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      color: c.mutedForeground,
+    },
+    fundToggleTextActive: {
+      color: c.primary,
+    },
+    fundToggleCheck: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: c.mutedForeground,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    fundToggleCheckActive: {
+      borderColor: c.primary,
+      backgroundColor: c.primary,
     },
   });
 }

@@ -11,6 +11,8 @@ import type { ThemeColors } from "@/theme";
 interface OnboardingChecklistProps {
   hasExpense: boolean;
   hasCompletedTask: boolean;
+  memberCount?: number;
+  inviteCode?: string | null;
 }
 
 const DISMISSED_KEY = "habita_onboarding_checklist_dismissed";
@@ -105,7 +107,7 @@ interface Step {
   onPress: () => void;
 }
 
-export function OnboardingChecklist({ hasExpense, hasCompletedTask }: OnboardingChecklistProps) {
+export function OnboardingChecklist({ hasExpense, hasCompletedTask, memberCount, inviteCode }: OnboardingChecklistProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -160,8 +162,17 @@ export function OnboardingChecklist({ hasExpense, hasCompletedTask }: Onboarding
     },
   ];
 
+  // Add invite step for solo households that have an invite code
+  if (memberCount === 1 && inviteCode) {
+    steps.push({
+      label: "Invitá a alguien a tu hogar",
+      done: (memberCount ?? 1) > 1,
+      onPress: () => router.push("/(app)/profile"),
+    });
+  }
+
   const completedCount = steps.filter((s) => s.done).length;
-  const allDone = completedCount === 3;
+  const allDone = completedCount === steps.length;
 
   useEffect(() => {
     if (!allDone || dismissed || completing) return;
@@ -182,7 +193,7 @@ export function OnboardingChecklist({ hasExpense, hasCompletedTask }: Onboarding
 
   if (dismissed) return null;
 
-  const progressWidth = `${(completedCount / 3) * 100}%` as `${number}%`;
+  const progressWidth = `${(completedCount / steps.length) * 100}%` as `${number}%`;
 
   return (
     <Animated.View
@@ -195,7 +206,7 @@ export function OnboardingChecklist({ hasExpense, hasCompletedTask }: Onboarding
       <View style={styles.header}>
         <View style={styles.titleBlock}>
           <Text style={styles.title}>Tus primeros pasos</Text>
-          <Text style={styles.progressText}>{completedCount} de 3 completados</Text>
+          <Text style={styles.progressText}>{completedCount} de {steps.length} completados</Text>
         </View>
         <Pressable onPress={handleDismiss} hitSlop={8} style={styles.dismissButton}>
           <X size={14} color={colors.mutedForeground} />

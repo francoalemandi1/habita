@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { handleApiError } from "@/lib/api-response";
+import { encrypt } from "@/lib/encryption";
 
 import type { NextRequest } from "next/server";
 
@@ -81,18 +82,21 @@ export async function GET(request: NextRequest) {
 
     const expiresAt = Math.floor(Date.now() / 1000) + tokens.expires_in;
 
+    const encryptedAccessToken = encrypt(tokens.access_token);
+    const encryptedRefreshToken = tokens.refresh_token ? encrypt(tokens.refresh_token) : "";
+
     await prisma.gmailConnection.upsert({
       where: { userId: session.user.id },
       create: {
         userId: session.user.id,
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token ?? "",
+        accessToken: encryptedAccessToken,
+        refreshToken: encryptedRefreshToken,
         expiresAt,
         scope: tokens.scope,
       },
       update: {
-        accessToken: tokens.access_token,
-        ...(tokens.refresh_token && { refreshToken: tokens.refresh_token }),
+        accessToken: encryptedAccessToken,
+        ...(tokens.refresh_token && { refreshToken: encryptedRefreshToken }),
         expiresAt,
         scope: tokens.scope,
       },

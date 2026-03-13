@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
+import { verifyCsrfOrigin } from "@/lib/csrf";
 import { Prisma } from "@prisma/client";
 
 import type { NextRequest } from "next/server";
@@ -28,13 +29,16 @@ const setupSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
+    const csrfBlocked = verifyCsrfOrigin(request);
+    if (csrfBlocked) return csrfBlocked;
+
     const member = await requireMember();
     const body = (await request.json()) as unknown;
     const validation = setupSchema.safeParse(body);
 
     if (!validation.success) {
       return NextResponse.json(
-        { error: "Datos inválidos", details: validation.error.flatten() },
+        { error: validation.error.errors[0]?.message ?? "Datos inválidos" },
         { status: 400 },
       );
     }

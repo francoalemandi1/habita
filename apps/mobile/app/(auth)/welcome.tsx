@@ -1,15 +1,16 @@
 import { useEffect, useRef } from "react";
-import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import {
   ChefHat,
   ClipboardCheck,
-  MapPin,
+  Compass,
   Receipt,
   ShoppingCart,
 } from "lucide-react-native";
 import { colors, fontFamily, radius, spacing } from "@/theme";
+import { HabitaLogo } from "@/components/ui/habita-logo";
 
 // ─── Feature pills ────────────────────────────────────────────────────────────
 
@@ -19,11 +20,11 @@ interface FeaturePill {
 }
 
 const FEATURES: FeaturePill[] = [
-  { icon: ClipboardCheck, label: "Tareas automáticas" },
-  { icon: Receipt,        label: "Gastos compartidos" },
+  { icon: ClipboardCheck, label: "Organizá las tareas" },
+  { icon: Receipt,        label: "Controlá los gastos" },
   { icon: ShoppingCart,   label: "Ahorrá en el super" },
-  { icon: ChefHat,        label: "Recetas" },
-  { icon: MapPin,         label: "Eventos y salidas" },
+  { icon: ChefHat,        label: "Cociná con recetas" },
+  { icon: Compass,        label: "Descubrí planes" },
 ];
 
 function FeaturePillItem({ item, delay }: { item: FeaturePill; delay: number }) {
@@ -78,10 +79,9 @@ export default function WelcomeScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.inner}>
         {/* Logo */}
-        <Image
-          source={require("../../assets/logo.png")}
-          style={styles.logo}
-        />
+        <View style={styles.logo}>
+          <HabitaLogo size={52} />
+        </View>
 
         {/* Hero copy */}
         <Animated.View

@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: spacing.xxl * 2,
+    paddingVertical: spacing.xl,
     paddingHorizontal: spacing.xxl,
     gap: spacing.sm,
   },

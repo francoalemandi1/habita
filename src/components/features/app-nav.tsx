@@ -7,8 +7,8 @@ import { NotificationsDropdown } from "@/components/features/notifications-dropd
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { href: "/my-tasks", icon: ClipboardCheck, label: "Planificá" },
-  { href: "/balance", icon: Receipt, label: "Registrá" },
+  { href: "/my-tasks", icon: ClipboardCheck, label: "Organizá" },
+  { href: "/balance", icon: Receipt, label: "Controlá" },
   { href: "/compras", icon: ShoppingCart, label: "Ahorrá" },
   { href: "/descubrir", icon: Compass, label: "Descubrí" },
   { href: "/cocina", icon: ChefHat, label: "Cociná" },

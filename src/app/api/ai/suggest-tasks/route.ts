@@ -52,7 +52,7 @@ function catalogToTaskCategories(hasPets: boolean, hasChildren: boolean): TaskCa
       frequency: (FREQ_UP[t.defaultFrequency] ?? "WEEKLY") as SuggestedTask["frequency"],
       category: cat.category.toLowerCase(),
       icon: t.icon,
-      estimatedMinutes: t.estimatedMinutes,
+      estimatedMinutes: t.estimatedMinutes ?? 15,
       weight: t.defaultWeight,
     })),
   }));

@@ -1,10 +1,11 @@
 import { useMemo } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Bell } from "lucide-react-native";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamily, spacing } from "@/theme";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
+import { HabitaLogo } from "@/components/ui/habita-logo";
 
 import type { ThemeColors } from "@/theme";
 
@@ -24,10 +25,7 @@ export function ScreenHeader({ notificationCount = 0 }: ScreenHeaderProps) {
   return (
     <View style={styles.header}>
       <Pressable onPress={() => router.push("/(app)/dashboard")} hitSlop={8}>
-        <Image
-          source={require("../../../assets/logo-32.png")}
-          style={styles.logoIcon}
-        />
+        <HabitaLogo size={32} />
       </Pressable>
       <View style={styles.actions}>
         <Pressable

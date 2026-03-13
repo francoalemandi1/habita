@@ -22,7 +22,7 @@ import { cleanupExpiredMobileAuthSessions, rotateMobileRefreshToken } from "@/li
 
 describe("mobile-auth hardening", () => {
   beforeEach(() => {
-    process.env.MOBILE_TOKEN_SECRET = "test-mobile-secret";
+    process.env.MOBILE_TOKEN_SECRET = "test-mobile-secret-with-32-chars!";
     vi.clearAllMocks();
   });
 

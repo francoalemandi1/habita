@@ -1,5 +1,9 @@
-import type { NextAuthConfig } from "next-auth";
+import type { NextAuthConfig, Session } from "next-auth";
 import Google from "next-auth/providers/google";
+
+export interface SessionWithIat extends Session {
+  iat?: number;
+}
 
 export const authConfig = {
   session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
@@ -24,6 +28,8 @@ export const authConfig = {
       if (session.user) {
         session.user.id = token.sub ?? "";
       }
+      // Expose JWT issued-at for session invalidation checks
+      (session as SessionWithIat).iat = typeof token.iat === "number" ? token.iat : undefined;
       return session;
     },
   },

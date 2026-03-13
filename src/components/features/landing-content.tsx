@@ -15,7 +15,7 @@ import {
   Receipt,
   CalendarCheck,
   ChefHat,
-  MapPin,
+  Compass,
   ShoppingCart,
 } from "lucide-react";
 import { HabitaLogo } from "@/components/ui/habita-logo";
@@ -81,19 +81,19 @@ export function LandingContent() {
               />
               <FeatureCard
                 index={3}
-                icon={<MapPin className="h-7 w-7" />}
-                title="Planes para disfrutar juntos"
-                description="Eventos, restaurantes y actividades culturales cerca tuyo, actualizados automáticamente para tu ciudad."
-                bg="bg-brand-lavender-light/40"
-                iconBg="bg-brand-lavender-light"
-              />
-              <FeatureCard
-                index={4}
                 icon={<ChefHat className="h-7 w-7" />}
                 title="De la heladera a la mesa"
                 description="Sacale una foto a lo que tenés o contale qué hay en tu heladera. En segundos tenés recetas concretas para cocinar hoy."
                 bg="bg-brand-cream/40"
                 iconBg="bg-brand-cream"
+              />
+              <FeatureCard
+                index={4}
+                icon={<Compass className="h-7 w-7" />}
+                title="Planes para disfrutar juntos"
+                description="Eventos, restaurantes y actividades culturales cerca tuyo, actualizados automáticamente para tu ciudad."
+                bg="bg-brand-lavender-light/40"
+                iconBg="bg-brand-lavender-light"
               />
               <FeatureCard
                 index={5}
@@ -309,8 +309,11 @@ export function LandingContent() {
 
       {/* Footer */}
       <footer className="bg-primary py-6 text-primary-foreground/70 sm:py-8">
-        <div className="container px-4 text-center text-sm">
+        <div className="container flex flex-col items-center gap-2 px-4 text-center text-sm">
           <p>Habita — Coordinación integral del hogar</p>
+          <Link href="/privacidad" className="text-primary-foreground/50 hover:text-primary-foreground/80 transition-colors">
+            Política de privacidad
+          </Link>
         </div>
       </footer>
     </main>

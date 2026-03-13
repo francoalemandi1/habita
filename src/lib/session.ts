@@ -4,6 +4,7 @@ import { prisma } from "./prisma";
 import { hasPermission } from "./permissions";
 import { resolveMobileAccessTokenUserId } from "./mobile-auth";
 
+import type { SessionWithIat } from "./auth.config";
 import type { Member, Household } from "@prisma/client";
 
 export const CURRENT_HOUSEHOLD_COOKIE = "habita_household_id";
@@ -85,11 +86,28 @@ export async function getCurrentUserMembers(): Promise<CurrentMember[]> {
  * Use this only when you need the user ID without member context.
  */
 export async function getCurrentUserId(): Promise<string | null> {
+  // Mobile path — sessionInvalidatedAt check is inside resolveMobileAccessTokenUserId
   const mobileUserId = await getUserIdFromMobileBearer();
   if (mobileUserId) return mobileUserId;
 
-  const session = await auth();
-  return session?.user?.id ?? null;
+  // Web path — check JWT session
+  const session = await auth() as SessionWithIat | null;
+  const userId = session?.user?.id;
+  if (!userId) return null;
+
+  // Check if session was invalidated after this JWT was issued
+  const iat = session.iat;
+  if (iat) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { sessionInvalidatedAt: true },
+    });
+    if (user?.sessionInvalidatedAt && new Date(iat * 1000) < user.sessionInvalidatedAt) {
+      return null;
+    }
+  }
+
+  return userId;
 }
 
 /**

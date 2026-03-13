@@ -6,6 +6,7 @@ import { handleApiError } from "@/lib/api-response";
 import { deliverNotificationToMembers } from "@/lib/push-delivery";
 import { buildSplitsData } from "@/lib/expense-splits";
 import { inferExpenseSubcategory } from "@/lib/expense-subcategory";
+import { verifyCsrfOrigin } from "@/lib/csrf";
 
 import { Prisma } from "@prisma/client";
 
@@ -68,13 +69,16 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const csrfBlocked = verifyCsrfOrigin(request);
+    if (csrfBlocked) return csrfBlocked;
+
     const member = await requireMember();
     const body = (await request.json()) as unknown;
     const validation = createExpenseSchema.safeParse(body);
 
     if (!validation.success) {
       return NextResponse.json(
-        { error: "Datos inválidos", details: validation.error.flatten() },
+        { error: validation.error.errors[0]?.message ?? "Datos inválidos" },
         { status: 400 },
       );
     }

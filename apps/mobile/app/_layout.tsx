@@ -1,5 +1,5 @@
 import { Stack } from "expo-router";
-import { Animated, Image, StyleSheet, Text, View } from "react-native";
+import { Animated, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -10,6 +10,7 @@ import { ThemeProvider, useTheme } from "@/providers/theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { NotificationProvider } from "@/providers/notification-provider";
 import { colors, fontFamily } from "@/theme";
+import { HabitaLogo } from "@/components/ui/habita-logo";
 
 function BrandedSplash() {
   const fadeIn = useMemo(() => new Animated.Value(0), []);
@@ -26,10 +27,7 @@ function BrandedSplash() {
     <View style={splashStyles.container}>
       <StatusBar style="light" />
       <Animated.View style={[splashStyles.center, { opacity: fadeIn, transform: [{ scale: scaleIn }] }]}>
-        <Image
-          source={require("../assets/logo-96.png")}
-          style={splashStyles.logo}
-        />
+        <HabitaLogo size={72} />
         <Text style={splashStyles.brand}>Habita</Text>
         <Text style={splashStyles.tagline}>Tu hogar, organizado</Text>
       </Animated.View>

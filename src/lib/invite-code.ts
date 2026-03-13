@@ -1,13 +1,16 @@
+import { randomInt } from "crypto";
+
 /**
- * Genera un código de invitación corto (8 caracteres).
+ * Genera un código de invitación corto (10 caracteres).
  * Caracteres: A-Z y 2-9 (sin 0, O, I, 1 para evitar ambigüedades).
+ * Usa crypto.randomInt para entropía criptográficamente segura.
  */
 const CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-export function generateInviteCode(length = 8): string {
+export function generateInviteCode(length = 10): string {
   let code = "";
   for (let i = 0; i < length; i++) {
-    code += CHARS[Math.floor(Math.random() * CHARS.length)];
+    code += CHARS[randomInt(CHARS.length)];
   }
   return code;
 }

@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+const onboardingTaskSchema = z.object({
+  name: z.string().min(1).max(100),
+  category: z.string().max(50).optional(),
+  frequency: z.string(),
+  weight: z.number().min(1).max(5).optional(),
+  estimatedMinutes: z.number().min(1).optional(),
+});
+
 export const createHouseholdInputSchema = z.object({
   householdName: z.string().min(1).max(100),
   memberName: z.string().min(1).max(100),
@@ -11,6 +19,7 @@ export const createHouseholdInputSchema = z.object({
     timezone: z.string().max(100).optional(),
     country: z.string().max(10).optional(),
   }).optional(),
+  tasks: z.array(onboardingTaskSchema).optional(),
 });
 
 export const joinHouseholdInputSchema = z.object({

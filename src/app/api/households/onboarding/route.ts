@@ -7,6 +7,7 @@ import { createHouseholdOnboardingSchema } from "@/lib/validations/household";
 import { generateInviteCode } from "@/lib/invite-code";
 import { sendWelcomeEmail } from "@/lib/email-service";
 import { handleApiError } from "@/lib/api-response";
+import { verifyCsrfOrigin } from "@/lib/csrf";
 
 import type { NextRequest } from "next/server";
 import type { MemberType } from "@prisma/client";
@@ -23,6 +24,9 @@ const MEMBER_TYPE_MAP: Record<string, MemberType> = {
  */
 export async function POST(request: NextRequest) {
   try {
+    const csrfBlocked = verifyCsrfOrigin(request);
+    if (csrfBlocked) return csrfBlocked;
+
     const userId = await requireAuth();
 
     const existingMember = await getCurrentMember();
@@ -41,8 +45,14 @@ export async function POST(request: NextRequest) {
     }
 
     const { householdName, memberName: bodyMemberName, memberType, tasks, location } = validation.data;
-    const prismaMemberType: MemberType =
-      MEMBER_TYPE_MAP[memberType ?? "adult"] ?? "ADULT";
+    const resolvedType = memberType ?? "adult";
+    if (!(resolvedType in MEMBER_TYPE_MAP)) {
+      return NextResponse.json(
+        { error: "Tipo de miembro inválido" },
+        { status: 400 },
+      );
+    }
+    const prismaMemberType: MemberType = MEMBER_TYPE_MAP[resolvedType] ?? "ADULT";
 
     // Fallback member name to Google account name
     const user = await prisma.user.findUnique({
@@ -131,6 +141,7 @@ export async function POST(request: NextRequest) {
     cookieStore.set(CURRENT_HOUSEHOLD_COOKIE, result.household.id, {
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
+      httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
     });

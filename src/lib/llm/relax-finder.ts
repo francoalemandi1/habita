@@ -5,7 +5,7 @@ import { getDeepSeekModel } from "./deepseek-provider";
 import { buildRegionalContext } from "./regional-context";
 import { searchAndExtractLocalEvents, ISO_TO_COUNTRY_NAME } from "@/lib/web-search";
 
-import type { WebSearchResult, ExtractedEventWithSource } from "@/lib/web-search";
+import type { WebSearchResult } from "@/lib/web-search";
 
 // ============================================
 // Types — public API (unchanged)
@@ -73,7 +73,7 @@ interface CuratedResult {
   summary: string;
 }
 
-/** Item format passed to the curator prompt (mapped from Firecrawl output) */
+/** Item format passed to the curator prompt */
 interface CuratorInputItem {
   title: string;
   venue: string;
@@ -103,6 +103,13 @@ const SECTION_CATEGORIES: Record<RelaxSection, readonly string[]> = {
   activities: ACTIVITIES_CATEGORIES,
   restaurants: RESTAURANT_CATEGORIES,
 };
+
+// ============================================
+// Constants
+// ============================================
+
+/** Max chars of rawContent to include per source in the curator prompt */
+const RAW_CONTENT_MAX_CHARS = 3_000;
 
 // ============================================
 // Schema factory
@@ -138,15 +145,10 @@ function buildCuratorSchema(categories: readonly string[], totalSourceCount: num
 /**
  * Generate suggestions for a given section and location.
  *
- * Architecture (Firecrawl extract + curator):
- * 1. Tavily search → URLs + snippets
- * 2. Firecrawl LLM extract → structured events per URL (replaces old Agent 1)
- * 3. Curator LLM (DeepSeek) → curates, categorizes, ranks extracted events
- * 4. Post-process: resolve URLs, filter dates, assign images
- *
- * Why Firecrawl LLM extract: It extracts structured data (title, venue, date,
- * price) directly from each page using the page's own context. This is more
- * accurate than a single LLM reading 200K+ chars of raw HTML/markdown.
+ * Architecture (Tavily rawContent + curator):
+ * 1. Tavily search (with includeRawContent) → URLs + snippets + markdown
+ * 2. Curator LLM (DeepSeek) → extracts, curates, categorizes, ranks from rawContent
+ * 3. Post-process: resolve URLs, filter dates, assign images
  */
 export async function generateRelaxSuggestions(
   options: RelaxFinderOptions
@@ -155,19 +157,20 @@ export async function generateRelaxSuggestions(
     return null;
   }
 
-  // Step 1: Fetch web results + extracted events
-  const { searchResults, extractedEvents } = await searchAndExtractLocalEvents(
+  // Step 1: Fetch web results with rawContent
+  const { searchResults } = await searchAndExtractLocalEvents(
     options.city,
     options.country,
     options.section
   );
 
-  if (searchResults.length === 0 && extractedEvents.length === 0) {
+  if (searchResults.length === 0) {
     console.error(`[relax-finder] No results for ${options.city} (section: ${options.section})`);
     return null;
   }
 
-  console.log(`[relax-finder] ${options.city}/${options.section}: ${searchResults.length} web sources, ${extractedEvents.length} extracted events`);
+  const withContent = searchResults.filter((r) => r.rawContent).length;
+  console.log(`[relax-finder] ${options.city}/${options.section}: ${searchResults.length} web sources (${withContent} with rawContent)`);
 
   // Step 2: Build shared context (weather, timezone, language variant)
   const regionalContext = await buildRegionalContext({
@@ -181,82 +184,45 @@ export async function generateRelaxSuggestions(
   const todayIso = formatLocalDate(regionalContext.localNow, options.timezone);
   const model = getDeepSeekModel();
 
-  // Step 3: Map extracted events to curator input
-  const curatorItems = mapToCuratorInput(extractedEvents, searchResults);
-
-  if (curatorItems.length === 0) {
-    // Fallback: if Firecrawl extraction returned nothing, use snippets from search
-    if (searchResults.length === 0) {
-      console.error(`[relax-finder] No extracted events and no search results`);
-      return null;
-    }
-    console.warn(`[relax-finder] No extracted events, falling back to snippet-based items`);
-    const snippetItems = searchResults.map((r, i) => ({
-      title: r.title,
-      venue: r.source,
-      dateText: null,
-      timeText: null,
-      priceText: null,
-      description: r.snippet,
-      sourceIndex: i,
-    }));
-    return runCurator(snippetItems, searchResults, options, regionalContext, todayIso, model);
-  }
+  // Step 3: Build curator input from search results (using rawContent when available)
+  const curatorItems = buildCuratorItems(searchResults);
 
   console.log(`[relax-finder] ${options.city}/${options.section}: ${curatorItems.length} items for curator`);
-  for (const item of curatorItems.slice(0, 10)) {
-    console.log(`  [item] ${item.title} | ${item.venue} | date: ${item.dateText}`);
-  }
-  if (curatorItems.length > 10) {
-    console.log(`  ... and ${curatorItems.length - 10} more items`);
-  }
 
   return runCurator(curatorItems, searchResults, options, regionalContext, todayIso, model);
 }
 
 // ============================================
-// Map Firecrawl output → curator input
+// Build curator input from search results
 // ============================================
 
 /**
- * Map ExtractedEventWithSource[] to CuratorInputItem[].
- * Each item gets a sourceIndex pointing to its position in searchResults
- * (for image/URL resolution in post-processing).
+ * Build CuratorInputItem[] from search results.
+ * Uses rawContent (truncated) when available for richer context,
+ * falls back to snippet when rawContent is not available.
  */
-function mapToCuratorInput(
-  extractedEvents: ExtractedEventWithSource[],
-  searchResults: WebSearchResult[],
-): CuratorInputItem[] {
-  const urlToIndex = new Map<string, number>();
-  for (let i = 0; i < searchResults.length; i++) {
-    const result = searchResults[i];
-    if (result) urlToIndex.set(result.url, i);
-  }
+function buildCuratorItems(searchResults: WebSearchResult[]): CuratorInputItem[] {
+  return searchResults.map((r, i) => ({
+    title: r.title,
+    venue: r.source,
+    dateText: null,
+    timeText: null,
+    priceText: null,
+    description: r.rawContent
+      ? truncateContent(r.rawContent, RAW_CONTENT_MAX_CHARS)
+      : r.snippet,
+    sourceIndex: i,
+  }));
+}
 
-  const seen = new Set<string>();
-
-  return extractedEvents
-    .map((e) => {
-      const sourceIndex = urlToIndex.get(e.sourceUrl) ?? 0;
-      return {
-        title: e.event.title,
-        venue: e.event.venue,
-        dateText: e.event.dateText,
-        timeText: e.event.timeText,
-        priceText: e.event.priceText,
-        description: e.event.description,
-        sourceIndex,
-        ...(e.event.ticketUrl && { ticketUrl: e.event.ticketUrl }),
-        ...(e.event.bookingUrl && { bookingUrl: e.event.bookingUrl }),
-      };
-    })
-    .filter((item) => {
-      if (!item.title || !item.venue) return false;
-      const key = item.title.toLowerCase().trim();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+/** Truncate content at a natural boundary (newline) near the limit */
+function truncateContent(content: string, maxChars: number): string {
+  if (content.length <= maxChars) return content;
+  const truncated = content.slice(0, maxChars);
+  const lastNewline = truncated.lastIndexOf("\n");
+  return lastNewline > maxChars * 0.8
+    ? truncated.slice(0, lastNewline)
+    : truncated;
 }
 
 // ============================================
@@ -505,7 +471,7 @@ ${CURATOR_ROLE[section]}
 ## General Rules (Strict)
 ────────────────────────────────
 * **Output Language:** All output fields (description, tip, summary) must be written in **Spanish** matching the regional variant below.
-* **No Invention Rule:** Never invent data not present in the extracted items. Dates, prices, and venues come from the sources — your job is to normalize format, not fabricate.
+* **No Invention Rule:** Never invent data not present in the source content. Dates, prices, and venues come from the sources — your job is to extract and normalize, not fabricate.
 * **Geography Rule:** The user is in **${city}, ${countryName}**. Prioritize items in ${city} and its immediate metro area (towns reachable in ~30 min by car). Events from distant cities (different departments, >1 h drive) should only appear if they are unmissable — major festival, internationally known artist. Discard items from other countries with the same city name.
 * **Date Rule:** Today is ${todayIso}. Discard items with dates before today or more than 2 months ahead. When dateText has no month (e.g. "Jue 29"), infer the month from context — if the source title mentions a past date range (e.g. "agenda del 26 de enero al 1 de febrero"), those items are old. When in doubt about an ambiguous date, discard the item. If dateText is null, keep it.
 * **Freshness Rule:** Prioritize events happening today, tomorrow, and this weekend. The user opens this screen to decide what to do NOW — show the most immediate options first, then fill with upcoming events.
@@ -517,7 +483,7 @@ ${regionalBlock}
 ${mealHint}
 
 ────────────────────────────────
-## Input: Extracted Items (${extractedItems.length} total)
+## Input: Web Sources (${extractedItems.length} total)
 ────────────────────────────────
 
 ${itemsJson}

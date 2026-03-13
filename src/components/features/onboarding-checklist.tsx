@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 interface OnboardingChecklistProps {
   hasExpense: boolean;
   hasCompletedTask: boolean;
+  memberCount?: number;
+  inviteCode?: string;
 }
 
 const DISMISSED_KEY = "habita:onboarding-checklist:dismissed";
@@ -18,7 +20,7 @@ function readLocalStorage(key: string): boolean {
   return localStorage.getItem(key) === "1";
 }
 
-export function OnboardingChecklist({ hasExpense, hasCompletedTask }: OnboardingChecklistProps) {
+export function OnboardingChecklist({ hasExpense, hasCompletedTask, memberCount = 1, inviteCode }: OnboardingChecklistProps) {
   // Always start hidden to match server render — hydrate from localStorage in useEffect
   const [dismissed, setDismissed] = useState(true);
   const [shoppingSearched, setShoppingSearched] = useState(false);
@@ -55,10 +57,18 @@ export function OnboardingChecklist({ hasExpense, hasCompletedTask }: Onboarding
       href: "/compras",
       done: shoppingSearched,
     },
+    // Show invite step only for solo households (nobody joined yet)
+    ...(memberCount === 1 && inviteCode
+      ? [{
+          label: "Invitá a alguien a tu hogar",
+          href: "/profile",
+          done: false,
+        }]
+      : []),
   ];
 
   const completedCount = steps.filter((s) => s.done).length;
-  const allDone = completedCount === 3;
+  const allDone = completedCount === steps.length;
   const completing = allDone && !dismissed;
 
   useEffect(() => {

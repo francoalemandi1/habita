@@ -722,7 +722,7 @@ export default function TasksScreen() {
               icon={<ClipboardList size={32} color={colors.primary} />}
               title="No tenés un plan generado"
               subtitle="Generá un plan semanal para distribuir las tareas del hogar."
-              actionLabel="Planificá"
+              actionLabel="Organizá"
               onAction={() => router.push("/(app)/plan")}
               steps={[
                 { label: "Habita sugiere tareas para tu hogar" },
@@ -857,7 +857,7 @@ export default function TasksScreen() {
           icon={<ClipboardList size={32} color={colors.primary} />}
           title="No tenés un plan generado"
           subtitle="Generá un plan semanal para distribuir las tareas del hogar."
-          actionLabel="Planificá"
+          actionLabel="Organizá"
           onAction={() => router.push("/(app)/plan")}
         />
       );
@@ -935,7 +935,7 @@ export default function TasksScreen() {
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
           <CalendarDays size={24} color={colors.primary} />
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Planificá</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Organizá</Text>
           <View style={styles.headerSpacer} />
           <Pressable
             onPress={() => router.push("/(app)/rotations")}
@@ -1008,19 +1008,25 @@ export default function TasksScreen() {
         </View>
       ) : null}
 
-      {/* Content */}
+      {/* Day row + content: block stack, no extra gap */}
       {viewMode === "calendar" ? (
-        <View style={styles.calendarSection}>
-          <DayCalendar
-            days={calendarDays}
-            selectedDay={selectedDay}
-            onSelectDay={setSelectedDay}
-            assignmentCountByDay={assignmentCountByDay}
-          />
-          {renderCalendarContent()}
-        </View>
+        <>
+          <View style={styles.dayRowWrap}>
+            <DayCalendar
+              days={calendarDays}
+              selectedDay={selectedDay}
+              onSelectDay={setSelectedDay}
+              assignmentCountByDay={assignmentCountByDay}
+            />
+          </View>
+          <View style={styles.calendarContentWrap}>
+            {renderCalendarContent()}
+          </View>
+        </>
       ) : (
-        renderListContent()
+        <View style={styles.listContentWrap}>
+          {renderListContent()}
+        </View>
       )}
 
       {transferTarget ? (
@@ -1082,6 +1088,12 @@ function createStyles(c: ThemeColors) {
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.sm,
       paddingBottom: 24,
+    },
+    scrollContentCentered: {
+      flexGrow: 1,
+      justifyContent: "center" as const,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
     },
     skeleton: {
       marginBottom: spacing.sm,
@@ -1333,6 +1345,15 @@ function createStyles(c: ThemeColors) {
     },
 
     calendarSection: {
+      flex: 1,
+    },
+    dayRowWrap: {
+      // height is intrinsic (DayCalendar pills are 68px + padding)
+    },
+    calendarContentWrap: {
+      flex: 1,
+    },
+    listContentWrap: {
       flex: 1,
     },
     flex1: {

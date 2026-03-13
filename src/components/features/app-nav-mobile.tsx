@@ -16,8 +16,8 @@ import { cn } from "@/lib/utils";
 
 const MAIN_ITEMS = [
   { href: "/dashboard", icon: Home, label: "Habita" },
-  { href: "/my-tasks", icon: ClipboardCheck, label: "Planificá" },
-  { href: "/balance", icon: Receipt, label: "Registrá" },
+  { href: "/my-tasks", icon: ClipboardCheck, label: "Organizá" },
+  { href: "/balance", icon: Receipt, label: "Controlá" },
   { href: "/compras", icon: ShoppingCart, label: "Ahorrá" },
 ];
 

@@ -19,6 +19,10 @@ const DEEP_LINK_MAP: Partial<Record<NotificationType, string>> = {
   CULTURAL_RECOMMENDATION: "/(app)/descubrir",
   DEAL_ALERT: "/(app)/grocery-deals",
   TASK_REMINDER: "/(app)/tasks",
+  DAILY_BRIEFING: "/(app)/dashboard",
+  TASK_OVERDUE: "/(app)/tasks",
+  SPENDING_ALERT: "/(app)/expense-insights",
+  EXPENSE_REMINDER: "/(app)/new-expense",
 };
 
 // ── Interfaces ─────────────────────────────────────────────────────────────────

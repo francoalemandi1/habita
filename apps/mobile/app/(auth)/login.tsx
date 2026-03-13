@@ -4,7 +4,6 @@ import {
   Animated,
   Dimensions,
   FlatList,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -14,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   ChefHat,
   ClipboardCheck,
+  Compass,
   Receipt,
   ShoppingCart,
 } from "lucide-react-native";
@@ -22,6 +22,7 @@ import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { mobileApi } from "@/lib/api";
 import { mobileConfig } from "@/lib/config";
 import { colors, fontFamily, radius, spacing } from "@/theme";
+import { HabitaLogo } from "@/components/ui/habita-logo";
 import type { AuthMeResponse } from "@habita/contracts";
 
 import type { LucideIcon } from "lucide-react-native";
@@ -47,6 +48,12 @@ const SLIDES: OnboardingSlide[] = [
     color: colors.white,
   },
   {
+    icon: Receipt,
+    title: "Controlá los\ngastos del hogar",
+    subtitle: "Registrá gastos, dividí cuentas\ny mantené las finanzas en orden.",
+    color: colors.white,
+  },
+  {
     icon: ShoppingCart,
     title: "Ahorrá en\nel supermercado",
     subtitle: "Compará precios entre supermercados\ny encontrá las mejores ofertas.",
@@ -59,9 +66,9 @@ const SLIDES: OnboardingSlide[] = [
     color: colors.white,
   },
   {
-    icon: Receipt,
-    title: "Controlá los\ngastos del hogar",
-    subtitle: "Registrá gastos, dividí cuentas\ny mantené las finanzas en orden.",
+    icon: Compass,
+    title: "Descubrí planes\ncerca tuyo",
+    subtitle: "Eventos, restaurantes y actividades\nculturales actualizados para tu ciudad.",
     color: colors.white,
   },
 ];
@@ -209,14 +216,23 @@ export default function LoginScreen() {
         return;
       }
 
-      const accessToken = url.searchParams.get("accessToken");
-      const refreshToken = url.searchParams.get("refreshToken");
-      if (!accessToken || !refreshToken) {
-        setError(`Sin tokens. URL: ${result.url}`);
+      const authCode = url.searchParams.get("code");
+      if (!authCode) {
+        setError("No se recibió código de autenticación");
         return;
       }
 
-      await exchangeTokens({ accessToken, refreshToken });
+      // Exchange short-lived auth code for tokens via secure endpoint
+      const tokenResponse = await mobileApi.post<{
+        accessToken: string;
+        refreshToken: string;
+        expiresInSeconds: number;
+      }>("/api/auth/mobile/code-exchange", { code: authCode });
+
+      await exchangeTokens({
+        accessToken: tokenResponse.accessToken,
+        refreshToken: tokenResponse.refreshToken,
+      });
       // Check if this is a new user (no households) → welcome + onboarding flow
       try {
         const me = await mobileApi.get<AuthMeResponse>("/api/auth/me");
@@ -241,7 +257,7 @@ export default function LoginScreen() {
         {/* Slides */}
         <View style={styles.slidesArea}>
           {/* Logo */}
-          <Image source={require("../../assets/logo-96.png")} style={styles.logoIcon} />
+          <HabitaLogo size={72} />
           <FlatList
             ref={flatListRef}
             data={SLIDES}

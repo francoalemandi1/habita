@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     const validation = refreshCartSchema.safeParse(body);
     if (!validation.success) {
       return NextResponse.json(
-        { error: "Datos inválidos", details: validation.error.flatten().fieldErrors },
+        { error: validation.error.errors[0]?.message ?? "Datos inválidos" },
         { status: 400 },
       );
     }

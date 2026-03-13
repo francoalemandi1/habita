@@ -9,12 +9,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowRightLeft } from "lucide-react-native";
 import { useBriefing, useStats } from "@/hooks/use-stats";
+import { useHealthScore } from "@/hooks/use-health-score";
 import { useMyAssignments } from "@/hooks/use-assignments";
 import { useExpenses } from "@/hooks/use-expenses";
 import { useExpenseBalances } from "@/hooks/use-expense-balances";
 import { useTransfers } from "@/hooks/use-transfers";
 import { useEvents } from "@/hooks/use-events";
 import { useMembers } from "@/hooks/use-members";
+import { useHouseholdDetail } from "@/hooks/use-households";
 import { useDailyDeal } from "@/hooks/use-grocery-deals";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { useThemeColors } from "@/hooks/use-theme";
@@ -29,6 +31,9 @@ import { DailyHighlight } from "@/components/features/dashboard/daily-highlight"
 import { DashboardSkeleton } from "@/components/features/dashboard/dashboard-skeleton";
 import { HouseholdWeekCard } from "@/components/features/dashboard/household-week-card";
 import { ShareableWeekCard, shareWeekCard } from "@/components/features/dashboard/shareable-week-card";
+import { HealthScoreCard } from "@/components/features/dashboard/health-score-card";
+import { WorkloadDistribution } from "@/components/features/dashboard/workload-distribution";
+import { QuickExpenseInput } from "@/components/features/dashboard/quick-expense-input";
 import { useHeroState } from "@/components/features/dashboard/use-hero-state";
 import { useDailyHighlight } from "@/components/features/dashboard/use-daily-highlight";
 import { useGuidedTour } from "@/hooks/use-guided-tour";
@@ -69,11 +74,13 @@ export default function DashboardScreen() {
   // Data hooks
   const briefingQuery = useBriefing();
   const statsQuery = useStats();
+  const healthScoreQuery = useHealthScore();
   const assignmentsQuery = useMyAssignments();
   const balancesQuery = useExpenseBalances();
   const transfersQuery = useTransfers();
   const eventsQuery = useEvents({ limit: 5 });
   const membersQuery = useMembers();
+  const householdQuery = useHouseholdDetail();
   const dailyDealQuery = useDailyDeal();
   const expensesQuery = useExpenses();
 
@@ -194,7 +201,12 @@ export default function DashboardScreen() {
         ) : null}
 
         {/* ── Onboarding checklist ── */}
-        <OnboardingChecklist hasExpense={hasExpense} hasCompletedTask={hasCompletedTask} />
+        <OnboardingChecklist
+          hasExpense={hasExpense}
+          hasCompletedTask={hasCompletedTask}
+          memberCount={membersQuery.data?.members?.length}
+          inviteCode={householdQuery.data?.household?.inviteCode}
+        />
 
         {/* ── Main content ── */}
         {isInitialLoad ? (
@@ -234,7 +246,15 @@ export default function DashboardScreen() {
                 />
               ) : null}
 
+              {!isSolo && statsQuery.data ? (
+                <WorkloadDistribution memberStats={statsQuery.data.memberStats} />
+              ) : null}
+
+              <HealthScoreCard data={healthScoreQuery.data ?? null} loading={healthScoreQuery.isLoading} />
+
               <DailyHighlight highlight={highlightState} loading={highlightLoading} />
+
+              <QuickExpenseInput />
             </View>
           </>
         )}

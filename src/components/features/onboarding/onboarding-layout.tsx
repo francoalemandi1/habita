@@ -2,6 +2,8 @@
 
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ProgressIndicator } from "@/components/features/onboarding/progress-indicator";
+import { HabitaLogo } from "@/components/ui/habita-logo";
 
 import type { ReactNode } from "react";
 
@@ -13,6 +15,7 @@ interface OnboardingLayoutProps {
   continueDisabled?: boolean;
   continueLoading?: boolean;
   showContinue?: boolean;
+  progress?: { steps: string[]; currentStep: string };
 }
 
 export function OnboardingLayout({
@@ -23,25 +26,31 @@ export function OnboardingLayout({
   continueDisabled = false,
   continueLoading = false,
   showContinue = true,
+  progress,
 }: OnboardingLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
-      <header className="flex items-center justify-between p-4">
-        {onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex size-9 items-center justify-center rounded-full"
-            aria-label="Volver"
-          >
-            <ArrowLeft className="size-5 text-foreground" />
-          </button>
-        ) : (
+      <header className="space-y-3 p-4">
+        <div className="flex items-center justify-between">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex size-9 items-center justify-center rounded-full"
+              aria-label="Volver"
+            >
+              <ArrowLeft className="size-5 text-foreground" />
+            </button>
+          ) : (
+            <div className="size-9" />
+          )}
+          <HabitaLogo size={24} />
           <div className="size-9" />
+        </div>
+        {progress && (
+          <ProgressIndicator steps={progress.steps} currentStep={progress.currentStep} />
         )}
-        <span className="text-base font-normal text-foreground">Habita</span>
-        <div className="size-9" />
       </header>
 
       {/* Content */}

@@ -2,20 +2,20 @@
  * Unified web search module — orchestrates Tavily (primary) and Serper (fallback).
  *
  * Provider priority:
- *   1. Tavily (advanced search + Firecrawl LLM extract) — 1000 credits/month free
+ *   1. Tavily (advanced search + rawContent) — 1000 credits/month free
  *   2. Serper (Google SERP snippets + images) — 2500 one-time credits free
  *
  * Two main functions:
- *   - searchAndExtractLocalEvents(): Tavily search + Firecrawl extraction → used by relax-finder
+ *   - searchAndExtractLocalEvents(): Tavily search with rawContent → used by relax-finder
  *   - searchLocalEvents(): Search-only → used by grocery-advisor, deals-finder, etc.
  */
 
 import { searchAndExtract, searchWithTavily, EXCLUDED_DOMAINS_ACTIVITIES, EXCLUDED_DOMAINS_RESTAURANTS } from "./tavily";
 import { searchWithSerper } from "./serper";
 
-import type { SearchAndExtractResult, ExtractedEventWithSource } from "./tavily";
+import type { SearchAndExtractResult } from "./tavily";
 
-export type { SearchAndExtractResult, ExtractedEventWithSource };
+export type { SearchAndExtractResult };
 
 // ============================================
 // Shared types (consumed by tavily.ts, serper.ts, relax-finder.ts)
@@ -78,7 +78,7 @@ export const ISO_TO_TAVILY_COUNTRY: Record<string, string> = {
  *
  * Design principles:
  * - One query per event category to guarantee diversity in results
- * - Only top 2 URLs per query → ~10 URLs total for Firecrawl extraction
+ * - Top 4 results per query for source diversity
  * - Colloquial: queries a real person would type into Google
  * - No date in queries — Tavily returns recent content naturally,
  *   the curator's Date Rule filters past/future events
@@ -197,9 +197,9 @@ function getWebSearchProvider(): WebSearchProvider {
 // ============================================
 
 /**
- * Search + extract structured events via Tavily + Firecrawl.
+ * Search with Tavily (rawContent included) + geo filter.
  * Both activities and restaurants use the same pipeline:
- *   Tavily search → Firecrawl LLM extract → geo filter
+ *   Tavily search (with rawContent) → geo filter → curator LLM
  * Section-specific excludeDomains prevent irrelevant sources.
  */
 export async function searchAndExtractLocalEvents(
@@ -209,7 +209,7 @@ export async function searchAndExtractLocalEvents(
 ): Promise<SearchAndExtractResult> {
   const cacheKey = buildCacheKey(city, section);
   const provider = getWebSearchProvider();
-  if (provider === "none") return { searchResults: [], extractedEvents: [] };
+  if (provider === "none") return { searchResults: [] };
 
   const countryUpper = country.toUpperCase();
   const ctx = buildQueryContext(city, country);
@@ -224,36 +224,34 @@ export async function searchAndExtractLocalEvents(
     const tavilyCountry = ISO_TO_TAVILY_COUNTRY[countryUpper];
     const raw = await searchAndExtract(queries, cacheKey, tavilyCountry, RESULTS_PER_QUERY, excludeDomains);
 
-    console.log(`[web-search] Tavily: ${raw.searchResults.length} search results, ${raw.extractedEvents.length} extracted events`);
+    const withContent = raw.searchResults.filter((r) => r.rawContent).length;
+    console.log(`[web-search] Tavily: ${raw.searchResults.length} results (${withContent} with rawContent)`);
 
     const filteredSearch = filterWrongCountryResults(raw.searchResults, countryUpper);
-    const filteredUrls = new Set(filteredSearch.map((r) => r.url));
-    const filteredEvents = raw.extractedEvents.filter((e) => filteredUrls.has(e.sourceUrl));
-
-    console.log(`[web-search] After geo filter: ${filteredSearch.length} results, ${filteredEvents.length} events`);
+    console.log(`[web-search] After geo filter: ${filteredSearch.length} results`);
 
     if (filteredSearch.length > 0) {
-      return { searchResults: filteredSearch, extractedEvents: filteredEvents };
+      return { searchResults: filteredSearch };
     }
 
-    // Tavily returned nothing — try Serper fallback (search-only, no extraction)
+    // Tavily returned nothing — try Serper fallback (search-only)
     if (process.env.SERPER_API_KEY) {
       console.warn("[web-search] Tavily returned no results, falling back to Serper");
       const serperRaw = await searchWithSerper(queries, cacheKey, countryUpper.toLowerCase());
       const serperFiltered = filterWrongCountryResults(serperRaw, countryUpper);
-      return { searchResults: serperFiltered, extractedEvents: [] };
+      return { searchResults: serperFiltered };
     }
-    return { searchResults: [], extractedEvents: [] };
+    return { searchResults: [] };
   }
 
-  // provider === "serper" (search-only, no extraction)
+  // provider === "serper" (search-only)
   const serperResults = await searchWithSerper(queries, cacheKey, countryUpper.toLowerCase());
   const filtered = filterWrongCountryResults(serperResults, countryUpper);
-  return { searchResults: filtered, extractedEvents: [] };
+  return { searchResults: filtered };
 }
 
 /**
- * Search-only — no Firecrawl extraction.
+ * Search-only — no rawContent.
  * Used by grocery-advisor, deals-finder, and other consumers that only need URLs + snippets.
  */
 export async function searchLocalEvents(

@@ -67,7 +67,7 @@ export function MyTasksPageClient({
     <>
       <PageHeader
         icon={CalendarDays}
-        title="Planificá"
+        title="Organizá"
         actions={
           <div className="flex items-center rounded-lg border bg-muted p-0.5">
             <Button

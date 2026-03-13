@@ -2,36 +2,25 @@
  * Tavily client — web search for relax suggestions.
  *
  * Flow:
- *   1. Tavily Search (advanced) → URLs + snippets            [2 credits/query]
- *   2. Firecrawl LLM Extract → structured events per URL     [5 credits/URL]
+ *   1. Tavily Search (advanced) → URLs + snippets + rawContent  [2 credits/query]
+ *   2. Curator LLM curates results using rawContent (no Firecrawl)
  *
  * Tavily free tier: 1000 credits/month.
- * Firecrawl free tier: 500 one-time credits.
  * Graceful: returns [] if no API key or on failure — never blocks the pipeline.
  */
 
 import { tavily } from "@tavily/core";
 import { extractDomain } from "./web-search";
-import { extractEventsFromUrls } from "./firecrawl";
 
 import type { WebSearchResult } from "./web-search";
-import type { ExtractedEvent, ScrapeResult } from "./firecrawl";
 
 // ============================================
 // Types
 // ============================================
 
 export interface SearchAndExtractResult {
-  /** Original search results (for images, source URLs) */
+  /** Original search results (for images, source URLs, rawContent) */
   searchResults: WebSearchResult[];
-  /** Structured events extracted from page content */
-  extractedEvents: ExtractedEventWithSource[];
-}
-
-export interface ExtractedEventWithSource {
-  event: ExtractedEvent;
-  sourceUrl: string;
-  sourceDomain: string;
 }
 
 interface TavilyCacheEntry {
@@ -66,9 +55,6 @@ const SNIPPET_MAX_LENGTH = 500;
 
 /** Max total results after dedup across all queries */
 const MAX_SEARCH_RESULTS = 10;
-
-/** Max URLs to send to Firecrawl for LLM extraction (5 credits each) */
-const MAX_EXTRACT_URLS = 5;
 
 /**
  * Domains excluded from Tavily search results.
@@ -110,10 +96,10 @@ export const EXCLUDED_DOMAINS_RESTAURANTS = [
 ];
 
 /**
- * Domains skipped for Firecrawl extraction — their content is too large/generic
- * but their snippets from search are still useful for curator context.
+ * Domains whose rawContent is too large/generic to send to the curator —
+ * their snippets from search are still useful for context.
  */
-const SKIP_EXTRACT_DOMAINS = [
+const SKIP_RAW_CONTENT_DOMAINS = [
   "instagram.com",
   "facebook.com",
   "twitter.com",
@@ -135,11 +121,12 @@ const tavilySearchOnlyCache = new Map<string, TavilySearchOnlyCacheEntry>();
 // ============================================
 
 /**
- * Search with Tavily, then extract structured events with Firecrawl.
+ * Search with Tavily and return results with rawContent for the curator.
  *
- * Step 1: Tavily advanced search → URLs + snippets
- * Step 2: Firecrawl LLM extract → structured events from each page
- * Step 3: Flatten events with source URLs
+ * Step 1: Tavily advanced search with includeRawContent → URLs + snippets + markdown
+ * Step 2: Filter social media / homepage rawContent
+ *
+ * The curator LLM (relax-finder) uses rawContent directly — no Firecrawl needed.
  */
 export async function searchAndExtract(
   queries: string[],
@@ -149,7 +136,7 @@ export async function searchAndExtract(
   excludeDomains?: string[]
 ): Promise<SearchAndExtractResult> {
   const apiKey = process.env.TAVILY_API_KEY;
-  if (!apiKey) return { searchResults: [], extractedEvents: [] };
+  if (!apiKey) return { searchResults: [] };
 
   const cached = tavilyCache.get(cacheKey);
   if (cached && Date.now() < cached.expiresAt) {
@@ -159,10 +146,10 @@ export async function searchAndExtract(
   try {
     const client = tavily({ apiKey });
 
-    // Step 1: Search — get URLs + snippets
+    // Search with rawContent enabled
     const perQuery = maxResultsPerQuery ?? MAX_SEARCH_RESULTS;
     const queryResults = await Promise.all(
-      queries.map((query) => runSearch(client, query, country, perQuery, excludeDomains))
+      queries.map((query) => runSearch(client, query, country, perQuery, excludeDomains, true))
     );
 
     // Merge, deduplicate by URL — take top N per query to ensure category diversity
@@ -181,31 +168,22 @@ export async function searchAndExtract(
       }
     }
 
-    console.log(`[tavily] search: ${searchResults.length} results`);
+    // Strip rawContent from social media / homepage URLs (too noisy)
+    for (const result of searchResults) {
+      if (SKIP_RAW_CONTENT_DOMAINS.some((d) => result.source.includes(d)) || isHomepageUrl(result.url)) {
+        result.rawContent = null;
+      }
+    }
 
-    // Step 2: Extract structured events with Firecrawl
-    // Filter out social media, homepages, and cap at MAX_EXTRACT_URLS
-    const urlsToExtract = searchResults
-      .filter((r) => !SKIP_EXTRACT_DOMAINS.some((d) => r.source.includes(d)))
-      .filter((r) => !isHomepageUrl(r.url))
-      .map((r) => r.url)
-      .slice(0, MAX_EXTRACT_URLS);
+    const withContent = searchResults.filter((r) => r.rawContent).length;
+    console.log(`[tavily] search: ${searchResults.length} results (${withContent} with rawContent)`);
 
-    console.log(`[tavily] extracting events from ${urlsToExtract.length} URLs with Firecrawl`);
-
-    const scrapeResults = await extractEventsFromUrls(urlsToExtract);
-
-    // Step 3: Flatten events with source info
-    const extractedEvents = flattenEvents(scrapeResults);
-
-    console.log(`[tavily] ${extractedEvents.length} events extracted from ${scrapeResults.length} URLs`);
-
-    const result = { searchResults, extractedEvents };
-    tavilyCache.set(cacheKey, { data: result, expiresAt: Date.now() + TAVILY_CACHE_TTL_MS });
-    return result;
+    const data = { searchResults };
+    tavilyCache.set(cacheKey, { data, expiresAt: Date.now() + TAVILY_CACHE_TTL_MS });
+    return data;
   } catch (error) {
     console.error("[tavily] Search+Extract failed:", error);
-    return { searchResults: [], extractedEvents: [] };
+    return { searchResults: [] };
   }
 }
 
@@ -214,7 +192,7 @@ export async function searchAndExtract(
 // ============================================
 
 /**
- * Search-only Tavily query — no Firecrawl extraction.
+ * Search-only Tavily query — no rawContent.
  * Used by consumers that only need URLs + snippets (grocery, deals, etc.).
  */
 export async function searchWithTavily(
@@ -279,23 +257,6 @@ function isHomepageUrl(url: string): boolean {
   }
 }
 
-function flattenEvents(scrapeResults: ScrapeResult[]): ExtractedEventWithSource[] {
-  const events: ExtractedEventWithSource[] = [];
-
-  for (const result of scrapeResults) {
-    const domain = extractDomain(result.url);
-    for (const event of result.events) {
-      events.push({
-        event,
-        sourceUrl: result.url,
-        sourceDomain: domain,
-      });
-    }
-  }
-
-  return events;
-}
-
 // ============================================
 // Search
 // ============================================
@@ -306,7 +267,8 @@ async function runSearch(
   query: string,
   country?: string,
   maxResults = 10,
-  excludeDomains?: string[]
+  excludeDomains?: string[],
+  includeRaw = false,
 ): Promise<WebSearchResult[]> {
   try {
     const controller = new AbortController();
@@ -314,7 +276,7 @@ async function runSearch(
 
     const response = await client.search(query, {
       searchDepth: "advanced",
-      includeRawContent: false,
+      includeRawContent: includeRaw ? "markdown" : false,
       includeImages: true,
       maxResults,
       topic: "general",
@@ -344,7 +306,7 @@ async function runSearch(
       snippet: r.content.length > SNIPPET_MAX_LENGTH
         ? `${r.content.slice(0, SNIPPET_MAX_LENGTH)}...`
         : r.content,
-      rawContent: null,
+      rawContent: (includeRaw ? (r as TavilySearchResult & { rawContent?: string }).rawContent : null) ?? null,
       url: r.url,
       source: extractDomain(r.url),
       imageUrl: imageByDomain.get(extractDomain(r.url)) ?? null,

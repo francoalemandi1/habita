@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { issueMobileTokenPair } from "@/lib/mobile-auth";
 import { handleApiError } from "@/lib/api-response";
+import { applyRateLimit } from "@/lib/rate-limit";
 import { mobileExchangeInputSchema } from "@habita/contracts";
 import { verifyGoogleIdToken } from "@/lib/google-id-token";
 import { exchangeGoogleAuthCode } from "@/lib/google-auth-code";
@@ -10,6 +11,9 @@ import type { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimited = await applyRateLimit(request, "auth");
+    if (rateLimited) return rateLimited;
+
     const body = (await request.json()) as unknown;
     const parsed = mobileExchangeInputSchema.safeParse(body);
     if (!parsed.success) {
@@ -61,7 +65,6 @@ export async function POST(request: NextRequest) {
             type: "oauth",
             provider: "google",
             providerAccountId: identity.providerAccountId,
-            id_token: parsed.data.idToken,
           },
         });
         return userByEmail;
@@ -78,7 +81,6 @@ export async function POST(request: NextRequest) {
               type: "oauth",
               provider: "google",
               providerAccountId: identity.providerAccountId,
-              id_token: parsed.data.idToken,
             },
           },
         },

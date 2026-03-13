@@ -23,8 +23,8 @@ import type { ThemeColors } from "@/theme";
 
 const TAB_CONFIG: Record<string, { Icon: LucideIcon; label: string }> = {
   dashboard: { Icon: Home, label: "Habita" },
-  tasks: { Icon: ClipboardCheck, label: "Planificá" },
-  balance: { Icon: Receipt, label: "Registrá" },
+  tasks: { Icon: ClipboardCheck, label: "Organizá" },
+  balance: { Icon: Receipt, label: "Controlá" },
   compras: { Icon: ShoppingCart, label: "Ahorrá" },
 };
 
@@ -255,8 +255,8 @@ export default function AppLayout() {
       >
         {/* ── Tabs (visible in tab bar) ── */}
         <Tabs.Screen name="dashboard" options={{ title: "Habita" }} />
-        <Tabs.Screen name="tasks" options={{ title: "Planificá" }} />
-        <Tabs.Screen name="balance" options={{ title: "Registrá" }} />
+        <Tabs.Screen name="tasks" options={{ title: "Organizá" }} />
+        <Tabs.Screen name="balance" options={{ title: "Controlá" }} />
         <Tabs.Screen name="compras" options={{ title: "Ahorrá" }} />
 
         {/* ── "Más" screens (accessible via bottom sheet) ── */}

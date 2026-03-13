@@ -1227,7 +1227,7 @@ export default function ExpensesScreen() {
       <ScreenHeader />
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Registrá</Text>
+        <Text style={styles.headerTitle}>Controlá</Text>
         <Pressable onPress={() => router.push("/(app)/new-expense")} style={styles.addBtn} hitSlop={4}>
           <Plus size={16} color={colors.white} strokeWidth={2.5} />
           <Text style={styles.addBtnText}>Nuevo gasto</Text>

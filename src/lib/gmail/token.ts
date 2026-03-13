@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { encrypt, decryptOrPassthrough } from "@/lib/encryption";
 
 interface GoogleRefreshResponse {
   access_token: string;
@@ -25,7 +26,7 @@ export async function getGmailAccessToken(userId: string): Promise<string | null
   const isExpired = connection.expiresAt < nowEpoch + EXPIRY_MARGIN_SECONDS;
 
   if (!isExpired) {
-    return connection.accessToken;
+    return decryptOrPassthrough(connection.accessToken);
   }
 
   // Token expired — refresh it
@@ -33,13 +34,15 @@ export async function getGmailAccessToken(userId: string): Promise<string | null
     return null;
   }
 
+  const decryptedRefreshToken = decryptOrPassthrough(connection.refreshToken);
+
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       client_id: process.env.GOOGLE_CLIENT_ID!,
       client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-      refresh_token: connection.refreshToken,
+      refresh_token: decryptedRefreshToken,
       grant_type: "refresh_token",
     }),
   });
@@ -57,7 +60,7 @@ export async function getGmailAccessToken(userId: string): Promise<string | null
   await prisma.gmailConnection.update({
     where: { userId },
     data: {
-      accessToken: tokens.access_token,
+      accessToken: encrypt(tokens.access_token),
       expiresAt: newExpiresAt,
     },
   });

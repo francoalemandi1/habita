@@ -3,25 +3,33 @@
 import { LoadingScreen } from "@/components/features/loading-screen";
 import { OnboardingLayout } from "@/components/features/onboarding/onboarding-layout";
 import { StepHeader } from "@/components/features/onboarding/step-header";
+import { CatalogTaskItem } from "@/components/features/onboarding/catalog-task-item";
+import { ONBOARDING_CATALOG } from "@/data/onboarding-catalog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InviteShareBlock } from "@/components/features/invite-share-block";
-import { useGeolocation } from "@/hooks/use-geolocation";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 import {
   Sparkles,
   ClipboardList,
   ChefHat,
-  MapPin,
+  Compass,
   Receipt,
   ShoppingCart,
   Bell,
-  Loader2,
-  MapPinned,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
-type StepId = "features" | "householdType" | "setup" | "creating" | "invite" | "join";
+import type { OnboardingCatalogTask } from "@/data/onboarding-catalog";
+
+type StepId = "features" | "householdType" | "setup" | "tasks" | "creating" | "notifications" | "invite" | "join";
+
+const PROGRESS_STEPS = ["householdType", "setup", "tasks"];
+
+const ESSENTIAL_TASKS = new Set([
+  "Lavar platos", "Limpiar cocina", "Barrer", "Sacar basura", "Hacer cama",
+]);
 
 const LOADING_MESSAGES_SOLO = [
   "Preparando tu hogar...",
@@ -34,6 +42,12 @@ const LOADING_MESSAGES_SHARED = [
   "Preparando todo para el equipo...",
   "Casi listo...",
 ];
+
+// Build a flat lookup for catalog tasks
+const CATALOG_FLAT = ONBOARDING_CATALOG.flatMap((c) => c.tasks);
+function findCatalogTask(name: string): OnboardingCatalogTask | undefined {
+  return CATALOG_FLAT.find((t) => t.name === name);
+}
 
 function OnboardingLoading() {
   return (
@@ -54,7 +68,7 @@ export default function OnboardingPage() {
 function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { location: geoLocation, isLoading: geoLoading } = useGeolocation();
+  const { isSupported: pushSupported, permission: pushPermission, subscribe: pushSubscribe } = usePushNotifications();
 
   const [step, setStep] = useState<StepId>("features");
   const [stepDirection, setStepDirection] = useState<"forward" | "back">("forward");
@@ -69,10 +83,8 @@ function OnboardingContent() {
   const [inviteCode, setInviteCode] = useState("");
   const [createdInviteCode, setCreatedInviteCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [hasInviteCode, setHasInviteCode] = useState(false);
   const [isSoloMode, setIsSoloMode] = useState(false);
-
-  const [cityInput, setCityInput] = useState("");
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(() => new Set(ESSENTIAL_TASKS));
 
   const [createLoading, setCreateLoading] = useState(false);
   const [joinLoading, setJoinLoading] = useState(false);
@@ -80,7 +92,6 @@ function OnboardingContent() {
 
   useEffect(() => {
     if (searchParams.get("mode") === "join") {
-      setHasInviteCode(true);
       goToStep("join", "forward");
     }
   }, [searchParams]);
@@ -102,9 +113,12 @@ function OnboardingContent() {
 
   const loadingMessages = isSoloMode ? LOADING_MESSAGES_SOLO : LOADING_MESSAGES_SHARED;
 
-  const handleUseMyLocation = () => {
-    if (geoLocation?.city) {
-      setCityInput(geoLocation.city);
+  const goToNotificationsOrDashboard = () => {
+    if (pushSupported && pushPermission === "default") {
+      goToStep("notifications", "forward");
+    } else {
+      router.refresh();
+      router.push("/dashboard");
     }
   };
 
@@ -119,37 +133,26 @@ function OnboardingContent() {
     }, 1500);
 
     try {
-      // Build location: prefer browser coords if available, fall back to manual city
-      const hasCoords = geoLocation && geoLocation.latitude !== 0;
-      const city = cityInput.trim() || geoLocation?.city || "";
-      const location = hasCoords
-        ? {
-            latitude: geoLocation.latitude,
-            longitude: geoLocation.longitude,
-            timezone: geoLocation.timezone,
-            country: geoLocation.country,
-            city,
-          }
-        : city
-          ? {
-              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-              city,
-            }
-          : undefined;
+      const tasksToCreate = Array.from(selectedTasks).map((name) => {
+        const found = findCatalogTask(name);
+        return {
+          name,
+          frequency: found?.defaultFrequency.toUpperCase() ?? "WEEKLY",
+          weight: found?.defaultWeight ?? 2,
+          estimatedMinutes: found?.estimatedMinutes ?? 15,
+        };
+      });
 
-      const [res] = await Promise.all([
-        fetch("/api/households/onboarding", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            householdName: householdName.trim() || `${memberName.trim()}'s Home`,
-            memberName: memberName.trim() || undefined,
-            memberType: "adult",
-            ...(location && { location }),
-          }),
+      const res = await fetch("/api/households/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          householdName: householdName.trim() || `Casa de ${memberName.trim() || "Mi hogar"}`,
+          memberName: memberName.trim() || undefined,
+          memberType: "adult",
+          tasks: tasksToCreate,
         }),
-        new Promise((resolve) => setTimeout(resolve, 3000)),
-      ]);
+      });
 
       const data = (await res.json()) as {
         household?: { inviteCode?: string };
@@ -161,15 +164,14 @@ function OnboardingContent() {
       }
 
       if (isSoloMode) {
-        router.refresh();
-        router.push("/dashboard");
+        goToNotificationsOrDashboard();
       } else if (data.household?.inviteCode) {
         setCreatedInviteCode(data.household.inviteCode);
         goToStep("invite", "forward");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al crear el hogar");
-      goToStep("setup", "back");
+      goToStep("tasks", "back");
     } finally {
       clearInterval(messageInterval);
       setCreateLoading(false);
@@ -202,8 +204,7 @@ function OnboardingContent() {
         throw new Error(data.error ?? "Error al unirse");
       }
 
-      router.refresh();
-      router.push("/dashboard");
+      goToNotificationsOrDashboard();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al unirse");
     } finally {
@@ -216,7 +217,81 @@ function OnboardingContent() {
     router.push("/dashboard");
   };
 
+  const handleToggleTask = (taskName: string) => {
+    setSelectedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskName)) next.delete(taskName);
+      else next.add(taskName);
+      return next;
+    });
+  };
+
   const stepAnimationClass = stepDirection === "forward" ? "animate-step-enter" : "animate-step-enter-reverse";
+
+  /* ─── Step: features (intro splash) ─── */
+  if (step === "features") {
+    const FEATURES = [
+      { icon: <ClipboardList className="size-4" />, label: "Organizá las tareas" },
+      { icon: <Receipt className="size-4" />, label: "Controlá los gastos" },
+      { icon: <ShoppingCart className="size-4" />, label: "Ahorrá en el super" },
+      { icon: <ChefHat className="size-4" />, label: "Cociná con recetas" },
+      { icon: <Compass className="size-4" />, label: "Descubrí planes" },
+      { icon: <Bell className="size-4" />, label: "Notificaciones inteligentes" },
+    ];
+
+    return (
+      <div key="features" className={stepAnimationClass}>
+        <div className="flex min-h-screen w-full flex-col items-center bg-brand-primary-light px-6">
+          <div className="flex flex-1 flex-col items-center justify-center gap-8 py-12">
+            <div className="text-center">
+              <h1 className="text-[80px] font-bold leading-none tracking-tighter text-brand-lime sm:text-[98px]">
+                Habita
+              </h1>
+              <p className="mt-3 flex items-center justify-center gap-1.5 text-base text-background/90 sm:text-lg">
+                Tu hogar, coordinado
+                <Sparkles className="size-4 text-brand-lime" />
+              </p>
+            </div>
+
+            <div className="flex flex-wrap justify-center gap-2">
+              {FEATURES.map((f) => (
+                <div
+                  key={f.label}
+                  className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-sm font-medium text-white"
+                >
+                  {f.icon}
+                  {f.label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="w-full max-w-xs pb-12 sm:max-w-sm">
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                goToStep("householdType", "forward");
+              }}
+              className="w-full rounded-full bg-white py-4 text-base font-bold text-primary transition-all duration-200 active:scale-[0.98]"
+            >
+              Comenzar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                goToStep("join", "forward");
+              }}
+              className="mt-4 w-full rounded-full border-2 border-white bg-transparent py-4 text-base font-bold text-white transition-all duration-200 active:scale-[0.98]"
+            >
+              Tengo un código de invitación
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /* ─── Step: householdType (solo vs shared) ─── */
   if (step === "householdType") {
@@ -225,6 +300,7 @@ function OnboardingContent() {
         <OnboardingLayout
           onBack={() => { setError(null); goToStep("features", "back"); }}
           showContinue={false}
+          progress={{ steps: PROGRESS_STEPS, currentStep: "householdType" }}
         >
           <div className="space-y-6">
             <StepHeader
@@ -267,15 +343,16 @@ function OnboardingContent() {
     );
   }
 
-  /* ─── Step: setup (household name + location + context) ─── */
+  /* ─── Step: setup (member name + household name) ─── */
   if (step === "setup") {
     return (
       <div key="setup" className={stepAnimationClass}>
         <OnboardingLayout
           onBack={() => { setError(null); goToStep("householdType", "back"); }}
-          onContinue={handleCreateHousehold}
-          continueLabel="Crear mi hogar"
-          continueLoading={createLoading}
+          onContinue={() => { setError(null); goToStep("tasks", "forward"); }}
+          continueLabel="Continuar"
+          continueDisabled={!memberName.trim()}
+          progress={{ steps: PROGRESS_STEPS, currentStep: "setup" }}
         >
           <div className="space-y-6">
             <StepHeader
@@ -283,48 +360,25 @@ function OnboardingContent() {
               subtitle={isSoloMode ? "Dale un nombre a tu espacio" : "Datos básicos para empezar"}
             />
 
-            {/* Household name */}
             <div className="space-y-1">
-              <label className="text-sm text-foreground">Nombre del hogar</label>
+              <label className="text-sm text-foreground">Tu nombre</label>
               <Input
-                placeholder={`ej. Casa de ${memberName || "Pepito"}`}
+                placeholder="Ej: Franco"
+                value={memberName}
+                onChange={(e) => setMemberName(e.target.value)}
+                maxLength={50}
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm text-foreground">Nombre del hogar (opcional)</label>
+              <Input
+                placeholder={memberName ? `Casa de ${memberName}` : "Ej: Casa de los García"}
                 value={householdName}
                 onChange={(e) => setHouseholdName(e.target.value)}
                 maxLength={50}
               />
-            </div>
-
-            {/* City / Location */}
-            <div className="space-y-1">
-              <label className="text-sm text-foreground">Ciudad</label>
-              <p className="text-xs text-muted-foreground">
-                Para recomendarte eventos, ofertas y actividades cerca tuyo
-              </p>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="ej. Buenos Aires"
-                  value={cityInput}
-                  onChange={(e) => setCityInput(e.target.value)}
-                  maxLength={100}
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0 gap-1.5"
-                  onClick={handleUseMyLocation}
-                  disabled={geoLoading || !geoLocation?.city}
-                >
-                  {geoLoading ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <MapPinned className="size-4" />
-                  )}
-                  <span className="hidden sm:inline">Usar mi ubicación</span>
-                  <span className="sm:hidden">Ubicar</span>
-                </Button>
-              </div>
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
@@ -334,73 +388,45 @@ function OnboardingContent() {
     );
   }
 
-  /* ─── Step: features (intro splash) ─── */
-  if (step === "features") {
-    const FEATURES = [
-      { icon: <ClipboardList className="size-4" />, label: "Tareas automáticas" },
-      { icon: <Receipt className="size-4" />, label: "Gastos compartidos" },
-      { icon: <ShoppingCart className="size-4" />, label: "Ahorrá en el super" },
-      { icon: <ChefHat className="size-4" />, label: "Recetas personalizadas" },
-      { icon: <MapPin className="size-4" />, label: "Eventos y salidas" },
-      { icon: <Bell className="size-4" />, label: "Notificaciones inteligentes" },
-    ];
-
+  /* ─── Step: tasks (catalog selection) ─── */
+  if (step === "tasks") {
     return (
-      <div key="features" className={stepAnimationClass}>
-        <div className="flex min-h-screen w-full flex-col items-center bg-brand-primary-light px-6">
-          {/* Content — centrado verticalmente */}
-          <div className="flex flex-1 flex-col items-center justify-center gap-8 py-12">
-            {/* Brand */}
-            <div className="text-center">
-              <h1 className="text-[80px] font-bold leading-none tracking-tighter text-brand-lime sm:text-[98px]">
-                Hábita
-              </h1>
-              <p className="mt-3 flex items-center justify-center gap-1.5 text-base text-background/90 sm:text-lg">
-                Tu hogar, coordinado
-                <Sparkles className="size-4 text-brand-lime" />
-              </p>
-            </div>
+      <div key="tasks" className={stepAnimationClass}>
+        <OnboardingLayout
+          onBack={() => { setError(null); goToStep("setup", "back"); }}
+          onContinue={handleCreateHousehold}
+          continueLabel={selectedTasks.size > 0 ? `Crear mi hogar (${selectedTasks.size} tareas)` : "Crear mi hogar"}
+          continueLoading={createLoading}
+          progress={{ steps: PROGRESS_STEPS, currentStep: "tasks" }}
+        >
+          <div className="space-y-6">
+            <StepHeader
+              title="¿Qué tareas hacen en tu hogar?"
+              subtitle="Seleccioná las que apliquen — después podés agregar más"
+            />
 
-            {/* Feature pills */}
-            <div className="flex flex-wrap justify-center gap-2">
-              {FEATURES.map((f) => (
-                <div
-                  key={f.label}
-                  className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-sm font-medium text-white"
-                >
-                  {f.icon}
-                  {f.label}
+            <div className="space-y-5">
+              {ONBOARDING_CATALOG.map((category) => (
+                <div key={category.category}>
+                  <p className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <span>{category.icon}</span> {category.label}
+                  </p>
+                  <div>
+                    {category.tasks.map((task) => (
+                      <CatalogTaskItem
+                        key={task.name}
+                        task={{ ...task, selected: selectedTasks.has(task.name) }}
+                        onToggle={() => handleToggleTask(task.name)}
+                      />
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
 
-          {/* CTAs — pegados al fondo */}
-          <div className="w-full max-w-xs pb-12 sm:max-w-sm">
-            <button
-              type="button"
-              onClick={() => {
-                setError(null);
-                setHasInviteCode(false);
-                goToStep("householdType", "forward");
-              }}
-              className="w-full rounded-full bg-white py-4 text-base font-bold text-primary transition-all duration-200 active:scale-[0.98]"
-            >
-              Comenzar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setError(null);
-                setHasInviteCode(true);
-                goToStep("join", "forward");
-              }}
-              className="mt-4 w-full rounded-full border-2 border-white bg-transparent py-4 text-base font-bold text-white transition-all duration-200 active:scale-[0.98]"
-            >
-              Tengo un código de invitación
-            </button>
+            {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
           </div>
-        </div>
+        </OnboardingLayout>
       </div>
     );
   }
@@ -410,12 +436,75 @@ function OnboardingContent() {
     return <LoadingScreen message={loadingMessages[loadingMessageIndex] ?? "Creando hogar..."} />;
   }
 
+  /* ─── Step: invite (success — shared mode) ─── */
+  if (step === "invite" && createdInviteCode) {
+    return (
+      <div key="invite" className={stepAnimationClass}>
+        <OnboardingLayout
+          onContinue={goToNotificationsOrDashboard}
+          continueLabel="Continuar"
+        >
+          <div className="space-y-6">
+            <StepHeader
+              title="¡Hogar creado!"
+              subtitle="Invitá a tu familia a unirse"
+            />
+
+            <InviteShareBlock
+              inviteCode={createdInviteCode}
+              householdName={householdName || memberName}
+            />
+          </div>
+        </OnboardingLayout>
+      </div>
+    );
+  }
+
+  /* ─── Step: notifications (push opt-in) ─── */
+  if (step === "notifications") {
+    return (
+      <div key="notifications" className={stepAnimationClass}>
+        <OnboardingLayout showContinue={false}>
+          <div className="space-y-6 py-8 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+              <Bell className="size-8 text-primary" />
+            </div>
+            <StepHeader
+              title="¿Activamos las notificaciones?"
+              subtitle="Te avisamos sobre tareas pendientes, gastos compartidos y recordatorios del hogar"
+            />
+            <div className="space-y-3">
+              <Button
+                size="lg"
+                className="w-full gap-2"
+                onClick={async () => {
+                  await pushSubscribe();
+                  handleContinueToApp();
+                }}
+              >
+                <Bell className="size-4" />
+                Activar notificaciones
+              </Button>
+              <button
+                type="button"
+                onClick={handleContinueToApp}
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Ahora no
+              </button>
+            </div>
+          </div>
+        </OnboardingLayout>
+      </div>
+    );
+  }
+
   /* ─── Step: join ─── */
   if (step === "join") {
     return (
       <div key="join" className={stepAnimationClass}>
         <OnboardingLayout
-          onBack={() => { setError(null); setHasInviteCode(false); goToStep("features", "back"); }}
+          onBack={() => { setError(null); goToStep("features", "back"); }}
           showContinue={false}
         >
           <div className="space-y-4">
@@ -450,30 +539,6 @@ function OnboardingContent() {
                 {joinLoading ? "Uniendo..." : "Unirse"}
               </Button>
             </form>
-          </div>
-        </OnboardingLayout>
-      </div>
-    );
-  }
-
-  /* ─── Step: invite (success) ─── */
-  if (step === "invite" && createdInviteCode) {
-    return (
-      <div key="invite" className={stepAnimationClass}>
-        <OnboardingLayout
-          onContinue={handleContinueToApp}
-          continueLabel="Continuar a la app"
-        >
-          <div className="space-y-6">
-            <StepHeader
-              title="¡Hogar creado!"
-              subtitle="Invitá a tu familia a unirse"
-            />
-
-            <InviteShareBlock
-              inviteCode={createdInviteCode}
-              householdName={householdName || memberName}
-            />
           </div>
         </OnboardingLayout>
       </div>

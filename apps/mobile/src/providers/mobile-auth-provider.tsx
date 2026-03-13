@@ -5,6 +5,7 @@ import {
   clearMobileSession,
   getMobileSessionSnapshot,
   getOrCreateDeviceId,
+  migrateTokensToSecureStore,
   setActiveHousehold,
   setMobileTokens,
 } from "@/lib/storage";
@@ -42,6 +43,7 @@ export function MobileAuthProvider({ children }: MobileAuthProviderProps) {
 
   const hydrate = useCallback(async () => {
     setIsBootstrapping(true);
+    await migrateTokensToSecureStore();
     const session = await getMobileSessionSnapshot();
     setActiveHouseholdIdState(session.householdId);
 

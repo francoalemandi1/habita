@@ -86,7 +86,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (!validation.success) {
       return NextResponse.json(
-        { error: "Datos inválidos", details: validation.error.flatten().fieldErrors },
+        { error: validation.error.errors[0]?.message ?? "Datos inválidos" },
         { status: 400 },
       );
     }

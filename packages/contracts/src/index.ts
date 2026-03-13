@@ -22,5 +22,6 @@ export * from "./suggest-tasks";
 export * from "./task-catalog";
 export * from "./grocery-deals";
 export * from "./ai-jobs";
+export * from "./health-score";
 export { queryKeys } from "./query-keys";
 export { POLL_INTERVAL_MS } from "./constants";

@@ -6,6 +6,7 @@ import { AppNav } from "@/components/features/app-nav";
 import { AppNavMobile } from "@/components/features/app-nav-mobile";
 import { HouseholdSwitcher } from "@/components/features/household-switcher";
 import { AiJobWatcher } from "@/components/features/ai-job-watcher";
+import { HabitaLogo } from "@/components/ui/habita-logo";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -31,9 +32,12 @@ export default async function MainLayout({ children }: MainLayoutProps) {
           <div className="flex min-w-0 items-center gap-2">
             <Link
               href="/dashboard"
-              className="shrink-0 text-lg font-bold tracking-tight text-foreground"
+              className="flex shrink-0 items-center gap-2"
             >
-              Habita
+              <HabitaLogo size={28} className="rounded-md" />
+              <span className="text-lg font-bold tracking-tight text-foreground">
+                {member.household.name}
+              </span>
             </Link>
             <HouseholdSwitcher
               households={households}

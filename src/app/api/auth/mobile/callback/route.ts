@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { issueMobileTokenPair } from "@/lib/mobile-auth";
+import { createMobileAuthCode } from "@/lib/mobile-auth";
 import { verifyGoogleIdToken } from "@/lib/google-id-token";
 import { handleApiError } from "@/lib/api-response";
 
@@ -83,7 +83,6 @@ export async function GET(request: NextRequest) {
             type: "oauth",
             provider: "google",
             providerAccountId: identity.providerAccountId,
-            id_token: tokenData.id_token,
           },
         });
         return userByEmail;
@@ -100,16 +99,15 @@ export async function GET(request: NextRequest) {
               type: "oauth",
               provider: "google",
               providerAccountId: identity.providerAccountId,
-              id_token: tokenData.id_token,
             },
           },
         },
       });
     });
 
-    const tokens = await issueMobileTokenPair({ userId: user.id, deviceId: null });
+    const authCode = createMobileAuthCode(user.id);
 
-    return redirectToApp({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
+    return redirectToApp({ code: authCode });
   } catch (error) {
     return handleApiError(error, { route: "/api/auth/mobile/callback", method: "GET" });
   }

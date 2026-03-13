@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, KeyRound, Users } from "lucide-react-native";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
@@ -8,6 +8,7 @@ import { useJoinHousehold } from "@/hooks/use-households";
 import { StyledTextInput } from "@/components/ui/text-input";
 import { Button } from "@/components/ui/button";
 import { colors, fontFamily, radius, spacing, typography } from "@/theme";
+import { HabitaLogo } from "@/components/ui/habita-logo";
 
 export default function JoinHouseholdScreen() {
   const { hydrate } = useMobileAuth();
@@ -43,7 +44,7 @@ export default function JoinHouseholdScreen() {
           <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
         </Pressable>
         <View style={styles.headerLogoRow}>
-          <Image source={require("../../assets/logo.png")} style={styles.headerLogoImg} />
+          <HabitaLogo size={28} />
           <Text style={styles.headerBrand}>Habita</Text>
         </View>
         <View style={styles.backBtn} />

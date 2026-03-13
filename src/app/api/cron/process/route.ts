@@ -484,6 +484,298 @@ async function processDealAlerts(): Promise<number> {
 }
 
 /**
+ * processMorningBriefing — sends a consolidated daily push at 8am per household timezone.
+ * Dedup: max 1 DAILY_BRIEFING per household per day.
+ */
+async function processMorningBriefing(): Promise<number> {
+  const now = new Date();
+  let sent = 0;
+
+  const households = await prisma.household.findMany({
+    where: { members: { some: { isActive: true } } },
+    select: { id: true, timezone: true },
+  });
+
+  for (const hh of households) {
+    const tz = hh.timezone ?? "America/Argentina/Buenos_Aires";
+
+    // Get local hour in household timezone
+    const localHour = parseInt(
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        hour: "numeric",
+        hour12: false,
+      }).format(now),
+      10,
+    );
+
+    // Only send between 7:45 and 8:30 (catches cron runs slightly off schedule)
+    if (localHour < 7 || localHour > 8) continue;
+
+    // Get start of today in household timezone
+    const localDateStr = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(now); // YYYY-MM-DD
+    const startOfLocalDay = new Date(`${localDateStr}T00:00:00`);
+
+    // Dedup: skip if already sent today
+    const alreadySent = await prisma.notification.findFirst({
+      where: {
+        type: "DAILY_BRIEFING",
+        createdAt: { gte: startOfLocalDay },
+        member: { householdId: hh.id },
+      },
+      select: { id: true },
+    });
+
+    if (alreadySent) continue;
+
+    // Gather data in parallel
+    const endOfLocalDay = new Date(startOfLocalDay.getTime() + 24 * 60 * 60 * 1000);
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+    const [pendingToday, unsettledBalance, servicesDueSoon, topDeal] = await Promise.all([
+      prisma.assignment.count({
+        where: {
+          householdId: hh.id,
+          status: "PENDING",
+          dueDate: { gte: now, lte: endOfLocalDay },
+        },
+      }),
+      prisma.expenseSplit.aggregate({
+        where: {
+          settled: false,
+          expense: { householdId: hh.id },
+        },
+        _sum: { amount: true },
+      }),
+      prisma.service.count({
+        where: {
+          householdId: hh.id,
+          isActive: true,
+          nextDueDate: { lte: threeDaysFromNow },
+        },
+      }),
+      prisma.bankPromo.findFirst({
+        where: {
+          householdId: hh.id,
+          discountPercent: { gt: 30 },
+          validUntil: { gte: now },
+        },
+        orderBy: { discountPercent: "desc" },
+        select: { storeName: true, discountPercent: true },
+      }),
+    ]);
+
+    // Build prioritized message (max 3 items)
+    const items: string[] = [];
+
+    if (pendingToday > 0) {
+      items.push(`${pendingToday} tarea${pendingToday > 1 ? "s" : ""} para hoy`);
+    }
+    if (servicesDueSoon > 0) {
+      items.push(`${servicesDueSoon} servicio${servicesDueSoon > 1 ? "s" : ""} vencen pronto`);
+    }
+    const balance = unsettledBalance._sum.amount?.toNumber() ?? 0;
+    if (balance > 0) {
+      items.push(`$${balance.toLocaleString("es-AR")} en gastos pendientes de saldar`);
+    }
+    if (topDeal && items.length < 3) {
+      items.push(`${topDeal.discountPercent}% off en ${topDeal.storeName}`);
+    }
+
+    if (items.length === 0) continue;
+
+    const message = items.join(" · ");
+
+    const members = await prisma.member.findMany({
+      where: {
+        householdId: hh.id,
+        isActive: true,
+        memberType: { in: ["ADULT", "TEEN"] },
+      },
+      select: { id: true },
+    });
+
+    if (members.length === 0) continue;
+
+    await deliverNotificationToMembers({
+      memberIds: members.map((m) => m.id),
+      type: "DAILY_BRIEFING",
+      title: "Resumen del día",
+      message,
+      actionUrl: "/dashboard",
+      householdTimezone: hh.timezone,
+    });
+
+    sent += members.length;
+  }
+
+  return sent;
+}
+
+/**
+ * processOverdueTaskAlerts — sends TASK_OVERDUE push for assignments past due date.
+ * Grace period: 4 hours after dueDate. Max 1 alert per assignment.
+ */
+async function processOverdueTaskAlerts(): Promise<number> {
+  const now = new Date();
+  const gracePeriod = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  let sent = 0;
+
+  const overdueAssignments = await prisma.assignment.findMany({
+    where: {
+      status: "PENDING",
+      dueDate: { lt: gracePeriod },
+    },
+    select: {
+      id: true,
+      memberId: true,
+      householdId: true,
+      task: { select: { name: true } },
+    },
+    take: 100,
+  });
+
+  for (const assignment of overdueAssignments) {
+    // Dedup: skip if already sent TASK_OVERDUE for this assignment today
+    const alreadyNotified = await prisma.notification.findFirst({
+      where: {
+        memberId: assignment.memberId,
+        type: "TASK_OVERDUE",
+        createdAt: { gte: startOfToday },
+        metadata: { path: ["assignmentId"], equals: assignment.id },
+      },
+      select: { id: true },
+    });
+
+    if (alreadyNotified) continue;
+
+    const household = await prisma.household.findUnique({
+      where: { id: assignment.householdId },
+      select: { timezone: true },
+    });
+
+    await deliverNotification({
+      memberId: assignment.memberId,
+      type: "TASK_OVERDUE",
+      title: "Tarea vencida",
+      message: `"${assignment.task.name}" está vencida. Completala cuando puedas.`,
+      actionUrl: "/tasks",
+      metadata: { assignmentId: assignment.id },
+      householdTimezone: household?.timezone,
+    });
+
+    sent++;
+  }
+
+  return sent;
+}
+
+/**
+ * processSpendingAnomalyAlerts — sends SPENDING_ALERT when monthly variable spending
+ * exceeds 130% of the 3-month average. Max 1 per household per month.
+ */
+async function processSpendingAnomalyAlerts(): Promise<number> {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const start1MonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const start2MonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  const start3MonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+
+  let sent = 0;
+
+  const households = await prisma.household.findMany({
+    where: { members: { some: { isActive: true } } },
+    select: { id: true, timezone: true },
+  });
+
+  for (const hh of households) {
+    // Dedup: max 1 per household per month
+    const alreadySent = await prisma.notification.findFirst({
+      where: {
+        type: "SPENDING_ALERT",
+        createdAt: { gte: startOfMonth },
+        member: { householdId: hh.id },
+      },
+      select: { id: true },
+    });
+
+    if (alreadySent) continue;
+
+    // Fetch this month + 3-month history in parallel
+    const [thisMonth, month1, month2, month3] = await Promise.all([
+      prisma.expense.aggregate({
+        where: { householdId: hh.id, date: { gte: startOfMonth } },
+        _sum: { amount: true },
+      }),
+      prisma.expense.aggregate({
+        where: { householdId: hh.id, date: { gte: start1MonthAgo, lt: startOfMonth } },
+        _sum: { amount: true },
+      }),
+      prisma.expense.aggregate({
+        where: { householdId: hh.id, date: { gte: start2MonthsAgo, lt: start1MonthAgo } },
+        _sum: { amount: true },
+      }),
+      prisma.expense.aggregate({
+        where: { householdId: hh.id, date: { gte: start3MonthsAgo, lt: start2MonthsAgo } },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const thisMonthTotal = thisMonth._sum.amount?.toNumber() ?? 0;
+    const avg3Months =
+      ((month1._sum.amount?.toNumber() ?? 0) +
+        (month2._sum.amount?.toNumber() ?? 0) +
+        (month3._sum.amount?.toNumber() ?? 0)) /
+      3;
+
+    // Only alert if we have history and current month exceeds 130% of average
+    if (avg3Months < 1000 || thisMonthTotal < avg3Months * 1.3) continue;
+
+    // Find the top category this month
+    const topCategoryRaw = await prisma.expense.groupBy({
+      by: ["category"],
+      where: { householdId: hh.id, date: { gte: startOfMonth } },
+      _sum: { amount: true },
+      orderBy: { _sum: { amount: "desc" } },
+      take: 1,
+    });
+
+    const topCategory = topCategoryRaw[0]?.category ?? null;
+    const pctOver = Math.round(((thisMonthTotal - avg3Months) / avg3Months) * 100);
+
+    const message = topCategory
+      ? `Este mes ya van $${thisMonthTotal.toLocaleString("es-AR")} (+${pctOver}% vs promedio). La categoría con más gasto es ${topCategory.toLowerCase()}.`
+      : `Este mes ya van $${thisMonthTotal.toLocaleString("es-AR")}, un ${pctOver}% más que el promedio de los últimos 3 meses.`;
+
+    const members = await prisma.member.findMany({
+      where: {
+        householdId: hh.id,
+        isActive: true,
+        memberType: { in: ["ADULT", "TEEN"] },
+      },
+      select: { id: true },
+    });
+
+    if (members.length === 0) continue;
+
+    await deliverNotificationToMembers({
+      memberIds: members.map((m) => m.id),
+      type: "SPENDING_ALERT",
+      title: "Gasto del mes por encima del promedio",
+      message,
+      actionUrl: "/expense-insights",
+      householdTimezone: hh.timezone,
+    });
+
+    sent += members.length;
+  }
+
+  return sent;
+}
+
+/**
  * POST /api/cron/process
  * Job programado: (1) redistribución por ausencias, (2) limpieza de notificaciones, (3) push reminders, (4) gastos recurrentes.
  * Protegido por CRON_SECRET.
@@ -499,7 +791,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const [absenceResult, cleanupResult, billingResult, expireResult, mobileAuthCleanup, proactiveResult, culturalResult, dealResult, rotationResult] = await Promise.all([
+    const [absenceResult, cleanupResult, billingResult, expireResult, mobileAuthCleanup, proactiveResult, culturalResult, dealResult, rotationResult, morningBriefingResult, overdueTaskResult, spendingAnomalyResult] = await Promise.all([
       processAbsenceRedistribution(),
       cleanupOldNotifications(),
       processServiceBilling(),
@@ -509,6 +801,9 @@ export async function POST(request: NextRequest) {
       processCulturalRecommendations(),
       processDealAlerts(),
       processRotations(),
+      processMorningBriefing(),
+      processOverdueTaskAlerts(),
+      processSpendingAnomalyAlerts(),
     ]);
 
     // Fire-and-forget: trigger events ingest and grocery-deals in background
@@ -572,6 +867,9 @@ export async function POST(request: NextRequest) {
         expenseWeeklySummary: proactiveResult.expenseWeeklySummary,
         culturalRecommendation: culturalResult,
         dealAlert: dealResult,
+        morningBriefing: morningBriefingResult,
+        overdueTaskAlerts: overdueTaskResult,
+        spendingAnomalyAlerts: spendingAnomalyResult,
       },
       triggeredInBackground: ["events/ingest", "grocery-deals"],
       timestamp: new Date().toISOString(),

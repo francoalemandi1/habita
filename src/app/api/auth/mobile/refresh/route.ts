@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { rotateMobileRefreshToken } from "@/lib/mobile-auth";
 import { handleApiError } from "@/lib/api-response";
+import { applyRateLimit } from "@/lib/rate-limit";
 import { mobileRefreshInputSchema } from "@habita/contracts";
 
 import type { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimited = await applyRateLimit(request, "auth");
+    if (rateLimited) return rateLimited;
+
     const body = (await request.json()) as unknown;
     const parsed = mobileRefreshInputSchema.safeParse(body);
     if (!parsed.success) {

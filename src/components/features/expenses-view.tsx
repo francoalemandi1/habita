@@ -314,7 +314,7 @@ export function ExpensesView({
 
   return (
     <>
-      <PageHeader title="Registrá" />
+      <PageHeader title="Controlá" />
 
       {/* Quick-add dialog (externally controlled) */}
       <AddExpenseDialog

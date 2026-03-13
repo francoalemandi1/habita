@@ -10,7 +10,7 @@ import { normalizeCity } from "@/lib/grocery-deals-scraper";
 
 import type { NextRequest } from "next/server";
 
-const RESTAURANT_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const RESTAURANT_CACHE_TTL_MS = 72 * 60 * 60 * 1000; // 72 hours
 
 const bodySchema = z.object({
   section: z.enum(["activities", "restaurants"]),

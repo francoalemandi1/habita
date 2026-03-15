@@ -46,6 +46,7 @@ export interface RelaxFinderOptions {
   longitude: number;
   timezone: string;
   section: RelaxSection;
+  dietaryHints?: string[];
 }
 
 // ============================================
@@ -447,9 +448,12 @@ function buildCuratorPrompt(
   localHour: number,
   todayIso: string,
 ): string {
-  const { city, country, section } = options;
+  const { city, country, section, dietaryHints } = options;
   const countryName = ISO_TO_COUNTRY_NAME[country.toUpperCase()] ?? country;
   const mealHint = section === "restaurants" ? getMealHint(localHour) : "";
+  const dietaryBlock = section === "restaurants" && dietaryHints && dietaryHints.length > 0
+    ? `\nDietary preferences: The household has these dietary needs: ${dietaryHints.join(", ")}. Prioritize places that accommodate these preferences. Mention in the tip or description when a place is a good fit.\n`
+    : "";
 
   const itemsJson = JSON.stringify(extractedItems.map((item) => ({
     title: item.title,
@@ -480,7 +484,7 @@ ${CURATOR_ROLE[section]}
 ## Context
 ────────────────────────────────
 ${regionalBlock}
-${mealHint}
+${mealHint}${dietaryBlock}
 
 ────────────────────────────────
 ## Input: Web Sources (${extractedItems.length} total)

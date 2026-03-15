@@ -20,12 +20,25 @@ export const createHouseholdInputSchema = z.object({
     country: z.string().max(10).optional(),
   }).optional(),
   tasks: z.array(onboardingTaskSchema).optional(),
+  planningDay: z.number().int().min(0).max(6).nullable().optional(),
+  occupationLevel: z.enum(["BUSY", "MODERATE", "AVAILABLE"]).optional(),
+  onboardingProfile: z.object({
+    dietaryHints: z.array(z.string().max(100)).max(10).default([]),
+    shoppingContext: z.array(z.string().max(200)).max(10).default([]),
+    insights: z.array(z.string().max(500)).max(5).default([]),
+    rawDescription: z.string().max(2000).nullable().default(null),
+    taskReasons: z.array(z.object({
+      taskName: z.string().max(100),
+      reason: z.string().max(200),
+    })).max(20).default([]),
+  }).optional(),
 });
 
 export const joinHouseholdInputSchema = z.object({
   inviteCode: z.string().min(1),
   memberName: z.string().min(1).max(100).optional(),
   memberType: z.enum(["ADULT", "TEEN", "CHILD"]).optional(),
+  occupationLevel: z.enum(["BUSY", "MODERATE", "AVAILABLE"]).optional(),
 });
 
 export const householdResponseSchema = z.object({

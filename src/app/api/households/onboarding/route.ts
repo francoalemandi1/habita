@@ -10,7 +10,7 @@ import { handleApiError } from "@/lib/api-response";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 
 import type { NextRequest } from "next/server";
-import type { MemberType } from "@prisma/client";
+import type { MemberType, Prisma } from "@prisma/client";
 
 const MEMBER_TYPE_MAP: Record<string, MemberType> = {
   adult: "ADULT",
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
 
-    const { householdName, memberName: bodyMemberName, memberType, tasks, location } = validation.data;
+    const { householdName, memberName: bodyMemberName, memberType, tasks, location, planningDay, occupationLevel, onboardingProfile } = validation.data;
     const resolvedType = memberType ?? "adult";
     if (!(resolvedType in MEMBER_TYPE_MAP)) {
       return NextResponse.json(
@@ -85,6 +85,8 @@ export async function POST(request: NextRequest) {
           ...(location?.timezone && { timezone: location.timezone }),
           ...(location?.country && { country: location.country }),
           ...(location?.city && { city: location.city }),
+          ...(planningDay != null && { planningDay }),
+          ...(onboardingProfile && { onboardingProfile: onboardingProfile as Prisma.InputJsonValue }),
         },
       });
 
@@ -94,6 +96,7 @@ export async function POST(request: NextRequest) {
           householdId: household.id,
           name: memberName,
           memberType: prismaMemberType,
+          ...(occupationLevel && { occupationLevel }),
         },
       });
 

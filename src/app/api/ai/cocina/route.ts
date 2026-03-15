@@ -6,6 +6,7 @@ import { isAIEnabled } from "@/lib/llm/provider";
 import { generateRecipeSuggestions } from "@/lib/llm/recipe-finder";
 import { handleApiError } from "@/lib/api-response";
 import { findRunningJob, findRecentSuccessfulJob, markJobRunning, completeJob } from "@/lib/ai-jobs";
+import { parseOnboardingProfile, sanitizeHintsForPrompt } from "@/lib/onboarding-profile";
 
 import type { NextRequest } from "next/server";
 import type { AiJobTriggerResponse } from "@habita/contracts";
@@ -96,6 +97,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response);
     }
 
+    // Extract and sanitize dietary hints from onboarding profile
+    const profile = parseOnboardingProfile(member.household.onboardingProfile);
+    const dietaryHints = sanitizeHintsForPrompt(profile.dietaryHints);
+
     const jobId = await markJobRunning(
       member.householdId,
       member.id,
@@ -116,6 +121,7 @@ export async function POST(request: NextRequest) {
           images,
           householdSize: householdMembers,
           mealType,
+          dietaryHints: dietaryHints.length > 0 ? dietaryHints : undefined,
         });
 
         if (!result) {

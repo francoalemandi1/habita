@@ -1,19 +1,23 @@
 import { useState } from "react";
 import { router } from "expo-router";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   Share,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   ArrowLeft,
   Bell,
-  Check,
+  CalendarDays,
+  CheckCircle2,
   Copy,
+  Lightbulb,
   Sparkles,
   User,
   Users,
@@ -26,16 +30,33 @@ import { Button } from "@/components/ui/button";
 import { colors, fontFamily, radius, spacing, typography } from "@/theme";
 import { HabitaLogo } from "@/components/ui/habita-logo";
 import { mobileConfig } from "@/lib/config";
+import { mobileApi } from "@/lib/api";
 import { registerForPushNotifications } from "@/lib/push-notifications";
 import { ONBOARDING_CATALOG } from "@habita/contracts";
+import { buildOnboardingProfilePayload } from "@habita/domain/onboarding-profile";
 
-import type { HouseholdResponse } from "@habita/contracts";
+import type { HouseholdResponse, OnboardingSetupResponse } from "@habita/contracts";
 
-type Step = "householdType" | "setup" | "tasks" | "notifications" | "invite";
+type Step = "householdType" | "setup" | "creating" | "ready" | "notifications" | "invite";
 
 const ESSENTIAL_TASKS = new Set([
   "Lavar platos", "Limpiar cocina", "Barrer", "Sacar basura", "Hacer cama",
 ]);
+
+const CATALOG_FLAT = ONBOARDING_CATALOG.flatMap((c) => c.tasks);
+
+const LOADING_MESSAGES_DEFAULT = [
+  "Creando tu hogar...",
+  "Configurando todo...",
+  "Casi listo...",
+];
+
+const LOADING_MESSAGES_AI = [
+  "Analizando tu hogar...",
+  "Personalizando tus tareas...",
+  "Preparando recomendaciones...",
+  "Casi listo...",
+];
 
 export default function OnboardingScreen() {
   const { hydrate } = useMobileAuth();
@@ -44,12 +65,14 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState<Step>("householdType");
   const [isSoloMode, setIsSoloMode] = useState(false);
   const [householdName, setHouseholdName] = useState("");
+  const [householdDescription, setHouseholdDescription] = useState("");
   const [memberName, setMemberName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
-  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(() => new Set(ESSENTIAL_TASKS));
-
+  const [aiSetupResult, setAiSetupResult] = useState<OnboardingSetupResponse | null>(null);
+  const [tasksCreatedCount, setTasksCreatedCount] = useState(0);
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const isFormValid = memberName.trim().length > 0;
 
   const handleSelectMode = (solo: boolean) => {
@@ -58,44 +81,104 @@ export default function OnboardingScreen() {
     setStep("setup");
   };
 
-  const handleToggleTask = (taskName: string) => {
-    setSelectedTasks((prev) => {
-      const next = new Set(prev);
-      if (next.has(taskName)) next.delete(taskName);
-      else next.add(taskName);
-      return next;
-    });
-  };
-
   const handleCreate = async () => {
     setError(null);
+    setStep("creating");
+    setLoadingMessageIndex(0);
+
+    const useAiMessages = householdDescription.trim().length > 0;
+    const messages = useAiMessages ? LOADING_MESSAGES_AI : LOADING_MESSAGES_DEFAULT;
+    const messageInterval = setInterval(() => {
+      setLoadingMessageIndex((prev) => (prev + 1) % messages.length);
+    }, 2000);
+
     try {
-      const tasksToCreate = Array.from(selectedTasks).map((name) => {
-        const found = ONBOARDING_CATALOG.flatMap((c) => c.tasks).find((t) => t.name === name);
-        return {
-          name,
-          frequency: found?.defaultFrequency.toUpperCase() ?? "WEEKLY",
-          weight: found?.defaultWeight ?? 2,
-          estimatedMinutes: found?.estimatedMinutes ?? 15,
-        };
-      });
+      // Step 1: Call AI endpoint if description provided
+      let aiResult: OnboardingSetupResponse | null = null;
+      const description = householdDescription.trim();
+
+      if (description) {
+        try {
+          aiResult = await mobileApi.post<OnboardingSetupResponse>(
+            "/api/ai/onboarding-setup",
+            {
+              householdDescription: description,
+              isSoloMode,
+              memberName: memberName.trim() || undefined,
+            },
+          );
+        } catch {
+          // AI failed — continue with essential tasks
+        }
+      }
+
+      // Step 2: Build tasks (AI result or fallback)
+      const tasksToCreate = aiResult?.tasks?.length
+        ? aiResult.tasks.map((t) => ({
+            name: t.name,
+            frequency: t.frequency,
+            weight: t.weight,
+            estimatedMinutes: t.estimatedMinutes,
+          }))
+        : Array.from(ESSENTIAL_TASKS).map((name) => {
+            const found = CATALOG_FLAT.find((t) => t.name === name);
+            return {
+              name,
+              frequency: found?.defaultFrequency.toUpperCase() ?? "WEEKLY",
+              weight: found?.defaultWeight ?? 2,
+              estimatedMinutes: found?.estimatedMinutes ?? 15,
+            };
+          });
+
+      // Step 3: Build household payload with AI-inferred data
+      const profile = aiResult?.householdProfile;
+      const resolvedHouseholdName =
+        householdName.trim() ||
+        profile?.suggestedHouseholdName ||
+        `Casa de ${memberName.trim() || "Mi hogar"}`;
+
+      const onboardingProfile = aiResult
+        ? buildOnboardingProfilePayload(aiResult, description)
+        : undefined;
 
       const result = await createHousehold.mutateAsync({
-        householdName: householdName.trim() || `Casa de ${memberName.trim() || "Mi hogar"}`,
+        householdName: resolvedHouseholdName,
         memberName: memberName.trim(),
         memberType: "ADULT",
         tasks: tasksToCreate,
+        ...(profile?.planningDay != null && { planningDay: profile.planningDay }),
+        ...(profile?.occupationLevel && { occupationLevel: profile.occupationLevel }),
+        ...(onboardingProfile && { onboardingProfile }),
+        ...(profile?.city && {
+          location: {
+            city: profile.city,
+            timezone: profile.timezone ?? undefined,
+          },
+        }),
       });
 
-      if (isSoloMode) {
+      const response = result as HouseholdResponse & { tasksCreated?: number };
+      setAiSetupResult(aiResult);
+      setTasksCreatedCount(response.tasksCreated ?? tasksToCreate.length);
+
+      // Always capture invite code
+      if (response.inviteCode) {
+        setInviteCode(response.inviteCode);
+      }
+
+      // Step 4: Go to "ready" step if AI provided insights
+      if (aiResult && aiResult.insights.length > 0) {
+        setStep("ready");
+      } else if (isSoloMode) {
         setStep("notifications");
       } else {
-        const response = result as HouseholdResponse;
-        setInviteCode(response.inviteCode);
         setStep("invite");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo crear el hogar.");
+      setStep("setup");
+    } finally {
+      clearInterval(messageInterval);
     }
   };
 
@@ -142,10 +225,9 @@ export default function OnboardingScreen() {
           <View style={{ width: 20 }} />
         </View>
 
-        {/* Progress: step 1 of 3 */}
+        {/* Progress: step 1 of 2 */}
         <View style={styles.progressRow}>
           <View style={[styles.progressDot, styles.progressActive]} />
-          <View style={styles.progressDot} />
           <View style={styles.progressDot} />
         </View>
 
@@ -215,11 +297,10 @@ export default function OnboardingScreen() {
           <View style={{ width: 20 }} />
         </View>
 
-        {/* Progress: step 2 of 3 */}
+        {/* Progress: step 2 of 2 */}
         <View style={styles.progressRow}>
           <View style={[styles.progressDot, styles.progressDone]} />
           <View style={[styles.progressDot, styles.progressActive]} />
-          <View style={styles.progressDot} />
         </View>
 
         <ScrollView
@@ -255,6 +336,24 @@ export default function OnboardingScreen() {
                 maxLength={50}
               />
             </View>
+
+            <View style={styles.fieldGap}>
+              <Text style={styles.fieldLabel}>Contanos sobre tu hogar (opcional)</Text>
+              <TextInput
+                style={styles.descriptionInput}
+                placeholder="Ej: Departamento en Palermo, vivimos con mi pareja y un gato. Ambos trabajamos full-time..."
+                placeholderTextColor={colors.mutedForeground}
+                value={householdDescription}
+                onChangeText={setHouseholdDescription}
+                maxLength={2000}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+              <Text style={styles.fieldHint}>
+                Con esta info personalizamos tareas, recetas y recomendaciones
+              </Text>
+            </View>
           </View>
 
           {error ? (
@@ -264,90 +363,106 @@ export default function OnboardingScreen() {
           ) : null}
 
           <Button
-            onPress={() => { setError(null); setStep("tasks"); }}
+            onPress={() => { setError(null); void handleCreate(); }}
             disabled={!isFormValid}
             style={styles.submitBtn}
           >
-            Continuar
+            Crear mi hogar
           </Button>
         </ScrollView>
       </SafeAreaView>
     );
   }
 
-  // ─── Step: Tasks (catalog selection) ──────────────────────────────────────
-  if (step === "tasks") {
+  // ─── Step: Creating (loading) ─────────────────────────────────────────────
+  if (step === "creating") {
+    const useAiMessages = householdDescription.trim().length > 0;
+    const messages = useAiMessages ? LOADING_MESSAGES_AI : LOADING_MESSAGES_DEFAULT;
+    const currentMessage = messages[loadingMessageIndex % messages.length] ?? "Creando hogar...";
+
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.header}>
-          <Pressable onPress={() => setStep("setup")} hitSlop={8}>
-            <ArrowLeft size={20} color={colors.text} />
-          </Pressable>
-          <HabitaLogo size={24} />
-          <View style={{ width: 20 }} />
+        <View style={styles.centeredContent}>
+          <View style={styles.heroSection}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.heroSubtitle, { marginTop: spacing.lg }]}>
+              {currentMessage}
+            </Text>
+          </View>
         </View>
+      </SafeAreaView>
+    );
+  }
 
-        {/* Progress: step 3 of 3 */}
-        <View style={styles.progressRow}>
-          <View style={[styles.progressDot, styles.progressDone]} />
-          <View style={[styles.progressDot, styles.progressDone]} />
-          <View style={[styles.progressDot, styles.progressActive]} />
-        </View>
+  // ─── Step: Ready (post-creation with insights + CTA) ────────────────────
+  if (step === "ready") {
+    const handleGeneratePlan = async () => {
+      const today = new Date();
+      const endDate = new Date(today);
+      endDate.setDate(today.getDate() + 6);
 
+      try {
+        await mobileApi.post("/api/ai/preview-plan", {
+          startDate: today.toISOString(),
+          endDate: endDate.toISOString(),
+        });
+      } catch {
+        // Plan generation is fire-and-forget
+      }
+      await hydrate();
+      router.replace("/(app)/plan");
+    };
+
+    const handleSkipToNextStep = () => {
+      if (!isSoloMode && inviteCode) {
+        setStep("invite");
+      } else {
+        setStep("notifications");
+      }
+    };
+
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
         <ScrollView
+          contentContainerStyle={styles.readyScroll}
           showsVerticalScrollIndicator={false}
-          bounces={false}
-          contentContainerStyle={styles.formScroll}
         >
           <View style={styles.heroSection}>
-            <Text style={styles.heroTitle}>¿Qué tareas hacen{"\n"}en tu hogar?</Text>
+            <View style={[styles.heroIcon, { backgroundColor: `${colors.successText}20` }]}>
+              <CheckCircle2 size={28} color={colors.successText} />
+            </View>
+            <Text style={styles.heroTitle}>¡Tu hogar está listo!</Text>
             <Text style={styles.heroSubtitle}>
-              Seleccioná las que apliquen — después podés agregar más
+              Creamos {tasksCreatedCount} tarea{tasksCreatedCount !== 1 ? "s" : ""} personalizadas para tu hogar
             </Text>
           </View>
 
-          {ONBOARDING_CATALOG.map((category) => (
-            <View key={category.category} style={styles.catalogCategory}>
-              <Text style={styles.catalogCategoryLabel}>
-                {category.icon} {category.label}
-              </Text>
-              {category.tasks.map((task) => {
-                const isSelected = selectedTasks.has(task.name);
-                return (
-                  <Pressable
-                    key={task.name}
-                    onPress={() => handleToggleTask(task.name)}
-                    style={[styles.taskItem, isSelected && styles.taskItemSelected]}
-                  >
-                    <Text style={styles.taskEmoji}>{task.icon}</Text>
-                    <Text style={styles.taskName}>{task.name}</Text>
-                    <View style={[styles.taskCheck, isSelected && styles.taskCheckSelected]}>
-                      {isSelected ? <Check size={12} color={colors.white} strokeWidth={3} /> : null}
-                    </View>
-                  </Pressable>
-                );
-              })}
+          {aiSetupResult && aiSetupResult.insights.length > 0 && (
+            <View style={styles.insightsCard}>
+              <View style={styles.insightsHeader}>
+                <Lightbulb size={16} color="#f59e0b" />
+                <Text style={styles.insightsTitle}>Tips para tu hogar</Text>
+              </View>
+              {aiSetupResult.insights.map((insight) => (
+                <Text key={insight} style={styles.insightText}>
+                  {insight}
+                </Text>
+              ))}
             </View>
-          ))}
+          )}
 
-          {error ? (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorText}>{error}</Text>
+          <Button onPress={() => void handleGeneratePlan()} style={styles.planBtn}>
+            <View style={styles.planBtnContent}>
+              <CalendarDays size={18} color="#fff" />
+              <Text style={styles.planBtnText}>Generar mi primer plan semanal</Text>
             </View>
-          ) : null}
-
-          <Button
-            onPress={() => void handleCreate()}
-            disabled={createHousehold.isPending}
-            loading={createHousehold.isPending}
-            style={styles.submitBtn}
-          >
-            {createHousehold.isPending
-              ? "Creando hogar..."
-              : selectedTasks.size > 0
-                ? `Crear mi hogar (${selectedTasks.size} tareas)`
-                : "Crear mi hogar"}
           </Button>
+
+          <Pressable onPress={handleSkipToNextStep} style={styles.skipLink}>
+            <Text style={styles.skipLinkText}>
+              {isSoloMode ? "Ir al inicio" : "Continuar"}
+            </Text>
+          </Pressable>
         </ScrollView>
       </SafeAreaView>
     );
@@ -537,6 +652,31 @@ const styles = StyleSheet.create({
   fieldGap: {
     marginTop: spacing.lg,
   },
+  fieldLabel: {
+    fontFamily: fontFamily.sans,
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.text,
+    marginBottom: 6,
+  },
+  descriptionInput: {
+    fontFamily: fontFamily.sans,
+    fontSize: 14,
+    color: colors.text,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    minHeight: 100,
+    lineHeight: 20,
+  },
+  fieldHint: {
+    fontFamily: fontFamily.sans,
+    fontSize: 12,
+    color: colors.mutedForeground,
+    marginTop: 4,
+  },
   errorBanner: {
     backgroundColor: colors.errorBg,
     borderRadius: radius.lg,
@@ -563,54 +703,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: colors.primary,
-  },
-
-  // ─── Task catalog ──────────────────────────────────
-  catalogCategory: {
-    marginBottom: spacing.lg,
-  },
-  catalogCategoryLabel: {
-    fontFamily: fontFamily.sans,
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.mutedForeground,
-    marginBottom: spacing.sm,
-  },
-  taskItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.lg,
-    marginBottom: 2,
-  },
-  taskItemSelected: {
-    backgroundColor: `${colors.primary}10`,
-  },
-  taskEmoji: {
-    fontSize: 18,
-    width: 28,
-    textAlign: "center",
-  },
-  taskName: {
-    flex: 1,
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    color: colors.text,
-  },
-  taskCheck: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  taskCheckSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
   },
 
   // ─── Invite ────────────────────────────────────────
@@ -663,5 +755,54 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: colors.mutedForeground,
+  },
+
+  // ─── Ready step ─────────────────────────────────
+  readyScroll: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.lg,
+    justifyContent: "center",
+    paddingBottom: 40,
+  },
+  insightsCard: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    gap: 8,
+  },
+  insightsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  insightsTitle: {
+    fontFamily: fontFamily.sans,
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  insightText: {
+    fontFamily: fontFamily.sans,
+    fontSize: 13,
+    color: colors.mutedForeground,
+    lineHeight: 18,
+  },
+  planBtn: {
+    marginBottom: spacing.md,
+  },
+  planBtnContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  planBtnText: {
+    fontFamily: fontFamily.sans,
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#fff",
   },
 });

@@ -79,6 +79,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Cache miss — generate via LLM pipeline
+      // NOTE: dietaryHints NOT passed here because restaurant cache is city-level
+      // and shared across all households. Personalized hints would poison the cache.
       const result = await generateRelaxSuggestions({
         city,
         country: validation.data.country ?? household.country ?? "AR",

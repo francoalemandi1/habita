@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { inviteCode, memberName, memberType } = validation.data;
+    const { inviteCode, memberName, memberType, occupationLevel } = validation.data;
     const codeNormalized = inviteCode.trim().toUpperCase();
 
     const household = await prisma.household.findUnique({
@@ -93,12 +93,18 @@ export async function POST(request: NextRequest) {
     const prismaMemberType: MemberType =
       memberType ? MEMBER_TYPE_MAP[memberType] ?? "ADULT" : "ADULT";
 
+    const OCCUPATION_MAP: Record<string, "BUSY" | "MODERATE" | "AVAILABLE"> = {
+      BUSY: "BUSY", MODERATE: "MODERATE", AVAILABLE: "AVAILABLE",
+    };
+    const prismaOccupation = occupationLevel ? OCCUPATION_MAP[occupationLevel] ?? "MODERATE" : "MODERATE";
+
     const newMember = await prisma.member.create({
       data: {
         userId,
         householdId: household.id,
         name: nameToUse,
         memberType: prismaMemberType,
+        occupationLevel: prismaOccupation,
       },
       select: { id: true, name: true, memberType: true },
     });

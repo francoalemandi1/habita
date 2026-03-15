@@ -40,6 +40,7 @@ export interface RecipeFinderOptions {
   images: string[];
   householdSize: number;
   mealType: MealType;
+  dietaryHints?: string[];
 }
 
 // ============================================
@@ -166,7 +167,7 @@ function buildMessages(prompt: string, images: string[]) {
 // ============================================
 
 function buildPrompt(options: RecipeFinderOptions): string {
-  const { textInput, images, householdSize, mealType } = options;
+  const { textInput, images, householdSize, mealType, dietaryHints } = options;
   const mealLabel = MEAL_TYPE_LABELS[mealType];
 
   const inputDescription = images.length > 0
@@ -174,6 +175,10 @@ function buildPrompt(options: RecipeFinderOptions): string {
       ? `El usuario te dice: "${textInput}"\nAdemas, adjunto ${images.length} foto(s) de su heladera/alacena. Identifica los ingredientes visibles en las fotos y combinalos con lo que menciona en el texto.`
       : `El usuario adjunto ${images.length} foto(s) de su heladera/alacena. Identifica todos los ingredientes visibles en las fotos.`
     : `El usuario te dice: "${textInput}"`;
+
+  const dietaryBlock = dietaryHints && dietaryHints.length > 0
+    ? `\n## Restricciones alimentarias del hogar\n\nEl hogar tiene las siguientes preferencias/restricciones: ${dietaryHints.join(", ")}.\nTODAS las recetas DEBEN respetar estas restricciones. No sugieras recetas que las violen.\n`
+    : "";
 
   return `## Rol
 
@@ -183,7 +188,7 @@ El usuario te cuenta que ingredientes tiene y vos le sugeris recetas concretas.
 ## Input del usuario
 
 ${inputDescription}
-
+${dietaryBlock}
 ## Validacion de input
 
 PRIMERO evalua si el texto del usuario esta relacionado con cocina, ingredientes o comida.

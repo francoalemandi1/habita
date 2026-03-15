@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { parseOnboardingProfile } from "@/lib/onboarding-profile";
 import Link from "next/link";
 import { InviteShareBlock } from "@/components/features/invite-share-block";
 import { useToast } from "@/components/ui/toast";
@@ -23,6 +24,7 @@ import { resetAllGuides } from "@/hooks/use-first-visit";
 import { apiFetch } from "@/lib/api-client";
 
 import type { MemberType } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
 interface HouseholdMember {
   id: string;
@@ -45,6 +47,7 @@ interface ProfileSettingsProps {
   isAdult: boolean;
   location?: HouseholdLocation;
   planningDay?: number | null;
+  onboardingProfile?: Prisma.JsonValue | null;
 }
 
 const MEMBER_TYPE_LABELS: Record<MemberType, string> = {
@@ -71,6 +74,7 @@ export function ProfileSettings({
   isAdult,
   location: savedLocation,
   planningDay: initialPlanningDay,
+  onboardingProfile,
 }: ProfileSettingsProps) {
   const router = useRouter();
   const toast = useToast();
@@ -89,6 +93,16 @@ export function ProfileSettings({
   const [isSavingPlanningDay, setIsSavingPlanningDay] = useState(false);
 
   const push = usePushNotifications();
+
+  // Dietary preferences from onboarding profile
+  const parsedProfile = useMemo(
+    () => parseOnboardingProfile(onboardingProfile),
+    [onboardingProfile],
+  );
+
+  const [dietaryHints, setDietaryHints] = useState<string[]>(parsedProfile.dietaryHints);
+  const [newHint, setNewHint] = useState("");
+  const [isSavingDietary, setIsSavingDietary] = useState(false);
 
   const handleTogglePush = async () => {
     if (push.isSubscribed) {
@@ -217,6 +231,30 @@ export function ProfileSettings({
     }
   };
 
+  const handleSaveDietaryHints = async (updatedHints: string[]) => {
+    setIsSavingDietary(true);
+    try {
+      const currentProfile = (typeof onboardingProfile === "object" && onboardingProfile && !Array.isArray(onboardingProfile))
+        ? onboardingProfile as Record<string, unknown>
+        : {};
+      await apiFetch("/api/households", {
+        method: "PATCH",
+        body: JSON.stringify({
+          onboardingProfile: {
+            ...currentProfile,
+            dietaryHints: updatedHints,
+          },
+        }),
+      });
+      setDietaryHints(updatedHints);
+      toast.success("Preferencias alimentarias actualizadas");
+    } catch {
+      toast.error("Error", "Error al guardar preferencias alimentarias");
+    } finally {
+      setIsSavingDietary(false);
+    }
+  };
+
   const handleResetGuides = () => {
     resetAllGuides();
     toast.success("Guías reiniciadas", "La próxima vez que entres a cada sección vas a ver las guías de nuevo");
@@ -289,6 +327,16 @@ export function ProfileSettings({
           <p className="text-sm text-muted-foreground">Configuración del hogar y miembros</p>
         </div>
         <div className="space-y-4">
+          {/* Onboarding profile nudge */}
+          {!onboardingProfile && isAdult && (
+            <div className="rounded-xl bg-primary/5 border border-primary/10 p-4">
+              <p className="text-sm font-medium text-primary">Personalizá tu experiencia</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Agregá tus preferencias alimentarias para recibir recetas adaptadas a tu hogar.
+              </p>
+            </div>
+          )}
+
           {/* Household name */}
           <div>
             <p className="text-sm text-muted-foreground mb-1">Nombre del hogar</p>
@@ -434,6 +482,63 @@ export function ProfileSettings({
                   Las tareas se distribuyen automáticamente el día elegido y recibís un email con el resumen
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Dietary preferences */}
+          {isAdult && (
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">Preferencias alimentarias</p>
+              {dietaryHints.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {dietaryHints.map((hint, i) => (
+                    <Badge key={i} variant="secondary" className="gap-1">
+                      {hint}
+                      <button
+                        onClick={() => {
+                          const updated = dietaryHints.filter((_, idx) => idx !== i);
+                          void handleSaveDietaryHints(updated);
+                        }}
+                        className="ml-0.5 hover:text-destructive"
+                        disabled={isSavingDietary}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground/70 mb-2">
+                  Sin preferencias. Agregá restricciones alimentarias para personalizar tus recetas.
+                </p>
+              )}
+              <div className="flex items-center gap-2">
+                <Input
+                  value={newHint}
+                  onChange={(e) => setNewHint(e.target.value)}
+                  placeholder="Ej: vegetariano, sin TACC..."
+                  maxLength={100}
+                  className="text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newHint.trim()) {
+                      void handleSaveDietaryHints([...dietaryHints, newHint.trim()]);
+                      setNewHint("");
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (newHint.trim()) {
+                      void handleSaveDietaryHints([...dietaryHints, newHint.trim()]);
+                      setNewHint("");
+                    }
+                  }}
+                  disabled={!newHint.trim() || isSavingDietary}
+                >
+                  {isSavingDietary ? <Loader2 className="h-4 w-4 animate-spin" /> : "Agregar"}
+                </Button>
+              </div>
             </div>
           )}
 

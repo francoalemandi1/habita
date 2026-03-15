@@ -146,6 +146,7 @@ model Household {
   country    String?  // ISO country code, e.g. "AR"
   city        String?
   planningDay Int?     // 0=Sunday..6=Saturday, null=manual planning only
+  onboardingProfile Json?  // AI-inferred: {dietaryHints, shoppingContext, insights, rawDescription}
   createdAt   DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

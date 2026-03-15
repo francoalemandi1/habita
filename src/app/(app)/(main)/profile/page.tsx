@@ -54,6 +54,7 @@ export default async function ProfilePage() {
             country: member.household.country,
             city: member.household.city,
           }}
+          onboardingProfile={member.household.onboardingProfile}
         />
       </div>
 

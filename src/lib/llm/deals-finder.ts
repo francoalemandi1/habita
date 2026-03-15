@@ -47,6 +47,8 @@ export interface DealFinderOptions {
   latitude: number;
   longitude: number;
   timezone: string;
+  /** Preferred stores from onboarding profile (e.g. "Jumbo Palermo", "Carrefour") */
+  preferredStores?: string[];
 }
 
 /** Raw LLM output before post-processing */
@@ -439,12 +441,16 @@ function buildPrompt(
   regionalBlock: string,
   webContentBlock: string
 ): string {
-  const { city, country, searchTerm } = options;
+  const { city, country, searchTerm, preferredStores } = options;
   const location = buildLocationString(city, country);
 
   const searchContext = searchTerm.trim()
     ? `para "${searchTerm}"`
     : `generales`;
+
+  const storePreferenceBlock = preferredStores && preferredStores.length > 0
+    ? `\nTIENDAS PREFERIDAS DEL HOGAR: ${preferredStores.join(", ")}. A igualdad de condiciones, priorizar ofertas de estas tiendas.\n`
+    : "";
 
   return `
 Eres un extractor profesional de promociones en ${country}.
@@ -452,6 +458,7 @@ Eres un extractor profesional de promociones en ${country}.
 OBJETIVO:
 Extraer hasta 10 productos específicos de consumo cotidiano del hogar en ${location}, con precios reales visibles en las fuentes.
 Buscamos ofertas ${searchContext}.
+${storePreferenceBlock}
 
 DOMINIO — Solo productos que se reponen regularmente en un hogar:
 - Alimentos y bebidas

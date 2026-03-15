@@ -45,6 +45,7 @@ import type { SavedRecipe } from "@prisma/client";
 interface CocinaClientProps {
   aiEnabled: boolean;
   householdSize: number;
+  hasDietaryHints: boolean;
 }
 
 // ============================================
@@ -84,7 +85,7 @@ function isSpeechRecognitionAvailable(): boolean {
 // Component
 // ============================================
 
-export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
+export function CocinaClient({ aiEnabled, householdSize, hasDietaryHints }: CocinaClientProps) {
   const { isFirstVisit: isFirstVisitCocina, dismiss: dismissCocina } = useFirstVisit("cocina");
   const recipeMilestone = useMilestone("first-recipe");
   const { celebrate } = useCelebration();
@@ -356,6 +357,7 @@ export function CocinaClient({ aiEnabled, householdSize }: CocinaClientProps) {
         {/* Household size indicator */}
         <p className="text-center text-[11px] text-muted-foreground">
           Porciones adaptadas a {householdSize} persona{householdSize > 1 ? "s" : ""}
+          {hasDietaryHints && " · Personalizado según tus preferencias alimentarias"}
         </p>
       </div>
 

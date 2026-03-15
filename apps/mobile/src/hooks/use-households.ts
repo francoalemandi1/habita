@@ -11,6 +11,7 @@ interface HouseholdDetailResponse {
     name: string;
     inviteCode: string;
     location: string | null;
+    onboardingProfile?: unknown;
   } | null;
 }
 
@@ -18,6 +19,19 @@ export function useHouseholdDetail() {
   return useQuery({
     queryKey: queryKeys.households.all(),
     queryFn: async () => mobileApi.get<HouseholdDetailResponse>("/api/households"),
+  });
+}
+
+export function useUpdateHousehold() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: Record<string, unknown>) => {
+      return mobileApi.patch<{ household: unknown }>("/api/households", input);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.households.all() });
+    },
   });
 }
 

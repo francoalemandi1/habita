@@ -3,8 +3,6 @@
 import { LoadingScreen } from "@/components/features/loading-screen";
 import { OnboardingLayout } from "@/components/features/onboarding/onboarding-layout";
 import { StepHeader } from "@/components/features/onboarding/step-header";
-import { CatalogTaskItem } from "@/components/features/onboarding/catalog-task-item";
-import { ONBOARDING_CATALOG } from "@/data/onboarding-catalog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InviteShareBlock } from "@/components/features/invite-share-block";
@@ -17,29 +15,37 @@ import {
   Receipt,
   ShoppingCart,
   Bell,
+  CheckCircle2,
+  Lightbulb,
+  CalendarDays,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
+import { ONBOARDING_CATALOG } from "@/data/onboarding-catalog";
 import type { OnboardingCatalogTask } from "@/data/onboarding-catalog";
 
-type StepId = "features" | "householdType" | "setup" | "tasks" | "creating" | "notifications" | "invite" | "join";
+import type { OnboardingSetupResponse } from "@habita/contracts";
+import { buildOnboardingProfilePayload } from "@habita/domain/onboarding-profile";
 
-const PROGRESS_STEPS = ["householdType", "setup", "tasks"];
+type StepId = "features" | "householdType" | "setup" | "creating" | "ready" | "notifications" | "invite" | "join";
+
+const PROGRESS_STEPS = ["householdType", "setup"];
 
 const ESSENTIAL_TASKS = new Set([
   "Lavar platos", "Limpiar cocina", "Barrer", "Sacar basura", "Hacer cama",
 ]);
 
-const LOADING_MESSAGES_SOLO = [
-  "Preparando tu hogar...",
+const LOADING_MESSAGES_DEFAULT = [
+  "Creando tu hogar...",
   "Configurando todo...",
   "Casi listo...",
 ];
 
-const LOADING_MESSAGES_SHARED = [
-  "Creando tu hogar...",
-  "Preparando todo para el equipo...",
+const LOADING_MESSAGES_AI = [
+  "Analizando tu hogar...",
+  "Personalizando tus tareas...",
+  "Preparando recomendaciones...",
   "Casi listo...",
 ];
 
@@ -80,15 +86,16 @@ function OnboardingContent() {
 
   const [memberName, setMemberName] = useState("");
   const [householdName, setHouseholdName] = useState("");
+  const [householdDescription, setHouseholdDescription] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [createdInviteCode, setCreatedInviteCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSoloMode, setIsSoloMode] = useState(false);
-  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(() => new Set(ESSENTIAL_TASKS));
-
   const [createLoading, setCreateLoading] = useState(false);
   const [joinLoading, setJoinLoading] = useState(false);
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+  const [aiSetupResult, setAiSetupResult] = useState<OnboardingSetupResponse | null>(null);
+  const [tasksCreatedCount, setTasksCreatedCount] = useState(0);
 
   useEffect(() => {
     if (searchParams.get("mode") === "join") {
@@ -111,7 +118,8 @@ function OnboardingContent() {
       .catch(() => {});
   }, [router]);
 
-  const loadingMessages = isSoloMode ? LOADING_MESSAGES_SOLO : LOADING_MESSAGES_SHARED;
+  const useAiMessages = householdDescription.trim().length > 0;
+  const loadingMessages = useAiMessages ? LOADING_MESSAGES_AI : LOADING_MESSAGES_DEFAULT;
 
   const goToNotificationsOrDashboard = () => {
     if (pushSupported && pushPermission === "default") {
@@ -130,32 +138,84 @@ function OnboardingContent() {
 
     const messageInterval = setInterval(() => {
       setLoadingMessageIndex((prev) => (prev + 1) % loadingMessages.length);
-    }, 1500);
+    }, 2000);
 
     try {
-      const tasksToCreate = Array.from(selectedTasks).map((name) => {
-        const found = findCatalogTask(name);
-        return {
-          name,
-          frequency: found?.defaultFrequency.toUpperCase() ?? "WEEKLY",
-          weight: found?.defaultWeight ?? 2,
-          estimatedMinutes: found?.estimatedMinutes ?? 15,
-        };
-      });
+      // Step 1: Call AI endpoint if description provided
+      let aiResult: OnboardingSetupResponse | null = null;
+      const description = householdDescription.trim();
+
+      if (description) {
+        try {
+          const aiRes = await fetch("/api/ai/onboarding-setup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              householdDescription: description,
+              isSoloMode,
+              memberName: memberName.trim() || undefined,
+            }),
+          });
+          if (aiRes.ok) {
+            aiResult = (await aiRes.json()) as OnboardingSetupResponse;
+          }
+        } catch {
+          // AI failed — continue with essential tasks
+        }
+      }
+
+      // Step 2: Build tasks (AI result or fallback)
+      const tasksToCreate = aiResult?.tasks?.length
+        ? aiResult.tasks.map((t) => ({
+            name: t.name,
+            frequency: t.frequency,
+            weight: t.weight,
+            estimatedMinutes: t.estimatedMinutes,
+          }))
+        : Array.from(ESSENTIAL_TASKS).map((name) => {
+            const found = findCatalogTask(name);
+            return {
+              name,
+              frequency: found?.defaultFrequency.toUpperCase() ?? "WEEKLY",
+              weight: found?.defaultWeight ?? 2,
+              estimatedMinutes: found?.estimatedMinutes ?? 15,
+            };
+          });
+
+      // Step 3: Build household payload with AI-inferred data
+      const profile = aiResult?.householdProfile;
+      const resolvedHouseholdName =
+        householdName.trim() ||
+        profile?.suggestedHouseholdName ||
+        `Casa de ${memberName.trim() || "Mi hogar"}`;
+
+      const onboardingProfile = aiResult
+        ? buildOnboardingProfilePayload(aiResult, description)
+        : undefined;
 
       const res = await fetch("/api/households/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          householdName: householdName.trim() || `Casa de ${memberName.trim() || "Mi hogar"}`,
+          householdName: resolvedHouseholdName,
           memberName: memberName.trim() || undefined,
           memberType: "adult",
           tasks: tasksToCreate,
+          ...(profile?.planningDay != null && { planningDay: profile.planningDay }),
+          ...(profile?.occupationLevel && { occupationLevel: profile.occupationLevel }),
+          ...(onboardingProfile && { onboardingProfile }),
+          ...(profile?.city && {
+            location: {
+              city: profile.city,
+              timezone: profile.timezone ?? undefined,
+            },
+          }),
         }),
       });
 
       const data = (await res.json()) as {
         household?: { inviteCode?: string };
+        tasksCreated?: number;
         error?: string;
       };
 
@@ -163,15 +223,25 @@ function OnboardingContent() {
         throw new Error(data.error ?? "Error al crear el hogar");
       }
 
-      if (isSoloMode) {
+      setAiSetupResult(aiResult);
+      setTasksCreatedCount(data.tasksCreated ?? tasksToCreate.length);
+
+      // Always capture invite code for shared mode
+      if (data.household?.inviteCode) {
+        setCreatedInviteCode(data.household.inviteCode);
+      }
+
+      // Step 4: Go to "ready" step if AI provided insights, otherwise skip
+      if (aiResult && aiResult.insights.length > 0) {
+        goToStep("ready", "forward");
+      } else if (isSoloMode) {
         goToNotificationsOrDashboard();
       } else if (data.household?.inviteCode) {
-        setCreatedInviteCode(data.household.inviteCode);
         goToStep("invite", "forward");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al crear el hogar");
-      goToStep("tasks", "back");
+      goToStep("setup", "back");
     } finally {
       clearInterval(messageInterval);
       setCreateLoading(false);
@@ -215,15 +285,6 @@ function OnboardingContent() {
   const handleContinueToApp = () => {
     router.refresh();
     router.push("/dashboard");
-  };
-
-  const handleToggleTask = (taskName: string) => {
-    setSelectedTasks((prev) => {
-      const next = new Set(prev);
-      if (next.has(taskName)) next.delete(taskName);
-      else next.add(taskName);
-      return next;
-    });
   };
 
   const stepAnimationClass = stepDirection === "forward" ? "animate-step-enter" : "animate-step-enter-reverse";
@@ -349,9 +410,10 @@ function OnboardingContent() {
       <div key="setup" className={stepAnimationClass}>
         <OnboardingLayout
           onBack={() => { setError(null); goToStep("householdType", "back"); }}
-          onContinue={() => { setError(null); goToStep("tasks", "forward"); }}
-          continueLabel="Continuar"
+          onContinue={() => { setError(null); handleCreateHousehold(); }}
+          continueLabel="Crear mi hogar"
           continueDisabled={!memberName.trim()}
+          continueLoading={createLoading}
           progress={{ steps: PROGRESS_STEPS, currentStep: "setup" }}
         >
           <div className="space-y-6">
@@ -381,50 +443,23 @@ function OnboardingContent() {
               />
             </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
-          </div>
-        </OnboardingLayout>
-      </div>
-    );
-  }
-
-  /* ─── Step: tasks (catalog selection) ─── */
-  if (step === "tasks") {
-    return (
-      <div key="tasks" className={stepAnimationClass}>
-        <OnboardingLayout
-          onBack={() => { setError(null); goToStep("setup", "back"); }}
-          onContinue={handleCreateHousehold}
-          continueLabel={selectedTasks.size > 0 ? `Crear mi hogar (${selectedTasks.size} tareas)` : "Crear mi hogar"}
-          continueLoading={createLoading}
-          progress={{ steps: PROGRESS_STEPS, currentStep: "tasks" }}
-        >
-          <div className="space-y-6">
-            <StepHeader
-              title="¿Qué tareas hacen en tu hogar?"
-              subtitle="Seleccioná las que apliquen — después podés agregar más"
-            />
-
-            <div className="space-y-5">
-              {ONBOARDING_CATALOG.map((category) => (
-                <div key={category.category}>
-                  <p className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <span>{category.icon}</span> {category.label}
-                  </p>
-                  <div>
-                    {category.tasks.map((task) => (
-                      <CatalogTaskItem
-                        key={task.name}
-                        task={{ ...task, selected: selectedTasks.has(task.name) }}
-                        onToggle={() => handleToggleTask(task.name)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
+            <div className="space-y-1">
+              <label className="text-sm text-foreground">
+                Contanos sobre tu hogar (opcional)
+              </label>
+              <textarea
+                className="flex min-h-[100px] w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                placeholder="Ej: Departamento en Palermo, vivimos con mi pareja y un gato. Ambos trabajamos full-time y solemos cocinar los fines de semana..."
+                value={householdDescription}
+                onChange={(e) => setHouseholdDescription(e.target.value)}
+                maxLength={2000}
+              />
+              <p className="text-xs text-muted-foreground">
+                Con esta info personalizamos tareas, recetas y recomendaciones para tu hogar
+              </p>
             </div>
 
-            {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
         </OnboardingLayout>
       </div>
@@ -434,6 +469,92 @@ function OnboardingContent() {
   /* ─── Step: creating (loading) ─── */
   if (step === "creating") {
     return <LoadingScreen message={loadingMessages[loadingMessageIndex] ?? "Creando hogar..."} />;
+  }
+
+  /* ─── Step: ready (post-creation with insights + CTA) ─── */
+  if (step === "ready") {
+    const handleGeneratePlan = async () => {
+      const today = new Date();
+      const endDate = new Date(today);
+      endDate.setDate(today.getDate() + 6);
+
+      try {
+        await fetch("/api/ai/preview-plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            startDate: today.toISOString(),
+            endDate: endDate.toISOString(),
+          }),
+        });
+      } catch {
+        // Plan generation is fire-and-forget, error is non-blocking
+      }
+      router.refresh();
+      router.push("/plan");
+    };
+
+    const handleSkipToNextStep = () => {
+      if (!isSoloMode && createdInviteCode) {
+        goToStep("invite", "forward");
+      } else {
+        goToNotificationsOrDashboard();
+      }
+    };
+
+    return (
+      <div key="ready" className={stepAnimationClass}>
+        <OnboardingLayout showContinue={false}>
+          <div className="space-y-6 py-4">
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-lime/20">
+                <CheckCircle2 className="size-8 text-brand-lime" />
+              </div>
+              <h2 className="text-2xl font-bold text-foreground">
+                ¡Tu hogar está listo!
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Creamos {tasksCreatedCount} tarea{tasksCreatedCount !== 1 ? "s" : ""} personalizadas para tu hogar
+              </p>
+            </div>
+
+            {aiSetupResult && aiSetupResult.insights.length > 0 && (
+              <div className="space-y-2 rounded-xl border border-border bg-muted/50 p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Lightbulb className="size-4 text-amber-500" />
+                  Tips para tu hogar
+                </div>
+                <ul className="space-y-1.5">
+                  {aiSetupResult.insights.map((insight) => (
+                    <li key={insight} className="text-sm text-muted-foreground">
+                      {insight}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="space-y-3 pt-2">
+              <Button
+                size="lg"
+                className="w-full gap-2"
+                onClick={handleGeneratePlan}
+              >
+                <CalendarDays className="size-4" />
+                Generar mi primer plan semanal
+              </Button>
+              <button
+                type="button"
+                onClick={handleSkipToNextStep}
+                className="w-full text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {isSoloMode ? "Ir al dashboard" : "Continuar"}
+              </button>
+            </div>
+          </div>
+        </OnboardingLayout>
+      </div>
+    );
   }
 
   /* ─── Step: invite (success — shared mode) ─── */

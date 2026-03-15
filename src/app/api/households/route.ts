@@ -8,10 +8,22 @@ import { z } from "zod";
 import type { NextRequest } from "next/server";
 import type { Prisma } from "@prisma/client";
 
+const onboardingProfileUpdateSchema = z.object({
+  dietaryHints: z.array(z.string().max(100)).max(10).default([]),
+  shoppingContext: z.array(z.string().max(200)).max(10).default([]),
+  insights: z.array(z.string().max(500)).max(5).default([]),
+  rawDescription: z.string().max(2000).nullable().default(null),
+  taskReasons: z.array(z.object({
+    taskName: z.string().max(100),
+    reason: z.string().max(200),
+  })).max(20).default([]),
+});
+
 const updateHouseholdSchema = z.object({
   name: z.string().min(1, "El nombre es obligatorio").max(50, "Máximo 50 caracteres").optional(),
   location: householdLocationSchema.optional(),
   planningDay: z.number().int().min(0).max(6).nullable().optional(),
+  onboardingProfile: onboardingProfileUpdateSchema.optional(),
 });
 
 /**
@@ -129,6 +141,9 @@ export async function PATCH(request: NextRequest) {
     }
     if (validation.data.planningDay !== undefined) {
       updateData.planningDay = validation.data.planningDay;
+    }
+    if (validation.data.onboardingProfile) {
+      updateData.onboardingProfile = validation.data.onboardingProfile as Prisma.InputJsonValue;
     }
 
     const updated = await prisma.household.update({

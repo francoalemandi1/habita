@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const taskFrequencySchema = z.enum(["DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY"]);
 const memberTypeSchema = z.enum(["adult", "teen", "child"]);
+const occupationLevelSchema = z.enum(["BUSY", "MODERATE", "AVAILABLE"]);
 
 export const householdLocationSchema = z.object({
   latitude: z.number().min(-90).max(90).optional(),
@@ -31,6 +32,7 @@ export const joinHouseholdWithMemberSchema = z.object({
   inviteCode: z.string().min(1, "El código es requerido").max(50),
   memberName: z.string().max(50).optional(),
   memberType: memberTypeSchema.optional(),
+  occupationLevel: occupationLevelSchema.optional(),
 });
 
 export const updateHouseholdSchema = z.object({
@@ -57,6 +59,18 @@ export const createHouseholdOnboardingSchema = z.object({
   memberType: memberTypeSchema.optional(),
   tasks: z.array(onboardingTaskSchema).optional().default([]),
   location: householdLocationSchema.optional(),
+  planningDay: z.number().int().min(0).max(6).nullable().optional(),
+  occupationLevel: occupationLevelSchema.optional(),
+  onboardingProfile: z.object({
+    dietaryHints: z.array(z.string().max(100)).max(10).default([]),
+    shoppingContext: z.array(z.string().max(200)).max(10).default([]),
+    insights: z.array(z.string().max(500)).max(5).default([]),
+    rawDescription: z.string().max(2000).nullable().default(null),
+    taskReasons: z.array(z.object({
+      taskName: z.string().max(100),
+      reason: z.string().max(200),
+    })).max(20).default([]),
+  }).optional(),
 });
 
 export const joinHouseholdOnboardingSchema = z.object({

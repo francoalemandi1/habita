@@ -3,11 +3,13 @@ import { router } from "expo-router";
 import type { RelativePathString } from "expo-router";
 import { Alert, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Share, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Bell, Check, ChevronRight, HelpCircle, Home, LogOut, Moon, Monitor, Shield, Sun, User, UserPlus } from "lucide-react-native";
+import { Bell, Check, ChevronRight, HelpCircle, Home, LogOut, Moon, Monitor, Plus, Shield, Sun, User, UserPlus, X } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { useUpdateMember } from "@/hooks/use-member-profile";
-import { useHouseholdDetail } from "@/hooks/use-households";
+import { useHouseholdDetail, useUpdateHousehold } from "@/hooks/use-households";
+import { parseOnboardingProfile } from "@habita/domain/onboarding-profile";
+import { useMembers } from "@/hooks/use-members";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { mobileConfig } from "@/lib/config";
 import { useTheme, useThemeColors } from "@/hooks/use-theme";
@@ -128,11 +130,48 @@ export default function SettingsScreen() {
   const { me, activeHouseholdId, setHouseholdId, hydrate, logout } = useMobileAuth();
   const updateMember = useUpdateMember();
   const householdQuery = useHouseholdDetail();
+  const membersQuery = useMembers();
+  const updateHousehold = useUpdateHousehold();
 
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [profileName, setProfileName] = useState("");
+  const [newHint, setNewHint] = useState("");
 
   const myMember = me?.members.find((m) => m.householdId === activeHouseholdId) ?? me?.members[0];
+
+  const isAdult = useMemo(() => {
+    if (!myMember || !membersQuery.data?.members) return false;
+    const fullMember = membersQuery.data.members.find((m) => m.id === myMember.id);
+    return fullMember?.memberType === "ADULT";
+  }, [myMember, membersQuery.data?.members]);
+
+  const dietaryHints = useMemo(
+    () => parseOnboardingProfile(householdQuery.data?.household?.onboardingProfile).dietaryHints,
+    [householdQuery.data?.household?.onboardingProfile],
+  );
+
+  const handleSaveDietaryHints = (updatedHints: string[]) => {
+    const raw = householdQuery.data?.household?.onboardingProfile;
+    const currentProfile = (typeof raw === "object" && raw && !Array.isArray(raw))
+      ? raw as Record<string, unknown>
+      : {};
+    updateHousehold.mutate(
+      {
+        onboardingProfile: {
+          ...currentProfile,
+          dietaryHints: updatedHints,
+        },
+      },
+      {
+        onSuccess: () => {
+          setNewHint("");
+        },
+        onError: (err) => {
+          Alert.alert("Error", getMobileErrorMessage(err));
+        },
+      },
+    );
+  };
 
   const handleOpenEdit = () => {
     setProfileName(myMember?.name ?? me?.name ?? "");
@@ -247,6 +286,74 @@ export default function SettingsScreen() {
             last
           />
         </SectionCard>
+
+        {/* Onboarding profile nudge */}
+        {!householdQuery.data?.household?.onboardingProfile && isAdult ? (
+          <View style={styles.nudgeCard}>
+            <Text style={styles.nudgeTitle}>Personalizá tu experiencia</Text>
+            <Text style={styles.nudgeText}>
+              Agregá tus preferencias alimentarias para recibir recetas adaptadas a tu hogar.
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Dietary preferences section — adults only */}
+        {isAdult ? (
+          <SectionCard title="PREFERENCIAS ALIMENTARIAS">
+            {dietaryHints.length > 0 ? (
+              <View style={styles.dietaryChips}>
+                {dietaryHints.map((hint, i) => (
+                  <View key={i} style={styles.dietaryChip}>
+                    <Text style={styles.dietaryChipText}>{hint}</Text>
+                    <Pressable
+                      onPress={() => {
+                        const updated = dietaryHints.filter((_, idx) => idx !== i);
+                        handleSaveDietaryHints(updated);
+                      }}
+                      hitSlop={8}
+                      disabled={updateHousehold.isPending}
+                    >
+                      <X size={14} color={colors.mutedForeground} />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.dietaryEmpty}>
+                Sin preferencias. Agregá restricciones o gustos alimentarios.
+              </Text>
+            )}
+            <View style={styles.dietaryInputRow}>
+              <StyledTextInput
+                value={newHint}
+                onChangeText={setNewHint}
+                placeholder="Ej: vegetariano, sin TACC..."
+                maxLength={100}
+                style={styles.dietaryInput}
+                onSubmitEditing={() => {
+                  if (newHint.trim()) {
+                    handleSaveDietaryHints([...dietaryHints, newHint.trim()]);
+                  }
+                }}
+                returnKeyType="done"
+              />
+              <Button
+                onPress={() => {
+                  if (newHint.trim()) {
+                    handleSaveDietaryHints([...dietaryHints, newHint.trim()]);
+                  }
+                }}
+                disabled={!newHint.trim() || updateHousehold.isPending}
+                loading={updateHousehold.isPending}
+                size="sm"
+                style={styles.dietaryAddButton}
+              >
+                <Plus size={16} color={colors.white} />
+                Agregar
+              </Button>
+            </View>
+          </SectionCard>
+        ) : null}
 
         {/* Invite section */}
         {householdQuery.data?.household?.inviteCode ? (
@@ -579,6 +686,74 @@ function createStyles(c: ThemeColors) {
     },
     editCancelButton: {
       marginBottom: spacing.sm,
+    },
+    // Onboarding nudge
+    nudgeCard: {
+      backgroundColor: `${c.primary}08`,
+      borderWidth: 1,
+      borderColor: `${c.primary}15`,
+      borderRadius: radius.xl,
+      padding: spacing.md,
+      marginBottom: spacing.lg,
+    },
+    nudgeTitle: {
+      fontFamily: fontFamily.sans,
+      fontSize: 14,
+      fontWeight: "600",
+      color: c.primary,
+      marginBottom: 4,
+    },
+    nudgeText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 12,
+      color: c.mutedForeground,
+      lineHeight: 18,
+    },
+    // Dietary preferences
+    dietaryChips: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.xs,
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.xs,
+    },
+    dietaryChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: c.muted,
+      borderRadius: radius.full,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    dietaryChipText: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      fontWeight: "500",
+      color: c.text,
+    },
+    dietaryEmpty: {
+      fontFamily: fontFamily.sans,
+      fontSize: 13,
+      color: c.mutedForeground,
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.xs,
+    },
+    dietaryInputRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    dietaryInput: {
+      flex: 1,
+      marginBottom: 0,
+    },
+    dietaryAddButton: {
+      flexShrink: 0,
     },
   });
 }

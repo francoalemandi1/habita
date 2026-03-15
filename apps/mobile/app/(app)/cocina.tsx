@@ -16,6 +16,8 @@ import {
 import { useCocina } from "@/hooks/use-cocina";
 import { useAiJobStatus } from "@/hooks/use-ai-job-status";
 import { useSavedRecipes, useToggleSaveRecipe } from "@/hooks/use-saved-recipes";
+import { useHouseholdDetail } from "@/hooks/use-households";
+import { parseOnboardingProfile } from "@habita/domain/onboarding-profile";
 import { mobileApi } from "@/lib/api";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { useMilestone } from "@/hooks/use-milestone";
@@ -287,6 +289,13 @@ export default function CocinaScreen() {
   const savedRecipesQuery = useSavedRecipes();
   const { toggle: toggleSave, isPending: savePending } = useToggleSaveRecipe();
   const savedRecipes = savedRecipesQuery.data;
+  const { data: householdDetail } = useHouseholdDetail();
+  const household = householdDetail?.household;
+
+  const hasDietaryHints = useMemo(
+    () => parseOnboardingProfile(household?.onboardingProfile).dietaryHints.length > 0,
+    [household?.onboardingProfile],
+  );
 
   // Result from background job
   const [cocinaResult, setCocinaResult] = useState<{ recipes: Recipe[]; summary: string } | null>(null);
@@ -448,6 +457,11 @@ export default function CocinaScreen() {
                 >
                   {(cocinaM.isPending || isJobRunning) ? "Generando..." : "Sugerir recetas"}
                 </Button>
+                {hasDietaryHints && (
+                  <Text style={styles.personalizationHint}>
+                    Personalizado según tus preferencias
+                  </Text>
+                )}
               </CardContent>
             </Card>
 
@@ -576,6 +590,13 @@ function createStyles(c: ThemeColors) {
       fontSize: 11,
       color: c.mutedForeground,
       marginBottom: spacing.md,
+    },
+    personalizationHint: {
+      fontFamily: fontFamily.sans,
+      fontSize: 11,
+      color: c.mutedForeground,
+      textAlign: "center",
+      marginTop: spacing.sm,
     },
     dictateButton: {
       flexDirection: "row",

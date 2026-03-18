@@ -93,6 +93,10 @@ export const queryKeys = {
     search: (query: string) =>
       [...queryKeys.cities.all(), query] as const,
   },
+  plans: {
+    all: () => ["plans"] as const,
+    list: () => [...queryKeys.plans.all(), "list"] as const,
+  },
   aiJobs: {
     all: () => ["ai-jobs"] as const,
     status: (jobType: string) =>

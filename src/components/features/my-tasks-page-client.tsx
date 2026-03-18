@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CalendarDays, List, History, ArrowRight, Sparkles, Lightbulb } from "lucide-react";
+import { CalendarDays, List, History, ArrowRight, Sparkles, Lightbulb, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FridgeCalendarView } from "@/components/features/fridge-calendar-view";
 import { MyAssignmentsList } from "@/components/features/my-assignments-list";
@@ -106,13 +106,20 @@ export function MyTasksPageClient({
             Generar plan
           </Button>
         </Link>
+        <Link
+          href="/progress"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <TrendingUp className="h-3 w-3" />
+          Progreso
+        </Link>
         {showPlanCta && (
           <Link
             href="/plans"
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <History className="h-3 w-3" />
-            Historial
+            Historial de planes
           </Link>
         )}
         <Link

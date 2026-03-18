@@ -19,6 +19,7 @@ import { ServicesManagement } from "@/components/features/services-management";
 import { ServiceDialog } from "@/components/features/service-dialog";
 import { PageHeader } from "@/components/ui/page-header";
 import { spacing } from "@/lib/design-tokens";
+import { ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import type { SerializedExpense, SerializedService, MemberOption } from "@/types/expense";
@@ -314,7 +315,7 @@ export function ExpensesView({
 
   return (
     <>
-      <PageHeader title="Controlá" />
+      <PageHeader title="Controlá" subtitle={<>Gastos del hogar · <Link href="/my-tasks" className="text-primary hover:underline">Mis tareas</Link></>} />
 
       {/* Quick-add dialog (externally controlled) */}
       <AddExpenseDialog
@@ -337,15 +338,19 @@ export function ExpensesView({
             {/* Financial pulse — hero + tips (above the list) */}
             <FinancialPulse data={insightsData} isLoading={insightsLoading} />
 
-            {/* Quick links to full pages */}
-            <div className="flex items-center gap-4 text-xs">
-              <Link href="/expense-insights" className="text-muted-foreground hover:text-foreground transition-colors">
-                Ver análisis completo →
-              </Link>
-              <Link href="/services" className="text-muted-foreground hover:text-foreground transition-colors">
-                Servicios recurrentes →
-              </Link>
-            </div>
+            {/* Quick links — progressive reveal */}
+            {expenses.length > 0 && (
+              <div className="flex items-center gap-4 text-xs">
+                <Link href="/expense-insights" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Ver análisis completo →
+                </Link>
+                {expenses.length >= 3 && (
+                  <Link href="/services" className="text-muted-foreground hover:text-foreground transition-colors">
+                    Servicios recurrentes →
+                  </Link>
+                )}
+              </div>
+            )}
 
             {frequentExpenses.length > 0 && (
               <QuickAddPills expenses={frequentExpenses} onQuickAdd={handleQuickAdd} />
@@ -376,8 +381,8 @@ export function ExpensesView({
               isSolo={isSolo}
             />
 
-            {/* Detailed stats — secondary, below the expense list */}
-            {insightsData && (
+            {/* Detailed stats — only after user has expense data */}
+            {insightsData && expenses.length > 0 && (
               <ExpenseDetailedStats
                 data={insightsData}
                 onAddFixed={() => setShowCreateService(true)}
@@ -401,7 +406,16 @@ export function ExpensesView({
 
         {/* Tab: Deudas */}
         {activeTab === "deudas" && !isSolo && (
-          <ExpenseSummary currentMemberId={currentMemberId} refreshKey={balanceRefreshKey} />
+          <>
+            <Link
+              href="/transfers"
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeftRight className="h-3 w-3" />
+              Transferencias →
+            </Link>
+            <ExpenseSummary currentMemberId={currentMemberId} refreshKey={balanceRefreshKey} />
+          </>
         )}
       </div>
 

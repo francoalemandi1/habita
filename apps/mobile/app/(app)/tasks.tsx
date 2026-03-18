@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { CalendarDays, Check, CheckCircle2, ChevronRight, ClipboardList, Clock, Dices, History, Loader2, Undo2 } from "lucide-react-native";
+import { CalendarDays, Check, CheckCircle2, ChevronRight, ClipboardList, Clock, Dices, History, Loader2, TrendingUp, Undo2 } from "lucide-react-native";
 import {
   useCompleteAssignment,
   useMyAssignments,
@@ -945,16 +945,26 @@ export default function TasksScreen() {
             <Text style={styles.rouletteCtaText}>Ruleta</Text>
           </Pressable>
         </View>
-        {hasAnyAssignments ? (
+        <View style={styles.secondaryLinks}>
           <Pressable
-            onPress={() => router.push("/(app)/plan")}
+            onPress={() => router.push("/(app)/progress")}
             style={styles.historyLink}
             hitSlop={8}
           >
-            <History size={12} color={colors.mutedForeground} />
-            <Text style={styles.historyLinkText}>Ver historial de planes</Text>
+            <TrendingUp size={12} color={colors.mutedForeground} />
+            <Text style={styles.historyLinkText}>Progreso</Text>
           </Pressable>
-        ) : null}
+          {hasAnyAssignments ? (
+            <Pressable
+              onPress={() => router.push("/(app)/plans")}
+              style={styles.historyLink}
+              hitSlop={8}
+            >
+              <History size={12} color={colors.mutedForeground} />
+              <Text style={styles.historyLinkText}>Historial de planes</Text>
+            </Pressable>
+          ) : null}
+        </View>
         <Button
           onPress={() => router.push("/(app)/plan")}
           style={styles.generatePlanBtn}
@@ -1283,12 +1293,17 @@ function createStyles(c: ThemeColors) {
     headerSpacer: {
       flex: 1,
     },
+    secondaryLinks: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.xs,
+    },
     historyLink: {
       flexDirection: "row",
       alignItems: "center",
       gap: 4,
-      paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.xs,
     },
     historyLinkText: {
       fontFamily: fontFamily.sans,

@@ -35,7 +35,7 @@ export default async function JoinPage({ params }: JoinPageProps) {
 
   if (!household) {
     return (
-      <div className="rounded-2xl border-2 border-border/60 bg-card p-6 shadow-lg sm:p-8">
+      <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-lg sm:p-8">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/15 text-4xl">
             ✕
@@ -67,7 +67,7 @@ export default async function JoinPage({ params }: JoinPageProps) {
 
   if (!session?.user) {
     return (
-      <div className="rounded-2xl border-2 border-border/60 bg-card p-6 shadow-lg sm:p-8">
+      <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-lg sm:p-8">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-4">
             <HabitaLogo size={64} className="rounded-2xl" />
@@ -95,7 +95,7 @@ export default async function JoinPage({ params }: JoinPageProps) {
   }
 
   return (
-    <div className="rounded-2xl border-2 border-border/60 bg-card p-6 shadow-lg sm:p-8">
+    <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-lg sm:p-8">
       <div className="mb-6 text-center">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 text-4xl">
           🏠

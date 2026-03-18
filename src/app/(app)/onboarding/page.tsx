@@ -18,7 +18,10 @@ import {
   CheckCircle2,
   Lightbulb,
   CalendarDays,
+  MapPin,
 } from "lucide-react";
+import { CityTypeahead } from "@/components/ui/city-typeahead";
+import type { CityResult } from "@/components/ui/city-typeahead";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
@@ -28,9 +31,9 @@ import type { OnboardingCatalogTask } from "@/data/onboarding-catalog";
 import type { OnboardingSetupResponse } from "@habita/contracts";
 import { buildOnboardingProfilePayload } from "@habita/domain/onboarding-profile";
 
-type StepId = "features" | "householdType" | "setup" | "creating" | "ready" | "notifications" | "invite" | "join";
+type StepId = "features" | "householdType" | "setup" | "location" | "creating" | "ready" | "notifications" | "invite" | "join";
 
-const PROGRESS_STEPS = ["householdType", "setup"];
+const PROGRESS_STEPS = ["householdType", "setup", "location"];
 
 const ESSENTIAL_TASKS = new Set([
   "Lavar platos", "Limpiar cocina", "Barrer", "Sacar basura", "Hacer cama",
@@ -96,6 +99,8 @@ function OnboardingContent() {
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const [aiSetupResult, setAiSetupResult] = useState<OnboardingSetupResponse | null>(null);
   const [tasksCreatedCount, setTasksCreatedCount] = useState(0);
+  const [citySearch, setCitySearch] = useState("");
+  const [selectedCity, setSelectedCity] = useState<CityResult | null>(null);
 
   useEffect(() => {
     if (searchParams.get("mode") === "join") {
@@ -204,10 +209,13 @@ function OnboardingContent() {
           ...(profile?.planningDay != null && { planningDay: profile.planningDay }),
           ...(profile?.occupationLevel && { occupationLevel: profile.occupationLevel }),
           ...(onboardingProfile && { onboardingProfile }),
-          ...(profile?.city && {
+          ...((profile?.city || selectedCity) && {
             location: {
-              city: profile.city,
-              timezone: profile.timezone ?? undefined,
+              city: profile?.city ?? selectedCity?.name,
+              timezone: profile?.timezone ?? (typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined),
+              ...(selectedCity?.latitude != null && !profile?.city && { latitude: selectedCity.latitude }),
+              ...(selectedCity?.longitude != null && !profile?.city && { longitude: selectedCity.longitude }),
+              ...(!profile?.city && selectedCity && { country: "AR" }),
             },
           }),
         }),
@@ -344,7 +352,7 @@ function OnboardingContent() {
                 setError(null);
                 goToStep("join", "forward");
               }}
-              className="mt-4 w-full rounded-full border-2 border-white bg-transparent py-4 text-base font-bold text-white transition-all duration-200 active:scale-[0.98]"
+              className="mt-4 w-full rounded-full border border-white/60 bg-transparent py-4 text-base font-bold text-white transition-all duration-200 active:scale-[0.98]"
             >
               Tengo un código de invitación
             </button>
@@ -376,7 +384,7 @@ function OnboardingContent() {
                   setError(null);
                   goToStep("setup", "forward");
                 }}
-                className="w-full rounded-2xl border-2 border-border bg-background p-5 text-left transition-all duration-200 hover:border-primary/50 active:scale-[0.99]"
+                className="w-full rounded-2xl border border-border/60 bg-background p-5 text-left transition-all duration-200 hover:border-primary/50 active:scale-[0.99]"
               >
                 <p className="text-base font-semibold text-foreground">Vivo solo/a</p>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -390,7 +398,7 @@ function OnboardingContent() {
                   setError(null);
                   goToStep("setup", "forward");
                 }}
-                className="w-full rounded-2xl border-2 border-border bg-background p-5 text-left transition-all duration-200 hover:border-primary/50 active:scale-[0.99]"
+                className="w-full rounded-2xl border border-border/60 bg-background p-5 text-left transition-all duration-200 hover:border-primary/50 active:scale-[0.99]"
               >
                 <p className="text-base font-semibold text-foreground">Vivo con más personas</p>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -410,10 +418,9 @@ function OnboardingContent() {
       <div key="setup" className={stepAnimationClass}>
         <OnboardingLayout
           onBack={() => { setError(null); goToStep("householdType", "back"); }}
-          onContinue={() => { setError(null); handleCreateHousehold(); }}
-          continueLabel="Crear mi hogar"
+          onContinue={() => { setError(null); goToStep("location", "forward"); }}
+          continueLabel="Continuar"
           continueDisabled={!memberName.trim()}
-          continueLoading={createLoading}
           progress={{ steps: PROGRESS_STEPS, currentStep: "setup" }}
         >
           <div className="space-y-6">
@@ -448,7 +455,7 @@ function OnboardingContent() {
                 Contanos sobre tu hogar (opcional)
               </label>
               <textarea
-                className="flex min-h-[100px] w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="flex min-h-[100px] w-full rounded-xl border border-border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 placeholder="Ej: Departamento en Palermo, vivimos con mi pareja y un gato. Ambos trabajamos full-time y solemos cocinar los fines de semana..."
                 value={householdDescription}
                 onChange={(e) => setHouseholdDescription(e.target.value)}
@@ -460,6 +467,65 @@ function OnboardingContent() {
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+        </OnboardingLayout>
+      </div>
+    );
+  }
+
+  /* ─── Step: location (optional city selection) ─── */
+  if (step === "location") {
+    const browserTimezone =
+      typeof Intl !== "undefined"
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone
+        : "America/Argentina/Buenos_Aires";
+
+    return (
+      <div key="location" className={stepAnimationClass}>
+        <OnboardingLayout
+          onBack={() => { setError(null); goToStep("setup", "back"); }}
+          onContinue={() => { setError(null); handleCreateHousehold(); }}
+          continueLabel="Crear mi hogar"
+          continueLoading={createLoading}
+          progress={{ steps: PROGRESS_STEPS, currentStep: "location" }}
+        >
+          <div className="space-y-6">
+            <StepHeader
+              title="¿Dónde está tu hogar?"
+              subtitle="Esto mejora las recomendaciones de planes, recetas y ofertas"
+            />
+
+            <div className="space-y-1">
+              <label className="text-sm text-foreground">Ciudad</label>
+              <CityTypeahead
+                value={citySearch}
+                onChange={setCitySearch}
+                onSelectCity={(city) => {
+                  setSelectedCity({
+                    ...city,
+                    // Store timezone from browser
+                  });
+                  setCitySearch(`${city.name}, ${city.province}`);
+                }}
+                placeholder="Buscar tu ciudad..."
+              />
+            </div>
+
+            {selectedCity && (
+              <div className="flex items-center gap-2 rounded-xl bg-primary/5 px-3 py-2">
+                <MapPin className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">{selectedCity.name}</span>
+                <span className="text-xs text-muted-foreground">{browserTimezone}</span>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => { setError(null); handleCreateHousehold(); }}
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Omitir por ahora
+            </button>
           </div>
         </OnboardingLayout>
       </div>

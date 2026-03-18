@@ -262,7 +262,7 @@ function createStyles(c: ThemeColors) {
     categoryCount: { fontFamily: fontFamily.sans, fontSize: 12, color: c.mutedForeground },
     taskListCard: { marginTop: 2 },
     taskRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm },
-    taskBorder: { borderBottomWidth: 1, borderBottomColor: c.border },
+    taskBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border },
     taskInfo: { flex: 1, marginRight: spacing.sm },
     taskName: { fontFamily: fontFamily.sans, color: c.text, fontWeight: "500", fontSize: 14 },
     taskMeta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },

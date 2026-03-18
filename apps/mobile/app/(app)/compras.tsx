@@ -946,40 +946,42 @@ function StoreCartCard({
           </View>
         ) : null}
 
-        {/* Share + Pin row */}
-        <View style={styles.cardActionsRow}>
-          <Pressable
-            onPress={() => {
-              const today = new Date().toLocaleDateString("es-AR", { day: "numeric", month: "long" });
-              const productLines = cart.products.map((p) => {
-                const qty = p.quantity > 1 ? ` x${p.quantity}` : "";
-                return `• ${p.productName}${qty} — ${formatAmount(p.lineTotal)}`;
-              });
-              const lines = [
-                `🛒 *Lista ${cart.storeName}* — ${today}`,
-                "",
-                ...productLines,
-                "",
-                `*Total: ${formatAmount(cart.totalPrice)}*`,
-                "",
-                "_Generado con Habita_",
-              ];
-              void Share.share({ message: lines.join("\n") }).catch(() => undefined);
-            }}
-            style={styles.shareListBtn}
-          >
-            <Share2 size={14} color={colors.primary} />
-            <Text style={styles.shareListBtnText}>Compartir lista</Text>
-          </Pressable>
-          {onPinStore ? (
-            <Pressable onPress={onPinStore} style={[styles.pinStoreBtn, isPinned && styles.pinStoreBtnActive]}>
-              <Pin size={14} color={isPinned ? colors.primary : colors.mutedForeground} />
-              <Text style={[styles.pinStoreText, isPinned && styles.pinStoreTextActive]}>
-                {isPinned ? "Fijado" : "Elegir este super"}
-              </Text>
+        {/* Secondary actions — only visible when card is expanded */}
+        {isOpen ? (
+          <View style={styles.cardActionsRow}>
+            {onPinStore ? (
+              <Pressable onPress={onPinStore} style={[styles.pinStoreBtn, isPinned && styles.pinStoreBtnActive]}>
+                <Pin size={13} color={isPinned ? colors.primary : colors.mutedForeground} />
+                <Text style={[styles.pinStoreText, isPinned && styles.pinStoreTextActive]}>
+                  {isPinned ? "Mi super" : "Mi super"}
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={() => {
+                const today = new Date().toLocaleDateString("es-AR", { day: "numeric", month: "long" });
+                const productLines = cart.products.map((p) => {
+                  const qty = p.quantity > 1 ? ` x${p.quantity}` : "";
+                  return `• ${p.productName}${qty} — ${formatAmount(p.lineTotal)}`;
+                });
+                const lines = [
+                  `🛒 *Lista ${cart.storeName}* — ${today}`,
+                  "",
+                  ...productLines,
+                  "",
+                  `*Total: ${formatAmount(cart.totalPrice)}*`,
+                  "",
+                  "_Generado con Habita_",
+                ];
+                void Share.share({ message: lines.join("\n") }).catch(() => undefined);
+              }}
+              style={styles.shareListBtn}
+            >
+              <Share2 size={13} color={colors.mutedForeground} />
+              <Text style={styles.shareListBtnText}>Compartir</Text>
             </Pressable>
-          ) : null}
-        </View>
+          </View>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -1225,7 +1227,7 @@ function PaymentMethodPicker({
     <View style={styles.bankPickerContainer}>
       <Text style={styles.bankPickerLabel}>
         <CreditCard size={13} color={colors.mutedForeground} />{" "}
-        ¿Con qué pagás?
+        Filtrar promos por banco
       </Text>
 
       {/* Selected chips */}
@@ -1710,10 +1712,18 @@ export default function ShoppingPlanScreen() {
                 title: "Compará y ahorrá",
                 description: "Te armamos el carrito más barato",
               },
+              {
+                icon: <CreditCard size={16} color={colors.primary} />,
+                title: "Sumá tus bancos",
+                description: "Elegí con qué pagás para ver descuentos exclusivos",
+              },
             ]}
             onDismiss={dismissGuide}
           />
         ) : null}
+        {/* Payment method picker — config area, above search */}
+        <PaymentMethodPicker selectedSlugs={selectedBankSlugs} onToggle={toggleBankSlug} />
+
         <Card style={styles.searchCard}>
           <CardContent>
             <View style={styles.searchRow}>
@@ -1819,7 +1829,6 @@ export default function ShoppingPlanScreen() {
         {adjustedCarts.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Resultados</Text>
-            <PaymentMethodPicker selectedSlugs={selectedBankSlugs} onToggle={toggleBankSlug} />
 
             {/* Store comparison bar */}
             {adjustedCarts.length > 1 ? (
@@ -2176,7 +2185,7 @@ function createStyles(c: ThemeColors) {
       alignItems: "center" as const,
       gap: spacing.sm,
       paddingVertical: spacing.sm + 2,
-      borderBottomWidth: 1,
+      borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
     },
     paymentCheckbox: {
@@ -2315,7 +2324,7 @@ function createStyles(c: ThemeColors) {
       justifyContent: "space-between" as const,
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
-      borderBottomWidth: 1,
+      borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
     },
     catalogModalTitle: {
@@ -2340,7 +2349,7 @@ function createStyles(c: ThemeColors) {
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.sm,
       paddingBottom: spacing.sm,
-      borderBottomWidth: 1,
+      borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
       backgroundColor: c.background,
       zIndex: 1,
@@ -3050,7 +3059,7 @@ function createStyles(c: ThemeColors) {
     /* --- Promo banner (C1) --- */
     promoBanner: {
       marginTop: spacing.md,
-      borderTopWidth: 1,
+      borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: c.border,
       paddingTop: spacing.sm,
     },

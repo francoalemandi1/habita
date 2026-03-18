@@ -20,7 +20,7 @@ export default async function ComprasPage() {
     <div className={spacing.pageContainer}>
       <PageHeader
         title="Ahorrá"
-        subtitle="Compará precios en supermercados"
+        subtitle={<>Compará precios en supermercados · <Link href="/my-tasks" className="text-primary hover:underline">Mis tareas</Link></>}
         actions={
           aiEnabled ? (
             <Link

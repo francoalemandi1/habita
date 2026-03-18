@@ -35,6 +35,8 @@ import { HealthScoreCard } from "@/components/features/dashboard/health-score-ca
 import { WorkloadDistribution } from "@/components/features/dashboard/workload-distribution";
 import { QuickExpenseInput } from "@/components/features/dashboard/quick-expense-input";
 import { useHeroState } from "@/components/features/dashboard/use-hero-state";
+import { DashboardTodayTasks } from "@/components/features/dashboard/today-tasks";
+import { ContextualBridges } from "@/components/features/dashboard/contextual-bridges";
 import { useDailyHighlight } from "@/components/features/dashboard/use-daily-highlight";
 import { useGuidedTour } from "@/hooks/use-guided-tour";
 import { useCelebration } from "@/hooks/use-celebration";
@@ -213,15 +215,22 @@ export default function DashboardScreen() {
           <DashboardSkeleton />
         ) : (
           <>
-            {/* Zone 1: Status + actions */}
+            {/* Zone 1: Task-first hero + actions */}
             <View style={styles.zone}>
-              <HeroCard state={heroState} />
+              <DashboardTodayTasks assignments={pendingAssignments} />
+
+              {/* Contextual bridges: connect tasks to features */}
+              <ContextualBridges
+                assignments={pendingAssignments}
+                allDone={hasCompletedTask && pendingAssignments.length === 0}
+                hasLocation={!!householdQuery.data?.household?.location}
+              />
 
               {briefing?.suggestion ? (
                 <BriefingTip text={briefing.suggestion} />
               ) : null}
 
-              {incomingTransfers.length > 0 ? (
+              {!isSolo && incomingTransfers.length > 0 ? (
                 <ActionAlert
                   icon={ArrowRightLeft}
                   text={transferAlertText}
@@ -231,7 +240,7 @@ export default function DashboardScreen() {
                 />
               ) : null}
 
-              <BalanceCard balance={myBalance} />
+              {hasExpense ? <BalanceCard balance={myBalance} /> : null}
             </View>
 
             {/* Zone 2: Weekly progress + discovery */}
@@ -246,13 +255,17 @@ export default function DashboardScreen() {
                 />
               ) : null}
 
-              {!isSolo && statsQuery.data ? (
+              {!isSolo && hasCompletedTask && statsQuery.data ? (
                 <WorkloadDistribution memberStats={statsQuery.data.memberStats} />
               ) : null}
 
-              <HealthScoreCard data={healthScoreQuery.data ?? null} loading={healthScoreQuery.isLoading} />
+              {hasCompletedTask ? (
+                <HealthScoreCard data={healthScoreQuery.data ?? null} loading={healthScoreQuery.isLoading} />
+              ) : null}
 
-              <DailyHighlight highlight={highlightState} loading={highlightLoading} />
+              {householdQuery.data?.household?.location ? (
+                <DailyHighlight highlight={highlightState} loading={highlightLoading} />
+              ) : null}
 
               <QuickExpenseInput />
             </View>

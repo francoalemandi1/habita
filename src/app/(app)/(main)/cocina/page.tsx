@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
@@ -24,7 +25,7 @@ export default async function CocinaPage() {
     <div className={spacing.pageContainer}>
       <PageHeader
         title="Cociná"
-        subtitle="Contanos qué tenés en la heladera y te sugerimos recetas"
+        subtitle={<>Contanos qué tenés en la heladera y te sugerimos recetas · <Link href="/my-tasks" className="text-primary hover:underline">Mis tareas</Link></>}
       />
       <CocinaClient aiEnabled={aiEnabled} householdSize={householdSize} hasDietaryHints={dietaryHints.length > 0} />
     </div>

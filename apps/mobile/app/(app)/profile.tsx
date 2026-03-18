@@ -207,8 +207,10 @@ export default function SettingsScreen() {
       >
         <Text style={[styles.title, { color: colors.text }]}>Ajustes</Text>
 
-        {/* Profile section */}
-        <SectionCard title="PERFIL">
+        {/* ═══════════════════════════════════
+            SECTION: MI CUENTA (personal)
+           ═══════════════════════════════════ */}
+        <SectionCard title="MI CUENTA">
           <View style={styles.profileHeader}>
             <View style={styles.profileAvatar}>
               <Text style={styles.profileAvatarText}>
@@ -231,20 +233,38 @@ export default function SettingsScreen() {
           />
           <SettingsRow
             icon={<ChevronRight size={16} color={colors.mutedForeground} />}
-            label="Mis preferencias de tareas"
+            label="Preferencias de tareas"
             subtitle="Indicá qué tareas te gustan o evitás"
             onPress={() => router.push("/(app)/preferences" as RelativePathString)}
+          />
+          <SettingsRow
+            icon={<Bell size={16} color={colors.mutedForeground} />}
+            label="Notificaciones"
+            subtitle="Elegí qué notificaciones push recibir"
+            onPress={() => router.push("/(app)/notification-settings" as RelativePathString)}
+          />
+          <SettingsRow
+            icon={<HelpCircle size={16} color={colors.mutedForeground} />}
+            label="Guías de uso"
+            subtitle="Volvé a ver las guías de cada sección"
+            onPress={() => {
+              void resetAllGuides().then(() => {
+                Alert.alert("Guías reiniciadas", "Las guías aparecerán la próxima vez que entres a cada sección.");
+              });
+            }}
             last
           />
         </SectionCard>
 
-        {/* Appearance section */}
+        {/* Appearance */}
         <SectionCard title="APARIENCIA">
           <ThemeToggle />
         </SectionCard>
 
-        {/* Household section */}
-        <SectionCard title="HOGAR ACTIVO">
+        {/* ═══════════════════════════════════
+            SECTION: MI HOGAR (shared)
+           ═══════════════════════════════════ */}
+        <SectionCard title="MI HOGAR">
           {me?.households.length ? (
             me.households.map((household, index) => {
               const isActive = household.id === activeHouseholdId;
@@ -292,14 +312,14 @@ export default function SettingsScreen() {
           <View style={styles.nudgeCard}>
             <Text style={styles.nudgeTitle}>Personalizá tu experiencia</Text>
             <Text style={styles.nudgeText}>
-              Agregá tus preferencias alimentarias para recibir recetas adaptadas a tu hogar.
+              Agregá ubicación y preferencias alimentarias para mejorar las recomendaciones.
             </Text>
           </View>
         ) : null}
 
-        {/* Dietary preferences section — adults only */}
+        {/* Dietary preferences section — adults only, household-level */}
         {isAdult ? (
-          <SectionCard title="PREFERENCIAS ALIMENTARIAS">
+          <SectionCard title="PREFERENCIAS ALIMENTARIAS DEL HOGAR">
             {dietaryHints.length > 0 ? (
               <View style={styles.dietaryChips}>
                 {dietaryHints.map((hint, i) => (
@@ -387,32 +407,6 @@ export default function SettingsScreen() {
           </View>
         ) : null}
 
-        {/* Notifications section */}
-        <SectionCard title="NOTIFICACIONES">
-          <SettingsRow
-            icon={<Bell size={16} color={colors.mutedForeground} />}
-            label="Preferencias de notificaciones"
-            subtitle="Elegí qué notificaciones push recibir"
-            onPress={() => router.push("/(app)/notification-settings" as RelativePathString)}
-            last
-          />
-        </SectionCard>
-
-        {/* Help section */}
-        <SectionCard title="AYUDA">
-          <SettingsRow
-            icon={<HelpCircle size={16} color={colors.mutedForeground} />}
-            label="¿Cómo funciona Habita?"
-            subtitle="Volvé a ver las guías de cada sección"
-            onPress={() => {
-              void resetAllGuides().then(() => {
-                Alert.alert("Guías reiniciadas", "Las guías aparecerán la próxima vez que entres a cada sección.");
-              });
-            }}
-            last
-          />
-        </SectionCard>
-
         {/* Legal */}
         <SectionCard title="LEGAL">
           <SettingsRow
@@ -425,7 +419,6 @@ export default function SettingsScreen() {
 
         {/* Logout */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>CUENTA</Text>
           <Button
             variant="destructive"
             onPress={() => void handleLogout()}
@@ -508,7 +501,7 @@ function createStyles(c: ThemeColors) {
       gap: spacing.sm,
     },
     settingsRowBorder: {
-      borderBottomWidth: 1,
+      borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
     },
     settingsRowIcon: {
@@ -586,7 +579,7 @@ function createStyles(c: ThemeColors) {
       gap: spacing.sm,
       paddingVertical: 13,
       paddingHorizontal: spacing.md,
-      borderBottomWidth: 1,
+      borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
     },
     themeOptionActive: {

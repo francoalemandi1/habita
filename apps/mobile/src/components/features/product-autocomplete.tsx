@@ -122,7 +122,7 @@ function createStyles(c: ThemeColors) {
       alignItems: "center",
       paddingVertical: spacing.sm,
       paddingHorizontal: spacing.md,
-      borderBottomWidth: 1,
+      borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
     },
     itemLast: {

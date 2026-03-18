@@ -55,7 +55,7 @@ function createStyles(c: ThemeColors) {
     header: {
       paddingHorizontal: spacing.lg,
       paddingBottom: spacing.md,
-      borderBottomWidth: 1,
+      borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
       marginBottom: spacing.sm,
     },

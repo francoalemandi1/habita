@@ -11,7 +11,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const redirectTo = callbackUrl?.startsWith("/") ? callbackUrl : "/dashboard";
 
   return (
-    <div className="rounded-2xl border-2 border-border/60 bg-card p-6 shadow-lg sm:p-8">
+    <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-lg sm:p-8">
       <div className="mb-6 text-center">
         <div className="mx-auto mb-4 flex justify-center">
           <HabitaLogo size={64} className="rounded-2xl" />

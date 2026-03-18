@@ -357,8 +357,27 @@ export function AddExpenseDialog({
               />
             </div>
 
-            {/* Chips row: Category + Payer + Split type */}
+            {/* Chips row: Payer (first, more visible) + Category */}
             <div className="flex flex-wrap gap-2">
+              {/* Payer chip — prominent position (hidden for solo) */}
+              {!isSolo && (
+                <button
+                  type="button"
+                  onClick={() => { setShowPayerSelect(!showPayerSelect); setShowCategorySelect(false); }}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-input px-3 py-1.5 text-sm transition-colors hover:bg-muted"
+                >
+                  <span
+                    className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                    style={{ backgroundColor: payerColor }}
+                  >
+                    {payerInitial}
+                  </span>
+                  <span>
+                    {paidById === currentMemberId ? "Vos pagaste" : `${selectedPayer?.name} pagó`}
+                  </span>
+                </button>
+              )}
+
               {/* Category chip */}
               <button
                 type="button"
@@ -376,26 +395,6 @@ export function AddExpenseDialog({
                     : CATEGORY_LABELS[category]}
                 </span>
               </button>
-
-              {/* Payer chip (hidden for solo — only one person) */}
-              {!isSolo && (
-                <button
-                  type="button"
-                  onClick={() => { setShowPayerSelect(!showPayerSelect); setShowCategorySelect(false); }}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-input px-3 py-1.5 text-sm transition-colors hover:bg-muted"
-                >
-                  <span
-                    className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                    style={{ backgroundColor: payerColor }}
-                  >
-                    {payerInitial}
-                  </span>
-                  <span>
-                    {paidById === currentMemberId ? "Vos pagaste" : `${selectedPayer?.name} pago`}
-                  </span>
-                </button>
-              )}
-
             </div>
 
             {/* Split type presets (hidden for solo — no one to split with) */}

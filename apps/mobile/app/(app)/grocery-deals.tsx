@@ -319,8 +319,8 @@ function createStyles(c: ThemeColors) {
     storeGroupMeta: { fontFamily: fontFamily.sans, fontSize: 12, color: c.mutedForeground, marginTop: 2 },
     storeGroupRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
     chevronBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: c.muted, alignItems: "center", justifyContent: "center" },
-    storeGroupProducts: { borderTopWidth: 1, borderTopColor: c.border },
-    dealRowBorder: { borderBottomWidth: 1, borderBottomColor: c.border },
+    storeGroupProducts: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
+    dealRowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border },
     // Deal row (flat)
     dealRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
     checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: c.mutedForeground, alignItems: "center", justifyContent: "center", flexShrink: 0 },

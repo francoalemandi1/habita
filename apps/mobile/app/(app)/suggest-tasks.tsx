@@ -227,7 +227,7 @@ function createStyles(c: ThemeColors) {
     subtitle: { fontFamily: fontFamily.sans, fontSize: 14, color: c.mutedForeground, marginBottom: spacing.md },
     formCard: { marginBottom: spacing.md },
     toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.sm },
-    toggleRowBorder: { borderTopWidth: 1, borderTopColor: c.border },
+    toggleRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
     toggleLabel: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
     toggleEmoji: { fontFamily: fontFamily.sans, fontSize: 18 },
     toggleText: { fontFamily: fontFamily.sans, fontSize: 14, color: c.text },
@@ -263,7 +263,7 @@ function createStyles(c: ThemeColors) {
     taskReason: { fontFamily: fontFamily.sans, fontSize: 11, color: "#7c3aed", marginTop: 3 },
     taskCheck: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: c.border, alignItems: "center", justifyContent: "center", marginTop: 1 },
     taskCheckSelected: { backgroundColor: c.primary, borderColor: c.primary },
-    stickyBar: { position: "absolute", left: 0, right: 0, backgroundColor: c.background, borderTopWidth: 1, borderTopColor: c.border, padding: spacing.lg },
+    stickyBar: { position: "absolute", left: 0, right: 0, backgroundColor: c.background, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border, padding: spacing.lg },
     addButton: { width: "100%" },
   });
 }

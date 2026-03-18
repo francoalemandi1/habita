@@ -347,41 +347,10 @@ export default function NewExpenseScreen() {
           />
         </View>
 
-        {/* Category chips */}
-        <View style={styles.fieldGap}>
-          <Text style={styles.sectionLabel}>Categoría</Text>
-          <View style={styles.chipGrid}>
-            {CATEGORIES.slice(0, showAllCategories ? CATEGORIES.length : PRIMARY_CATEGORY_COUNT).map((cat) => {
-              const isActive = category === cat.value;
-              return (
-                <Pressable
-                  key={cat.value}
-                  onPress={() => handleCategorySelect(cat.value)}
-                  style={[styles.chip, isActive && styles.chipActive]}
-                >
-                  <Text style={styles.chipEmoji}>{cat.emoji}</Text>
-                  <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-                    {cat.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-            <Pressable
-              onPress={() => setShowAllCategories(!showAllCategories)}
-              style={styles.chip}
-            >
-              <Text style={styles.chipEmoji}>{showAllCategories ? "▲" : "▼"}</Text>
-              <Text style={styles.chipText}>
-                {showAllCategories ? "Menos" : "Más"}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Payer select (only for multi-member households) */}
+        {/* Payer select — prominent position after amount (multi-member only) */}
         {!isSolo && (
           <View style={styles.fieldGap}>
-            <Text style={styles.sectionLabel}>Quien pago</Text>
+            <Text style={styles.sectionLabel}>¿Quién pagó?</Text>
             <Pressable
               onPress={() => setShowPayerSelect(!showPayerSelect)}
               style={styles.selectButton}
@@ -418,6 +387,37 @@ export default function NewExpenseScreen() {
             )}
           </View>
         )}
+
+        {/* Category chips */}
+        <View style={styles.fieldGap}>
+          <Text style={styles.sectionLabel}>Categoría</Text>
+          <View style={styles.chipGrid}>
+            {CATEGORIES.slice(0, showAllCategories ? CATEGORIES.length : PRIMARY_CATEGORY_COUNT).map((cat) => {
+              const isActive = category === cat.value;
+              return (
+                <Pressable
+                  key={cat.value}
+                  onPress={() => handleCategorySelect(cat.value)}
+                  style={[styles.chip, isActive && styles.chipActive]}
+                >
+                  <Text style={styles.chipEmoji}>{cat.emoji}</Text>
+                  <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                    {cat.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+            <Pressable
+              onPress={() => setShowAllCategories(!showAllCategories)}
+              style={styles.chip}
+            >
+              <Text style={styles.chipEmoji}>{showAllCategories ? "▲" : "▼"}</Text>
+              <Text style={styles.chipText}>
+                {showAllCategories ? "Menos" : "Más"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
 
         {/* Split type (only for multi-member households) */}
         {!isSolo && (
@@ -635,7 +635,7 @@ function createStyles(c: ThemeColors) {
       justifyContent: "space-between",
       paddingHorizontal: spacing.md,
       paddingVertical: 10,
-      borderBottomWidth: 1,
+      borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
     },
     selectOptionActive: {

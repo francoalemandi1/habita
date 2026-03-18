@@ -46,7 +46,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
             />
           </div>
           <div className="flex items-center gap-2">
-            <AppNav />
+            <AppNav hasLocation={!!member.household.city} />
             <Link
               href="/profile"
               className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium hover:bg-muted/80 transition-colors"

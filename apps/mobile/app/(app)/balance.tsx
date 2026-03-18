@@ -193,7 +193,7 @@ function isExpenseSettled(expense: SerializedExpense): boolean {
 
 type Tab = "gastos" | "fondo" | "saldos";
 
-const TAB_ITEMS: Array<{ key: string; label: string }> = [
+const ALL_TAB_ITEMS: Array<{ key: string; label: string }> = [
   { key: "gastos", label: "Gastos" },
   { key: "fondo", label: "Fondo" },
   { key: "saldos", label: "Saldos" },
@@ -1056,6 +1056,15 @@ function SaldosTabContent({ currentMemberId }: { currentMemberId: string }) {
         ) : null}
       </View>
 
+      {/* Transferencias link */}
+      <Pressable
+        onPress={() => router.push("/(app)/transfers")}
+        style={saldosStyles.transfersLink}
+      >
+        <ArrowLeftRight size={14} color={colors.mutedForeground} />
+        <Text style={saldosStyles.transfersLinkText}>Transferencias →</Text>
+      </Pressable>
+
       {/* Debt transactions */}
       {transactions.length > 0 ? (
         <Card>
@@ -1064,7 +1073,7 @@ function SaldosTabContent({ currentMemberId }: { currentMemberId: string }) {
             {transactions.map((tx, i) => {
               const isMe = tx.fromMemberId === currentMemberId;
               return (
-                <View key={`${tx.fromMemberId}-${tx.toMemberId}`} style={[saldosStyles.debtRow, i < transactions.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                <View key={`${tx.fromMemberId}-${tx.toMemberId}`} style={[saldosStyles.debtRow, i < transactions.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}>
                   <View style={saldosStyles.debtInfo}>
                     <HandCoins size={16} color={isMe ? colors.errorText : colors.successText} />
                     <View style={{ flex: 1 }}>
@@ -1185,6 +1194,12 @@ export default function ExpensesScreen() {
   const currentMemberId = activeMembers[0]?.id ?? "";
   const isSolo = activeMembers.length <= 1;
 
+  // Progressive disclosure: hide Fondo/Saldos tabs for solo households
+  const tabItems = useMemo(
+    () => isSolo ? ALL_TAB_ITEMS.filter((t) => t.key === "gastos") : ALL_TAB_ITEMS,
+    [isSolo],
+  );
+
   const inviteCode = householdQuery.data?.household?.inviteCode ?? null;
   const householdName = householdQuery.data?.household?.name ?? "";
 
@@ -1236,7 +1251,7 @@ export default function ExpensesScreen() {
 
       {/* Tab bar — always visible */}
       <View style={styles.tabRow}>
-        <TabBar items={TAB_ITEMS} activeKey={activeTab} onChange={handleTabChange} />
+        <TabBar items={tabItems} activeKey={activeTab} onChange={handleTabChange} />
       </View>
 
       {isFirstVisit ? (
@@ -1299,17 +1314,18 @@ export default function ExpensesScreen() {
               }
             >
               {insightsData && <FinancialPulseCard data={insightsData} />}
-              {insightsData?.spendingTips && insightsData.spendingTips.length > 0 && (
+              {/* Progressive disclosure: only show secondary insights after user has expenses */}
+              {expenses.length > 0 && insightsData?.spendingTips && insightsData.spendingTips.length > 0 && (
                 <View style={styles.section}>
                   <SpendingTips tips={insightsData.spendingTips as Array<{ id: string; emoji: string; message: string; severity: string }>} />
                 </View>
               )}
-              {insightsData && insightsData.upcomingServicesCount > 0 && (
+              {expenses.length > 0 && insightsData && insightsData.upcomingServicesCount > 0 && (
                 <View style={styles.section}>
                   <UpcomingServicesNotice count={insightsData.upcomingServicesCount} cost={insightsData.upcomingServicesCost} />
                 </View>
               )}
-              {insightsData?.frequentExpenses && insightsData.frequentExpenses.length > 0 && (
+              {expenses.length > 0 && insightsData?.frequentExpenses && insightsData.frequentExpenses.length > 0 && (
                 <View style={styles.section}>
                   <QuickAddPills expenses={insightsData.frequentExpenses as FrequentExpense[]} onQuickAdd={handleQuickAdd} />
                 </View>
@@ -1887,11 +1903,11 @@ function createFundStyles(c: ThemeColors) {
     paidBadge: { backgroundColor: c.successBg, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
     paidBadgeText: { fontFamily: fontFamily.sans, color: c.successText, fontWeight: "700", fontSize: 13 },
     sectionTitle: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "700", color: c.text, marginBottom: spacing.sm },
-    memberRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border },
+    memberRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border },
     memberName: { fontFamily: fontFamily.sans, color: c.text, fontWeight: "500", fontSize: 14 },
     memberContributed: { fontFamily: fontFamily.sans, color: c.text, fontWeight: "600", fontSize: 13 },
     memberPending: { fontFamily: fontFamily.sans, color: c.errorText, fontSize: 11, marginTop: 2 },
-    txRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border },
+    txRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border },
     txTitle: { fontFamily: fontFamily.sans, color: c.text, fontWeight: "500", fontSize: 14 },
     txDate: { fontFamily: fontFamily.sans, color: c.mutedForeground, fontSize: 12, marginTop: 2 },
     txNeg: { fontFamily: fontFamily.sans, color: c.errorText, fontWeight: "600", fontSize: 14 },
@@ -1953,5 +1969,7 @@ function createSaldosStyles(c: ThemeColors) {
     insightValue: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "600", color: c.text },
     tipCard: { borderRadius: radius.lg, padding: spacing.sm, marginBottom: spacing.xs },
     tipText: { fontFamily: fontFamily.sans, fontWeight: "600", fontSize: 13, color: c.text },
+    transfersLink: { flexDirection: "row", alignItems: "center", gap: 6 },
+    transfersLinkText: { fontFamily: fontFamily.sans, fontSize: 12, color: c.mutedForeground },
   });
 }

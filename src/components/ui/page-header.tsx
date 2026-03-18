@@ -8,7 +8,7 @@ import type { LucideIcon } from "lucide-react";
 
 interface PageHeaderProps {
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   icon?: LucideIcon;
   backButton?: boolean;
   actions?: React.ReactNode;

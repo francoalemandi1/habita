@@ -111,7 +111,7 @@ function createStyles(c: ThemeColors) {
     section: { marginBottom: spacing.md },
     sectionTitle: { fontWeight: "700", marginBottom: spacing.sm },
     taskList: { padding: 0 },
-    taskRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.border, gap: spacing.sm },
+    taskRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border, gap: spacing.sm },
     taskRowInfo: { flex: 1 },
     taskRowName: { fontFamily: fontFamily.sans, fontWeight: "600", color: c.text, fontSize: 14 },
     taskRowMeta: { fontFamily: fontFamily.sans, color: c.mutedForeground, fontSize: 12, marginTop: 1 },

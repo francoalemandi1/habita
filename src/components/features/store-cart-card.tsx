@@ -314,32 +314,34 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
         </div>
       )}
 
-      {/* Pin + Share row */}
-      <div className="flex items-center gap-2 px-4 pb-3">
-        {onPinStore && (
+      {/* Secondary actions — only visible when card is expanded */}
+      {isOpen && (
+        <div className="flex items-center gap-2 px-4 pb-3">
+          {onPinStore && (
+            <button
+              type="button"
+              onClick={() => onPinStore(cart.storeName)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                isPinned
+                  ? "bg-primary/10 text-primary"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              <Pin className="h-3 w-3" />
+              {isPinned ? "Mi super" : "Mi super"}
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => onPinStore(cart.storeName)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-              isPinned
-                ? "bg-primary/10 text-primary"
-                : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground",
-            )}
+            onClick={() => { void handleShare(); }}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 transition-colors hover:bg-primary/10 hover:text-primary"
           >
-            <Pin className="h-3 w-3" />
-            {isPinned ? "Fijado" : "Elegir este super"}
+            <Share2 className="h-3 w-3" />
+            {shareLabel ?? "Compartir"}
           </button>
-        )}
-        <button
-          type="button"
-          onClick={() => { void handleShare(); }}
-          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted/50 transition-colors hover:bg-primary/10 hover:text-primary"
-        >
-          <Share2 className="h-3 w-3" />
-          {shareLabel ?? "Compartir lista"}
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,7 +4,10 @@ import { Animated, Modal, Platform, Pressable, StyleSheet, Text, View } from "re
 import { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import { fontFamily } from "@/theme";
 import { useThemeColors } from "@/hooks/use-theme";
+import { useExpenses } from "@/hooks/use-expenses";
+import { useMembers } from "@/hooks/use-members";
 import {
+  ArrowLeftRight,
   ChefHat,
   ClipboardCheck,
   Compass,
@@ -12,6 +15,7 @@ import {
   MoreHorizontal,
   Receipt,
   ShoppingCart,
+  TrendingUp,
 } from "lucide-react-native";
 
 import { AiJobWatcher } from "@/components/ai-job-watcher";
@@ -31,6 +35,8 @@ const TAB_CONFIG: Record<string, { Icon: LucideIcon; label: string }> = {
 const MORE_ITEMS: { screen: string; Icon: LucideIcon; label: string }[] = [
   { screen: "descubrir", Icon: Compass, label: "Descubrí" },
   { screen: "cocina", Icon: ChefHat, label: "Cociná" },
+  { screen: "progress", Icon: TrendingUp, label: "Progreso" },
+  { screen: "transfers", Icon: ArrowLeftRight, label: "Transferencias" },
 ];
 
 function AnimatedTabItem({
@@ -235,6 +241,13 @@ function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
 
 export default function AppLayout() {
   const { isAuthenticated, isBootstrapping, me } = useMobileAuth();
+  const expensesQuery = useExpenses();
+  const membersQuery = useMembers();
+
+  // Progressive disclosure: show "Ahorrá" tab after user has logged expenses
+  const hasExpenses = (expensesQuery.data?.expenses?.length ?? 0) > 0;
+  const hasMultipleMembers = (membersQuery.data?.members?.length ?? 1) > 1;
+  const showComprasTab = hasExpenses || hasMultipleMembers;
 
   if (!isBootstrapping && !isAuthenticated) {
     return <Redirect href="/(auth)/login" />;
@@ -257,7 +270,7 @@ export default function AppLayout() {
         <Tabs.Screen name="dashboard" options={{ title: "Habita" }} />
         <Tabs.Screen name="tasks" options={{ title: "Organizá" }} />
         <Tabs.Screen name="balance" options={{ title: "Controlá" }} />
-        <Tabs.Screen name="compras" options={{ title: "Ahorrá" }} />
+        <Tabs.Screen name="compras" options={showComprasTab ? { title: "Ahorrá" } : { title: "Ahorrá", tabBarItemStyle: { display: "none" } }} />
 
         {/* ── "Más" screens (accessible via bottom sheet) ── */}
         <Tabs.Screen name="descubrir" options={{ href: null, title: "Descubrí" }} />
@@ -282,6 +295,7 @@ export default function AppLayout() {
         <Tabs.Screen name="suggest-tasks" options={{ href: null, title: "Sugerencias de tareas" }} />
         <Tabs.Screen name="grocery-deals" options={{ href: null, title: "Ofertas del super" }} />
         <Tabs.Screen name="notification-settings" options={{ href: null, title: "Notificaciones push" }} />
+        <Tabs.Screen name="plans" options={{ href: null, title: "Historial de planes" }} />
       </Tabs>
     </>
   );

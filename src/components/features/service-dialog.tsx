@@ -797,7 +797,7 @@ export function ServiceDialog({
                   type="checkbox"
                   checked={autoGenerate}
                   onChange={(e) => setAutoGenerate(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300"
+                  className="h-4 w-4 rounded border-border"
                 />
                 <div>
                   <p className="text-sm font-medium">Registrar automaticamente</p>

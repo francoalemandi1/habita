@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { resolveCityId } from "@/lib/events/city-normalizer";
@@ -32,7 +33,7 @@ export default async function DescubrirPage() {
     <div className={spacing.pageContainer}>
       <PageHeader
         title={cityName ? `Descubrí ${cityName}` : "Descubrí"}
-        subtitle={todayLabel}
+        subtitle={<>{todayLabel} · <Link href="/my-tasks" className="text-primary hover:underline">Mis tareas</Link></>}
       />
       <DescubrirClient
         hasHouseholdLocation={hasLocation}

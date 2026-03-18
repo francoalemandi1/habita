@@ -13,6 +13,8 @@ import { OnboardingChecklist } from "@/components/features/onboarding-checklist"
 import { InviteHomeCard } from "@/components/features/invite-home-card";
 import { DashboardTour } from "@/components/features/dashboard-tour";
 import { DashboardHeroCard, computeHeroState } from "@/components/features/dashboard-hero-card";
+import { DashboardTodayTasks } from "@/components/features/dashboard-today-tasks";
+import { ContextualBridges } from "@/components/features/contextual-bridges";
 import { DashboardWeekCard } from "@/components/features/dashboard-week-card";
 import { DashboardDailyHighlight, computeDailyHighlight } from "@/components/features/dashboard-daily-highlight";
 import { HouseholdHealthScore } from "@/components/features/household-health-score";
@@ -257,6 +259,22 @@ export default async function DashboardPage() {
     expenseBalance,
   });
 
+  // Today's assignments for the task-first hero
+  const todayAssignments = calendarAssignments
+    .filter((a) => a.memberId === member.id && a.dueDate.toDateString() === todayStr)
+    .map((a) => ({
+      id: a.id,
+      taskName: a.task.name,
+      estimatedMinutes: a.task.estimatedMinutes,
+      status: a.status,
+    }));
+
+  // Contextual bridges data
+  const pendingTaskNames = todayAssignments
+    .filter((a) => a.status !== "COMPLETED" && a.status !== "VERIFIED")
+    .map((a) => a.taskName);
+  const allTodayDone = todayAssignments.length > 0 && pendingTaskNames.length === 0;
+
   // Top recommended cultural event for daily highlight
   const cityName = member.household.city ?? null;
   let recommendedEvent: { title: string; startDate: string | null; venueName: string | null; editorialHighlight: string | null } | null = null;
@@ -332,6 +350,11 @@ export default async function DashboardPage() {
   const isSolo = isSoloHousehold(members.length);
   const householdCopy = getHouseholdCopy(isSolo);
 
+  // Progressive disclosure milestones
+  const hasLocation = !!member.household.timezone;
+  const householdAge = Math.floor((now.getTime() - member.household.createdAt.getTime()) / (1000 * 60 * 60 * 24));
+  const isFirstWeek = householdAge < 7;
+
   // Compute household health score
   const hsCompleted = recentAssignmentsForScore.filter(
     (a) => a.status === "COMPLETED" || a.status === "VERIFIED",
@@ -392,8 +415,18 @@ export default async function DashboardPage() {
 
       {/* ── Zone 1: Status + actions ── */}
       <div className="mb-8 space-y-4">
-        {/* Hero card */}
-        <DashboardHeroCard state={heroState} />
+        {/* Task-first hero: today's tasks with inline completion */}
+        <DashboardTodayTasks
+          assignments={todayAssignments}
+          allClearHeadline={heroState.headline}
+        />
+
+        {/* Contextual bridges: connect tasks to features */}
+        <ContextualBridges
+          pendingTaskNames={pendingTaskNames}
+          allTasksDone={allTodayDone}
+          hasLocation={hasLocation}
+        />
 
         {/* Plan status */}
         {aiEnabled && (
@@ -436,11 +469,11 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* Transfers */}
-        <PendingTransfers transfers={transfers} currentMemberId={member.id} />
+        {/* Transfers — only relevant for multi-member households */}
+        {!isSolo && <PendingTransfers transfers={transfers} currentMemberId={member.id} />}
 
-        {/* Balance de gastos */}
-        <Link
+        {/* Balance de gastos — show after first expense */}
+        {hasExpense && <Link
           href="/balance"
           className={`group flex items-center gap-3 rounded-2xl px-4 py-3 shadow-sm transition-all hover:shadow-md active:scale-[0.99] ${
             expenseBalance > 0
@@ -482,7 +515,7 @@ export default async function DashboardPage() {
             </p>
           </div>
           <ChevronRight className={`${iconSize.sm} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
-        </Link>
+        </Link>}
       </div>
 
       {/* ── Zone 2: Calendar ── */}
@@ -524,14 +557,14 @@ export default async function DashboardPage() {
           currentMemberId={member.id}
         />
 
-        {/* Workload distribution (multi-member only) */}
-        {!isSolo && <WorkloadDistribution memberStats={memberStats} />}
+        {/* Workload distribution (multi-member only, after first completed task) */}
+        {!isSolo && hasCompletedTask && <WorkloadDistribution memberStats={memberStats} />}
 
-        {/* Household health score */}
-        <HouseholdHealthScore data={healthScore} />
+        {/* Household health score — show after first week */}
+        {!isFirstWeek && <HouseholdHealthScore data={healthScore} />}
 
-        {/* Daily highlight */}
-        <DashboardDailyHighlight highlight={dailyHighlight} />
+        {/* Daily highlight — show after location is set */}
+        {hasLocation && <DashboardDailyHighlight highlight={dailyHighlight} />}
       </div>
 
     </div>

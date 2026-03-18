@@ -184,7 +184,7 @@ function createStyles(c: ThemeColors) {
       paddingHorizontal: spacing.md,
     },
     prefRowBorder: {
-      borderBottomWidth: 1,
+      borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
     },
     prefLabel: {

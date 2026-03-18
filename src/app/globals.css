@@ -20,7 +20,7 @@
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
   --border: 216 16% 80%;        /* #c3ccd7 */
-  --input: 0 0% 35%;            /* #595959 - input borders */
+  --input: 216 16% 80%;          /* match --border for softer inputs */
   --ring: 234 99% 66%;
   /* Accessible foreground scale — replaces raw opacity modifiers */
   --foreground-secondary: 0 0% 30%;  /* #4d4d4d — 5.9:1 on cream */

@@ -37,7 +37,7 @@ export function WeeklyCelebration({
   }, []);
 
   return (
-    <Card className="relative overflow-hidden border-2 border-primary/30 bg-gradient-to-br from-primary/10 via-background to-primary/5">
+    <Card className="relative overflow-hidden border border-primary/20 bg-gradient-to-br from-primary/10 via-background to-primary/5">
       {/* Confetti effect */}
       {showConfetti && (
         <div className="pointer-events-none absolute inset-0">

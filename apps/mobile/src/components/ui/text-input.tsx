@@ -38,7 +38,7 @@ function createStyles(c: ThemeColors) {
       alignItems: "center",
       backgroundColor: c.card,
       borderRadius: radius.md,
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderColor: c.border,
       minHeight: 44,
     },

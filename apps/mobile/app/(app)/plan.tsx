@@ -869,16 +869,16 @@ function createStyles(c: ThemeColors) {
 
     // Tasks detail modal
     modalContainer: { flex: 1, backgroundColor: c.background },
-    modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: c.border },
+    modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border },
     modalTitle: { fontFamily: fontFamily.sans, fontSize: 17, fontWeight: "700", color: c.text },
     modalTitleCount: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "400", color: c.mutedForeground },
     modalCloseBtn: { paddingHorizontal: spacing.sm, paddingVertical: 6 },
     modalCloseTxt: { fontFamily: fontFamily.sans, fontSize: 15, color: c.primary, fontWeight: "600" },
     // Add task button (idle state)
-    modalAddBtn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: `${c.primary}06` },
+    modalAddBtn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border, backgroundColor: `${c.primary}06` },
     modalAddBtnText: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "600", color: c.primary },
     // Add task inline form
-    modalAddRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: `${c.primary}06` },
+    modalAddRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border, backgroundColor: `${c.primary}06` },
     modalAddInput: { flex: 1, marginBottom: 0 },
     modalAddConfirm: { paddingHorizontal: spacing.sm, paddingVertical: 8, borderRadius: 8, backgroundColor: c.primary },
     modalAddConfirmText: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "700", color: c.white },

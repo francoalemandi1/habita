@@ -46,6 +46,7 @@ import {
   Check,
   X,
   ChevronDown as ChevronDownIcon,
+  CreditCard,
 } from "lucide-react";
 
 import { AddExpenseDialog } from "@/components/features/add-expense-dialog";
@@ -256,7 +257,7 @@ function PaymentMethodPicker({
 
   return (
     <div className="space-y-1.5">
-      <p className="text-[11px] font-medium text-muted-foreground">¿Con qué pagás?</p>
+      <p className="text-[11px] font-medium text-muted-foreground">Filtrar promos por banco</p>
 
       {/* Selected chips */}
       {hasSelected && (
@@ -727,12 +728,6 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
         {/* Results content (hidden when showing saved/promos) */}
         {!showSaved && !showPromos && (
           <>
-            {/* Payment method selector — keep visible in results so user can filter promos */}
-            <PaymentMethodPicker
-              paymentMethods={paymentMethods}
-              onToggle={togglePaymentMethod}
-            />
-
             {/* Context line: date + store count */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>{searchedDate}</span>
@@ -1012,6 +1007,7 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
                 { icon: <ShoppingCart className="h-4 w-4" />, title: "Agregá productos", description: "Escribí lo que necesitás o elegí del catálogo" },
                 { icon: <Search className="h-4 w-4" />, title: "Buscamos en 11 supers", description: "Comparamos precios en tiempo real" },
                 { icon: <Trophy className="h-4 w-4" />, title: "Compará y ahorrá", description: "Te mostramos dónde te conviene comprar" },
+                { icon: <CreditCard className="h-4 w-4" />, title: "Sumá tus bancos", description: "Elegí con qué pagás para ver descuentos exclusivos" },
               ]}
               onDismiss={dismissAhorra}
             />

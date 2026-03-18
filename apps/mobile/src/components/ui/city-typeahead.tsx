@@ -36,7 +36,7 @@ function createStyles(c: ThemeColors) {
     dropdownItem: {
       paddingVertical: spacing.sm,
       paddingHorizontal: spacing.md,
-      borderBottomWidth: 1,
+      borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
     },
     itemText: {

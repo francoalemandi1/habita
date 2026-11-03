@@ -7,7 +7,6 @@ export * from "./notifications";
 export * from "./transfers";
 export * from "./weekly-plan";
 export * from "./stats";
-export * from "./briefing";
 export * from "./assignments";
 export * from "./tasks";
 export * from "./members";

@@ -71,7 +71,6 @@ export const queryKeys = {
   },
   stats: {
     all: () => ["stats"] as const,
-    briefing: () => [...queryKeys.stats.all(), "briefing"] as const,
   },
   preferences: {
     all: () => ["preferences"] as const,

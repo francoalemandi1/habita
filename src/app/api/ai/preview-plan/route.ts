@@ -6,7 +6,7 @@ import { isAIEnabled } from "@/lib/llm/provider";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { computeDurationDays, validateDateRange } from "@/lib/plan-duration";
-import { findRunningJob, markJobRunning, completeJob } from "@/lib/ai-jobs";
+import { tryStartJob, completeJob } from "@/lib/ai-jobs";
 import { applyRateLimit } from "@/lib/rate-limit";
 
 import type { NextRequest } from "next/server";
@@ -96,26 +96,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prevent duplicate concurrent runs
-    const existing = await findRunningJob(member.householdId, "PREVIEW_PLAN");
-    if (existing) {
+    const durationDays = computeDurationDays(startDate, endDate);
+
+    const startResult = await tryStartJob({
+      householdId: member.householdId,
+      memberId: member.id,
+      jobType: "PREVIEW_PLAN",
+      inputData: { startDate: startDate.toISOString(), endDate: endDate.toISOString(), durationDays },
+    });
+    if (!startResult.started) {
       const response: AiJobTriggerResponse = {
         started: false,
         alreadyRunning: true,
-        jobId: existing.id,
+        jobId: startResult.existingJobId,
       };
       return NextResponse.json(response);
     }
 
-    const durationDays = computeDurationDays(startDate, endDate);
-
-    // Create RUNNING job entry
-    const jobId = await markJobRunning(
-      member.householdId,
-      member.id,
-      "PREVIEW_PLAN",
-      { startDate: startDate.toISOString(), endDate: endDate.toISOString(), durationDays },
-    );
+    const jobId = startResult.jobId;
 
     // Schedule background work
     after(async () => {

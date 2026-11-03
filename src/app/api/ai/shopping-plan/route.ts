@@ -4,7 +4,7 @@ import { requireMember } from "@/lib/session";
 import { compareProducts } from "@/lib/supermarket-search";
 import { handleApiError } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
-import { findRunningJob, markJobRunning, completeJob } from "@/lib/ai-jobs";
+import { tryStartJob, completeJob } from "@/lib/ai-jobs";
 import { applyRateLimit } from "@/lib/rate-limit";
 
 import type { NextRequest } from "next/server";
@@ -58,23 +58,22 @@ export async function POST(request: NextRequest) {
     const city = member.household.city ?? null;
     const preferredBankSlugs = validation.data.preferredBankSlugs ?? [];
 
-    // Prevent duplicate concurrent runs
-    const existing = await findRunningJob(member.householdId, "SHOPPING_PLAN", { memberId: member.id });
-    if (existing) {
+    const startResult = await tryStartJob({
+      householdId: member.householdId,
+      memberId: member.id,
+      jobType: "SHOPPING_PLAN",
+      inputData: { searchInput, city, preferredBankSlugs },
+    });
+    if (!startResult.started) {
       const response: AiJobTriggerResponse = {
         started: false,
         alreadyRunning: true,
-        jobId: existing.id,
+        jobId: startResult.existingJobId,
       };
       return NextResponse.json(response);
     }
 
-    const jobId = await markJobRunning(
-      member.householdId,
-      member.id,
-      "SHOPPING_PLAN",
-      { searchInput, city, preferredBankSlugs },
-    );
+    const jobId = startResult.jobId;
 
     // Schedule background work
     after(async () => {

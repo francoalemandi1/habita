@@ -1053,6 +1053,7 @@ model AiJobLog {
   durationMs    Int?
   startedAt     DateTime     @default(now())
   completedAt   DateTime?
+  lockKey       String?      @unique
 
   household  Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
   member     Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)

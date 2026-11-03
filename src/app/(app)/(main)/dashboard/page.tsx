@@ -17,7 +17,6 @@ import { DashboardTodayTasks } from "@/components/features/dashboard-today-tasks
 import { ContextualBridges } from "@/components/features/contextual-bridges";
 import { DashboardWeekCard } from "@/components/features/dashboard-week-card";
 import { DashboardDailyHighlight, computeDailyHighlight } from "@/components/features/dashboard-daily-highlight";
-import { HouseholdHealthScore } from "@/components/features/household-health-score";
 import { WorkloadDistribution } from "@/components/features/workload-distribution";
 import { getWeekMonday, getWeekSunday } from "@/lib/calendar-utils";
 import { ChevronRight, CalendarDays, Wallet } from "lucide-react";
@@ -54,10 +53,7 @@ export default async function DashboardPage() {
   const sunday = getWeekSunday(monday);
   const aiEnabled = isAIEnabled();
 
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  const [members, activePlan, transfers, calendarAssignments, firstExpense, firstCompletedTask, weeklyCompletions, lastExpense, recentAssignmentsForScore, unsettledSplitsAgg, monthlyExpensesAgg] =
+  const [members, activePlan, transfers, calendarAssignments, firstExpense, firstCompletedTask, weeklyCompletions] =
     await Promise.all([
       prisma.member.findMany({
         where: { householdId, isActive: true },
@@ -130,31 +126,6 @@ export default async function DashboardPage() {
           memberId: true,
           task: { select: { weight: true } },
         },
-      }),
-      // Health score: last expense
-      prisma.expense.findFirst({
-        where: { householdId },
-        orderBy: { date: "desc" },
-        select: { date: true },
-      }),
-      // Health score: recent assignments (completed + overdue last 7 days)
-      prisma.assignment.findMany({
-        where: {
-          householdId,
-          dueDate: { gte: sevenDaysAgo, lte: now },
-          status: { in: ["COMPLETED", "VERIFIED", "PENDING", "OVERDUE"] },
-        },
-        select: { status: true },
-      }),
-      // Health score: total unsettled splits
-      prisma.expenseSplit.aggregate({
-        where: { settled: false, expense: { householdId } },
-        _sum: { amount: true },
-      }),
-      // Health score: monthly spend (for balance ratio)
-      prisma.expense.aggregate({
-        where: { householdId, date: { gte: startOfMonth } },
-        _sum: { amount: true },
       }),
     ]);
 
@@ -339,36 +310,6 @@ export default async function DashboardPage() {
 
   // Progressive disclosure milestones
   const hasLocation = !!member.household.timezone;
-  const householdAge = Math.floor((now.getTime() - member.household.createdAt.getTime()) / (1000 * 60 * 60 * 24));
-  const isFirstWeek = householdAge < 7;
-
-  // Compute household health score
-  const hsCompleted = recentAssignmentsForScore.filter(
-    (a) => a.status === "COMPLETED" || a.status === "VERIFIED",
-  ).length;
-  const hsOverdue = recentAssignmentsForScore.filter((a) => a.status === "OVERDUE").length;
-  const hsTotal = recentAssignmentsForScore.length;
-  const tasksScore = hsTotal === 0 ? 40 : Math.round((hsCompleted / (hsCompleted + hsOverdue || 1)) * 40);
-
-  const daysSinceLastExpense = lastExpense
-    ? Math.floor((now.getTime() - lastExpense.date.getTime()) / (1000 * 60 * 60 * 24))
-    : 999;
-  const expensesScore =
-    daysSinceLastExpense < 3 ? 30 : daysSinceLastExpense < 7 ? 20 : daysSinceLastExpense < 14 ? 10 : 0;
-
-  const totalUnsettledARS = unsettledSplitsAgg._sum.amount?.toNumber() ?? 0;
-  const monthlyTotal = monthlyExpensesAgg._sum.amount?.toNumber() ?? 0;
-  const debtRatio = monthlyTotal > 0 ? totalUnsettledARS / monthlyTotal : 0;
-  const balanceScore = monthlyTotal === 0 ? 30 : debtRatio < 0.2 ? 30 : debtRatio < 0.4 ? 20 : debtRatio < 0.6 ? 10 : 0;
-
-  const healthScore = {
-    score: tasksScore + expensesScore + balanceScore,
-    components: {
-      tasks: { score: tasksScore, total: 40 as const, completedThisWeek: hsCompleted, overdueThisWeek: hsOverdue },
-      expenses: { score: expensesScore, total: 30 as const, daysSinceLastExpense: daysSinceLastExpense === 999 ? 0 : daysSinceLastExpense },
-      balance: { score: balanceScore, total: 30 as const, totalUnsettledARS },
-    },
-  };
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
@@ -546,9 +487,6 @@ export default async function DashboardPage() {
 
         {/* Workload distribution (multi-member only, after first completed task) */}
         {!isSolo && hasCompletedTask && <WorkloadDistribution memberStats={memberStats} />}
-
-        {/* Household health score — show after first week */}
-        {!isFirstWeek && <HouseholdHealthScore data={healthScore} />}
 
         {/* Daily highlight — show after location is set */}
         {hasLocation && <DashboardDailyHighlight highlight={dailyHighlight} />}

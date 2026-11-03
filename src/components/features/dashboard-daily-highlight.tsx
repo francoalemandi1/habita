@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type HighlightType = "deal" | "event" | "recipe";
+type HighlightType = "deal" | "event";
 
 interface DailyHighlightState {
   type: HighlightType;
@@ -19,19 +19,10 @@ interface RecommendedEvent {
 }
 
 interface DashboardDailyHighlightProps {
-  highlight: DailyHighlightState;
+  highlight: DailyHighlightState | null;
 }
 
 function getHighlightConfig(type: HighlightType) {
-  if (type === "recipe") {
-    return {
-      emoji: "👨‍🍳",
-      emojiBg: "bg-muted",
-      border: "border-border",
-      categoryColor: "text-muted-foreground",
-      btnBg: "bg-foreground/10 hover:bg-foreground/15 text-foreground",
-    };
-  }
   // deal + event share primary tints
   return {
     emoji: type === "deal" ? "🏷️" : "🎭",
@@ -42,48 +33,33 @@ function getHighlightConfig(type: HighlightType) {
   };
 }
 
-function getMealLabel(): string {
-  const hour = new Date().getHours();
-  if (hour < 10) return "desayuno";
-  if (hour < 15) return "almuerzo";
-  if (hour < 19) return "merienda";
-  return "cena";
-}
+export function computeDailyHighlight(recommendedEvent?: RecommendedEvent | null): DailyHighlightState | null {
+  if (!recommendedEvent) return null;
 
-export function computeDailyHighlight(recommendedEvent?: RecommendedEvent | null): DailyHighlightState {
-  if (recommendedEvent) {
-    const dateStr = recommendedEvent.startDate
-      ? new Date(recommendedEvent.startDate).toLocaleDateString("es-AR", {
-          weekday: "short",
-          day: "numeric",
-          month: "short",
-        })
-      : null;
-    const subtitle = recommendedEvent.editorialHighlight
-      ?? [dateStr, recommendedEvent.venueName].filter(Boolean).join(" · ")
-      ?? "Evento cerca tuyo";
-
-    return {
-      type: "event",
-      title: recommendedEvent.title,
-      subtitle,
-      categoryLabel: "EVENTO",
-      ctaLabel: "Ver evento",
-      ctaRoute: "/descubrir",
-    };
-  }
+  const dateStr = recommendedEvent.startDate
+    ? new Date(recommendedEvent.startDate).toLocaleDateString("es-AR", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      })
+    : null;
+  const subtitle = recommendedEvent.editorialHighlight
+    ?? [dateStr, recommendedEvent.venueName].filter(Boolean).join(" · ")
+    ?? "Evento cerca tuyo";
 
   return {
-    type: "recipe",
-    title: `¿Qué cocinamos para el ${getMealLabel()}?`,
-    subtitle: "Encontrá recetas con lo que tenés en casa",
-    categoryLabel: "RECETA",
-    ctaLabel: "Ver recetas",
-    ctaRoute: "/cocina",
+    type: "event",
+    title: recommendedEvent.title,
+    subtitle,
+    categoryLabel: "EVENTO",
+    ctaLabel: "Ver evento",
+    ctaRoute: "/descubrir",
   };
 }
 
 export function DashboardDailyHighlight({ highlight }: DashboardDailyHighlightProps) {
+  if (!highlight) return null;
+
   const config = getHighlightConfig(highlight.type);
 
   return (

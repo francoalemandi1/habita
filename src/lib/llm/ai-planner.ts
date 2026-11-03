@@ -68,12 +68,6 @@ interface PlanContext {
     status: string;
     daysAgo: number;
   }>;
-  recentFeedback: Array<{
-    memberName: string;
-    rating: number;
-    comment: string | null;
-    planDate: string;
-  }>;
 }
 
 interface GeneratePlanOptions {
@@ -250,7 +244,7 @@ async function buildPlanContext(householdId: string): Promise<PlanContext> {
   startOfWeek.setDate(now.getDate() - now.getDay());
   startOfWeek.setHours(0, 0, 0, 0);
 
-  const [members, tasks, recentAssignments, preferences, completedThisWeek, feedbackRows] = await Promise.all([
+  const [members, tasks, recentAssignments, preferences, completedThisWeek] = await Promise.all([
     prisma.member.findMany({
       where: { householdId, isActive: true },
       include: {
@@ -288,15 +282,6 @@ async function buildPlanContext(householdId: string): Promise<PlanContext> {
         completedAt: { gte: startOfWeek },
       },
       _count: { id: true },
-    }),
-    prisma.planFeedback.findMany({
-      where: { householdId },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      include: {
-        member: { select: { name: true } },
-        plan: { select: { createdAt: true } },
-      },
     }),
   ]);
 
@@ -340,12 +325,6 @@ async function buildPlanContext(householdId: string): Promise<PlanContext> {
         daysAgo,
       };
     }),
-    recentFeedback: feedbackRows.map((f) => ({
-      memberName: f.member.name,
-      rating: f.rating,
-      comment: f.comment,
-      planDate: f.plan.createdAt.toLocaleDateString("es-AR", { day: "numeric", month: "short" }),
-    })),
   };
 }
 
@@ -418,7 +397,7 @@ ${recentInfo || "(sin historial)"}
    - "Disponible": puede asumir más tareas o las más pesadas
    - Las tareas son una GUÍA organizativa, no una obligación con horario
 
-Genera un plan de asignaciones para los próximos ${durationLabel(durationDays)}. El objetivo es maximizar la equidad (balanceScore alto = más justo).${regionalBlock ? `\n\n${regionalBlock}` : ""}${buildFeedbackBlock(context.recentFeedback)}`;
+Genera un plan de asignaciones para los próximos ${durationLabel(durationDays)}. El objetivo es maximizar la equidad (balanceScore alto = más justo).${regionalBlock ? `\n\n${regionalBlock}` : ""}`;
 }
 
 function buildSoloPlanPrompt(context: PlanContext, durationDays = 7, regionalBlock = ""): string {
@@ -467,21 +446,5 @@ ${recentInfo || "(sin historial)"}
 7. Proporciona una breve razón para cada asignación
 8. Las tareas son una GUÍA organizativa, no una obligación — el tono debe ser positivo y flexible
 
-Genera un plan para los próximos ${durationLabel(durationDays)}.${regionalBlock ? `\n\n${regionalBlock}` : ""}${buildFeedbackBlock(context.recentFeedback)}`;
-}
-
-function buildFeedbackBlock(
-  feedback: PlanContext["recentFeedback"],
-): string {
-  if (feedback.length === 0) return "";
-
-  const lines = feedback.map((f) => {
-    const commentPart = f.comment ? `: "${f.comment}"` : "";
-    return `- ${f.memberName} valoró ${f.rating}/5${commentPart} (plan del ${f.planDate})`;
-  });
-
-  return `\n\n## Feedback de planes anteriores
-Los miembros dieron esta retroalimentación sobre distribuciones previas:
-${lines.join("\n")}
-Tené en cuenta este feedback al distribuir las tareas. Si hay quejas, ajustá la distribución. Si hay comentarios positivos, mantené ese enfoque.`;
+Genera un plan para los próximos ${durationLabel(durationDays)}.${regionalBlock ? `\n\n${regionalBlock}` : ""}`;
 }

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
-import { ChefHat, ChevronRight, Compass, ShoppingCart } from "lucide-react-native";
+import { ChevronRight, Compass, ShoppingCart } from "lucide-react-native";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamily, radius, spacing } from "@/theme";
 
@@ -11,16 +11,10 @@ import type { AssignmentSummary } from "@habita/contracts";
 
 // Inline task type detection (mirrors src/lib/task-type-detection.ts)
 const SHOPPING_KEYWORDS = ["compras", "supermercado", "comprar", "mercado", "super", "almacén", "verdulería"];
-const COOKING_KEYWORDS = ["cocinar", "preparar", "almuerzo", "cena", "comida", "desayuno", "merienda", "receta"];
 
 function isShoppingTask(name: string): boolean {
   const lower = name.toLowerCase();
   return SHOPPING_KEYWORDS.some((kw) => lower.includes(kw));
-}
-
-function isCookingTask(name: string): boolean {
-  const lower = name.toLowerCase();
-  return COOKING_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
 interface Bridge {
@@ -54,16 +48,6 @@ export function ContextualBridges({ assignments, allDone, hasLocation }: Context
       route: "/(app)/compras",
       bg: `${colors.successBg}`,
       iconColor: colors.successText,
-    });
-  }
-
-  if (pendingNames.some(isCookingTask)) {
-    bridges.push({
-      Icon: ChefHat,
-      message: "Buscá recetas para lo que vas a cocinar",
-      route: "/(app)/cocina",
-      bg: colors.warningBg,
-      iconColor: colors.warningText,
     });
   }
 

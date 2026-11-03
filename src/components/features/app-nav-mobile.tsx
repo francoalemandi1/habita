@@ -10,7 +10,6 @@ import {
   ShoppingCart,
   MoreHorizontal,
   Compass,
-  ChefHat,
   TrendingUp,
   ArrowLeftRight,
 } from "lucide-react";
@@ -25,7 +24,6 @@ const MAIN_ITEMS = [
 
 const MORE_ITEMS = [
   { href: "/descubrir", icon: Compass, label: "Descubrí" },
-  { href: "/cocina", icon: ChefHat, label: "Cociná" },
   { href: "/progress", icon: TrendingUp, label: "Progreso" },
   { href: "/transfers", icon: ArrowLeftRight, label: "Transferencias" },
 ];

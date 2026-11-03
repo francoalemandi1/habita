@@ -5,8 +5,8 @@ import { useCallback } from "react";
 import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 
-import type { SavedEvent, SavedRecipe, SavedCart } from "@prisma/client";
-import type { SaveEventInput, SaveRecipeInput, SaveCartInput } from "@/lib/validations/saved-items";
+import type { SavedEvent, SavedCart } from "@prisma/client";
+import type { SaveEventInput, SaveCartInput } from "@/lib/validations/saved-items";
 
 // ============================================
 // Queries
@@ -16,14 +16,6 @@ export function useSavedEvents() {
   return useQuery<SavedEvent[]>({
     queryKey: queryKeys.saved.events(),
     queryFn: () => apiFetch<SavedEvent[]>("/api/saved-items/events"),
-    staleTime: 60_000,
-  });
-}
-
-export function useSavedRecipes() {
-  return useQuery<SavedRecipe[]>({
-    queryKey: queryKeys.saved.recipes(),
-    queryFn: () => apiFetch<SavedRecipe[]>("/api/saved-items/recipes"),
     staleTime: 60_000,
   });
 }
@@ -68,48 +60,6 @@ export function useToggleSaveEvent() {
     (params: { savedEventId?: string; input?: SaveEventInput }) => {
       if (params.savedEventId) {
         return removeMutation.mutateAsync(params.savedEventId);
-      }
-      if (params.input) {
-        return saveMutation.mutateAsync(params.input);
-      }
-    },
-    [saveMutation, removeMutation],
-  );
-
-  return {
-    toggle,
-    isPending: saveMutation.isPending || removeMutation.isPending,
-  };
-}
-
-export function useToggleSaveRecipe() {
-  const queryClient = useQueryClient();
-
-  const saveMutation = useMutation({
-    mutationFn: (input: SaveRecipeInput) =>
-      apiFetch<SavedRecipe>("/api/saved-items/recipes", {
-        method: "POST",
-        body: input,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.saved.recipes() });
-    },
-  });
-
-  const removeMutation = useMutation({
-    mutationFn: (savedRecipeId: string) =>
-      apiFetch<void>(`/api/saved-items/recipes?id=${savedRecipeId}`, {
-        method: "DELETE",
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.saved.recipes() });
-    },
-  });
-
-  const toggle = useCallback(
-    (params: { savedRecipeId?: string; input?: SaveRecipeInput }) => {
-      if (params.savedRecipeId) {
-        return removeMutation.mutateAsync(params.savedRecipeId);
       }
       if (params.input) {
         return saveMutation.mutateAsync(params.input);
@@ -176,14 +126,6 @@ export function isEventSaved(
 ): SavedEvent | undefined {
   if (!savedEvents || !culturalEventId) return undefined;
   return savedEvents.find((e) => e.culturalEventId === culturalEventId);
-}
-
-export function isRecipeSaved(
-  savedRecipes: SavedRecipe[] | undefined,
-  contentHash: string,
-): SavedRecipe | undefined {
-  if (!savedRecipes) return undefined;
-  return savedRecipes.find((r) => r.contentHash === contentHash);
 }
 
 /** Check if a cart for this store is already saved. */

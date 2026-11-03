@@ -16,15 +16,6 @@ interface DailyHighlightProps {
 }
 
 function getHighlightConfig(type: HighlightType, c: ThemeColors) {
-  if (type === "recipe") {
-    return {
-      emoji: "👨‍🍳",
-      bg: c.muted,
-      border: c.border,
-      accent: c.mutedForeground,
-      emojiBg: `${c.mutedForeground}12`,
-    };
-  }
   // deal + event share primary tints
   return {
     emoji: type === "deal" ? "🏷️" : "🎭",

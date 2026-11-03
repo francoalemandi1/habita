@@ -6,7 +6,6 @@ const KEY_PREFIX = "habita_milestone:";
 export type MilestoneKey =
   | "first-expense"
   | "first-search"
-  | "first-recipe"
   | "first-event-saved"
   | "first-invite-sent";
 

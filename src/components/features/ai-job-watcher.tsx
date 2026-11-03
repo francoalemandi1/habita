@@ -23,13 +23,6 @@ const JOB_CONFIGS: JobConfig[] = [
     errorTitle: "Error generando el plan",
   },
   {
-    jobType: "COCINA",
-    successTitle: "Recetas listas",
-    actionLabel: "Ver recetas",
-    href: "/cocina",
-    errorTitle: "Error generando recetas",
-  },
-  {
     jobType: "SHOPPING_PLAN",
     successTitle: "Precios encontrados",
     actionLabel: "Ver resultados",

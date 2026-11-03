@@ -9,7 +9,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowRightLeft } from "lucide-react-native";
 import { useBriefing, useStats } from "@/hooks/use-stats";
-import { useHealthScore } from "@/hooks/use-health-score";
 import { useMyAssignments } from "@/hooks/use-assignments";
 import { useExpenses } from "@/hooks/use-expenses";
 import { useExpenseBalances } from "@/hooks/use-expense-balances";
@@ -31,7 +30,6 @@ import { DailyHighlight } from "@/components/features/dashboard/daily-highlight"
 import { DashboardSkeleton } from "@/components/features/dashboard/dashboard-skeleton";
 import { HouseholdWeekCard } from "@/components/features/dashboard/household-week-card";
 import { ShareableWeekCard, shareWeekCard } from "@/components/features/dashboard/shareable-week-card";
-import { HealthScoreCard } from "@/components/features/dashboard/health-score-card";
 import { WorkloadDistribution } from "@/components/features/dashboard/workload-distribution";
 import { QuickExpenseInput } from "@/components/features/dashboard/quick-expense-input";
 import { useHeroState } from "@/components/features/dashboard/use-hero-state";
@@ -76,7 +74,6 @@ export default function DashboardScreen() {
   // Data hooks
   const briefingQuery = useBriefing();
   const statsQuery = useStats();
-  const healthScoreQuery = useHealthScore();
   const assignmentsQuery = useMyAssignments();
   const balancesQuery = useExpenseBalances();
   const transfersQuery = useTransfers();
@@ -257,10 +254,6 @@ export default function DashboardScreen() {
 
               {!isSolo && hasCompletedTask && statsQuery.data ? (
                 <WorkloadDistribution memberStats={statsQuery.data.memberStats} />
-              ) : null}
-
-              {hasCompletedTask ? (
-                <HealthScoreCard data={healthScoreQuery.data ?? null} loading={healthScoreQuery.isLoading} />
               ) : null}
 
               {householdQuery.data?.household?.location ? (

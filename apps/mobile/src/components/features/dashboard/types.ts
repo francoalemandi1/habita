@@ -32,7 +32,7 @@ export interface QuickStatItem {
 
 // ─── Daily Highlight ────────────────────────────────────────────────────────
 
-export type HighlightType = "deal" | "event" | "recipe";
+export type HighlightType = "deal" | "event";
 
 export interface DailyHighlightState {
   type: HighlightType;

@@ -11,7 +11,6 @@ import { useSwipeToAction } from "@/hooks/use-swipe-to-action";
 import { useToast } from "@/components/ui/toast";
 import { CheckCircle, ClipboardList, Clock, Check, Loader2, ArrowRight, Undo2, GripVertical, Timer, Trophy } from "lucide-react";
 import { assignmentCardColors, spacing, iconSize } from "@/lib/design-tokens";
-import { PlanFeedbackDialog } from "@/components/features/plan-feedback-dialog";
 import { getHouseholdCopy } from "@/lib/household-mode";
 import { apiFetch } from "@/lib/api-client";
 
@@ -484,7 +483,6 @@ function AssignmentCard({
 }) {
   const [isCompleting, setIsCompleting] = useState(false);
   const [isUncompleting, setIsUncompleting] = useState(false);
-  const [feedbackPlanId, setFeedbackPlanId] = useState<string | null>(null);
   const router = useRouter();
   const toast = useToast();
 
@@ -509,9 +507,6 @@ function AssignmentCard({
 
       if (data.planFinalized) {
         toast.success("Plan finalizado", "Todas las tareas del plan fueron completadas.");
-        if (data.finalizedPlanId) {
-          setFeedbackPlanId(data.finalizedPlanId);
-        }
       }
 
       onCompleted(assignment.id);
@@ -647,14 +642,6 @@ function AssignmentCard({
           )}
         </div>
       </div>
-
-      {feedbackPlanId && (
-        <PlanFeedbackDialog
-          planId={feedbackPlanId}
-          open
-          onClose={() => setFeedbackPlanId(null)}
-        />
-      )}
     </div>
   );
 }

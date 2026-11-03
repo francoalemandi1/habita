@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ShoppingCart, ChefHat, Compass, ChevronRight } from "lucide-react";
+import { ShoppingCart, Compass, ChevronRight } from "lucide-react";
 import { detectTaskType } from "@/lib/task-type-detection";
 
 import type { LucideIcon } from "lucide-react";
@@ -32,17 +32,6 @@ export function ContextualBridges({ pendingTaskNames, allTasksDone, hasLocation 
       href: "/compras",
       bgClass: "bg-green-50 dark:bg-green-950/30",
       iconClass: "text-green-600 dark:text-green-400",
-    });
-  }
-
-  // Bridge: cooking task pending → Cociná
-  if (pendingTaskNames.some((name) => detectTaskType(name) === "cooking")) {
-    bridges.push({
-      icon: ChefHat,
-      message: "Buscá recetas para lo que vas a cocinar",
-      href: "/cocina",
-      bgClass: "bg-orange-50 dark:bg-orange-950/30",
-      iconClass: "text-orange-600 dark:text-orange-400",
     });
   }
 

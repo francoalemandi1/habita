@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const KEY = "habita_tabs_unlocked";
-type UnlockableTab = "discover" | "cocina";
+type UnlockableTab = "discover";
 
 export function useUnlockedTabs() {
   const [unlocked, setUnlocked] = useState<Set<UnlockableTab>>(new Set());

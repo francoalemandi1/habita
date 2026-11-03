@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +27,6 @@ import {
 import { cn } from "@/lib/utils";
 import { durationLabel } from "@/lib/plan-duration";
 import { spacing, iconSize } from "@/lib/design-tokens";
-import { PlanFeedbackDialog } from "@/components/features/plan-feedback-dialog";
 import { isSoloHousehold, getHouseholdCopy } from "@/lib/household-mode";
 import { apiFetch } from "@/lib/api-client";
 
@@ -91,12 +89,10 @@ export function PlanStatusCard({
 }: PlanStatusCardProps) {
   const isSolo = isSoloHousehold(memberCount);
   const householdCopy = getHouseholdCopy(isSolo);
-  const router = useRouter();
   const toast = useToast();
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isFinalizing, setIsFinalizing] = useState(false);
-  const [feedbackPlanId, setFeedbackPlanId] = useState<string | null>(null);
 
   function openFinalizeModal() {
     setSelectedIds(new Set(pendingAssignments.map((a) => a.id)));
@@ -127,7 +123,6 @@ export function PlanStatusCard({
       setShowFinalizeModal(false);
       const completedLabel = `${data.completed} tarea${data.completed !== 1 ? "s" : ""} completada${data.completed !== 1 ? "s" : ""}`;
       toast.success("Plan finalizado", completedLabel);
-      setFeedbackPlanId(plan.id);
     } catch (err) {
       toast.error(
         "Error",
@@ -339,17 +334,6 @@ export function PlanStatusCard({
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
-        {feedbackPlanId && (
-          <PlanFeedbackDialog
-            planId={feedbackPlanId}
-            open
-            onClose={() => {
-              setFeedbackPlanId(null);
-              router.refresh();
-            }}
-          />
-        )}
       </>
     );
   }

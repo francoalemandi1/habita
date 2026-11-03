@@ -210,9 +210,7 @@ const FIXED_TITLE_KEYWORDS = [
 ];
 
 const MAX_SPENDING_TIPS = 2;
-const DELIVERY_KEYWORDS = ["rappi", "pedidosya", "pedidos ya", "ifood", "globo", "didi food"];
 const KIOSCO_KEYWORDS = ["kiosco", "maxikiosco", "minimarket", "almacen", "drugstore"];
-const DELIVERY_ALERT_MIN_SHARE = 0.18; // 18% del variable mensual
 const KIOSCO_ALERT_MIN_SHARE = 0.10; // 10% del variable mensual
 const GROCERIES_ALERT_MIN_SHARE = 0.15; // 15% del variable mensual
 const MIN_VARIABLE_TOTAL_FOR_ALERTS = 40_000; // Evita alertas cuando el mes recién arranca con montos bajos
@@ -518,7 +516,6 @@ function getTipSeverity(score: number): SpendingTip["severity"] {
  *
  * Philosophy: banners are invitations, not financial advice.
  * If the user bought groceries → we offer price comparison.
- * If they ordered delivery → we offer recipes.
  * If they ate out → we offer restaurant discovery.
  * Low thresholds: the trigger is "you did this", not "you did this too much".
  */
@@ -532,19 +529,14 @@ function computeSpendingTips(
 
   const candidates: TipCandidate[] = [];
 
-  // Aggregate delivery, kiosco, and grocery spending from titles
-  let deliveryTotal = 0;
-  let deliveryCount = 0;
+  // Aggregate kiosco and grocery spending from titles
   let kioscoTotal = 0;
   let kioscoCount = 0;
   let groceryTotal = 0;
   let groceryCount = 0;
 
   for (const expense of variableExpenses) {
-    if (isSubcategory(expense, "DELIVERY", DELIVERY_KEYWORDS)) {
-      deliveryTotal += expense.amount;
-      deliveryCount++;
-    } else if (isSubcategory(expense, "KIOSCO", KIOSCO_KEYWORDS)) {
+    if (isSubcategory(expense, "KIOSCO", KIOSCO_KEYWORDS)) {
       kioscoTotal += expense.amount;
       kioscoCount++;
     } else if (expense.subcategory === "SUPERMARKET" || expense.category === "GROCERIES") {
@@ -575,25 +567,6 @@ function computeSpendingTips(
         amount: groceryTotal,
         variableTotal,
         count: groceryCount,
-        minCount: 2,
-      }),
-    });
-  }
-
-  // ── Candidate: Delivery → Recipes ──
-  const deliveryShare = deliveryTotal / variableTotal;
-  if (deliveryCount >= 2 && deliveryShare >= DELIVERY_ALERT_MIN_SHARE) {
-    candidates.push({
-      tip: {
-        id: "delivery_recipes",
-        emoji: "\uD83C\uDF73", // 🍳
-        message: `Pediste delivery ${deliveryCount} veces (${formatTipAmount(deliveryTotal)}). Sacale una foto a tu heladera y te sugerimos recetas`,
-        action: { label: "Buscar recetas", href: "/cocina" },
-      },
-      score: buildTipScore({
-        amount: deliveryTotal,
-        variableTotal,
-        count: deliveryCount,
         minCount: 2,
       }),
     });

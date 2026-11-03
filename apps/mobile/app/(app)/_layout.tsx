@@ -8,7 +8,6 @@ import { useExpenses } from "@/hooks/use-expenses";
 import { useMembers } from "@/hooks/use-members";
 import {
   ArrowLeftRight,
-  ChefHat,
   ClipboardCheck,
   Compass,
   Home,
@@ -34,7 +33,6 @@ const TAB_CONFIG: Record<string, { Icon: LucideIcon; label: string }> = {
 
 const MORE_ITEMS: { screen: string; Icon: LucideIcon; label: string }[] = [
   { screen: "descubrir", Icon: Compass, label: "Descubrí" },
-  { screen: "cocina", Icon: ChefHat, label: "Cociná" },
   { screen: "progress", Icon: TrendingUp, label: "Progreso" },
   { screen: "transfers", Icon: ArrowLeftRight, label: "Transferencias" },
 ];
@@ -274,7 +272,6 @@ export default function AppLayout() {
 
         {/* ── "Más" screens (accessible via bottom sheet) ── */}
         <Tabs.Screen name="descubrir" options={{ href: null, title: "Descubrí" }} />
-        <Tabs.Screen name="cocina" options={{ href: null, title: "Cociná" }} />
 
         {/* Profile — hidden from tab bar, accessible via ScreenHeader avatar */}
         <Tabs.Screen name="profile" options={{ href: null, title: "Perfil" }} />

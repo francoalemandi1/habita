@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardCheck, Receipt, ShoppingCart, Compass, ChefHat } from "lucide-react";
+import { ClipboardCheck, Receipt, ShoppingCart, Compass } from "lucide-react";
 import { NotificationsDropdown } from "@/components/features/notifications-dropdown";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +11,6 @@ const NAV_ITEMS = [
   { href: "/balance", icon: Receipt, label: "Controlá" },
   { href: "/compras", icon: ShoppingCart, label: "Ahorrá" },
   { href: "/descubrir", icon: Compass, label: "Descubrí", requiresLocation: true },
-  { href: "/cocina", icon: ChefHat, label: "Cociná" },
 ];
 
 interface AppNavProps {

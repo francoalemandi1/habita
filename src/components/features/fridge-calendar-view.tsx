@@ -19,7 +19,6 @@ import {
   isSameDay,
 } from "@/lib/calendar-utils";
 import { cyclingColors, contrastText, spacing, iconSize } from "@/lib/design-tokens";
-import { PlanFeedbackDialog } from "@/components/features/plan-feedback-dialog";
 
 import type { DateRange } from "react-day-picker";
 import type { CalendarAssignment, CalendarMember } from "@/components/features/fridge-calendar-day";
@@ -122,7 +121,6 @@ export function FridgeCalendarView({
   const [assignments, setAssignments] = useState<CalendarAssignment[]>(initialAssignments);
   const [isLoadingWeek, setIsLoadingWeek] = useState(false);
   const [completingId, setCompletingId] = useState<string | null>(null);
-  const [feedbackPlanId, setFeedbackPlanId] = useState<string | null>(null);
   const [currentDayIndex, setCurrentDayIndex] = useState(() => {
     const monday = new Date(initialWeekStart);
     monday.setHours(0, 0, 0, 0);
@@ -276,7 +274,6 @@ export function FridgeCalendarView({
         toast.success("Tarea completada");
         if (data.planFinalized) {
           toast.success("Todas las tareas del plan fueron completadas.");
-          if (data.finalizedPlanId) setFeedbackPlanId(data.finalizedPlanId);
         }
         router.refresh();
       } catch (err) {
@@ -616,14 +613,6 @@ export function FridgeCalendarView({
             );
           })}
         </div>
-      )}
-
-      {feedbackPlanId && (
-        <PlanFeedbackDialog
-          planId={feedbackPlanId}
-          open
-          onClose={() => setFeedbackPlanId(null)}
-        />
       )}
     </div>
   );

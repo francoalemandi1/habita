@@ -8,10 +8,10 @@ import type { NextRequest } from "next/server";
 import type { AiJobType } from "@prisma/client";
 import type { AiJobStatusResponse } from "@habita/contracts";
 
-const VALID_TYPES = new Set<AiJobType>(["PREVIEW_PLAN", "COCINA", "SHOPPING_PLAN"]);
+const VALID_TYPES = new Set<AiJobType>(["PREVIEW_PLAN", "SHOPPING_PLAN"]);
 
 /**
- * GET /api/ai/job-status?type=PREVIEW_PLAN|COCINA|SHOPPING_PLAN
+ * GET /api/ai/job-status?type=PREVIEW_PLAN|SHOPPING_PLAN
  * Returns the latest job status for the household.
  */
 export async function GET(request: NextRequest) {

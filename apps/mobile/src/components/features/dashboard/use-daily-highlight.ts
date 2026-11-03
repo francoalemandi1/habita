@@ -17,14 +17,6 @@ interface UseDailyHighlightInput {
   isLoading: boolean;
 }
 
-function getMealLabel(): string {
-  const hour = new Date().getHours();
-  if (hour < 10) return "desayuno";
-  if (hour < 15) return "almuerzo";
-  if (hour < 19) return "merienda";
-  return "cena";
-}
-
 export function useDailyHighlight({
   dailyDeal,
   recommendedEvent,
@@ -98,17 +90,6 @@ export function useDailyHighlight({
       };
     }
 
-    // 4. Fallback: recipe CTA
-    return {
-      highlight: {
-        type: "recipe" as const,
-        title: `¿Qué cocinamos para el ${getMealLabel()}?`,
-        subtitle: "Encontrá recetas con lo que tenés en casa",
-        categoryLabel: "RECETA",
-        ctaLabel: "Ver recetas",
-        ctaRoute: "/(app)/cocina",
-      },
-      loading: false,
-    };
+    return { highlight: null, loading: false };
   }, [dailyDeal, recommendedEvent, isLoading]);
 }

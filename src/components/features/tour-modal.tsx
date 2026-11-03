@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Users, Receipt, ShoppingCart, MapPin, ChefHat } from "lucide-react";
+import { Users, Receipt, ShoppingCart, MapPin } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -80,18 +80,6 @@ const TOUR_CONTENT: Record<TourSection, TourSectionContent> = {
     ],
     cta: "Explorar eventos",
     route: "/discover",
-  },
-  cocina: {
-    icon: ChefHat,
-    title: "Cociná con lo que tenés",
-    description: "Decile a Habita qué tenés y te sugiere recetas personalizadas.",
-    features: [
-      { emoji: "👨‍🍳", label: "Recetas personalizadas" },
-      { emoji: "⏱️", label: "Filtrar por tiempo" },
-      { emoji: "❤️", label: "Guardar favoritas" },
-    ],
-    cta: "Probar Cociná",
-    route: "/cocina",
   },
 };
 

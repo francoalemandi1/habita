@@ -2,7 +2,6 @@ import { useCallback, useMemo } from "react";
 import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import {
-  ChefHat,
   MapPin,
   Receipt,
   ShoppingCart,
@@ -86,18 +85,6 @@ const TOUR_CONTENT: Record<TourSection, TourSectionContent> = {
     ],
     cta: "Explorar eventos",
     route: "/(app)/descubrir",
-  },
-  cocina: {
-    icon: ChefHat,
-    title: "Cociná con lo que tenés",
-    description: "Decile a Habita qué tenés y te sugiere recetas personalizadas.",
-    features: [
-      { emoji: "👨‍🍳", label: "Recetas personalizadas" },
-      { emoji: "⏱️", label: "Filtrar por tiempo" },
-      { emoji: "❤️", label: "Guardar favoritas" },
-    ],
-    cta: "Probar Cociná",
-    route: "/(app)/cocina",
   },
 };
 

@@ -24,12 +24,12 @@ interface CompleteJobParams {
 }
 
 interface JobScopeOptions {
-  /** Scope the lookup to a single member (SHOPPING_PLAN, COCINA). Omit for household-wide jobs (PREVIEW_PLAN). */
+  /** Scope the lookup to a single member (SHOPPING_PLAN). Omit for household-wide jobs (PREVIEW_PLAN). */
   memberId?: string;
 }
 
 /** Job types owned by the member that started them; PREVIEW_PLAN is shared by the household. */
-const MEMBER_SCOPED_JOB_TYPES: ReadonlySet<AiJobType> = new Set<AiJobType>(["COCINA", "SHOPPING_PLAN"]);
+const MEMBER_SCOPED_JOB_TYPES: ReadonlySet<AiJobType> = new Set<AiJobType>(["SHOPPING_PLAN"]);
 
 export function isMemberScopedJobType(jobType: AiJobType): boolean {
   return MEMBER_SCOPED_JOB_TYPES.has(jobType);
@@ -47,7 +47,7 @@ export function isJobStale(startedAt: Date, now: Date, thresholdMs: number): boo
 /**
  * Find a currently running job of a given type for this household.
  * Marks stale RUNNING entries (>5min) as FAILED first.
- * Pass `memberId` to scope per-member job types (SHOPPING_PLAN, COCINA).
+ * Pass `memberId` to scope per-member job types (SHOPPING_PLAN).
  */
 export async function findRunningJob(
   householdId: string,
@@ -155,7 +155,7 @@ export async function findRecentSuccessfulJob(
 /**
  * Get the latest job status for a household + job type (within the last hour).
  * A RUNNING job older than the stale threshold is turned into FAILED ("timeout") so
- * clients stop polling it. Pass `memberId` to scope per-member job types (SHOPPING_PLAN, COCINA).
+ * clients stop polling it. Pass `memberId` to scope per-member job types (SHOPPING_PLAN).
  */
 export async function getLatestJobStatus(
   householdId: string,

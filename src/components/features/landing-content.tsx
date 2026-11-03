@@ -14,7 +14,6 @@ import {
   ChevronDown,
   Receipt,
   CalendarCheck,
-  ChefHat,
   Compass,
   ShoppingCart,
 } from "lucide-react";
@@ -33,7 +32,7 @@ export function LandingContent() {
             Tu hogar, coordinado
           </h1>
           <p className="mb-6 max-w-2xl text-base text-muted-foreground sm:mb-8 sm:text-lg lg:text-xl">
-            Tareas, gastos, compras, recetas y salidas: todo lo que tu casa
+            Tareas, gastos, compras y salidas: todo lo que tu casa
             necesita, en un solo lugar. Gratis y automático.
           </p>
           <div className="flex w-full max-w-xs flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
@@ -81,14 +80,6 @@ export function LandingContent() {
               />
               <FeatureCard
                 index={3}
-                icon={<ChefHat className="h-7 w-7" />}
-                title="De la heladera a la mesa"
-                description="Sacale una foto a lo que tenés o contale qué hay en tu heladera. En segundos tenés recetas concretas para cocinar hoy."
-                bg="bg-brand-cream/40"
-                iconBg="bg-brand-cream"
-              />
-              <FeatureCard
-                index={4}
                 icon={<Compass className="h-7 w-7" />}
                 title="Planes para disfrutar juntos"
                 description="Eventos, restaurantes y actividades culturales cerca tuyo, actualizados automáticamente para tu ciudad."
@@ -96,7 +87,7 @@ export function LandingContent() {
                 iconBg="bg-brand-lavender-light"
               />
               <FeatureCard
-                index={5}
+                index={4}
                 icon={<LayoutDashboard className="h-7 w-7" />}
                 title="Todo tu hogar en un vistazo"
                 description="Un dashboard con tareas del día, gastos pendientes, briefing diario y notificaciones. Sin saltar entre apps."
@@ -140,7 +131,7 @@ export function LandingContent() {
                 number={3}
                 icon={<Sparkles className="h-6 w-6" />}
                 title="Habita coordina todo"
-                description="Planes semanales, comparación de precios, recetas y sugerencias de salidas. Habita se encarga."
+                description="Planes semanales, comparación de precios y sugerencias de salidas. Habita se encarga."
                 bg="bg-brand-cream"
               />
             </div>
@@ -163,17 +154,13 @@ export function LandingContent() {
                 </h2>
                 <p className="mb-6 text-muted-foreground sm:text-lg">
                   Habita te ahorra tiempo y decisiones: planifica la
-                  semana, sugiere recetas, encuentra ofertas y te recomienda
+                  semana, encuentra ofertas y te recomienda
                   planes para salir.
                 </p>
                 <ul className="space-y-3">
                   <li className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-success-dark" />
                     <span>Planes semanales con tareas distribuidas en segundos</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-success-dark" />
-                    <span>Foto de la heladera → recetas listas para cocinar</span>
                   </li>
                   <li className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-success-dark" />
@@ -187,19 +174,6 @@ export function LandingContent() {
               </div>
               <div className="rounded-2xl bg-brand-lavender-light/40 p-6 sm:p-8">
                 <div className="space-y-3">
-                  <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-cream">
-                        <span className="text-xl">📸</span>
-                      </div>
-                      <div>
-                        <p className="font-medium">&ldquo;Tengo pollo, arroz y pimientos&rdquo;</p>
-                        <p className="text-sm text-muted-foreground">
-                          3 recetas listas en segundos
-                        </p>
-                      </div>
-                    </div>
-                  </div>
                   <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-lime">
@@ -439,7 +413,7 @@ const FAQ_ITEMS = [
   {
     question: "¿Qué puedo hacer con Habita?",
     answer:
-      "Coordinar tareas del hogar con planes semanales, registrar y dividir gastos compartidos, comparar precios entre supermercados, encontrar recetas con lo que tenés y descubrir actividades para salir. Todo desde una sola app.",
+      "Coordinar tareas del hogar con planes semanales, registrar y dividir gastos compartidos, comparar precios entre supermercados y descubrir actividades para salir. Todo desde una sola app.",
   },
   {
     question: "¿Cómo funciona la asignación automática de tareas?",

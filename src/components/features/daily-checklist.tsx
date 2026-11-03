@@ -6,7 +6,6 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { Check, Loader2, Circle, ChevronRight, PartyPopper } from "lucide-react";
-import { PlanFeedbackDialog } from "@/components/features/plan-feedback-dialog";
 import { apiFetch } from "@/lib/api-client";
 
 interface ChecklistAssignment {
@@ -30,7 +29,6 @@ export function DailyChecklist({ assignments: initialAssignments, completedToday
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [completedToday, setCompletedToday] = useState(initialCompleted);
-  const [feedbackPlanId, setFeedbackPlanId] = useState<string | null>(null);
   const router = useRouter();
   const toast = useToast();
 
@@ -55,9 +53,6 @@ export function DailyChecklist({ assignments: initialAssignments, completedToday
 
       if (data.planFinalized) {
         toast.success("Plan finalizado", "Todas las tareas del plan fueron completadas.");
-        if (data.finalizedPlanId) {
-          setFeedbackPlanId(data.finalizedPlanId);
-        }
       }
 
       // Delay refresh to let animation play
@@ -159,14 +154,6 @@ export function DailyChecklist({ assignments: initialAssignments, completedToday
           </div>
         )}
       </CardContent>
-
-      {feedbackPlanId && (
-        <PlanFeedbackDialog
-          planId={feedbackPlanId}
-          open
-          onClose={() => setFeedbackPlanId(null)}
-        />
-      )}
     </Card>
   );
 }

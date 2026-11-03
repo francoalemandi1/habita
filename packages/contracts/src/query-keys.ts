@@ -38,13 +38,8 @@ export const queryKeys = {
   saved: {
     all: () => ["saved"] as const,
     events: () => [...queryKeys.saved.all(), "events"] as const,
-    recipes: () => [...queryKeys.saved.all(), "recipes"] as const,
     deals: () => [...queryKeys.saved.all(), "deals"] as const,
     carts: () => [...queryKeys.saved.all(), "carts"] as const,
-  },
-  cocina: {
-    all: () => ["cocina"] as const,
-    recipes: () => [...queryKeys.cocina.all(), "recipes"] as const,
   },
   assignments: {
     all: () => ["assignments"] as const,
@@ -73,7 +68,6 @@ export const queryKeys = {
   },
   household: {
     all: () => ["household"] as const,
-    healthScore: () => [...queryKeys.household.all(), "health-score"] as const,
   },
   stats: {
     all: () => ["stats"] as const,

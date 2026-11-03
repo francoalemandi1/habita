@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import { Animated, StyleSheet, Text, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -8,6 +9,7 @@ import { MobileQueryProvider } from "@/providers/query-provider";
 import { MobileAuthProvider, useMobileAuth } from "@/providers/mobile-auth-provider";
 import { ThemeProvider, useTheme } from "@/providers/theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
+import { SnackbarProvider } from "@/components/ds";
 import { NotificationProvider } from "@/providers/notification-provider";
 import { colors, fontFamily } from "@/theme";
 import { HabitaLogo } from "@/components/ui/habita-logo";
@@ -135,16 +137,26 @@ export default function RootLayout() {
   }
 
   return (
-    <MobileQueryProvider>
-      <ThemeProvider>
-        <MobileAuthProvider>
-          <NotificationProvider>
-            <ToastProvider>
-              <RootNavigator />
-            </ToastProvider>
-          </NotificationProvider>
-        </MobileAuthProvider>
-      </ThemeProvider>
-    </MobileQueryProvider>
+    <GestureHandlerRootView style={styles.gestureRoot}>
+      <MobileQueryProvider>
+        <ThemeProvider>
+          <MobileAuthProvider>
+            <NotificationProvider>
+              <ToastProvider>
+                <SnackbarProvider>
+                  <RootNavigator />
+                </SnackbarProvider>
+              </ToastProvider>
+            </NotificationProvider>
+          </MobileAuthProvider>
+        </ThemeProvider>
+      </MobileQueryProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  gestureRoot: {
+    flex: 1,
+  },
+});

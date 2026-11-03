@@ -14,6 +14,16 @@ export const maxDuration = 300;
 //
 // No ?city  → DISCOVERY MODE: discover cities from households, trigger each
 // ?city=X   → SINGLE-CITY MODE: run pipeline for that city
+//
+// Recurring cost (checked 2026-11-03, triggered daily by /api/cron/process):
+// a city runs at most once per EVENT_PIPELINE_FRESHNESS_HOURS (72h, ~10 runs/month)
+// and only with MIN_MEMBERS_FOR_PIPELINE active members.
+// - Tavily: compact run = 4 queries + 1 ticket search, all advanced (2 credits)
+//   = 10 credits; full run = 16. Prod today: 1 eligible city (compact)
+//   -> ~100 credits/month, ~10% of the 1000/month free tier.
+// - DeepSeek: up to ~55 extraction calls (<=8k chars each) + 1-3 curator calls
+//   per run -> well under US$1/month at 1 city.
+// Re-evaluate when more than 5 cities are eligible: spend grows linearly with them.
 // ============================================
 
 /** Skip cities with fewer active members than this threshold */

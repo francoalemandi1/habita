@@ -4,6 +4,7 @@ import { requireMember } from "@/lib/session";
 import { getStoresForCity, searchStore } from "@/lib/vtex-client";
 import { parseProductUnit } from "@/lib/unit-parser";
 import { handleApiError } from "@/lib/api-response";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 import type { NextRequest } from "next/server";
 
@@ -52,6 +53,10 @@ function scoreMatch(productName: string, query: string): number {
 export async function POST(request: NextRequest) {
   try {
     const member = await requireMember();
+
+    const limited = await applyRateLimit(request, "ai", member.id);
+    if (limited) return limited;
+
     const body: unknown = await request.json();
     const validation = bodySchema.safeParse(body);
     if (!validation.success) {

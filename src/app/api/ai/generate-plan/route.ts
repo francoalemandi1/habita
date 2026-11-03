@@ -3,15 +3,21 @@ import { requirePermission } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { generateAndApplyPlan } from "@/lib/llm/ai-planner";
 import { isAIEnabled } from "@/lib/llm/provider";
+import { applyRateLimit } from "@/lib/rate-limit";
+
+import type { NextRequest } from "next/server";
 
 /**
  * POST /api/ai/generate-plan
  * Generate and apply an AI-powered task distribution plan.
  * This creates actual assignments in the database.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     const member = await requirePermission("task:assign");
+
+    const limited = await applyRateLimit(request, "ai", member.id);
+    if (limited) return limited;
 
     if (!isAIEnabled()) {
       return NextResponse.json(

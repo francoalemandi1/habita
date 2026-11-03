@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
-import { getJobResult } from "@/lib/ai-jobs";
+import { getJobResult, isMemberScopedJobType } from "@/lib/ai-jobs";
 import { NotFoundError } from "@/lib/errors";
 
 /**
@@ -18,6 +18,10 @@ export async function GET(
 
     const job = await getJobResult(jobId, member.householdId);
     if (!job) {
+      throw new NotFoundError("Job no encontrado");
+    }
+
+    if (isMemberScopedJobType(job.jobType) && job.memberId !== member.id) {
       throw new NotFoundError("Job no encontrado");
     }
 

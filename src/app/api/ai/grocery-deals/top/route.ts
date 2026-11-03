@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { generateGroceryDealsScraper, normalizeCity } from "@/lib/grocery-deals-scraper";
 import { handleApiError } from "@/lib/api-response";
+import { applyRateLimit } from "@/lib/rate-limit";
+
+import type { NextRequest } from "next/server";
 
 import type { GroceryCategory } from "@prisma/client";
 import type { GroceryAdvisorResult, GroceryTab, ProductPrice } from "@/lib/grocery-deals-scraper";
@@ -98,9 +101,13 @@ function extractTopDeals(cacheRows: CacheRow[]) {
  * Only includes products with a real, verifiable discount (savingsPercent > 0).
  * Reads from cache if fresh; otherwise scrapes on-demand.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const member = await requireMember();
+
+    const limited = await applyRateLimit(request, "ai", member.id);
+    if (limited) return limited;
+
     const city = member.household.city;
 
     if (!city) {

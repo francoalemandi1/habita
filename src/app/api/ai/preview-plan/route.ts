@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { computeDurationDays, validateDateRange } from "@/lib/plan-duration";
 import { findRunningJob, markJobRunning, completeJob } from "@/lib/ai-jobs";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 import type { NextRequest } from "next/server";
 import type { MemberType } from "@prisma/client";
@@ -65,6 +66,9 @@ const previewPlanSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const member = await requireMember();
+
+    const limited = await applyRateLimit(request, "ai", member.id);
+    if (limited) return limited;
 
     if (!isAIEnabled()) {
       return NextResponse.json(

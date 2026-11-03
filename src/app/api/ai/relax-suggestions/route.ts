@@ -7,6 +7,7 @@ import { resolveCityId } from "@/lib/events/city-normalizer";
 import { eventRowToRelaxEvent } from "@/lib/events/event-mapper";
 import { generateRelaxSuggestions } from "@/lib/llm/relax-finder";
 import { normalizeCity } from "@/lib/grocery-deals-scraper";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 import type { NextRequest } from "next/server";
 
@@ -31,6 +32,9 @@ const bodySchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const member = await requireMember();
+
+    const limited = await applyRateLimit(request, "ai", member.id);
+    if (limited) return limited;
 
     const body: unknown = await request.json();
     const validation = bodySchema.safeParse(body);

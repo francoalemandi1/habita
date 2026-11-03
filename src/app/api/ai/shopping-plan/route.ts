@@ -5,6 +5,7 @@ import { compareProducts } from "@/lib/supermarket-search";
 import { handleApiError } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
 import { findRunningJob, markJobRunning, completeJob } from "@/lib/ai-jobs";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 import type { NextRequest } from "next/server";
 import type { AiJobTriggerResponse } from "@habita/contracts";
@@ -41,6 +42,9 @@ export async function POST(request: NextRequest) {
   try {
     const member = await requireMember();
 
+    const limited = await applyRateLimit(request, "ai", member.id);
+    if (limited) return limited;
+
     const body: unknown = await request.json();
     const validation = bodySchema.safeParse(body);
     if (!validation.success) {
@@ -55,7 +59,7 @@ export async function POST(request: NextRequest) {
     const preferredBankSlugs = validation.data.preferredBankSlugs ?? [];
 
     // Prevent duplicate concurrent runs
-    const existing = await findRunningJob(member.householdId, "SHOPPING_PLAN");
+    const existing = await findRunningJob(member.householdId, "SHOPPING_PLAN", { memberId: member.id });
     if (existing) {
       const response: AiJobTriggerResponse = {
         started: false,

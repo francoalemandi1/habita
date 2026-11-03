@@ -7,6 +7,7 @@ import { generateRecipeSuggestions } from "@/lib/llm/recipe-finder";
 import { handleApiError } from "@/lib/api-response";
 import { findRunningJob, findRecentSuccessfulJob, markJobRunning, completeJob } from "@/lib/ai-jobs";
 import { parseOnboardingProfile, sanitizeHintsForPrompt } from "@/lib/onboarding-profile";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 import type { NextRequest } from "next/server";
 import type { AiJobTriggerResponse } from "@habita/contracts";
@@ -33,6 +34,9 @@ const bodySchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const member = await requireMember();
+
+    const limited = await applyRateLimit(request, "ai", member.id);
+    if (limited) return limited;
 
     if (!isAIEnabled()) {
       return NextResponse.json(
@@ -87,7 +91,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Prevent duplicate concurrent runs
-    const existing = await findRunningJob(member.householdId, "COCINA");
+    const existing = await findRunningJob(member.householdId, "COCINA", { memberId: member.id });
     if (existing) {
       const response: AiJobTriggerResponse = {
         started: false,

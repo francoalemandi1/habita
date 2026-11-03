@@ -4,7 +4,9 @@ import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { refreshCartSchema } from "@/lib/validations/saved-items";
 import { compareProducts } from "@/lib/supermarket-search";
+import { applyRateLimit } from "@/lib/rate-limit";
 
+import type { NextRequest } from "next/server";
 import type { Prisma } from "@prisma/client";
 import type { SearchItem } from "@/lib/supermarket-search";
 
@@ -33,9 +35,13 @@ function extractSearchItems(savedCart: { searchTerms: string[]; products: Prisma
  * Refresh prices for a single saved cart by re-searching supermarkets.
  * Finds the matching store in fresh results and updates the saved cart in-place.
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const member = await requireMember();
+
+    const limited = await applyRateLimit(request, "ai", member.id);
+    if (limited) return limited;
+
     const body = await request.json();
     const validation = refreshCartSchema.safeParse(body);
     if (!validation.success) {

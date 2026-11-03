@@ -23,15 +23,38 @@ interface CompleteJobParams {
   durationMs: number;
 }
 
+interface JobScopeOptions {
+  /** Scope the lookup to a single member (SHOPPING_PLAN, COCINA). Omit for household-wide jobs (PREVIEW_PLAN). */
+  memberId?: string;
+}
+
+/** Job types owned by the member that started them; PREVIEW_PLAN is shared by the household. */
+const MEMBER_SCOPED_JOB_TYPES: ReadonlySet<AiJobType> = new Set<AiJobType>(["COCINA", "SHOPPING_PLAN"]);
+
+export function isMemberScopedJobType(jobType: AiJobType): boolean {
+  return MEMBER_SCOPED_JOB_TYPES.has(jobType);
+}
+
 // ============================================
 // Functions
 // ============================================
 
+/** Pure check: has a RUNNING job been running longer than the stale threshold? */
+export function isJobStale(startedAt: Date, now: Date, thresholdMs: number): boolean {
+  return now.getTime() - startedAt.getTime() > thresholdMs;
+}
+
 /**
  * Find a currently running job of a given type for this household.
  * Marks stale RUNNING entries (>5min) as FAILED first.
+ * Pass `memberId` to scope per-member job types (SHOPPING_PLAN, COCINA).
  */
-export async function findRunningJob(householdId: string, jobType: AiJobType) {
+export async function findRunningJob(
+  householdId: string,
+  jobType: AiJobType,
+  options: JobScopeOptions = {},
+) {
+  const { memberId } = options;
   const cutoff = new Date(Date.now() - STALE_JOB_TIMEOUT_MS);
 
   // Clean up stale RUNNING entries
@@ -41,6 +64,7 @@ export async function findRunningJob(householdId: string, jobType: AiJobType) {
       householdId,
       jobType,
       startedAt: { lt: cutoff },
+      ...(memberId ? { memberId } : {}),
     },
     data: {
       status: "FAILED",
@@ -50,7 +74,13 @@ export async function findRunningJob(householdId: string, jobType: AiJobType) {
   });
 
   return prisma.aiJobLog.findFirst({
-    where: { status: "RUNNING", householdId, jobType, startedAt: { gte: cutoff } },
+    where: {
+      status: "RUNNING",
+      householdId,
+      jobType,
+      startedAt: { gte: cutoff },
+      ...(memberId ? { memberId } : {}),
+    },
     orderBy: { startedAt: "desc" },
     select: { id: true, startedAt: true },
   });
@@ -122,12 +152,21 @@ export async function findRecentSuccessfulJob(
   return rows[0] ?? null;
 }
 
-/** Get the latest job status for a household + job type (within the last hour). */
-export async function getLatestJobStatus(householdId: string, jobType: AiJobType) {
+/**
+ * Get the latest job status for a household + job type (within the last hour).
+ * A RUNNING job older than the stale threshold is turned into FAILED ("timeout") so
+ * clients stop polling it. Pass `memberId` to scope per-member job types (SHOPPING_PLAN, COCINA).
+ */
+export async function getLatestJobStatus(
+  householdId: string,
+  jobType: AiJobType,
+  options: JobScopeOptions = {},
+) {
+  const { memberId } = options;
   const since = new Date(Date.now() - STATUS_WINDOW_MS);
 
-  return prisma.aiJobLog.findFirst({
-    where: { householdId, jobType, startedAt: { gte: since } },
+  const job = await prisma.aiJobLog.findFirst({
+    where: { householdId, jobType, startedAt: { gte: since }, ...(memberId ? { memberId } : {}) },
     orderBy: { startedAt: "desc" },
     select: {
       id: true,
@@ -137,9 +176,20 @@ export async function getLatestJobStatus(householdId: string, jobType: AiJobType
       errorMessage: true,
     },
   });
+
+  if (job && job.status === "RUNNING" && isJobStale(job.startedAt, new Date(), STALE_JOB_TIMEOUT_MS)) {
+    const completedAt = new Date();
+    await prisma.aiJobLog.update({
+      where: { id: job.id },
+      data: { status: "FAILED", errorMessage: "timeout", completedAt },
+    });
+    return { ...job, status: "FAILED" as AiJobStatus, errorMessage: "timeout", completedAt };
+  }
+
+  return job;
 }
 
-/** Get the full job result (with data isolation by householdId). */
+/** Get the full job result (with data isolation by householdId). Includes memberId for caller-side ownership checks on per-member job types. */
 export async function getJobResult(jobId: string, householdId: string) {
   return prisma.aiJobLog.findFirst({
     where: { id: jobId, householdId },
@@ -153,6 +203,7 @@ export async function getJobResult(jobId: string, householdId: string) {
       durationMs: true,
       startedAt: true,
       completedAt: true,
+      memberId: true,
     },
   });
 }

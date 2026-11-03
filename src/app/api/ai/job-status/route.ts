@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
-import { getLatestJobStatus } from "@/lib/ai-jobs";
+import { getLatestJobStatus, isMemberScopedJobType } from "@/lib/ai-jobs";
 import { BadRequestError } from "@/lib/errors";
 
 import type { NextRequest } from "next/server";
@@ -23,7 +23,11 @@ export async function GET(request: NextRequest) {
       throw new BadRequestError("Parámetro 'type' inválido");
     }
 
-    const job = await getLatestJobStatus(member.householdId, jobType);
+    const job = await getLatestJobStatus(
+      member.householdId,
+      jobType,
+      isMemberScopedJobType(jobType) ? { memberId: member.id } : {},
+    );
 
     const response: AiJobStatusResponse = {
       status: job?.status ?? null,

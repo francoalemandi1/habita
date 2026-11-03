@@ -13,6 +13,8 @@ function getRedis(): Redis | null {
 
 const redis = getRedis();
 
+let warnedRedisNotConfigured = false;
+
 /**
  * Pre-configured rate limiters for different endpoint categories.
  * Uses sliding window algorithm for smooth rate limiting.
@@ -23,10 +25,12 @@ const limiters = redis
       auth: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, "5 m") }),
       /** Sensitive actions (join): 5 requests per minute per key */
       sensitive: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "1 m") }),
+      /** AI/scraping endpoints: 20 requests per 10 minutes per member */
+      ai: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, "10 m") }),
     }
   : null;
 
-type LimiterKind = "auth" | "sensitive";
+type LimiterKind = "auth" | "sensitive" | "ai";
 
 function getClientIp(request: NextRequest): string {
   return (
@@ -47,7 +51,13 @@ export async function applyRateLimit(
   /** Optional suffix to scope limits (e.g. userId). Defaults to client IP. */
   keySuffix?: string,
 ): Promise<NextResponse | null> {
-  if (!limiters) return null;
+  if (!limiters) {
+    if (!warnedRedisNotConfigured) {
+      warnedRedisNotConfigured = true;
+      console.warn("[rate-limit] Redis not configured — rate limiting is disabled (fail-open)");
+    }
+    return null;
+  }
 
   const limiter = limiters[kind];
   const key = `${kind}:${keySuffix ?? getClientIp(request)}`;
@@ -67,8 +77,9 @@ export async function applyRateLimit(
       );
     }
     return null;
-  } catch {
+  } catch (error) {
     // Redis error — allow request (fail-open)
+    console.warn(`[rate-limit] Redis error for kind "${kind}" — allowing request (fail-open)`, error);
     return null;
   }
 }

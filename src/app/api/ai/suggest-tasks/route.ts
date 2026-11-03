@@ -4,6 +4,7 @@ import { handleApiError } from "@/lib/api-response";
 import { isAIEnabled, getLLMProvider } from "@/lib/llm/provider";
 import { z } from "zod";
 import { ONBOARDING_CATALOG } from "@/data/onboarding-catalog";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 import type { NextRequest } from "next/server";
 
@@ -65,7 +66,10 @@ function catalogToTaskCategories(hasPets: boolean, hasChildren: boolean): TaskCa
  */
 export async function POST(request: NextRequest) {
   try {
-    await requireAuth();
+    const userId = await requireAuth();
+
+    const limited = await applyRateLimit(request, "ai", userId);
+    if (limited) return limited;
 
     const body: unknown = await request.json();
     const validation = suggestTasksSchema.safeParse(body);

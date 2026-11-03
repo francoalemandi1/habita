@@ -4,15 +4,22 @@ import { handleApiError } from "@/lib/api-response";
 import { getGmailAccessToken } from "@/lib/gmail/token";
 import { scanGmailForServices } from "@/lib/gmail/scanner";
 import { prisma } from "@/lib/prisma";
+import { applyRateLimit } from "@/lib/rate-limit";
+
+import type { NextRequest } from "next/server";
 
 /**
  * POST /api/services/scan-gmail
  * Scan the user's Gmail for known service senders and return detected services.
  * Does NOT create anything — the user must confirm via /api/services/import.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     const member = await requireMember();
+
+    const limited = await applyRateLimit(request, "ai", member.id);
+    if (limited) return limited;
+
     const userId = member.userId;
 
     const accessToken = await getGmailAccessToken(userId);

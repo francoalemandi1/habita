@@ -4,6 +4,9 @@ import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { getLLMProvider, isAIEnabled } from "@/lib/llm/provider";
 import { BadRequestError } from "@/lib/errors";
+import { applyRateLimit } from "@/lib/rate-limit";
+
+import type { NextRequest } from "next/server";
 
 const inputSchema = z.object({
   text: z.string().min(3).max(200),
@@ -35,9 +38,12 @@ const outputSchema = {
  * Parses a natural language expense description in Spanish AR.
  * e.g. "Gasté 1500 en el super" → { title: "Supermercado", amount: 1500, category: "GROCERIES" }
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    await requireMember();
+    const member = await requireMember();
+
+    const limited = await applyRateLimit(request, "ai", member.id);
+    if (limited) return limited;
 
     if (!isAIEnabled()) {
       return NextResponse.json({ error: "ai_disabled" }, { status: 503 });

@@ -5,6 +5,7 @@ import { isAIEnabled, getLLMProvider } from "@/lib/llm/provider";
 import { onboardingSetupInputSchema } from "@habita/contracts";
 import { ONBOARDING_CATALOG } from "@/data/onboarding-catalog";
 import { extractStringArray } from "@habita/domain/onboarding-profile";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 import type { NextRequest } from "next/server";
 import type { OnboardingSetupResponse, OnboardingSetupTask } from "@habita/contracts";
@@ -96,7 +97,10 @@ Respondé SOLO con JSON válido con los campos: tasks, householdProfile, insight
  */
 export async function POST(request: NextRequest) {
   try {
-    await requireAuth();
+    const userId = await requireAuth();
+
+    const limited = await applyRateLimit(request, "ai", userId);
+    if (limited) return limited;
 
     const body: unknown = await request.json();
     const validation = onboardingSetupInputSchema.safeParse(body);

@@ -37,7 +37,6 @@ import { DashboardTodayTasks } from "@/components/features/dashboard/today-tasks
 import { ContextualBridges } from "@/components/features/dashboard/contextual-bridges";
 import { useDailyHighlight } from "@/components/features/dashboard/use-daily-highlight";
 import { useGuidedTour } from "@/hooks/use-guided-tour";
-import { useCelebration } from "@/hooks/use-celebration";
 import { fontFamily, spacing, typography } from "@/theme";
 
 import type ViewShot from "react-native-view-shot";
@@ -86,7 +85,6 @@ export default function DashboardScreen() {
   // First visit
   const isSolo = (membersQuery.data?.members?.length ?? 1) <= 1;
   const tour = useGuidedTour(!isSolo);
-  const { celebrate } = useCelebration();
 
   // Derived data
   const myMemberId = useMemo(() => {
@@ -194,7 +192,7 @@ export default function DashboardScreen() {
             totalSteps={tour.totalSteps}
             visible={tour.shouldShowTour}
             onDismiss={() => tour.advanceToNext()}
-            onSkipTour={() => { tour.skipTour(); celebrate("tour-complete"); }}
+            onSkipTour={() => tour.skipTour()}
             onNavigate={() => { if (tour.activeTourSection) tour.markSectionToured(tour.activeTourSection); }}
           />
         ) : null}

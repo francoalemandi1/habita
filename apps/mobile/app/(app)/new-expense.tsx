@@ -6,8 +6,6 @@ import { Check, ChevronDown, DollarSign, Wallet } from "lucide-react-native";
 import { useCreateExpense } from "@/hooks/use-expenses";
 import { useFund } from "@/hooks/use-fund";
 import { useMembers } from "@/hooks/use-members";
-import { useMilestone } from "@/hooks/use-milestone";
-import { useCelebration } from "@/hooks/use-celebration";
 import { usePushOptIn } from "@/hooks/use-push-opt-in";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
@@ -161,8 +159,6 @@ export default function NewExpenseScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { me, activeHouseholdId } = useMobileAuth();
-  const expenseMilestone = useMilestone("first-expense");
-  const { celebrate } = useCelebration();
   const { trackAction } = usePushOptIn();
   const createExpense = useCreateExpense();
   const { data: membersData } = useMembers();
@@ -274,8 +270,6 @@ export default function NewExpenseScreen() {
         notes: notes.trim() || undefined,
         chargeToFund: chargeToFund && isFundCategory ? true : undefined,
       });
-      const wasFirst = await expenseMilestone.complete();
-      if (wasFirst) celebrate("first-expense");
       void trackAction();
       router.back();
     } catch (submitError) {

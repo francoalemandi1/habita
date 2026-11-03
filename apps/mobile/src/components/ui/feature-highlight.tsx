@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { useMemo } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamily, radius } from "@/theme";
 import { palette } from "@habita/design-tokens";
@@ -42,57 +42,25 @@ function createStyles(c: ThemeColors) {
 export function FeatureHighlight({ active, children, label = "Nuevo" }: FeatureHighlightProps) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const pulseAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (!active) return;
-
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: false,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0,
-          duration: 1000,
-          useNativeDriver: false,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [active, pulseAnim]);
 
   if (!active) return <>{children}</>;
 
-  const shadowOpacity = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.1, 0.35],
-  });
-
-  const shadowRadius = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [2, 12],
-  });
-
   return (
     <View style={staticStyles.wrapper}>
-      <Animated.View
+      <View
         style={[
-          staticStyles.pulseWrap,
+          staticStyles.highlightWrap,
           {
             shadowColor: colors.primary,
             shadowOffset: { width: 0, height: 0 },
-            shadowOpacity,
-            shadowRadius,
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
             elevation: 4,
           },
         ]}
       >
         {children}
-      </Animated.View>
+      </View>
       <View style={styles.badge}>
         <Text style={styles.badgeText}>{label}</Text>
       </View>
@@ -104,7 +72,7 @@ const staticStyles = StyleSheet.create({
   wrapper: {
     position: "relative",
   },
-  pulseWrap: {
+  highlightWrap: {
     borderRadius: 16,
   },
 });

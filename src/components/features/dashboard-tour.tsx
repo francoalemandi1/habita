@@ -3,7 +3,6 @@
 import { useCallback } from "react";
 import { TourModal } from "@/components/features/tour-modal";
 import { useGuidedTour } from "@/hooks/use-guided-tour";
-import { useCelebration } from "@/hooks/use-celebration";
 
 interface DashboardTourProps {
   isSharedHousehold: boolean;
@@ -11,7 +10,6 @@ interface DashboardTourProps {
 
 export function DashboardTour({ isSharedHousehold }: DashboardTourProps) {
   const tour = useGuidedTour(isSharedHousehold);
-  const { celebrate } = useCelebration();
 
   const handleNavigate = useCallback(() => {
     if (tour.activeTourSection) {
@@ -25,8 +23,7 @@ export function DashboardTour({ isSharedHousehold }: DashboardTourProps) {
 
   const handleSkipTour = useCallback(() => {
     tour.skipTour();
-    celebrate("tour-complete");
-  }, [tour, celebrate]);
+  }, [tour]);
 
   if (!tour.shouldShowTour || !tour.activeTourSection) return null;
 

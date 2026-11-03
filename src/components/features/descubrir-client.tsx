@@ -36,8 +36,6 @@ import {
 import { Filter } from "lucide-react";
 import { SectionGuideCard } from "@/components/features/section-guide-card";
 import { useFirstVisit } from "@/hooks/use-first-visit";
-import { useMilestone } from "@/hooks/use-milestone";
-import { useCelebration } from "@/hooks/use-celebration";
 import { wasSectionToured } from "@/hooks/use-guided-tour";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useRelaxSuggestions, useRefreshRelaxSection } from "@/hooks/use-relax-suggestions";
@@ -782,17 +780,13 @@ function HighlightedEventCard({
   const matchedSaved = isEventSaved(savedEvents, event.id ?? undefined);
   const isSaved = !!matchedSaved;
 
-  const eventSaveMilestone = useMilestone("first-event-saved");
-  const { celebrate: celebrateEvent } = useCelebration();
-
   const handleToggleSave = useCallback(() => {
     if (matchedSaved) {
       toggle({ savedEventId: matchedSaved.id });
     } else {
       toggle({ input: buildSaveEventInput(event) });
-      if (eventSaveMilestone.complete()) celebrateEvent("first-event-saved");
     }
-  }, [matchedSaved, toggle, event, eventSaveMilestone, celebrateEvent]);
+  }, [matchedSaved, toggle, event]);
 
   const primaryCta = event.ticketUrl
     ? { href: event.ticketUrl, label: "Entradas", icon: Ticket }
@@ -973,8 +967,6 @@ function EventCard({ event, savedEvents }: { event: RelaxEvent; savedEvents?: Sa
   const calendarUrl = buildCalendarUrl(event);
   const dateProximity = getDateProximityLabel(event.startDate);
   const { toggle, isPending: isSaveToggling } = useToggleSaveEvent();
-  const eventSaveMilestone = useMilestone("first-event-saved");
-  const { celebrate: celebrateEvent } = useCelebration();
 
   const matchedSaved = isEventSaved(savedEvents, event.id ?? undefined);
   const isSaved = !!matchedSaved;
@@ -984,9 +976,8 @@ function EventCard({ event, savedEvents }: { event: RelaxEvent; savedEvents?: Sa
       toggle({ savedEventId: matchedSaved.id });
     } else {
       toggle({ input: buildSaveEventInput(event) });
-      if (eventSaveMilestone.complete()) celebrateEvent("first-event-saved");
     }
-  }, [matchedSaved, toggle, event, eventSaveMilestone, celebrateEvent]);
+  }, [matchedSaved, toggle, event]);
 
   // Determine primary CTA
   const primaryCta = event.ticketUrl

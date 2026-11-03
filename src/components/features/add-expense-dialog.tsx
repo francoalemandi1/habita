@@ -13,8 +13,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
-import { useMilestone } from "@/hooks/use-milestone";
-import { useCelebration } from "@/hooks/use-celebration";
 import { getMemberColor, getInitial } from "@/lib/member-utils";
 import {
   CATEGORY_OPTIONS,
@@ -126,8 +124,6 @@ export function AddExpenseDialog({
   defaultValues,
   fund,
 }: AddExpenseDialogProps) {
-  const expenseMilestone = useMilestone("first-expense");
-  const { celebrate } = useCelebration();
   const [internalOpen, setInternalOpen] = useState(false);
   const isExternallyControlled = externalOpen !== undefined;
   const open = isExternallyControlled ? externalOpen : internalOpen;
@@ -311,7 +307,6 @@ export function AddExpenseDialog({
     });
 
     toast.success("Gasto registrado");
-    if (expenseMilestone.complete()) celebrate("first-expense");
     handleOpenChange(false);
   }
 

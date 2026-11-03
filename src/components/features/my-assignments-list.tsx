@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors, useDraggable } from "@dnd-kit/core";
@@ -52,27 +52,6 @@ function stableColorIndex(id: string): number {
     hash = (hash * 31 + id.charCodeAt(i)) | 0;
   }
   return Math.abs(hash) % assignmentCardColors.length;
-}
-
-/** Confetti colors from brand palette */
-const CONFETTI_COLORS = ["#5260fe", "#d2ffa0", "#d0b6ff", "#ff9f43", "#fd7c52", "#ffe8c3"];
-
-function spawnConfetti() {
-  const container = document.createElement("div");
-  document.body.appendChild(container);
-
-  for (let i = 0; i < 14; i++) {
-    const piece = document.createElement("div");
-    piece.className = "confetti-piece";
-    piece.style.left = `${10 + Math.random() * 80}%`;
-    piece.style.backgroundColor = CONFETTI_COLORS[i % CONFETTI_COLORS.length]!;
-    piece.style.setProperty("--confetti-duration", `${2 + Math.random() * 2}s`);
-    piece.style.setProperty("--confetti-delay", `${Math.random() * 0.5}s`);
-    piece.style.transform = `rotate(${Math.random() * 360}deg)`;
-    container.appendChild(piece);
-  }
-
-  setTimeout(() => container.remove(), 5000);
 }
 
 export function MyAssignmentsList({
@@ -251,7 +230,7 @@ export function MyAssignmentsList({
   );
 }
 
-// ─── All Done Celebration ────────────────────────────────────────────
+// ─── All Done State ──────────────────────────────────────────────────
 
 function AllDoneState({
   isFirstTimeUser,
@@ -268,15 +247,6 @@ function AllDoneState({
   showPlanCta: boolean;
   isSolo: boolean;
 }) {
-  const hasConfettied = useRef(false);
-
-  useEffect(() => {
-    if (!isFirstTimeUser && completedToday > 0 && !hasConfettied.current) {
-      hasConfettied.current = true;
-      spawnConfetti();
-    }
-  }, [isFirstTimeUser, completedToday]);
-
   const totalMinutesToday = completedAssignments.reduce(
     (sum, a) => sum + (a.task.estimatedMinutes ?? 0),
     0,
@@ -303,7 +273,7 @@ function AllDoneState({
         </>
       ) : (
         <>
-          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-brand-success-dark/20 animate-celebrate-pulse">
+          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-brand-success-dark/20">
             <CheckCircle className={`${iconSize["2xl"]} text-brand-success-dark`} />
           </div>
           <p className="text-lg font-semibold text-foreground">¡Estás al día!</p>

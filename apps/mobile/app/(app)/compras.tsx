@@ -35,8 +35,6 @@ import { mobileApi } from "@/lib/api";
 import { usePromos, usePromoPipelineStatus, useRefreshPromos, parseJsonArray } from "@/hooks/use-promos";
 import { TabBar } from "@/components/ui/tab-bar";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
-import { useMilestone } from "@/hooks/use-milestone";
-import { useCelebration } from "@/hooks/use-celebration";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1337,8 +1335,6 @@ export default function ShoppingPlanScreen() {
     );
   }, []);
 
-  const searchMilestone = useMilestone("first-search");
-  const { celebrate } = useCelebration();
   const ahorraWasToured = useSectionToured("ahorra");
   const shoppingPlan = useShoppingPlan();
   // Shopping results from background job
@@ -1614,8 +1610,6 @@ export default function ShoppingPlanScreen() {
       await shoppingPlan.mutateAsync({ searchItems: items });
       setLastSearchedTerms(new Set(items.map((i) => i.term.toLowerCase())));
       void AsyncStorage.setItem("habita_shopping_first_search", "1");
-      const wasFirst = await searchMilestone.complete();
-      if (wasFirst) celebrate("first-search");
       setOverrides(new Map());
       setSelectedStores(new Set());
       setPinnedStore(null);

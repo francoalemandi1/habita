@@ -11,8 +11,6 @@ import { usePromos, useRefreshPromos, usePromoPipelineStatus, getStorePromos } f
 import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 import { SectionGuideCard } from "@/components/features/section-guide-card";
-import { useMilestone } from "@/hooks/use-milestone";
-import { useCelebration } from "@/hooks/use-celebration";
 import { wasSectionToured } from "@/hooks/use-guided-tour";
 import { ProductSearchInput, normalizeProductTerm } from "@/components/features/product-search-input";
 import { loadSearchItems as loadSavedSearchItems, saveSearchItems } from "@/lib/shopping-cart-storage";
@@ -345,8 +343,6 @@ interface ShoppingPlanProps {
 
 export function ShoppingPlanView(props: ShoppingPlanProps) {
   const { isFirstVisit: isFirstVisitAhorra, dismiss: dismissAhorra } = useFirstVisit("ahorra");
-  const searchMilestone = useMilestone("first-search");
-  const { celebrate } = useCelebration();
   const { paymentMethods, togglePaymentMethod } = usePaymentMethod();
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [searchItems, setSearchItems] = useState<SearchItem[]>([]);
@@ -603,11 +599,10 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
     if (searchItems.length === 0) return;
     search(searchItems, paymentMethods.map((m) => m.bankSlug));
     setLastSearchedTerms(new Set(searchItems.map((i) => normalizeProductTerm(i.term))));
-    if (searchMilestone.complete()) celebrate("first-search");
     if (typeof window !== "undefined") {
       localStorage.setItem("habita:shopping-first-search", "1");
     }
-  }, [searchItems, search, paymentMethods, searchMilestone, celebrate]);
+  }, [searchItems, search, paymentMethods]);
 
   const handleNewSearch = useCallback(() => {
     if (data) {
@@ -890,7 +885,7 @@ export function ShoppingPlanView(props: ShoppingPlanProps) {
               <StoreLogo storeName={name} sizeClass="h-8 w-8" radiusClass="rounded-xl" />
               <div className="flex-1 space-y-2">
                 <p className="text-xs font-medium">{name}</p>
-                <div className="h-2 w-3/4 rounded-full bg-muted shimmer-skeleton" />
+                <div className="h-2 w-3/4 rounded-full bg-sand" />
               </div>
             </div>
           ))}

@@ -50,9 +50,6 @@ function isoWeekday(date: Date): number {
 
 const DAY_HEADER_LABELS = ["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"];
 
-/** Micro-rotations for handwritten imperfection — one per weekday */
-const DAY_ROTATIONS = [-0.3, 0.15, -0.1, 0.25, -0.2, 0.1, -0.15];
-
 /** Group assignments by day, then by member within each day */
 function groupByDayAndMember(
   assignments: CalendarAssignment[],
@@ -329,10 +326,9 @@ export function FridgeCalendarView({
 
   return (
     <div className={spacing.contentStackCompact}>
-      {/* Notebook calendar container */}
-      <div className="notebook-paper notebook-binding notebook-border relative overflow-hidden rounded-2xl">
+      <div className="bg-card border border-border relative overflow-hidden rounded-2xl">
         {/* Header strip */}
-        <div className="notebook-header relative flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
+        <div className="bg-card border-b border-border relative flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
           {/* Left nav */}
           <button
             type="button"
@@ -354,8 +350,7 @@ export function FridgeCalendarView({
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="handwritten-title text-lg font-normal tracking-wide sm:text-xl cursor-pointer hover:opacity-70 transition-opacity focus-visible:outline-none"
-                    style={{ transform: "rotate(-0.3deg)" }}
+                    className="font-semibold text-lg tracking-wide sm:text-xl cursor-pointer hover:opacity-70 transition-opacity focus-visible:outline-none"
                   >
                     {rangeLabel}
                   </button>
@@ -374,7 +369,7 @@ export function FridgeCalendarView({
               </Popover>
             </div>
             {weekStats.total > 0 && (
-              <span className="handwritten-note text-sm text-foreground-tertiary">
+              <span className="text-sm text-foreground-tertiary">
                 {weekStats.completed}/{weekStats.total} completadas
               </span>
             )}
@@ -394,11 +389,11 @@ export function FridgeCalendarView({
 
         {/* "Ir a hoy" strip */}
         {!isCurrentRange && (
-          <div className="notebook-dashed flex justify-center py-1.5">
+          <div className="border-b border-dashed border-border flex justify-center py-1.5">
             <Button
               variant="ghost"
               size="sm"
-              className="handwritten-title h-6 rounded-full px-3 text-sm font-normal text-primary hover:bg-primary/10"
+              className="h-6 rounded-full px-3 text-sm font-normal text-primary hover:bg-primary/10"
               onClick={goToToday}
             >
               Ir a hoy
@@ -412,10 +407,10 @@ export function FridgeCalendarView({
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-foreground/5">
               <span className="text-3xl">📋</span>
             </div>
-            <p className="handwritten-title text-lg text-foreground-secondary">
+            <p className="font-semibold text-lg text-foreground-secondary">
               No hay tareas en este período
             </p>
-            <p className="handwritten-note mt-1 text-base text-foreground-tertiary">
+            <p className="mt-1 text-base text-foreground-tertiary">
               Las asignaciones aparecerán aquí
             </p>
           </div>
@@ -425,21 +420,19 @@ export function FridgeCalendarView({
             <div className="hidden sm:block">
               {/* Day-of-week header row */}
               <div
-                className="notebook-divider grid"
+                className="border-b border-border grid"
                 style={{ gridTemplateColumns: `repeat(${numCols}, minmax(0, 1fr))` }}
               >
                 {viewDays.map((day) => {
                   const isoIdx = isoWeekday(day);
                   const label = DAY_HEADER_LABELS[isoIdx] ?? "";
-                  const rotation = DAY_ROTATIONS[isoIdx] ?? 0;
                   const isWeekend = isoIdx >= 5;
                   return (
                     <div
                       key={day.toISOString()}
-                      className={`handwritten-title py-2 text-center text-base tracking-wider ${
+                      className={`font-semibold py-2 text-center text-base tracking-wider ${
                         isWeekend ? "text-foreground-tertiary" : "text-foreground-secondary"
                       }`}
-                      style={{ transform: `rotate(${rotation}deg)`, letterSpacing: "1px" }}
                     >
                       {label}
                     </div>
@@ -449,26 +442,23 @@ export function FridgeCalendarView({
 
               {/* Day number row */}
               <div
-                className="notebook-subdivider grid"
+                className="border-b border-border grid"
                 style={{ gridTemplateColumns: `repeat(${numCols}, minmax(0, 1fr))` }}
               >
                 {dayData.map((day, i) => {
                   const isToday = isSameDay(day.date, today);
                   const dayNum = day.date.getDate();
-                  const isoIdx = isoWeekday(day.date);
-                  const rotation = DAY_ROTATIONS[isoIdx] ?? 0;
                   return (
                     <div
                       key={day.date.toISOString()}
                       className={`flex justify-center py-1.5 ${i < numCols - 1 ? "border-r border-border" : ""}`}
                     >
                       <span
-                        className={`handwritten-note flex h-8 w-8 items-center justify-center text-xl font-semibold ${
+                        className={`flex h-8 w-8 items-center justify-center text-xl font-semibold ${
                           isToday
-                            ? "notebook-today-highlight rounded-full text-primary"
+                            ? "bg-primary/10 rounded-full text-primary"
                             : "text-foreground-secondary"
                         }`}
-                        style={{ transform: `rotate(${rotation * 1.5}deg)` }}
                       >
                         {dayNum}
                       </span>
@@ -502,7 +492,7 @@ export function FridgeCalendarView({
             {/* Mobile: single-day swipe view */}
             <div className="sm:hidden overflow-hidden">
               {/* Day dots indicator */}
-              <div className="notebook-dashed flex items-center justify-center gap-1 py-2">
+              <div className="border-b border-dashed border-border flex items-center justify-center gap-1 py-2">
                 {viewDays.map((day, index) => {
                   const isActive = index === currentDayIndex;
                   const isDayToday = isSameDay(day, today);
@@ -523,7 +513,7 @@ export function FridgeCalendarView({
                     >
                       <span
                         className={cn(
-                          "handwritten-title text-[10px]",
+                          "text-[10px] font-semibold",
                           isActive ? "text-primary" : "text-foreground-tertiary",
                         )}
                       >
@@ -531,7 +521,7 @@ export function FridgeCalendarView({
                       </span>
                       <span
                         className={cn(
-                          "flex h-6 w-6 items-center justify-center rounded-full text-sm handwritten-note",
+                          "flex h-6 w-6 items-center justify-center rounded-full text-sm",
                           isActive && isDayToday && "bg-primary text-white",
                           isActive && !isDayToday && "bg-primary/15 text-primary",
                           !isActive && isDayToday && "text-primary font-bold",
@@ -608,7 +598,7 @@ export function FridgeCalendarView({
                 >
                   {(member.name[0] ?? "?").toUpperCase()}
                 </div>
-                <span className="handwritten-note text-sm text-foreground-secondary">{firstName}</span>
+                <span className="text-sm text-foreground-secondary">{firstName}</span>
               </div>
             );
           })}

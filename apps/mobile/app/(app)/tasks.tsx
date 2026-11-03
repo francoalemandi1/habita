@@ -21,7 +21,6 @@ import { useMembers } from "@/hooks/use-members";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { useThemeColors } from "@/hooks/use-theme";
-import { useCelebration } from "@/hooks/use-celebration";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -574,9 +573,6 @@ export default function TasksScreen() {
   const completeMutation = useCompleteAssignment();
   const uncompleteMutation = useUncompleteAssignment();
   const verifyMutation = useVerifyAssignment();
-  const { celebrate } = useCelebration();
-  const completionCountRef = useRef(0);
-  const allDoneCelebrationFiredRef = useRef(false);
   const [transferTarget, setTransferTarget] = useState<AssignmentSummary | null>(null);
   const [selectedDay, setSelectedDay] = useState(dayKey(new Date()));
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
@@ -650,17 +646,6 @@ export default function TasksScreen() {
 
   const allDone = !isLoading && pendingAssignments.length === 0;
 
-  // Fire celebration toast once when all tasks for the day are done
-  useEffect(() => {
-    if (allDone && completedDayAssignments.length > 0 && !allDoneCelebrationFiredRef.current) {
-      allDoneCelebrationFiredRef.current = true;
-      celebrate("share-nudge");
-    }
-    if (!allDone) {
-      allDoneCelebrationFiredRef.current = false;
-    }
-  }, [allDone, completedDayAssignments.length, celebrate]);
-
   const renderPendingCard = (assignment: AssignmentSummary) => {
     const isCurrentCompleting = completeMutation.isPending && completeMutation.variables === assignment.id;
     const isCurrentUncompleting = uncompleteMutation.isPending && uncompleteMutation.variables === assignment.id;
@@ -673,12 +658,7 @@ export default function TasksScreen() {
         isCompleting={isCurrentCompleting}
         isUncompleting={isCurrentUncompleting}
         canVerify={isAdult}
-        onComplete={() => completeMutation.mutate(assignment.id, {
-          onSuccess: () => {
-            completionCountRef.current += 1;
-            if (completionCountRef.current % 5 === 0) celebrate("share-nudge");
-          },
-        })}
+        onComplete={() => completeMutation.mutate(assignment.id)}
         onUncomplete={() => uncompleteMutation.mutate(assignment.id)}
         onVerify={() => {}}
         onTransfer={() => setTransferTarget(assignment)}
@@ -887,12 +867,7 @@ export default function TasksScreen() {
                   <ListRow
                     key={a.id}
                     assignment={a}
-                    onComplete={() => completeMutation.mutate(a.id, {
-                      onSuccess: () => {
-                        completionCountRef.current += 1;
-                        if (completionCountRef.current % 5 === 0) celebrate("share-nudge");
-                      },
-                    })}
+                    onComplete={() => completeMutation.mutate(a.id)}
                     onTransfer={() => setTransferTarget(a)}
                     isCompleting={completing}
                     isMutating={mutating}

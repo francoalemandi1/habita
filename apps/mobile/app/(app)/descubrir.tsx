@@ -24,8 +24,6 @@ import { useEvents } from "@/hooks/use-events";
 import { mobileApi } from "@/lib/api";
 import { useSavedEvents, useToggleSaveEvent, isEventSaved } from "@/hooks/use-saved-events";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
-import { useMilestone } from "@/hooks/use-milestone";
-import { useCelebration } from "@/hooks/use-celebration";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -507,9 +505,6 @@ function CategorySection({
 function EventsTab() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const eventSaveMilestone = useMilestone("first-event-saved");
-  const { celebrate: celebrateEvent } = useCelebration();
-
   const [activeCategory, setActiveCategory] = useState<EventCategory | undefined>();
   const [activeTimeFilter, setActiveTimeFilter] = useState<TimeFilter>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("all");
@@ -548,12 +543,9 @@ function EventsTab() {
         void toggleSave({ savedEventId: saved.id });
       } else {
         void toggleSave({ input: eventToSaveInput(event) });
-        void eventSaveMilestone.complete().then((wasFirst) => {
-          if (wasFirst) celebrateEvent("first-event-saved");
-        });
       }
     },
-    [savedEvents, toggleSave, eventSaveMilestone, celebrateEvent],
+    [savedEvents, toggleSave],
   );
 
   return (

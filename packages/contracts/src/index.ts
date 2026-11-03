@@ -24,3 +24,4 @@ export * from "./ai-jobs";
 export * from "./onboarding-setup";
 export { queryKeys } from "./query-keys";
 export { POLL_INTERVAL_MS } from "./constants";
+export * from "./routes";

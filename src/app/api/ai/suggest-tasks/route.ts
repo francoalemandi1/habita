@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
-import { isAIEnabled, getLLMProvider } from "@/lib/llm/provider";
+import { isAIEnabled } from "@/lib/llm/provider";
+import { generateStructured } from "@/lib/ai/generate";
 import { z } from "zod";
 import { ONBOARDING_CATALOG } from "@/data/onboarding-catalog";
 import { applyRateLimit } from "@/lib/rate-limit";
@@ -38,6 +39,19 @@ const FREQ_UP: Record<string, SuggestedTask["frequency"]> = {
   biweekly: "BIWEEKLY",
   monthly: "MONTHLY",
 };
+
+const suggestTasksAISchema = z.object({
+  additionalTasks: z.array(z.object({
+    name: z.string(),
+    frequency: z.string(),
+    category: z.string(),
+    icon: z.string(),
+    estimatedMinutes: z.number(),
+    weight: z.number(),
+    reason: z.string(),
+  })),
+  insights: z.array(z.string()),
+});
 
 function catalogToTaskCategories(hasPets: boolean, hasChildren: boolean): TaskCategory[] {
   return ONBOARDING_CATALOG.filter((cat) => {
@@ -93,25 +107,11 @@ export async function POST(request: NextRequest) {
     // If AI is enabled, enhance suggestions
     if (isAIEnabled() && (location || householdDescription)) {
       try {
-        const provider = await getLLMProvider();
-        const aiResult = await provider.completeWithSchema<{
-          additionalTasks: Array<{
-            name: string;
-            frequency: string;
-            category: string;
-            icon: string;
-            estimatedMinutes: number;
-            weight: number;
-            reason: string;
-          }>;
-          insights: string[];
-        }>({
+        const aiResult = await generateStructured({
+          task: "suggest-tasks",
+          schema: suggestTasksAISchema,
           prompt: buildAIPrompt({ hasChildren, hasPets, location, householdDescription }),
-          outputSchema: {
-            additionalTasks: "array of task objects with name, frequency, category, icon, estimatedMinutes, weight, reason",
-            insights: "array of insight strings",
-          },
-          modelVariant: "fast",
+          tier: "fast",
         });
 
         // Add AI-suggested tasks to appropriate categories

@@ -8,10 +8,12 @@ Capa de integración con modelos AI (Gemini, DeepSeek). Todo prompt recibe conte
 - **Graceful degradation**: Si AI está deshabilitado (`isAIEnabled()`), todas las funciones retornan `null`. Los callers DEBEN manejar null.
 - **Regional injection**: TODA llamada LLM recibe `buildRegionalContext()` (timezone, estación, variante de idioma, clima). No saltear esto.
 
-## Proveedores
+## Gateway (`@/lib/ai/models.ts`, `@/lib/ai/generate.ts`)
 
-- **DeepSeek**: texto puro (recetas sin imágenes, sugerencias)
-- **Gemini 2.0 Flash**: multimodal (recetas con fotos, extracción de deals)
+- `getLanguageModel(tier)` (`src/lib/ai/models.ts`) es el ÚNICO punto para elegir modelo. Prioridad DeepSeek > Gemini > `AIUnavailableError`. `tier` es `"fast" | "standard"`; DeepSeek usa `deepseek-chat` para ambos, Gemini usa `gemini-3.5-flash-lite` (fast) / `gemini-3.8-flash` (standard) — verificados 2026-11-03, los modelos Gemini 1 punto 5 ya no existen para esta API key.
+- `generateStructured()` (`src/lib/ai/generate.ts`) es el gateway para salidas estructuradas: resuelve el modelo, llama `generateObject` con `AbortSignal.timeout`, loguea una línea `[ai]` por llamada (provider, model, tokens, duración, ok) y relanza el error tras loguearlo. Nuevas integraciones de texto/JSON deben pasar por acá en vez de duplicar `getModel()`.
+- **DeepSeek**: texto puro (recetas sin imágenes, sugerencias, extracción masiva)
+- **Gemini**: fallback cuando no hay DeepSeek configurado
 
 ## AI Planner (`ai-planner.ts`)
 

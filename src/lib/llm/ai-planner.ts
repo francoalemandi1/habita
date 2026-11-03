@@ -1,29 +1,14 @@
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { computeDueDateForFrequency } from "@/lib/due-date";
 import { partitionTasksByDuration, durationLabel } from "@/lib/plan-duration";
-import { isAIEnabled, getAIProviderType } from "./provider";
-import { getDeepSeekModel } from "./deepseek-provider";
+import { isAIEnabled } from "./provider";
+import { getLanguageModel } from "@/lib/ai/models";
 import { buildRegionalContext } from "./regional-context";
 
 import type { TaskFrequency } from "@prisma/client";
-import type { LanguageModel } from "ai";
 import type { ExcludedTask } from "@/lib/plan-duration";
-
-function getModel(): LanguageModel {
-  const providerType = getAIProviderType();
-
-  if (providerType === "gemini") {
-    const google = createGoogleGenerativeAI({
-      apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-    });
-    return google("gemini-1.5-flash");
-  }
-
-  return getDeepSeekModel();
-}
 
 const assignmentSchema = z.object({
   assignments: z.array(
@@ -122,7 +107,7 @@ export async function generateAIPlan(
     frequency: t.frequency as TaskFrequency,
   }));
 
-  const model = getModel();
+  const { model } = getLanguageModel();
   const isSolo = filteredContext.members.length === 1;
   const prompt = isSolo
     ? buildSoloPlanPrompt(filteredContext, durationDays, regionalContext.promptBlock)

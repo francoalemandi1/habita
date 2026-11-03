@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { requireAuth } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
-import { isAIEnabled, getLLMProvider } from "@/lib/llm/provider";
+import { isAIEnabled } from "@/lib/llm/provider";
+import { generateStructured } from "@/lib/ai/generate";
 import { onboardingSetupInputSchema } from "@habita/contracts";
 import { ONBOARDING_CATALOG } from "@/data/onboarding-catalog";
 import { extractStringArray } from "@habita/domain/onboarding-profile";
@@ -17,6 +19,26 @@ const FREQ_UP: Record<string, OnboardingSetupTask["frequency"]> = {
   monthly: "MONTHLY",
 };
 
+const onboardingSetupAISchema = z.object({
+  tasks: z.array(z.object({
+    name: z.string(),
+    frequency: z.enum(["DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY"]).catch("WEEKLY"),
+    weight: z.number(),
+    estimatedMinutes: z.number(),
+    reason: z.string().optional(),
+  })),
+  householdProfile: z.object({
+    city: z.string().nullable().optional(),
+    timezone: z.string().nullable().optional(),
+    planningDay: z.number().nullable().optional(),
+    occupationLevel: z.enum(["BUSY", "MODERATE", "AVAILABLE"]).catch("MODERATE").optional(),
+    suggestedHouseholdName: z.string().nullable().optional(),
+  }),
+  insights: z.array(z.string()),
+  dietaryHints: z.array(z.string()),
+  shoppingContext: z.array(z.string()),
+});
+
 /** Fallback: 5 essential tasks from the static catalog. */
 function getEssentialTasks(): OnboardingSetupTask[] {
   const essentials = new Set([
@@ -26,7 +48,7 @@ function getEssentialTasks(): OnboardingSetupTask[] {
     .filter((t) => essentials.has(t.name))
     .map((t) => ({
       name: t.name,
-      frequency: (FREQ_UP[t.defaultFrequency] ?? "WEEKLY") as OnboardingSetupTask["frequency"],
+      frequency: FREQ_UP[t.defaultFrequency] ?? "WEEKLY",
       weight: t.defaultWeight,
       estimatedMinutes: t.estimatedMinutes ?? 15,
     }));
@@ -116,17 +138,11 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const provider = await getLLMProvider();
-      const result = await provider.completeWithSchema<OnboardingSetupResponse>({
+      const result = await generateStructured({
+        task: "onboarding-setup",
+        schema: onboardingSetupAISchema,
         prompt: buildPrompt(householdDescription, isSoloMode, memberName),
-        outputSchema: {
-          tasks: "array of {name, frequency, weight, estimatedMinutes, reason?}",
-          householdProfile: "{city?, timezone?, planningDay?, occupationLevel?, suggestedHouseholdName?}",
-          insights: "array of strings",
-          dietaryHints: "array of strings",
-          shoppingContext: "array of strings",
-        },
-        modelVariant: "standard",
+        tier: "standard",
         timeoutMs: 25_000,
       });
 
@@ -144,7 +160,6 @@ export async function POST(request: NextRequest) {
 
       // Sanitize profile
       const profile = result.householdProfile ?? {};
-      const validOccupation = new Set(["BUSY", "MODERATE", "AVAILABLE"]);
 
       const response: OnboardingSetupResponse = {
         tasks: tasks.length >= 5 ? tasks : [...tasks, ...getEssentialTasks().filter((e) => !tasks.some((t) => t.name === e.name))],
@@ -154,7 +169,7 @@ export async function POST(request: NextRequest) {
           planningDay: typeof profile.planningDay === "number" && profile.planningDay >= 0 && profile.planningDay <= 6
             ? Math.round(profile.planningDay)
             : null,
-          occupationLevel: validOccupation.has(profile.occupationLevel ?? "") ? profile.occupationLevel : "MODERATE",
+          occupationLevel: profile.occupationLevel ?? "MODERATE",
           suggestedHouseholdName: typeof profile.suggestedHouseholdName === "string"
             ? profile.suggestedHouseholdName.slice(0, 50)
             : null,

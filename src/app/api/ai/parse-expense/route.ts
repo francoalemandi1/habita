@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
-import { getLLMProvider, isAIEnabled } from "@/lib/llm/provider";
+import { isAIEnabled } from "@/lib/llm/provider";
+import { generateStructured } from "@/lib/ai/generate";
 import { BadRequestError } from "@/lib/errors";
 import { applyRateLimit } from "@/lib/rate-limit";
 
@@ -25,13 +26,13 @@ const EXPENSE_CATEGORIES = [
   "OTHER",
 ] as const;
 
-const outputSchema = {
-  title: "string — short descriptive name for the expense (2-5 words, title case, Spanish)",
-  amount: "number — the amount in ARS (just the number, no currency symbol)",
-  category: `string — one of: ${EXPENSE_CATEGORIES.join(", ")}`,
-  notes: "string or null — any extra context mentioned",
-  parsed: "boolean — true if successfully parsed, false if the input doesn't describe an expense",
-};
+const parseExpenseSchema = z.object({
+  title: z.string().describe("short descriptive name for the expense (2-5 words, title case, Spanish)"),
+  amount: z.number().describe("the amount in ARS (just the number, no currency symbol)"),
+  category: z.string().describe(`one of: ${EXPENSE_CATEGORIES.join(", ")}`),
+  notes: z.string().nullable().describe("any extra context mentioned"),
+  parsed: z.boolean().describe("true if successfully parsed, false if the input doesn't describe an expense"),
+});
 
 /**
  * POST /api/ai/parse-expense
@@ -82,17 +83,11 @@ Categorías disponibles:
 
 Respondé SOLO con JSON válido, sin texto adicional.`;
 
-    const llm = await getLLMProvider();
-    const result = await llm.completeWithSchema<{
-      title: string;
-      amount: number;
-      category: string;
-      notes: string | null;
-      parsed: boolean;
-    }>({
+    const result = await generateStructured({
+      task: "parse-expense",
+      schema: parseExpenseSchema,
       prompt,
-      outputSchema,
-      modelVariant: "fast",
+      tier: "fast",
       timeoutMs: 10_000,
     });
 

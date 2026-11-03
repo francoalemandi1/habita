@@ -11,7 +11,7 @@
 
 import { generateObject } from "ai";
 import { z } from "zod";
-import { getDeepSeekModel } from "@/lib/llm/deepseek-provider";
+import { getLanguageModel } from "@/lib/ai/models";
 
 import type { CrawledPage, ExtractedEvent, PageExtractionResult } from "./types";
 
@@ -183,7 +183,7 @@ async function extractFromPage(
   // Attempt extraction with retry on failure
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const model = getDeepSeekModel();
+      const { model } = getLanguageModel("fast");
       const result = await generateObject({
         model,
         schema: extractedEventSchema,

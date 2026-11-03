@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./expense-subcategory": "./src/expense-subcategory.ts",
     "./unit-parser": "./src/unit-parser.ts",
-    "./onboarding-profile": "./src/onboarding-profile.ts"
+    "./onboarding-profile": "./src/onboarding-profile.ts",
+    "./casa-summary": "./src/casa-summary.ts"
   }
 }

@@ -5,6 +5,7 @@ import { AppNav } from "@/components/features/app-nav";
 import { AppNavMobile } from "@/components/features/app-nav-mobile";
 import { AnotarSheet } from "@/components/features/anotar/anotar-sheet";
 import { AiJobWatcher } from "@/components/features/ai-job-watcher";
+import { SnackbarProvider } from "@/components/ds/snackbar";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -31,7 +32,7 @@ export default async function MainLayout({ children }: MainLayoutProps) {
         currentHouseholdId={member.householdId}
       />
       <main className="flex-1 overflow-x-hidden pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0">
-        {children}
+        <SnackbarProvider>{children}</SnackbarProvider>
       </main>
       <AppNavMobile />
       <AnotarSheet />

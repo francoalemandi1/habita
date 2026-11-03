@@ -1,49 +1,32 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { isAIEnabled } from "@/lib/llm/provider";
 import { resolveCityId } from "@/lib/events/city-normalizer";
-import { Card, CardContent } from "@/components/ui/card";
-import { PlanStatusCard } from "@/components/features/plan-status-card";
-import { PendingTransfers } from "@/components/features/pending-transfers";
-import { FridgeCalendarView } from "@/components/features/fridge-calendar-view";
-import { PushOptInBanner } from "@/components/features/push-opt-in-banner";
-import { OnboardingChecklist } from "@/components/features/onboarding-checklist";
-import { InviteHomeCard } from "@/components/features/invite-home-card";
-import { DashboardTour } from "@/components/features/dashboard-tour";
-import { DashboardHeroCard, computeHeroState } from "@/components/features/dashboard-hero-card";
-import { DashboardTodayTasks } from "@/components/features/dashboard-today-tasks";
-import { ContextualBridges } from "@/components/features/contextual-bridges";
-import { DashboardWeekCard } from "@/components/features/dashboard-week-card";
-import { DashboardDailyHighlight, computeDailyHighlight } from "@/components/features/dashboard-daily-highlight";
-import { WorkloadDistribution } from "@/components/features/workload-distribution";
+import { calculateBalances, simplifyDebts } from "@/lib/expense-balances";
 import { getWeekMonday, getWeekSunday } from "@/lib/calendar-utils";
-import { ChevronRight, CalendarDays, Wallet } from "lucide-react";
-import { spacing, iconSize } from "@/lib/design-tokens";
-import { isSoloHousehold, getHouseholdCopy } from "@/lib/household-mode";
-import { APP_ROUTES } from "@habita/contracts";
+import { isSoloHousehold } from "@/lib/household-mode";
+import { Banner } from "@/components/ds/banner";
+import { InviteHomeCard } from "@/components/features/invite-home-card";
+import { TareasCard } from "@/components/features/casa/tareas-card";
+import { PlataCard } from "@/components/features/casa/plata-card";
+import { SuperCard } from "@/components/features/casa/super-card";
+import { DestacadoCard } from "@/components/features/casa/destacado-card";
+import {
+  buildTransfersBannerText,
+  countCartProducts,
+  filterTodayAssignments,
+  formatMonthHeader,
+  relativeDaysLabel,
+} from "@/components/features/casa/casa-logic";
+import { summarizeMyBalance, summarizeWeekTasks, formatCasaDateLabel } from "@habita/domain";
 
-import type { MemberType } from "@prisma/client";
+import type { DestacadoEvent } from "@/components/features/casa/destacado-card";
+import type { SuperCardCart } from "@/components/features/casa/super-card";
+import type { TodayTaskItem } from "@/components/features/casa/today-tasks-list";
 
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Buenos dias";
-  if (hour < 19) return "Buenas tardes";
-  return "Buenas noches";
-}
-
-function formatTodayDate(): string {
-  return new Date().toLocaleDateString("es-AR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-}
-
-export default async function DashboardPage() {
+export default async function CasaPage() {
   const member = await getCurrentMember();
-
   if (!member) {
     redirect("/onboarding");
   }
@@ -52,459 +35,154 @@ export default async function DashboardPage() {
   const now = new Date();
   const monday = getWeekMonday(now);
   const sunday = getWeekSunday(monday);
-  const aiEnabled = isAIEnabled();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-  const [members, activePlan, transfers, calendarAssignments, firstExpense, firstCompletedTask, weeklyCompletions] =
+  const [members, weekAssignments, expensesForBalance, monthlyAgg, latestCart, pendingTransfers, destacadoEvent] =
     await Promise.all([
       prisma.member.findMany({
         where: { householdId, isActive: true },
-        select: { id: true, name: true, memberType: true, avatarUrl: true },
-      }),
-      aiEnabled
-        ? prisma.weeklyPlan.findFirst({
-            where: {
-              householdId,
-              status: { in: ["PENDING", "APPLIED"] },
-              expiresAt: { gt: now },
-            },
-            orderBy: { createdAt: "desc" },
-          })
-        : null,
-      prisma.taskTransfer.findMany({
-        where: {
-          OR: [{ fromMemberId: member.id }, { toMemberId: member.id }],
-          assignment: { householdId },
-        },
-        include: {
-          assignment: {
-            include: { task: { select: { id: true, name: true } } },
-          },
-          fromMember: { select: { id: true, name: true } },
-          toMember: { select: { id: true, name: true } },
-        },
-        orderBy: { requestedAt: "desc" },
+        select: { id: true, name: true, memberType: true },
       }),
       prisma.assignment.findMany({
-        where: {
-          householdId,
-          dueDate: { gte: monday, lte: sunday },
-          status: { not: "CANCELLED" },
-        },
+        where: { householdId, dueDate: { gte: monday, lte: sunday }, status: { not: "CANCELLED" } },
         select: {
           id: true,
+          memberId: true,
           dueDate: true,
           status: true,
-          completedAt: true,
-          memberId: true,
-          task: {
-            select: { id: true, name: true, weight: true, frequency: true, estimatedMinutes: true },
-          },
-          member: {
-            select: { id: true, name: true, memberType: true, avatarUrl: true },
-          },
-        },
-        orderBy: { dueDate: "asc" },
-      }),
-      prisma.expense.findFirst({
-        where: { householdId },
-        select: { id: true },
-      }),
-      prisma.assignment.findFirst({
-        where: {
-          householdId,
-          status: { in: ["COMPLETED", "VERIFIED"] },
-        },
-        select: { id: true },
-      }),
-      // Weekly completions for stats (per member)
-      prisma.assignment.findMany({
-        where: {
-          householdId,
-          status: { in: ["COMPLETED", "VERIFIED"] },
-          completedAt: { gte: monday },
-        },
-        select: {
-          memberId: true,
-          task: { select: { weight: true } },
+          task: { select: { name: true, estimatedMinutes: true } },
         },
       }),
+      prisma.expense.findMany({
+        where: { householdId, splits: { some: { settled: false } } },
+        include: {
+          paidBy: { select: { id: true, name: true } },
+          splits: { where: { settled: false }, include: { member: { select: { id: true, name: true } } } },
+        },
+        take: 500,
+      }),
+      prisma.expense.aggregate({
+        where: { householdId, date: { gte: monthStart, lte: monthEnd } },
+        _sum: { amount: true },
+      }),
+      prisma.savedCart.findFirst({
+        where: { memberId: member.id, householdId },
+        orderBy: { savedAt: "desc" },
+        select: { storeName: true, products: true, totalPrice: true, savedAt: true },
+      }),
+      prisma.taskTransfer.findMany({
+        where: { toMemberId: member.id, status: "PENDING", assignment: { householdId } },
+        select: { fromMember: { select: { name: true } }, assignment: { select: { task: { select: { name: true } } } } },
+        orderBy: { requestedAt: "desc" },
+      }),
+      fetchDestacadoEvent(member.household.city, now),
     ]);
 
-  const hasExpense = firstExpense !== null;
-  const hasCompletedTask = firstCompletedTask !== null;
-
-  // Build member stats for week card
-  const weeklyCountMap = new Map<string, number>();
-  const weeklyPointsMap = new Map<string, number>();
-  for (const c of weeklyCompletions) {
-    weeklyCountMap.set(c.memberId, (weeklyCountMap.get(c.memberId) ?? 0) + 1);
-    weeklyPointsMap.set(c.memberId, (weeklyPointsMap.get(c.memberId) ?? 0) + c.task.weight);
-  }
-  const memberStats = members.map((m) => ({
-    id: m.id,
-    name: m.name,
-    weeklyTasks: weeklyCountMap.get(m.id) ?? 0,
-    weeklyPoints: weeklyPointsMap.get(m.id) ?? 0,
-  }));
-
-  // Household streak: consecutive weeks where ALL active members completed ≥1
-  const fiftyTwoWeeksAgo = new Date(now);
-  fiftyTwoWeeksAgo.setDate(fiftyTwoWeeksAgo.getDate() - 364);
-  fiftyTwoWeeksAgo.setHours(0, 0, 0, 0);
-
-  const streakCompletions = await prisma.assignment.findMany({
-    where: {
-      householdId,
-      status: { in: ["COMPLETED", "VERIFIED"] },
-      completedAt: { gte: fiftyTwoWeeksAgo },
-    },
-    select: { memberId: true, completedAt: true },
+  const weekSummary = summarizeWeekTasks({
+    assignments: weekAssignments.map((a) => ({ memberId: a.memberId, status: a.status })),
+    members,
+    currentMemberId: member.id,
   });
 
-  const activeMemberIds = new Set(members.map((m) => m.id));
-  const completionsByWeek = new Map<string, Set<string>>();
-  for (const c of streakCompletions) {
-    if (c.completedAt) {
-      const weekMonday = getWeekMonday(c.completedAt);
-      const weekKey = weekMonday.toISOString().split("T")[0] ?? "";
-      if (!completionsByWeek.has(weekKey)) {
-        completionsByWeek.set(weekKey, new Set());
-      }
-      completionsByWeek.get(weekKey)!.add(c.memberId);
-    }
-  }
-
-  let householdStreak = 0;
-  const currentMonday = getWeekMonday(now);
-  const walkDate = new Date(currentMonday);
-  while (true) {
-    const weekKey = walkDate.toISOString().split("T")[0] ?? "";
-    const membersThisWeek = completionsByWeek.get(weekKey);
-    const allActive = membersThisWeek != null
-      && Array.from(activeMemberIds).every((id) => membersThisWeek.has(id));
-    if (allActive) {
-      householdStreak++;
-      walkDate.setDate(walkDate.getDate() - 7);
-    } else {
-      break;
-    }
-  }
-
-  // Expense balance
-  const [othersOweMeAgg, iOweOthersAgg] = await Promise.all([
-    prisma.expenseSplit.aggregate({
-      where: {
-        settled: false,
-        memberId: { not: member.id },
-        expense: { householdId, paidById: member.id },
-      },
-      _sum: { amount: true },
-    }),
-    prisma.expenseSplit.aggregate({
-      where: {
-        settled: false,
-        memberId: member.id,
-        expense: { householdId, paidById: { not: member.id } },
-      },
-      _sum: { amount: true },
-    }),
-  ]);
-  const othersOweMe = othersOweMeAgg._sum.amount?.toNumber() ?? 0;
-  const iOweOthers = iOweOthersAgg._sum.amount?.toNumber() ?? 0;
-  const expenseBalance = Math.round((othersOweMe - iOweOthers) * 100) / 100;
-
-  // Hero state
-  const todayStr = now.toDateString();
-  const todayTaskCount = calendarAssignments.filter(
-    (a) =>
-      a.memberId === member.id &&
-      a.dueDate.toDateString() === todayStr &&
-      a.status !== "COMPLETED" &&
-      a.status !== "VERIFIED",
-  ).length;
-  const pendingIncomingTransferCount = transfers.filter(
-    (t) => t.toMemberId === member.id && t.status === "PENDING",
-  ).length;
-  const heroState = computeHeroState({
-    todayTaskCount,
-    pendingTransferCount: pendingIncomingTransferCount,
-    expenseBalance,
-  });
-
-  // Today's assignments for the task-first hero
-  const todayAssignments = calendarAssignments
-    .filter((a) => a.memberId === member.id && a.dueDate.toDateString() === todayStr)
-    .map((a) => ({
-      id: a.id,
-      taskName: a.task.name,
-      estimatedMinutes: a.task.estimatedMinutes,
-      status: a.status,
-    }));
-
-  // Contextual bridges data
-  const pendingTaskNames = todayAssignments
-    .filter((a) => a.status !== "COMPLETED" && a.status !== "VERIFIED")
-    .map((a) => a.taskName);
-  const allTodayDone = todayAssignments.length > 0 && pendingTaskNames.length === 0;
-
-  // Top recommended cultural event for daily highlight
-  const cityName = member.household.city ?? null;
-  let recommendedEvent: { title: string; startDate: string | null; venueName: string | null; editorialHighlight: string | null } | null = null;
-  if (cityName) {
-    try {
-      const cityId = await resolveCityId(cityName);
-      const eventRow = await prisma.culturalEvent.findFirst({
-        where: {
-          status: "ACTIVE",
-          ...(cityId ? { cityId } : {}),
-          startDate: { gte: now },
-          editorialHighlight: { not: null },
-        },
-        orderBy: [{ finalScore: { sort: "desc", nulls: "last" } }, { startDate: "asc" }],
-        select: { title: true, startDate: true, venueName: true, editorialHighlight: true },
-      });
-      if (eventRow) {
-        recommendedEvent = {
-          title: eventRow.title,
-          startDate: eventRow.startDate?.toISOString() ?? null,
-          venueName: eventRow.venueName,
-          editorialHighlight: eventRow.editorialHighlight,
-        };
-      }
-    } catch {
-      // Non-blocking: fall back to recipe highlight
-    }
-  }
-  const dailyHighlight = computeDailyHighlight(recommendedEvent);
-
-  // Plan pending assignments for finalize modal
-  const planPendingAssignments = activePlan?.status === "APPLIED"
-    ? await prisma.assignment.findMany({
-        where: {
-          householdId,
-          status: { in: ["PENDING", "IN_PROGRESS"] },
-          createdAt: { gte: activePlan.appliedAt ?? activePlan.createdAt },
-        },
-        select: {
-          id: true,
-          dueDate: true,
-          member: { select: { name: true } },
-          task: { select: { name: true } },
-        },
-        orderBy: { dueDate: "asc" },
-      })
-    : [];
-
-  // Only show calendar assignments when plan is APPLIED (active and running)
-  const hasAppliedPlan = activePlan?.status === "APPLIED";
-  const calendarData = hasAppliedPlan ? calendarAssignments : [];
-
-  // Serialize dates for client components
-  const serializedAssignments = calendarData.map((a) => ({
-    ...a,
-    dueDate: a.dueDate.toISOString(),
-    completedAt: a.completedAt?.toISOString() ?? null,
+  const todayItems: TodayTaskItem[] = filterTodayAssignments(weekAssignments, member.id, now).map((a) => ({
+    id: a.id,
+    name: a.task.name,
+    meta: a.task.estimatedMinutes ? `${a.task.estimatedMinutes} min` : null,
+    status: a.status,
   }));
+
+  const balances = calculateBalances(expensesForBalance);
+  const transactions = simplifyDebts(balances);
+  const myBalance = summarizeMyBalance(transactions, member.id);
+  const monthlyTotal = monthlyAgg._sum.amount?.toNumber() ?? 0;
+
+  const superCart: SuperCardCart | null = latestCart
+    ? {
+        productCount: countCartProducts(latestCart.products),
+        storeName: latestCart.storeName,
+        totalPrice: latestCart.totalPrice,
+        relativeLabel: relativeDaysLabel(latestCart.savedAt, now),
+      }
+    : null;
+
+  const transferBannerText = buildTransfersBannerText(
+    pendingTransfers.map((t) => ({ taskName: t.assignment.task.name, fromName: t.fromMember.name })),
+  );
 
   const isSolo = isSoloHousehold(members.length);
-  const householdCopy = getHouseholdCopy(isSolo);
-
-  // Progressive disclosure milestones
-  const hasLocation = !!member.household.timezone;
 
   return (
-    <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      {/* Greeting */}
-      <div className={spacing.pageHeader}>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          {getGreeting()}, {member.name}
+    <div className="container max-w-4xl space-y-4 px-4 py-6 sm:py-8 md:px-8">
+      <div className="mb-2 flex flex-col gap-1">
+        <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-ink-2">
+          {formatCasaDateLabel(now)}
+        </span>
+        <h1 className="text-[32px] font-bold leading-[1.05] tracking-[-.035em] text-ink">
+          La casa, <span className="text-ink-3">esta semana</span>
         </h1>
-        <p className="mt-0.5 text-sm capitalize text-muted-foreground">{formatTodayDate()}</p>
       </div>
 
-      {/* Guided tour */}
-      <DashboardTour isSharedHousehold={!isSolo} />
-
-      {/* Onboarding checklist */}
-      <div className="mb-6">
-        <OnboardingChecklist hasExpense={hasExpense} hasCompletedTask={hasCompletedTask} memberCount={members.length} inviteCode={member.household.inviteCode} />
-      </div>
-
-      {/* Push opt-in */}
-      <div className="hidden has-[>*]:block mb-6">
-        <PushOptInBanner />
-      </div>
-
-      {/* Invite block (dismissable, solo si único miembro) */}
-      {isSolo && (
-        <div className={spacing.sectionGap}>
-          <InviteHomeCard inviteCode={member.household.inviteCode} householdName={member.household.name} variant="subtle" />
-        </div>
+      {transferBannerText && (
+        <Link href="/transfers" className="block">
+          <Banner tone="attention">{transferBannerText}</Banner>
+        </Link>
       )}
 
-      {/* ── Zone 1: Status + actions ── */}
-      <div className="mb-8 space-y-4">
-        {/* Task-first hero: today's tasks with inline completion */}
-        <DashboardTodayTasks
-          assignments={todayAssignments}
-          allClearHeadline={heroState.headline}
-        />
-
-        {/* Contextual bridges: connect tasks to features */}
-        <ContextualBridges
-          pendingTaskNames={pendingTaskNames}
-          allTasksDone={allTodayDone}
-          hasLocation={hasLocation}
-        />
-
-        {/* Plan status */}
-        {aiEnabled && (
-          <div>
-            <PlanStatusCard
-              plan={activePlan ? {
-                id: activePlan.id,
-                status: activePlan.status,
-                balanceScore: activePlan.balanceScore,
-                assignments: activePlan.assignments as Array<{
-                  taskName: string;
-                  memberName: string;
-                  memberType: MemberType;
-                  reason: string;
-                }>,
-                durationDays: activePlan.durationDays,
-                createdAt: activePlan.createdAt.toISOString(),
-                appliedAt: activePlan.appliedAt?.toISOString() ?? null,
-                expiresAt: activePlan.expiresAt.toISOString(),
-              } : null}
-              aiEnabled={aiEnabled}
-              memberCount={members.length}
-              allAssignmentsDone={activePlan?.status === "APPLIED" && planPendingAssignments.length === 0}
-              pendingAssignments={planPendingAssignments.map((a) => ({
-                id: a.id,
-                taskName: a.task.name,
-                memberName: a.member.name,
-                dueDate: a.dueDate.toISOString(),
-              }))}
-            />
-            <div className="mt-2 border-t border-black/5 pt-2">
-              <Link
-                href="/plans"
-                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <CalendarDays className={iconSize.xs} />
-                Ver planes
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {/* Transfers — only relevant for multi-member households */}
-        {!isSolo && <PendingTransfers transfers={transfers} currentMemberId={member.id} />}
-
-        {/* Balance de gastos — show after first expense */}
-        {hasExpense && <Link
-          href={APP_ROUTES.plata}
-          className={`group flex items-center gap-3 rounded-2xl px-4 py-3 shadow-sm transition-all hover:shadow-md active:scale-[0.99] ${
-            expenseBalance > 0
-              ? "border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
-              : expenseBalance < 0
-                ? "border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950"
-                : "border border-border bg-muted/30"
-          }`}
-        >
-          <div className={`shrink-0 rounded-full p-2 ${
-            expenseBalance > 0 ? "bg-green-100 dark:bg-green-900/40" : expenseBalance < 0 ? "bg-red-100 dark:bg-red-900/40" : "bg-muted"
-          }`}>
-            <Wallet className={`${iconSize.md} ${
-              expenseBalance > 0 ? "text-green-600 dark:text-green-400" : expenseBalance < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
-            }`} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className={`text-sm font-medium ${
-              expenseBalance > 0
-                ? "text-green-800 dark:text-green-300"
-                : expenseBalance < 0
-                  ? "text-red-800 dark:text-red-300"
-                  : "text-foreground"
-            }`}>
-              {expenseBalance > 0
-                ? `Te deben $${expenseBalance.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`
-                : expenseBalance < 0
-                  ? `Debés $${Math.abs(expenseBalance).toLocaleString("es-AR", { minimumFractionDigits: 2 })}`
-                  : householdCopy.balanceEmpty}
-            </p>
-            <p className={`text-xs ${
-              expenseBalance > 0
-                ? "text-green-600 dark:text-green-400"
-                : expenseBalance < 0
-                  ? "text-red-600 dark:text-red-400"
-                  : "text-muted-foreground"
-            }`}>
-              {expenseBalance !== 0 ? "Ver gastos del hogar" : householdCopy.balanceSubtitle}
-            </p>
-          </div>
-          <ChevronRight className={`${iconSize.sm} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
-        </Link>}
-      </div>
-
-      {/* ── Zone 2: Calendar ── */}
-      <div className="mb-8">
-        {hasAppliedPlan ? (
-          <FridgeCalendarView
-            initialAssignments={serializedAssignments}
-            members={members}
-            initialWeekStart={monday.toISOString()}
-            hideBackButton
-          />
-        ) : (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
-              <CalendarDays className={`${iconSize.xl} text-muted-foreground`} />
-              <p className="text-sm font-medium">Calendario semanal</p>
-              <p className="text-sm text-muted-foreground">
-                Generá y aplicá un plan para ver las tareas de la semana
-              </p>
-              <Link
-                href="/plan"
-                className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                Crear plan
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* ── Zone 3: Weekly progress + discovery ── */}
-      <div className="space-y-4">
-        {/* Household week card */}
-        <DashboardWeekCard
-          memberStats={memberStats}
-          householdStreak={householdStreak}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-[1.25fr_1fr]">
+        <TareasCard
+          summary={weekSummary}
           isSolo={isSolo}
-          currentMemberId={member.id}
+          todayItems={todayItems}
+          currentMemberType={member.memberType}
         />
-
-        {/* Workload distribution (multi-member only, after first completed task) */}
-        {!isSolo && hasCompletedTask && <WorkloadDistribution memberStats={memberStats} />}
-
-        {/* Daily highlight — show after location is set */}
-        {hasLocation && <DashboardDailyHighlight highlight={dailyHighlight} />}
-
-        {/* Más — interim link for places not yet merged into a place (R3) */}
-        <Link
-          href="/descubrir"
-          className="group flex items-center gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3 transition-all hover:shadow-sm active:scale-[0.99]"
-        >
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-foreground">Descubrí</p>
-            <p className="text-xs text-muted-foreground">Planes y eventos cerca de tu hogar</p>
+        <div className="flex flex-col gap-4">
+          <PlataCard
+            monthLabel={formatMonthHeader(now)}
+            monthTotal={monthlyTotal}
+            owedToMe={myBalance.owedToMe ? { memberName: myBalance.owedToMe.memberName, amount: myBalance.owedToMe.amount } : null}
+            iOwe={myBalance.iOwe ? { memberName: myBalance.iOwe.memberName, amount: myBalance.iOwe.amount } : null}
+            isSettled={myBalance.isSettled}
+          />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <SuperCard cart={superCart} />
+            <DestacadoCard event={destacadoEvent} />
           </div>
-          <ChevronRight className={`${iconSize.sm} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
-        </Link>
+        </div>
       </div>
 
+      {isSolo && (
+        <InviteHomeCard inviteCode={member.household.inviteCode} householdName={member.household.name} variant="subtle" />
+      )}
     </div>
   );
+}
+
+/** Same selection as the pre-rebrand dashboard: best upcoming event with an editorial highlight. */
+async function fetchDestacadoEvent(cityName: string | null, now: Date): Promise<DestacadoEvent | null> {
+  if (!cityName) return null;
+
+  try {
+    const cityId = await resolveCityId(cityName);
+    const eventRow = await prisma.culturalEvent.findFirst({
+      where: {
+        status: "ACTIVE",
+        ...(cityId ? { cityId } : {}),
+        startDate: { gte: now },
+        editorialHighlight: { not: null },
+      },
+      orderBy: [{ finalScore: { sort: "desc", nulls: "last" } }, { startDate: "asc" }],
+      select: { id: true, title: true, startDate: true, venueName: true, editorialHighlight: true },
+    });
+    if (!eventRow) return null;
+
+    const dateLabel = eventRow.startDate
+      ? eventRow.startDate.toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "short" })
+      : null;
+    const subtitle = eventRow.editorialHighlight ?? [dateLabel, eventRow.venueName].filter(Boolean).join(" · ");
+
+    return { id: eventRow.id, title: eventRow.title, subtitle };
+  } catch {
+    return null;
+  }
 }

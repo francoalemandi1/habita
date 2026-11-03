@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { deliverNotificationToMembers } from "@/lib/push-delivery";
+import { APP_ROUTES } from "@habita/contracts";
 
 /**
  * processMorningBriefing — sends a consolidated daily push at 8am per household timezone.
@@ -121,7 +122,7 @@ export async function processMorningBriefing(): Promise<number> {
         type: "DAILY_BRIEFING",
         title: "Resumen del día",
         message,
-        actionUrl: "/dashboard",
+        actionUrl: APP_ROUTES.casa,
         householdTimezone: hh.timezone,
       });
 

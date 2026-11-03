@@ -7,6 +7,7 @@ import { deliverNotificationToMembers } from "@/lib/push-delivery";
 import { buildSplitsData } from "@/lib/expense-splits";
 import { inferExpenseSubcategory } from "@/lib/expense-subcategory";
 import { verifyCsrfOrigin } from "@/lib/csrf";
+import { APP_ROUTES } from "@habita/contracts";
 
 import { Prisma } from "@prisma/client";
 
@@ -177,7 +178,7 @@ export async function POST(request: NextRequest) {
         type: "EXPENSE_SHARED",
         title: "Nuevo gasto compartido",
         message: `${expense.paidBy.name} registró "${data.title}" por $${data.amount.toLocaleString("es-AR")}`,
-        actionUrl: "/expenses",
+        actionUrl: APP_ROUTES.plata,
         metadata: { expenseId: expense.id },
         householdTimezone: household?.timezone,
       });

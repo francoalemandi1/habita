@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import { notificationStyles, notificationStyleDefault, spacing, iconSize } from "@/lib/design-tokens";
 import { apiFetch } from "@/lib/api-client";
+import { APP_ROUTES } from "@habita/contracts";
 
 interface Notification {
   id: string;
@@ -232,7 +233,7 @@ export function NotificationsDropdown() {
           {/* Full page link */}
           <div className="mt-3 border-t pt-3 text-center">
             <Link
-              href="/notifications"
+              href={APP_ROUTES.avisos}
               onClick={() => setOpen(false)}
               className="text-xs font-medium text-primary hover:underline"
             >

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/api-client";
@@ -21,6 +21,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { spacing } from "@/lib/design-tokens";
 import { ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { APP_ROUTES } from "@habita/contracts";
 
 import type { SerializedExpense, SerializedService, MemberOption } from "@/types/expense";
 import type { ExpenseCategory, SplitType } from "@prisma/client";
@@ -130,6 +131,14 @@ export function ExpensesView({
   }, [initialExpenses]);
   const deletingInProgressRef = useRef<Set<string>>(new Set());
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Opened from the Anotar sheet via ?anotar=gasto (R3 interim quick-add entry point)
+  useEffect(() => {
+    if (searchParams.get("anotar") !== "gasto") return;
+    setQuickAddOpen(true);
+    router.replace(APP_ROUTES.plata);
+  }, [searchParams, router]);
 
   const handleServiceGenerated = useCallback(() => {
     setBalanceRefreshKey((k) => k + 1);
@@ -315,7 +324,7 @@ export function ExpensesView({
 
   return (
     <>
-      <PageHeader title="Controlá" subtitle={<>Gastos del hogar · <Link href="/my-tasks" className="text-primary hover:underline">Mis tareas</Link></>} />
+      <PageHeader title="Controlá" subtitle={<>Gastos del hogar · <Link href={APP_ROUTES.tareas} className="text-primary hover:underline">Mis tareas</Link></>} />
 
       {/* Quick-add dialog (externally controlled) */}
       <AddExpenseDialog

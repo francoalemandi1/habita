@@ -17,6 +17,7 @@ import { StoreLogo } from "@/components/ui/store-logo";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { EmptyState } from "@/components/ui/empty-state";
+import { APP_ROUTES } from "@habita/contracts";
 import { PageHeader } from "@/components/ui/page-header";
 import { spacing, typography, iconSize } from "@/lib/design-tokens";
 
@@ -159,7 +160,7 @@ function TopDealsView({ householdCity }: { householdCity: string | null }) {
     if (added > 0) {
       toastCtx.success(
         `${added} producto${added !== 1 ? "s" : ""} agregado${added !== 1 ? "s" : ""} al carrito`,
-        { action: { label: "Ir al carrito", onClick: () => router.push("/compras") } },
+        { action: { label: "Ir al carrito", onClick: () => router.push(APP_ROUTES.super) } },
       );
     } else {
       toastCtx.info("Ya estaban en tu carrito", "Los productos seleccionados ya estaban agregados.");

@@ -11,6 +11,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+import { APP_ROUTES } from "@habita/contracts";
+
 import type { TourSection } from "@/hooks/use-guided-tour";
 
 interface TourModalProps {
@@ -43,7 +45,7 @@ const TOUR_CONTENT: Record<TourSection, TourSectionContent> = {
       { emoji: "🔔", label: "Notificarse mutuamente" },
     ],
     cta: "Compartir invitación",
-    route: "/settings",
+    route: APP_ROUTES.perfil,
   },
   registra: {
     icon: Receipt,
@@ -55,7 +57,7 @@ const TOUR_CONTENT: Record<TourSection, TourSectionContent> = {
       { emoji: "💰", label: "Liquidar deudas" },
     ],
     cta: "Registrar un gasto",
-    route: "/expenses",
+    route: APP_ROUTES.plata,
   },
   ahorra: {
     icon: ShoppingCart,

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useAiJobStatus } from "@/hooks/use-ai-job-status";
 import { useToast } from "@/components/ui/toast";
+import { APP_ROUTES } from "@habita/contracts";
 
 import type { AiJobType } from "@habita/contracts";
 
@@ -26,7 +27,7 @@ const JOB_CONFIGS: JobConfig[] = [
     jobType: "SHOPPING_PLAN",
     successTitle: "Precios encontrados",
     actionLabel: "Ver resultados",
-    href: "/compras",
+    href: APP_ROUTES.super,
     errorTitle: "Error buscando precios",
   },
 ];

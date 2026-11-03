@@ -1,6 +1,7 @@
 import { signIn } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { HabitaLogo } from "@/components/ui/habita-logo";
+import { APP_ROUTES } from "@habita/contracts";
 
 interface LoginPageProps {
   searchParams: Promise<{ callbackUrl?: string }>;
@@ -8,7 +9,7 @@ interface LoginPageProps {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const { callbackUrl } = await searchParams;
-  const redirectTo = callbackUrl?.startsWith("/") ? callbackUrl : "/dashboard";
+  const redirectTo = callbackUrl?.startsWith("/") ? callbackUrl : APP_ROUTES.casa;
 
   return (
     <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-lg sm:p-8">

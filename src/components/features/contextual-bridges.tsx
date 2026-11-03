@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ShoppingCart, Compass, ChevronRight } from "lucide-react";
 import { detectTaskType } from "@/lib/task-type-detection";
+import { APP_ROUTES } from "@habita/contracts";
 
 import type { LucideIcon } from "lucide-react";
 
@@ -29,7 +30,7 @@ export function ContextualBridges({ pendingTaskNames, allTasksDone, hasLocation 
     bridges.push({
       icon: ShoppingCart,
       message: "Compará precios antes de ir al super",
-      href: "/compras",
+      href: APP_ROUTES.super,
       bgClass: "bg-green-50 dark:bg-green-950/30",
       iconClass: "text-green-600 dark:text-green-400",
     });

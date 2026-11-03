@@ -1,7 +1,17 @@
+import { LEGACY_ROUTE_ALIASES } from "@habita/contracts";
+
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@habita/api-client", "@habita/contracts", "@habita/design-tokens", "@habita/domain"],
+
+  async redirects() {
+    return Object.entries(LEGACY_ROUTE_ALIASES).map(([source, destination]) => ({
+      source,
+      destination,
+      permanent: true,
+    }));
+  },
 
   async headers() {
     return [

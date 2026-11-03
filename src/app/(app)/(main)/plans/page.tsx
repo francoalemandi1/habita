@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
+import { APP_ROUTES } from "@habita/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -117,7 +118,7 @@ export default async function PlansPage() {
   const aiEnabled = isAIEnabled();
 
   if (!aiEnabled) {
-    redirect("/my-tasks");
+    redirect(APP_ROUTES.tareas);
   }
 
   // Fetch active plan (PENDING or APPLIED, not expired) and past plans

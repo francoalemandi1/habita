@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isAIEnabled } from "@/lib/llm/provider";
+import { APP_ROUTES } from "@habita/contracts";
 import { PlanPageClient } from "./plan-page-client";
 
 import type { MemberType, WeeklyPlanStatus, TaskFrequency } from "@prisma/client";
@@ -40,7 +41,7 @@ export default async function PlanPage() {
   const aiEnabled = isAIEnabled();
 
   if (!aiEnabled) {
-    redirect("/my-tasks");
+    redirect(APP_ROUTES.tareas);
   }
 
   // Get members and tasks for the household

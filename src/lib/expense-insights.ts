@@ -8,6 +8,8 @@
  * No side effects, no DB access — fully deterministic and testable.
  */
 
+import { APP_ROUTES } from "@habita/contracts";
+
 import type { ExpenseCategory, ExpenseSubcategory } from "@prisma/client";
 
 // ============================================
@@ -561,7 +563,7 @@ function computeSpendingTips(
         id: "grocery_compare",
         emoji: "\uD83D\uDED2", // 🛒
         message: `Gastaste ${formatTipAmount(groceryTotal)} en super este mes. Mirá precios en distintas cadenas`,
-        action: { label: "Comparar precios", href: "/compras" },
+        action: { label: "Comparar precios", href: APP_ROUTES.super },
       },
       score: buildTipScore({
         amount: groceryTotal,
@@ -580,7 +582,7 @@ function computeSpendingTips(
         id: "kiosco_list",
         emoji: "\uD83C\uDFEA", // 🏪
         message: `Fuiste ${kioscoCount} veces al kiosco por ${formatTipAmount(kioscoTotal)}. ¿Querés armar una lista para el super?`,
-        action: { label: "Armar lista", href: "/compras" },
+        action: { label: "Armar lista", href: APP_ROUTES.super },
       },
       score: buildTipScore({
         amount: kioscoTotal,

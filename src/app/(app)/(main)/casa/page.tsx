@@ -22,6 +22,7 @@ import { getWeekMonday, getWeekSunday } from "@/lib/calendar-utils";
 import { ChevronRight, CalendarDays, Wallet } from "lucide-react";
 import { spacing, iconSize } from "@/lib/design-tokens";
 import { isSoloHousehold, getHouseholdCopy } from "@/lib/household-mode";
+import { APP_ROUTES } from "@habita/contracts";
 
 import type { MemberType } from "@prisma/client";
 
@@ -402,7 +403,7 @@ export default async function DashboardPage() {
 
         {/* Balance de gastos — show after first expense */}
         {hasExpense && <Link
-          href="/balance"
+          href={APP_ROUTES.plata}
           className={`group flex items-center gap-3 rounded-2xl px-4 py-3 shadow-sm transition-all hover:shadow-md active:scale-[0.99] ${
             expenseBalance > 0
               ? "border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
@@ -490,6 +491,18 @@ export default async function DashboardPage() {
 
         {/* Daily highlight — show after location is set */}
         {hasLocation && <DashboardDailyHighlight highlight={dailyHighlight} />}
+
+        {/* Más — interim link for places not yet merged into a place (R3) */}
+        <Link
+          href="/descubrir"
+          className="group flex items-center gap-3 rounded-2xl border border-border bg-muted/30 px-4 py-3 transition-all hover:shadow-sm active:scale-[0.99]"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">Descubrí</p>
+            <p className="text-xs text-muted-foreground">Planes y eventos cerca de tu hogar</p>
+          </div>
+          <ChevronRight className={`${iconSize.sm} shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5`} />
+        </Link>
       </div>
 
     </div>

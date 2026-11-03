@@ -28,6 +28,7 @@ import { Suspense, useEffect, useState } from "react";
 import { ONBOARDING_CATALOG } from "@/data/onboarding-catalog";
 import type { OnboardingCatalogTask } from "@/data/onboarding-catalog";
 
+import { APP_ROUTES } from "@habita/contracts";
 import type { OnboardingSetupResponse } from "@habita/contracts";
 import { buildOnboardingProfilePayload } from "@habita/domain/onboarding-profile";
 
@@ -113,7 +114,7 @@ function OnboardingContent() {
       .then((res) => res.json())
       .then((data: { name?: string | null; hasMembership?: boolean }) => {
         if (data.hasMembership) {
-          router.replace("/dashboard");
+          router.replace(APP_ROUTES.casa);
           return;
         }
         if (data.name) {
@@ -131,7 +132,7 @@ function OnboardingContent() {
       goToStep("notifications", "forward");
     } else {
       router.refresh();
-      router.push("/dashboard");
+      router.push(APP_ROUTES.casa);
     }
   };
 
@@ -292,7 +293,7 @@ function OnboardingContent() {
 
   const handleContinueToApp = () => {
     router.refresh();
-    router.push("/dashboard");
+    router.push(APP_ROUTES.casa);
   };
 
   const stepAnimationClass = stepDirection === "forward" ? "animate-step-enter" : "animate-step-enter-reverse";

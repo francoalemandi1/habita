@@ -25,6 +25,7 @@ import {
 import { inferExpenseSubcategory } from "@/lib/expense-subcategory";
 import { Plus, ChevronDown, ChevronUp, Check, Wallet } from "lucide-react";
 import { iconSize } from "@/lib/design-tokens";
+import { APP_ROUTES } from "@habita/contracts";
 
 import type { ExpenseCategory, SplitType } from "@prisma/client";
 import type { MemberOption } from "@/types/expense";
@@ -624,7 +625,7 @@ export function AddExpenseDialog({
 
           {isSolo && (
             <p className="text-xs text-muted-foreground text-center mt-1">
-              <Link href="/profile" className="underline underline-offset-2">Invitá a alguien</Link>{" "}
+              <Link href={APP_ROUTES.perfil} className="underline underline-offset-2">Invitá a alguien</Link>{" "}
               para dividir gastos automáticamente
             </p>
           )}

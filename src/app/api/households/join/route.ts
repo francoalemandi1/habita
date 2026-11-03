@@ -8,6 +8,7 @@ import { sendWelcomeEmail } from "@/lib/email-service";
 import { handleApiError } from "@/lib/api-response";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
+import { APP_ROUTES } from "@habita/contracts";
 import { deliverNotificationToMembers } from "@/lib/push-delivery";
 
 import type { NextRequest } from "next/server";
@@ -129,7 +130,7 @@ export async function POST(request: NextRequest) {
         type: "MEMBER_JOINED",
         title: "Nuevo miembro en el hogar",
         message: `${nameToUse} se unió a "${household.name}"`,
-        actionUrl: "/settings",
+        actionUrl: APP_ROUTES.perfil,
         metadata: { memberId: newMember.id },
         householdTimezone: household.timezone,
       });

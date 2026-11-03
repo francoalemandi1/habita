@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { deliverNotification, deliverNotificationToMembers } from "@/lib/push-delivery";
+import { APP_ROUTES } from "@habita/contracts";
 
 /**
  * processProactiveNotifications — creates 3 new proactive notification types:
@@ -223,7 +224,7 @@ export async function processProactiveNotifications(): Promise<{
           type: "EXPENSE_WEEKLY_SUMMARY",
           title: "Resumen de gastos semanal",
           message,
-          actionUrl: "/expenses",
+          actionUrl: APP_ROUTES.plata,
           householdTimezone: hhTimezone?.timezone,
         });
 

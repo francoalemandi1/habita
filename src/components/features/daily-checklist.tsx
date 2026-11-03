@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { Check, Loader2, Circle, ChevronRight, PartyPopper } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
+import { APP_ROUTES } from "@habita/contracts";
 
 interface ChecklistAssignment {
   id: string;
@@ -87,7 +88,7 @@ export function DailyChecklist({ assignments: initialAssignments, completedToday
             </p>
           </div>
           <Link
-            href="/my-tasks"
+            href={APP_ROUTES.tareas}
             className="flex items-center gap-1 text-xs font-medium text-primary"
           >
             Ver todas

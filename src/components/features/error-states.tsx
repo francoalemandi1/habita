@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, RefreshCw, Home, ArrowLeft } from "lucide-react";
+import { APP_ROUTES } from "@habita/contracts";
 
 interface ErrorStateProps {
   title?: string;
@@ -42,7 +43,7 @@ export function ErrorState({
             </Button>
           )}
           {showHomeButton && (
-            <Button onClick={() => router.push("/dashboard")}>
+            <Button onClick={() => router.push(APP_ROUTES.casa)}>
               <Home className="mr-2 h-4 w-4" />
               Ir al inicio
             </Button>
@@ -125,7 +126,7 @@ export function AccessDeniedState() {
         <p className="mb-6 text-muted-foreground">
           No tienes permiso para acceder a esta sección.
         </p>
-        <Button onClick={() => router.push("/dashboard")}>
+        <Button onClick={() => router.push(APP_ROUTES.casa)}>
           <Home className="mr-2 h-4 w-4" />
           Ir al inicio
         </Button>

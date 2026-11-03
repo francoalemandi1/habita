@@ -6,6 +6,7 @@ import { getLocalDayOfWeek } from "@/lib/llm/regional-context";
 import { deliverNotificationToMembers } from "@/lib/push-delivery";
 import { handleApiError } from "@/lib/api-response";
 import { authorizeCronRequest } from "@/lib/cron-auth";
+import { APP_ROUTES } from "@habita/contracts";
 
 import type { NextRequest } from "next/server";
 
@@ -70,7 +71,7 @@ async function runWeeklyPlanCron() {
             type: "PLAN_READY",
             title: "Nuevo plan semanal",
             message: `Se asignaron ${result.assignmentsCreated} tareas para esta semana`,
-            actionUrl: "/my-tasks",
+            actionUrl: APP_ROUTES.tareas,
             householdTimezone: household.timezone,
           });
 

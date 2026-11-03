@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getWeekMonday } from "@/lib/calendar-utils";
 import { createNotificationForMembers } from "@/lib/notification-service";
 import { computeDueDateForDayOfWeek } from "@/lib/plan-day-mapping";
+import { APP_ROUTES } from "@habita/contracts";
 import { z } from "zod";
 
 import type { NextRequest } from "next/server";
@@ -184,7 +185,7 @@ export async function POST(request: NextRequest) {
         type: "PLAN_APPLIED",
         title: "Nuevo plan aplicado",
         message: `Se aplicó un plan con ${assignmentsToCreate.length} tareas asignadas`,
-        actionUrl: "/my-tasks",
+        actionUrl: APP_ROUTES.tareas,
       }
     );
 

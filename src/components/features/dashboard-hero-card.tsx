@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { APP_ROUTES } from "@habita/contracts";
 
 export type HeroPriority = "today" | "transfers" | "balance-owed" | "balance-owing" | "all-clear";
 
@@ -78,7 +79,7 @@ export function computeHeroState(input: {
       headline: `+$${input.expenseBalance.toLocaleString("es-AR", { minimumFractionDigits: 0 })}`,
       label: "te deben",
       ctaLabel: "Ver balance",
-      ctaRoute: "/balance",
+      ctaRoute: APP_ROUTES.plata,
     };
   }
 
@@ -88,7 +89,7 @@ export function computeHeroState(input: {
       headline: `$${Math.abs(input.expenseBalance).toLocaleString("es-AR", { minimumFractionDigits: 0 })}`,
       label: "debés",
       ctaLabel: "Ver balance",
-      ctaRoute: "/balance",
+      ctaRoute: APP_ROUTES.plata,
     };
   }
 
@@ -97,7 +98,7 @@ export function computeHeroState(input: {
     headline: pickByHour(ALL_CLEAR_HEADLINES),
     label: "No tenés pendientes. ¡Disfrutá el día!",
     ctaLabel: "Ver ofertas",
-    ctaRoute: "/compras",
+    ctaRoute: APP_ROUTES.super,
   };
 }
 

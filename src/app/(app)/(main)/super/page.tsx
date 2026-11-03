@@ -5,6 +5,9 @@ import { isAIEnabled } from "@/lib/llm/provider";
 import { ShoppingPlanView } from "@/components/features/grocery-advisor";
 import { PageHeader } from "@/components/ui/page-header";
 import { spacing } from "@/lib/design-tokens";
+import { ListRow } from "@/components/ds/list-row";
+import { Tag } from "lucide-react";
+import { APP_ROUTES } from "@habita/contracts";
 
 export default async function ComprasPage() {
   const member = await getCurrentMember();
@@ -20,22 +23,19 @@ export default async function ComprasPage() {
     <div className={spacing.pageContainer}>
       <PageHeader
         title="Ahorrá"
-        subtitle={<>Compará precios en supermercados · <Link href="/my-tasks" className="text-primary hover:underline">Mis tareas</Link></>}
-        actions={
-          aiEnabled ? (
-            <Link
-              href="/grocery-deals"
-              className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              Top ofertas →
-            </Link>
-          ) : undefined
-        }
+        subtitle={<>Compará precios en supermercados · <Link href={APP_ROUTES.tareas} className="text-primary hover:underline">Mis tareas</Link></>}
       />
       <ShoppingPlanView
         hasLocation={hasLocation}
         householdCity={member.household.city ?? null}
       />
+
+      {/* Más — interim link for views not yet merged into Súper (R3) */}
+      {aiEnabled && (
+        <div className="mt-6 rounded-2xl bg-card shadow-sm">
+          <Link href="/grocery-deals"><ListRow leadingIcon={Tag} title="Top ofertas" /></Link>
+        </div>
+      )}
     </div>
   );
 }

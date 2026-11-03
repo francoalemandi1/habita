@@ -7,6 +7,7 @@ import { eventRowToRelaxEvent } from "@/lib/events/event-mapper";
 import { DescubrirClient } from "@/components/features/descubrir-client";
 import { PageHeader } from "@/components/ui/page-header";
 import { spacing } from "@/lib/design-tokens";
+import { APP_ROUTES } from "@habita/contracts";
 
 export default async function DescubrirPage() {
   const member = await getCurrentMember();
@@ -33,7 +34,7 @@ export default async function DescubrirPage() {
     <div className={spacing.pageContainer}>
       <PageHeader
         title={cityName ? `Descubrí ${cityName}` : "Descubrí"}
-        subtitle={<>{todayLabel} · <Link href="/my-tasks" className="text-primary hover:underline">Mis tareas</Link></>}
+        subtitle={<>{todayLabel} · <Link href={APP_ROUTES.tareas} className="text-primary hover:underline">Mis tareas</Link></>}
       />
       <DescubrirClient
         hasHouseholdLocation={hasLocation}

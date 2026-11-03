@@ -18,12 +18,39 @@ export interface SidebarProps {
   member: { name: string };
   onAnotar: () => void;
   onSwitchHousehold?: () => void;
+  /** Replaces the household row, e.g. with a real switcher control. */
+  householdSlot?: React.ReactNode;
+  profileHref?: string;
+  notificationsHref?: string;
   /** Rendering as a plain anchor keeps this component routing-agnostic (R3 wires navigation). */
-  renderLink?: (item: SidebarItem, children: React.ReactNode) => React.ReactNode;
+  renderLink?: (href: string, children: React.ReactNode, ariaLabel?: string) => React.ReactNode;
+}
+
+function renderPlainAnchor(href: string, children: React.ReactNode, ariaLabel?: string): React.ReactNode {
+  return <a href={href} aria-label={ariaLabel}>{children}</a>;
 }
 
 /** §6.15 — 240px shell, visual only; R3 wires real routing + the "N" shortcut. */
-export function Sidebar({ items, active, household, member, onAnotar, onSwitchHousehold, renderLink }: SidebarProps): React.JSX.Element {
+export function Sidebar({
+  items,
+  active,
+  household,
+  member,
+  onAnotar,
+  onSwitchHousehold,
+  householdSlot,
+  profileHref,
+  notificationsHref,
+  renderLink = renderPlainAnchor,
+}: SidebarProps): React.JSX.Element {
+  const profile = (
+    <span className="flex min-w-0 items-center gap-2.5">
+      <Avatar name={member.name} size={28} />
+      <span className="truncate text-[15px] text-ink">{member.name}</span>
+    </span>
+  );
+  const bell = <Bell className="size-5 text-ink-2" strokeWidth={1.75} />;
+
   return (
     <aside className="flex h-full w-60 flex-col border-r border-line px-4 py-6">
       <div className="flex items-center gap-2 px-2">
@@ -31,13 +58,18 @@ export function Sidebar({ items, active, household, member, onAnotar, onSwitchHo
         <span className="text-[26px] font-bold text-ink">habita</span>
       </div>
 
-      <button
-        type="button"
-        onClick={onSwitchHousehold}
-        className="mt-5 flex items-center justify-between rounded-[12px] bg-surface px-3 py-2.5 text-left"
-      >
-        <span className="truncate text-[15px] font-medium text-ink">{household.name}</span>
-      </button>
+      <div className="mt-5">
+        {householdSlot ?? (
+          <button
+            type="button"
+            onClick={onSwitchHousehold}
+            disabled={!onSwitchHousehold}
+            className="flex w-full items-center justify-between rounded-[12px] bg-surface px-3 py-2.5 text-left"
+          >
+            <span className="truncate text-[15px] font-medium text-ink">{household.name}</span>
+          </button>
+        )}
+      </div>
 
       <button
         type="button"
@@ -66,14 +98,13 @@ export function Sidebar({ items, active, household, member, onAnotar, onSwitchHo
               {item.label}
             </span>
           );
-          return <div key={item.id}>{renderLink ? renderLink(item, content) : content}</div>;
+          return <div key={item.id}>{renderLink(item.href, content)}</div>;
         })}
       </nav>
 
-      <div className="flex items-center gap-2.5 border-t border-line pt-4">
-        <Avatar name={member.name} size={28} />
-        <span className="flex-1 truncate text-[15px] text-ink">{member.name}</span>
-        <Bell className="size-5 text-ink-2" strokeWidth={1.75} />
+      <div className="flex items-center justify-between gap-2.5 border-t border-line pt-4">
+        {profileHref ? renderLink(profileHref, profile, "Perfil y ajustes") : profile}
+        {notificationsHref ? renderLink(notificationsHref, bell, "Avisos") : bell}
       </div>
     </aside>
   );

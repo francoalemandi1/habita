@@ -7,6 +7,7 @@ import { Loader2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";
 import { HabitaLogo } from "@/components/ui/habita-logo";
+import { APP_ROUTES } from "@habita/contracts";
 
 import type { OccupationLevel } from "@/lib/validations/member";
 
@@ -34,15 +35,15 @@ export function SetupForm({ householdName, memberId }: SetupFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ occupationLevel: selected }),
       });
-      router.push("/dashboard");
+      router.push(APP_ROUTES.casa);
     } catch {
       // If save fails, still redirect — occupation level is not critical for first access
-      router.push("/dashboard");
+      router.push(APP_ROUTES.casa);
     }
   }
 
   function handleSkip() {
-    router.push("/dashboard");
+    router.push(APP_ROUTES.casa);
   }
 
   return (

@@ -5,6 +5,9 @@ import { isAIEnabled } from "@/lib/llm/provider";
 import { getWeekMonday, getWeekSunday } from "@/lib/calendar-utils";
 import { isSoloHousehold } from "@/lib/household-mode";
 import { MyTasksPageClient } from "@/components/features/my-tasks-page-client";
+import { ListRow } from "@/components/ds/list-row";
+import { ClipboardList, CalendarRange, ListChecks, Repeat, ArrowLeftRight, TrendingUp, Sparkles } from "lucide-react";
+import Link from "next/link";
 
 export default async function MyTasksPage() {
   const member = await getCurrentMember();
@@ -177,6 +180,17 @@ export default async function MyTasksPage() {
         initialWeekStart={monday.toISOString()}
         isSolo={isSoloHousehold(householdMembers.length)}
       />
+
+      {/* Más — interim links for views not yet merged into Tareas (R3) */}
+      <div className="mt-6 rounded-2xl bg-card shadow-sm">
+        <Link href="/tasks"><ListRow leadingIcon={ClipboardList} title="Gestión de tareas" /></Link>
+        <Link href="/plan"><ListRow leadingIcon={CalendarRange} title="Plan semanal" /></Link>
+        <Link href="/plans"><ListRow leadingIcon={ListChecks} title="Historial de planes" /></Link>
+        <Link href="/rotations"><ListRow leadingIcon={Repeat} title="Rotaciones" /></Link>
+        <Link href="/transfers"><ListRow leadingIcon={ArrowLeftRight} title="Transferencias" /></Link>
+        <Link href="/progress"><ListRow leadingIcon={TrendingUp} title="Progreso" /></Link>
+        <Link href="/suggest-tasks"><ListRow leadingIcon={Sparkles} title="Sugerir tareas" /></Link>
+      </div>
     </div>
   );
 }

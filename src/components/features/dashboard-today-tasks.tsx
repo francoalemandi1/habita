@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Check, ChevronRight, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";
+import { APP_ROUTES } from "@habita/contracts";
 
 interface TodayAssignment {
   id: string;
@@ -137,7 +138,7 @@ export function DashboardTodayTasks({ assignments, allClearHeadline }: Dashboard
 
           {/* Link to full task view */}
           <Link
-            href="/my-tasks"
+            href={APP_ROUTES.tareas}
             className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
           >
             Ver todas

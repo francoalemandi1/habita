@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Circle, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { APP_ROUTES } from "@habita/contracts";
 
 interface OnboardingChecklistProps {
   hasExpense: boolean;
@@ -44,24 +45,24 @@ export function OnboardingChecklist({ hasExpense, hasCompletedTask, memberCount 
   const steps = [
     {
       label: "Registrá tu primer gasto",
-      href: "/balance",
+      href: APP_ROUTES.plata,
       done: hasExpense,
     },
     {
       label: "Creá o completá una tarea",
-      href: "/my-tasks",
+      href: APP_ROUTES.tareas,
       done: hasCompletedTask,
     },
     {
       label: "Compará precios en el super",
-      href: "/compras",
+      href: APP_ROUTES.super,
       done: shoppingSearched,
     },
     // Show invite step only for solo households (nobody joined yet)
     ...(memberCount === 1 && inviteCode
       ? [{
           label: "Invitá a alguien a tu hogar",
-          href: "/profile",
+          href: APP_ROUTES.perfil,
           done: false,
         }]
       : []),

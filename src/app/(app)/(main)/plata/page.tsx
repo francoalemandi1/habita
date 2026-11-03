@@ -3,6 +3,9 @@ import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { isSoloHousehold } from "@/lib/household-mode";
 import { ExpensesView } from "@/components/features/expenses-view";
+import { ListRow } from "@/components/ds/list-row";
+import { Wallet, Repeat, BarChart3 } from "lucide-react";
+import Link from "next/link";
 
 export default async function BalancePage() {
   const member = await getCurrentMember();
@@ -52,6 +55,13 @@ export default async function BalancePage() {
         householdCity={member.household.city ?? null}
         isSolo={isSoloHousehold(activeMembers.length)}
       />
+
+      {/* Más — interim links for views not yet merged into Plata (R3) */}
+      <div className="mt-6 rounded-2xl bg-card shadow-sm">
+        <Link href="/fund"><ListRow leadingIcon={Wallet} title="Fondo común" /></Link>
+        <Link href="/services"><ListRow leadingIcon={Repeat} title="Servicios recurrentes" /></Link>
+        <Link href="/expense-insights"><ListRow leadingIcon={BarChart3} title="Análisis de gastos" /></Link>
+      </div>
     </div>
   );
 }

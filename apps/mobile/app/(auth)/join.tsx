@@ -30,7 +30,7 @@ export default function JoinHouseholdScreen() {
         memberName: memberName.trim(),
       });
       await hydrate();
-      router.replace("/(app)/dashboard");
+      router.replace("/(app)/casa");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo unir al hogar.");
     }

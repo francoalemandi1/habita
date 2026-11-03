@@ -184,7 +184,7 @@ export default function OnboardingScreen() {
 
   const handleContinueToApp = async () => {
     await hydrate();
-    router.replace("/(app)/dashboard");
+    router.replace("/(app)/casa");
   };
 
   const handleShareInvite = async () => {

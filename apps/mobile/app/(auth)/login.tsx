@@ -239,10 +239,10 @@ export default function LoginScreen() {
         if (me.households.length === 0) {
           router.replace("/(auth)/welcome");
         } else {
-          router.replace("/(app)/dashboard");
+          router.replace("/(app)/casa");
         }
       } catch {
-        router.replace("/(app)/dashboard");
+        router.replace("/(app)/casa");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo iniciar sesión");

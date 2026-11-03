@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { CalendarDays, Check, CheckCircle2, ChevronRight, ClipboardList, Clock, Dices, History, Loader2, TrendingUp, Undo2 } from "lucide-react-native";
+import { BookOpen, CalendarDays, Check, CheckCircle2, ChevronRight, ClipboardList, Clock, Dices, History, Loader2, TrendingUp, Undo2 } from "lucide-react-native";
 import {
   useCompleteAssignment,
   useMyAssignments,
@@ -28,6 +28,8 @@ import { StyledTextInput } from "@/components/ui/text-input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { TabBar } from "@/components/ui/tab-bar";
+import { InterimMoreSection } from "@/components/features/interim-more-section";
+import type { InterimMoreLink } from "@/components/features/interim-more-section";
 import { ScreenHeader } from "@/components/features/screen-header";
 import { fontFamily, radius, spacing, assignmentCardColors, typography } from "@/theme";
 import { useFirstVisit } from "@/hooks/use-first-visit";
@@ -553,6 +555,13 @@ function TransferSheet({ assignment, onClose }: { assignment: AssignmentSummary;
   );
 }
 
+// ─── Más (R3 interim — catalog and suggestions have no other entry point) ───
+
+const TAREAS_MORE_LINKS: readonly InterimMoreLink[] = [
+  { icon: BookOpen, title: "Catálogo de tareas", meta: "Elegí de una lista predefinida", href: "/(app)/task-catalog" },
+  { icon: Sparkles, title: "Sugerir tareas", meta: "Habita propone qué sumar", href: "/(app)/suggest-tasks" },
+];
+
 // ─── View mode ───────────────────────────────────────────────────────────────
 
 type ViewMode = "calendar" | "list";
@@ -784,6 +793,8 @@ export default function TasksScreen() {
           </Pressable>
         ) : null}
 
+        <InterimMoreSection links={TAREAS_MORE_LINKS} />
+
         <View style={styles.bottomPadding} />
       </ScrollView>
     );
@@ -895,6 +906,8 @@ export default function TasksScreen() {
             </View>
           </View>
         ) : null}
+
+        <InterimMoreSection links={TAREAS_MORE_LINKS} />
 
         <View style={styles.bottomPadding} />
       </ScrollView>

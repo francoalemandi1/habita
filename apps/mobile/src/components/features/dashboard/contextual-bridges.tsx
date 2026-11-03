@@ -45,7 +45,7 @@ export function ContextualBridges({ assignments, allDone, hasLocation }: Context
     bridges.push({
       Icon: ShoppingCart,
       message: "Compará precios antes de ir al super",
-      route: "/(app)/compras",
+      route: "/(app)/super",
       bg: `${colors.successBg}`,
       iconColor: colors.successText,
     });

@@ -57,7 +57,7 @@ export default function NewTaskScreen() {
     try {
       const createdTask = await createTask.mutateAsync({ name: taskName.trim(), description: description.trim() || undefined, frequency, weight: taskWeight, isRouletteEligible: false });
       await createAssignment.mutateAsync({ taskId: createdTask.task.id, memberId: selectedMemberId, dueDate: dueDateIso });
-      router.replace("/(app)/tasks");
+      router.replace("/(app)/tareas");
     } catch (submitError) { setError(getMobileErrorMessage(submitError)); }
   };
 

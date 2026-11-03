@@ -50,7 +50,7 @@ export function useHeroState({
           headline: "",
           label: "",
           ctaLabel: "",
-          ctaRoute: "/(app)/tasks",
+          ctaRoute: "/(app)/tareas",
         },
         loading: true,
       };
@@ -73,7 +73,7 @@ export function useHeroState({
               ? "Tenés 1 tarea para hoy"
               : `Tenés ${todayTasks.length} tareas para hoy`,
           ctaLabel: "Ir a mis tareas",
-          ctaRoute: "/(app)/tasks",
+          ctaRoute: "/(app)/tareas",
         },
         loading: false,
       };
@@ -104,7 +104,7 @@ export function useHeroState({
           headline: `+$${myBalance.toLocaleString("es-AR", { minimumFractionDigits: 0 })}`,
           label: "te deben",
           ctaLabel: "Ver balance",
-          ctaRoute: "/(app)/balance",
+          ctaRoute: "/(app)/plata",
         },
         loading: false,
       };
@@ -118,7 +118,7 @@ export function useHeroState({
           headline: `$${Math.abs(myBalance).toLocaleString("es-AR", { minimumFractionDigits: 0 })}`,
           label: "debés",
           ctaLabel: "Ver balance",
-          ctaRoute: "/(app)/balance",
+          ctaRoute: "/(app)/plata",
         },
         loading: false,
       };
@@ -131,7 +131,7 @@ export function useHeroState({
         headline: pickByHour(ALL_CLEAR_HEADLINES),
         label: "No tenés pendientes. ¡Disfrutá el día!",
         ctaLabel: "Ver ofertas",
-        ctaRoute: "/(app)/compras",
+        ctaRoute: "/(app)/super",
       },
       loading: false,
     };

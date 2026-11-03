@@ -24,12 +24,12 @@ export function ScreenHeader({ notificationCount = 0 }: ScreenHeaderProps) {
 
   return (
     <View style={styles.header}>
-      <Pressable onPress={() => router.push("/(app)/dashboard")} hitSlop={8}>
+      <Pressable onPress={() => router.push("/(app)/casa")} hitSlop={8}>
         <HabitaLogo size={32} />
       </Pressable>
       <View style={styles.actions}>
         <Pressable
-          onPress={() => router.push("/(app)/notifications")}
+          onPress={() => router.push("/(app)/avisos")}
           style={styles.iconButton}
           hitSlop={8}
         >
@@ -43,7 +43,7 @@ export function ScreenHeader({ notificationCount = 0 }: ScreenHeaderProps) {
           ) : null}
         </Pressable>
         <Pressable
-          onPress={() => router.push("/(app)/profile")}
+          onPress={() => router.push("/(app)/perfil")}
           style={styles.avatarButton}
           hitSlop={8}
         >

@@ -25,7 +25,7 @@ export function BalanceCard({ balance }: BalanceCardProps) {
 
   return (
     <Pressable
-      onPress={() => router.push("/(app)/balance" as never)}
+      onPress={() => router.push("/(app)/plata" as never)}
       style={({ pressed }) => [
         styles.card,
         { backgroundColor: bgColor },

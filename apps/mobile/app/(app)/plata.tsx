@@ -66,6 +66,8 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { StyledTextInput } from "@/components/ui/text-input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonCard } from "@/components/ui/skeleton";
+import { InterimMoreSection } from "@/components/features/interim-more-section";
+import type { InterimMoreLink } from "@/components/features/interim-more-section";
 import { ScreenHeader } from "@/components/features/screen-header";
 import { categoryColors, categoryColorFallback, fontFamily, radius, spacing } from "@/theme";
 import { useFirstVisit } from "@/hooks/use-first-visit";
@@ -1163,6 +1165,12 @@ function SaldosTabContent({ currentMemberId }: { currentMemberId: string }) {
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
+const PLATA_MORE_LINKS: readonly InterimMoreLink[] = [
+  { icon: Landmark, title: "Fondo común", meta: "Aportes y gastos pagados con el fondo", href: "/(app)/fund" },
+  { icon: Zap, title: "Servicios", meta: "Facturas y vencimientos", href: "/(app)/services" },
+  { icon: BarChart3, title: "Cómo venimos", meta: "Categorías y tendencias del gasto", href: "/(app)/expense-insights" },
+];
+
 export default function ExpensesScreen() {
   const { me, activeHouseholdId } = useMobileAuth();
   const colors = useThemeColors();
@@ -1384,6 +1392,7 @@ export default function ExpensesScreen() {
                   )}
                 </View>
               )}
+              <InterimMoreSection links={PLATA_MORE_LINKS} />
               <View style={styles.bottomPadding} />
             </ScrollView>
           )}

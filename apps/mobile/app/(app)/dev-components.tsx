@@ -38,7 +38,7 @@ import type { CheckboxState } from "@/components/ds";
 
 /** Reachable only by direct URL (`/dev-components`); no tab bar entry (§ Fase 2). */
 export default function DevComponentsScreen(): React.JSX.Element | null {
-  if (!__DEV__) return <Redirect href="/(app)/dashboard" />;
+  if (!__DEV__) return <Redirect href="/(app)/casa" />;
   return <DevComponentsGallery />;
 }
 

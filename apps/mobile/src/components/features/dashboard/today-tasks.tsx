@@ -113,7 +113,7 @@ export function DashboardTodayTasks({ assignments }: DashboardTodayTasksProps) {
             ) : null}
           </View>
 
-          <Pressable onPress={() => router.push("/(app)/tasks")} style={styles.ctaRow}>
+          <Pressable onPress={() => router.push("/(app)/tareas")} style={styles.ctaRow}>
             <Text style={styles.ctaText}>Ver todas</Text>
             <ChevronRight size={14} color={colors.primary} />
           </Pressable>

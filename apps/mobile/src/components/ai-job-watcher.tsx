@@ -24,7 +24,7 @@ const JOB_CONFIGS: JobConfig[] = [
     jobType: "SHOPPING_PLAN",
     successMessage: "Precios encontrados",
     actionLabel: "Ver resultados",
-    href: "/(app)/compras",
+    href: "/(app)/super",
     errorMessage: "Error buscando precios",
   },
 ];

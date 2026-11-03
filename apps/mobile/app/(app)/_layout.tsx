@@ -1,236 +1,89 @@
-import { Redirect, Tabs, useRouter } from "expo-router";
+import { Redirect, Tabs } from "expo-router";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
-import { Animated, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { useRef, useEffect, useMemo, useState, useCallback } from "react";
-import { fontFamily } from "@/theme";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { fontFamilyForWeight } from "@/theme";
 import { useThemeColors } from "@/hooks/use-theme";
-import { useExpenses } from "@/hooks/use-expenses";
-import { useMembers } from "@/hooks/use-members";
-import {
-  ArrowLeftRight,
-  ClipboardCheck,
-  Compass,
-  Home,
-  MoreHorizontal,
-  Receipt,
-  ShoppingCart,
-  TrendingUp,
-} from "lucide-react-native";
+import { House, ListChecks, Plus, ShoppingBasket, Wallet } from "lucide-react-native";
 
 import { AiJobWatcher } from "@/components/ai-job-watcher";
+import { AnotarSheet } from "@/components/features/anotar-sheet";
 
 import type { LucideIcon } from "lucide-react-native";
 import type { ThemeColors } from "@/theme";
 
-// ─── Custom tab bar ──────────────────────────────────────────────────────────
+// ─── Custom tab bar — 4 fixed places + central Anotar button ────────────────
+// §5.1 / §06 Navegación: the tabs never appear or disappear.
 
 const TAB_CONFIG: Record<string, { Icon: LucideIcon; label: string }> = {
-  dashboard: { Icon: Home, label: "Habita" },
-  tasks: { Icon: ClipboardCheck, label: "Organizá" },
-  balance: { Icon: Receipt, label: "Controlá" },
-  compras: { Icon: ShoppingCart, label: "Ahorrá" },
+  casa: { Icon: House, label: "Casa" },
+  tareas: { Icon: ListChecks, label: "Tareas" },
+  plata: { Icon: Wallet, label: "Plata" },
+  super: { Icon: ShoppingBasket, label: "Súper" },
 };
 
-const MORE_ITEMS: { screen: string; Icon: LucideIcon; label: string }[] = [
-  { screen: "descubrir", Icon: Compass, label: "Descubrí" },
-  { screen: "progress", Icon: TrendingUp, label: "Progreso" },
-  { screen: "transfers", Icon: ArrowLeftRight, label: "Transferencias" },
-];
-
-function AnimatedTabItem({
-  focused,
-  Icon,
-  label,
-  onPress,
-  onLongPress,
-}: {
-  focused: boolean;
-  Icon: LucideIcon;
-  label: string;
-  onPress: () => void;
-  onLongPress: () => void;
-}) {
-  const colors = useThemeColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- stable animated values
-  const scale = useMemo(() => new Animated.Value(focused ? 1.05 : 1), []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- stable animated values
-  const bgOpacity = useMemo(() => new Animated.Value(focused ? 1 : 0), []);
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: focused ? 1.05 : 1,
-        damping: 18,
-        stiffness: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(bgOpacity, {
-        toValue: focused ? 1 : 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [focused, scale, bgOpacity]);
-
-  return (
-    <Pressable
-      onPress={onPress}
-      onLongPress={onLongPress}
-      style={styles.tabItem}
-    >
-      <Animated.View style={[styles.tabItemInner, { transform: [{ scale }] }]}>
-        <Animated.View style={[styles.tabPill, { opacity: bgOpacity }]} />
-        <Icon
-          size={20}
-          color={focused ? "#d2ffa0" : "rgba(255,255,255,0.65)"}
-          strokeWidth={focused ? 2.4 : 1.8}
-        />
-        <Text
-          style={[
-            styles.tabLabel,
-            focused ? styles.tabLabelActive : styles.tabLabelInactive,
-          ]}
-          numberOfLines={1}
-        >
-          {label}
-        </Text>
-      </Animated.View>
-    </Pressable>
-  );
-}
+const TAB_ORDER = ["casa", "tareas", "plata", "super"];
 
 /** Minimal type for the tab bar props we need — avoids importing @react-navigation/bottom-tabs. */
 interface TabBarProps {
   state: { index: number; routes: Array<{ key: string; name: string }> };
-  descriptors: Record<string, { options?: { href?: string | null; tabBarItemStyle?: { display?: string } } } | undefined>;
+  descriptors: Record<string, { options?: { href?: string | null } } | undefined>;
   navigation: {
     emit: (event: { type: string; target: string; canPreventDefault?: boolean }) => { defaultPrevented: boolean };
     navigate: (name: string) => void;
   };
 }
 
-function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
+function CustomTabBar({ state, descriptors, navigation, onAnotarPress }: TabBarProps & { onAnotarPress: () => void }) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const router = useRouter();
-  const [moreOpen, setMoreOpen] = useState(false);
 
-  // Check if currently on a "more" screen
-  const currentRoute = state.routes[state.index]?.name;
-  const isMoreActive = MORE_ITEMS.some((item) => item.screen === currentRoute);
+  const routesByName = new Map(state.routes.map((route) => [route.name, route]));
+  const orderedTabs = TAB_ORDER.map((name) => routesByName.get(name)).filter(
+    (route): route is TabBarProps["state"]["routes"][number] => route != null,
+  );
+  const firstHalf = orderedTabs.slice(0, 2);
+  const secondHalf = orderedTabs.slice(2);
 
-  const handleMoreItem = useCallback((screen: string) => {
-    setMoreOpen(false);
-    router.push(`/(app)/${screen}` as never);
-  }, [router]);
+  const renderTab = (route: TabBarProps["state"]["routes"][number]) => {
+    const config = TAB_CONFIG[route.name];
+    if (!config) return null;
+
+    const options = descriptors[route.key]?.options;
+    if (options?.href === null) return null;
+
+    const focused = state.index === state.routes.indexOf(route);
+    const { Icon, label } = config;
+
+    const onPress = () => {
+      const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+      if (!focused && !event.defaultPrevented) {
+        navigation.navigate(route.name);
+      }
+    };
+
+    return (
+      <Pressable key={route.key} onPress={onPress} style={styles.tabItem} accessibilityRole="button" accessibilityLabel={label}>
+        <Icon size={22} strokeWidth={1.75} color={focused ? colors.monte : colors.ink3} />
+        <Text style={[styles.tabLabel, { color: focused ? colors.monte : colors.ink3 }]}>{label}</Text>
+      </Pressable>
+    );
+  };
 
   return (
     <View style={styles.tabBarContainer}>
       <View style={styles.tabBar}>
-        {state.routes.map((route) => {
-          const config = TAB_CONFIG[route.name];
-          if (!config) return null;
-
-          const options = descriptors[route.key]?.options;
-          if (options?.href === null) return null;
-          if (options?.tabBarItemStyle?.display === "none") return null;
-
-          const focused = state.index === state.routes.indexOf(route);
-
-          const onPress = () => {
-            const event = navigation.emit({
-              type: "tabPress",
-              target: route.key,
-              canPreventDefault: true,
-            });
-            if (!focused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
-            }
-          };
-
-          const onLongPress = () => {
-            navigation.emit({ type: "tabLongPress", target: route.key });
-          };
-
-          return (
-            <AnimatedTabItem
-              key={route.key}
-              focused={focused}
-              Icon={config.Icon}
-              label={config.label}
-              onPress={onPress}
-              onLongPress={onLongPress}
-            />
-          );
-        })}
-
-        {/* "Más" button */}
+        {firstHalf.map(renderTab)}
         <Pressable
-          onPress={() => setMoreOpen(true)}
-          style={styles.tabItem}
+          onPress={onAnotarPress}
+          style={styles.anotarButton}
+          accessibilityRole="button"
+          accessibilityLabel="Anotar"
         >
-          <View style={styles.tabItemInner}>
-            {(isMoreActive) && <View style={styles.tabPillStatic} />}
-            <MoreHorizontal
-              size={20}
-              color={isMoreActive ? "#d2ffa0" : "rgba(255,255,255,0.65)"}
-              strokeWidth={isMoreActive ? 2.4 : 1.8}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                isMoreActive ? styles.tabLabelActive : styles.tabLabelInactive,
-              ]}
-              numberOfLines={1}
-            >
-              Más
-            </Text>
-          </View>
+          <Plus size={24} strokeWidth={1.75} color={colors.paper} />
         </Pressable>
+        {secondHalf.map(renderTab)}
       </View>
-
-      {/* Bottom sheet modal for "Más" */}
-      <Modal
-        visible={moreOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setMoreOpen(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setMoreOpen(false)}>
-          <View style={[styles.moreSheet, { backgroundColor: colors.card }]}>
-            {MORE_ITEMS.map((item) => {
-              const isActive = currentRoute === item.screen;
-              return (
-                <Pressable
-                  key={item.screen}
-                  style={[
-                    styles.moreItem,
-                    isActive && { backgroundColor: colors.primary + "18" },
-                  ]}
-                  onPress={() => handleMoreItem(item.screen)}
-                >
-                  <item.Icon
-                    size={20}
-                    color={isActive ? colors.primary : colors.text}
-                    strokeWidth={isActive ? 2.4 : 1.8}
-                  />
-                  <Text
-                    style={[
-                      styles.moreItemLabel,
-                      { color: isActive ? colors.primary : colors.text },
-                      isActive && { fontWeight: "700" },
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
@@ -239,13 +92,7 @@ function CustomTabBar({ state, descriptors, navigation }: TabBarProps) {
 
 export default function AppLayout() {
   const { isAuthenticated, isBootstrapping, me } = useMobileAuth();
-  const expensesQuery = useExpenses();
-  const membersQuery = useMembers();
-
-  // Progressive disclosure: show "Ahorrá" tab after user has logged expenses
-  const hasExpenses = (expensesQuery.data?.expenses?.length ?? 0) > 0;
-  const hasMultipleMembers = (membersQuery.data?.members?.length ?? 1) > 1;
-  const showComprasTab = hasExpenses || hasMultipleMembers;
+  const [anotarVisible, setAnotarVisible] = useState(false);
 
   if (!isBootstrapping && !isAuthenticated) {
     return <Redirect href="/(auth)/login" />;
@@ -259,31 +106,31 @@ export default function AppLayout() {
     <>
       <AiJobWatcher />
       <Tabs
-        tabBar={(props) => <CustomTabBar {...(props as unknown as TabBarProps)} />}
+        tabBar={(props) => (
+          <CustomTabBar {...(props as unknown as TabBarProps)} onAnotarPress={() => setAnotarVisible(true)} />
+        )}
         screenOptions={{
           headerShown: false,
         }}
       >
-        {/* ── Tabs (visible in tab bar) ── */}
-        <Tabs.Screen name="dashboard" options={{ title: "Habita" }} />
-        <Tabs.Screen name="tasks" options={{ title: "Organizá" }} />
-        <Tabs.Screen name="balance" options={{ title: "Controlá" }} />
-        <Tabs.Screen name="compras" options={showComprasTab ? { title: "Ahorrá" } : { title: "Ahorrá", tabBarItemStyle: { display: "none" } }} />
-
-        {/* ── "Más" screens (accessible via bottom sheet) ── */}
-        <Tabs.Screen name="descubrir" options={{ href: null, title: "Descubrí" }} />
+        {/* ── Tabs (visible in tab bar) — never shown or hidden conditionally ── */}
+        <Tabs.Screen name="casa" options={{ title: "Casa" }} />
+        <Tabs.Screen name="tareas" options={{ title: "Tareas" }} />
+        <Tabs.Screen name="plata" options={{ title: "Plata" }} />
+        <Tabs.Screen name="super" options={{ title: "Súper" }} />
 
         {/* Profile — hidden from tab bar, accessible via ScreenHeader avatar */}
-        <Tabs.Screen name="profile" options={{ href: null, title: "Perfil" }} />
+        <Tabs.Screen name="perfil" options={{ href: null, title: "Perfil" }} />
+        <Tabs.Screen name="avisos" options={{ href: null, title: "Avisos" }} />
 
         {/* ── Hidden screens (accessible via router.push) ── */}
+        <Tabs.Screen name="descubrir" options={{ href: null, title: "Descubrí" }} />
         <Tabs.Screen name="new-task" options={{ href: null, title: "Nueva tarea" }} />
         <Tabs.Screen name="dev-components" options={{ href: null, title: "Componentes" }} />
         <Tabs.Screen name="new-expense" options={{ href: null, title: "Nuevo gasto" }} />
         <Tabs.Screen name="expense-insights" options={{ href: null, title: "Insights financieros" }} />
         <Tabs.Screen name="plan" options={{ href: null, title: "Plan semanal" }} />
         <Tabs.Screen name="transfers" options={{ href: null, title: "Transferencias" }} />
-        <Tabs.Screen name="notifications" options={{ href: null, title: "Notificaciones" }} />
         <Tabs.Screen name="task-catalog" options={{ href: null, title: "Catálogo de tareas" }} />
         <Tabs.Screen name="progress" options={{ href: null, title: "Progreso familiar" }} />
         <Tabs.Screen name="fund" options={{ href: null, title: "Fondo Común" }} />
@@ -295,6 +142,7 @@ export default function AppLayout() {
         <Tabs.Screen name="notification-settings" options={{ href: null, title: "Notificaciones push" }} />
         <Tabs.Screen name="plans" options={{ href: null, title: "Historial de planes" }} />
       </Tabs>
+      <AnotarSheet visible={anotarVisible} onClose={() => setAnotarVisible(false)} />
     </>
   );
 }
@@ -304,88 +152,37 @@ export default function AppLayout() {
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     tabBarContainer: {
-      backgroundColor: c.background,
-      paddingHorizontal: 16,
+      backgroundColor: c.paper,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.line,
       paddingBottom: Platform.OS === "ios" ? 24 : 12,
-      paddingTop: 8,
+      paddingTop: 10,
     },
     tabBar: {
       flexDirection: "row",
-      height: 58,
-      backgroundColor: c.primary,
       alignItems: "center",
       justifyContent: "space-around",
-      paddingHorizontal: 8,
-      borderRadius: 20,
-      shadowColor: c.primary,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.35,
-      shadowRadius: 12,
-      elevation: 8,
+      paddingHorizontal: 12,
     },
     tabItem: {
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
-      height: 58,
-    },
-    tabItemInner: {
-      alignItems: "center",
-      justifyContent: "center",
-      paddingVertical: 5,
-      paddingHorizontal: 14,
-      borderRadius: 14,
-      position: "relative",
-    },
-    tabPill: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: "rgba(255,255,255,0.14)",
-      borderRadius: 14,
-    },
-    tabPillStatic: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: "rgba(255,255,255,0.14)",
-      borderRadius: 14,
+      gap: 4,
+      height: 44,
     },
     tabLabel: {
-      fontFamily: fontFamily.sans,
-      fontSize: 10,
-      marginTop: 3,
-      textAlign: "center",
+      fontFamily: fontFamilyForWeight(500),
+      fontSize: 12,
     },
-    tabLabelActive: {
-      fontWeight: "700",
-      color: "#d2ffa0",
-    },
-    tabLabelInactive: {
-      fontWeight: "500",
-      color: "rgba(255,255,255,0.65)",
-    },
-    // "Más" bottom sheet
-    modalOverlay: {
-      flex: 1,
-      justifyContent: "flex-end",
-      backgroundColor: "rgba(0,0,0,0.4)",
-    },
-    moreSheet: {
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      paddingTop: 12,
-      paddingBottom: Platform.OS === "ios" ? 40 : 24,
-      paddingHorizontal: 16,
-    },
-    moreItem: {
-      flexDirection: "row",
+    anotarButton: {
+      width: 52,
+      height: 52,
+      borderRadius: 16,
+      backgroundColor: c.monte,
       alignItems: "center",
-      gap: 14,
-      paddingVertical: 14,
-      paddingHorizontal: 16,
-      borderRadius: 14,
-    },
-    moreItemLabel: {
-      fontFamily: fontFamily.sans,
-      fontSize: 16,
-      fontWeight: "500",
+      justifyContent: "center",
+      marginHorizontal: 8,
     },
   });
 }

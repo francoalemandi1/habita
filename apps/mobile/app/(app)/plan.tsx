@@ -222,7 +222,7 @@ export default function WeeklyPlanScreen() {
         (result.assignmentsCancelled ? `, ${result.assignmentsCancelled} canceladas` : "");
       setSuccessMessage(msg);
       // Navigate to the tasks tab so the user can see the assigned tasks
-      router.replace("/(app)/tasks");
+      router.replace("/(app)/tareas");
     } catch (applyError) {
       setError(getMobileErrorMessage(applyError));
     }

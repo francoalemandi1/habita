@@ -68,7 +68,7 @@ function AssignSheet({ task, onClose }: AssignSheetProps) {
         memberId: selectedMemberId,
         dueDate: dueDateIso,
       });
-      router.replace("/(app)/tasks");
+      router.replace("/(app)/tareas");
     } catch (err) {
       setError(getMobileErrorMessage(err));
     }

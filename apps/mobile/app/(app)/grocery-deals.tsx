@@ -149,7 +149,7 @@ function TopDealsView() {
     toast.success(`${terms.length} producto${terms.length !== 1 ? "s" : ""} agregado${terms.length !== 1 ? "s" : ""} al carrito`);
 
     router.push({
-      pathname: "/compras",
+      pathname: "/super",
       params: { addTerms: JSON.stringify(terms) },
     });
   }, [deals, selected, toast]);

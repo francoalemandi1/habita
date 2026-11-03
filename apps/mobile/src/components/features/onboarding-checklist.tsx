@@ -153,12 +153,12 @@ export function OnboardingChecklist({ hasExpense, hasCompletedTask, memberCount,
     {
       label: "Completá una tarea",
       done: hasCompletedTask,
-      onPress: () => router.push("/(app)/tasks"),
+      onPress: () => router.push("/(app)/tareas"),
     },
     {
       label: "Compará precios",
       done: shoppingSearched,
-      onPress: () => router.push("/(app)/compras"),
+      onPress: () => router.push("/(app)/super"),
     },
   ];
 
@@ -167,7 +167,7 @@ export function OnboardingChecklist({ hasExpense, hasCompletedTask, memberCount,
     steps.push({
       label: "Invitá a alguien a tu hogar",
       done: (memberCount ?? 1) > 1,
-      onPress: () => router.push("/(app)/profile"),
+      onPress: () => router.push("/(app)/perfil"),
     });
   }
 

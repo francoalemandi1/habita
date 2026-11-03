@@ -28,11 +28,6 @@ interface TavilyCacheEntry {
   expiresAt: number;
 }
 
-interface TavilySearchOnlyCacheEntry {
-  data: WebSearchResult[];
-  expiresAt: number;
-}
-
 interface TavilySearchResult {
   title: string;
   url: string;
@@ -114,7 +109,6 @@ const SKIP_RAW_CONTENT_DOMAINS = [
 // ============================================
 
 const tavilyCache = new Map<string, TavilyCacheEntry>();
-const tavilySearchOnlyCache = new Map<string, TavilySearchOnlyCacheEntry>();
 
 // ============================================
 // Main function
@@ -184,62 +178,6 @@ export async function searchAndExtract(
   } catch (error) {
     console.error("[tavily] Search+Extract failed:", error);
     return { searchResults: [] };
-  }
-}
-
-// ============================================
-// Search-only (for grocery-advisor, deals-finder, ba-agenda)
-// ============================================
-
-/**
- * Search-only Tavily query — no rawContent.
- * Used by consumers that only need URLs + snippets (grocery, deals, etc.).
- */
-export async function searchWithTavily(
-  queries: string[],
-  cacheKey: string,
-  country?: string
-): Promise<WebSearchResult[]> {
-  const apiKey = process.env.TAVILY_API_KEY;
-  if (!apiKey) return [];
-
-  // Check search-and-extract cache first (reuse if available)
-  const fullCached = tavilyCache.get(cacheKey);
-  if (fullCached && Date.now() < fullCached.expiresAt) {
-    return fullCached.data.searchResults;
-  }
-
-  // Check search-only cache
-  const searchCached = tavilySearchOnlyCache.get(cacheKey);
-  if (searchCached && Date.now() < searchCached.expiresAt) {
-    return searchCached.data;
-  }
-
-  try {
-    const client = tavily({ apiKey });
-
-    const queryResults = await Promise.all(
-      queries.map((query) => runSearch(client, query, country))
-    );
-
-    const seenUrls = new Set<string>();
-    const results: WebSearchResult[] = [];
-
-    for (const batch of queryResults) {
-      for (const result of batch) {
-        if (results.length >= MAX_SEARCH_RESULTS) break;
-        if (!seenUrls.has(result.url)) {
-          seenUrls.add(result.url);
-          results.push(result);
-        }
-      }
-    }
-
-    tavilySearchOnlyCache.set(cacheKey, { data: results, expiresAt: Date.now() + TAVILY_CACHE_TTL_MS });
-    return results;
-  } catch (error) {
-    console.error("[tavily] Search failed:", error);
-    return [];
   }
 }
 

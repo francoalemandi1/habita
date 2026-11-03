@@ -5,12 +5,11 @@
  *   1. Tavily (advanced search + rawContent) — 1000 credits/month free
  *   2. Serper (Google SERP snippets + images) — 2500 one-time credits free
  *
- * Two main functions:
- *   - searchAndExtractLocalEvents(): Tavily search with rawContent → used by relax-finder
- *   - searchLocalEvents(): Search-only → used by grocery-advisor, deals-finder, etc.
+ * Entry point: searchAndExtractLocalEvents() — Tavily search with rawContent,
+ * used by relax-finder (Descubrí activities and restaurants).
  */
 
-import { searchAndExtract, searchWithTavily, EXCLUDED_DOMAINS_ACTIVITIES, EXCLUDED_DOMAINS_RESTAURANTS } from "./tavily";
+import { searchAndExtract, EXCLUDED_DOMAINS_ACTIVITIES, EXCLUDED_DOMAINS_RESTAURANTS } from "./tavily";
 import { searchWithSerper } from "./serper";
 
 import type { SearchAndExtractResult } from "./tavily";
@@ -248,39 +247,4 @@ export async function searchAndExtractLocalEvents(
   const serperResults = await searchWithSerper(queries, cacheKey, countryUpper.toLowerCase());
   const filtered = filterWrongCountryResults(serperResults, countryUpper);
   return { searchResults: filtered };
-}
-
-/**
- * Search-only — no rawContent.
- * Used by grocery-advisor, deals-finder, and other consumers that only need URLs + snippets.
- */
-export async function searchLocalEvents(
-  city: string,
-  country: string,
-  section: RelaxSection
-): Promise<WebSearchResult[]> {
-  const provider = getWebSearchProvider();
-  if (provider === "none") return [];
-
-  const countryUpper = country.toUpperCase();
-  const ctx = buildQueryContext(city, country);
-  const queries = SECTION_QUERIES[section](ctx);
-  const cacheKey = buildCacheKey(city, section);
-
-  if (provider === "tavily") {
-    const tavilyCountry = ISO_TO_TAVILY_COUNTRY[countryUpper];
-    const rawResults = await searchWithTavily(queries, cacheKey, tavilyCountry);
-    const results = filterWrongCountryResults(rawResults, countryUpper);
-
-    if (results.length > 0) return results;
-
-    if (process.env.SERPER_API_KEY) {
-      const serperRaw = await searchWithSerper(queries, cacheKey, countryUpper.toLowerCase());
-      return filterWrongCountryResults(serperRaw, countryUpper);
-    }
-    return [];
-  }
-
-  const serperResults = await searchWithSerper(queries, cacheKey, countryUpper.toLowerCase());
-  return filterWrongCountryResults(serperResults, countryUpper);
 }

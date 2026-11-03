@@ -234,9 +234,8 @@ function createStyles(c: ThemeColors) {
       opacity: 0.5,
     },
     bigNumber: {
-      fontFamily: fontFamily.handwritten,
+      fontFamily: fontFamily.bold,
       fontSize: 40,
-      fontWeight: "700",
       lineHeight: 44,
     },
     pointsLabel: {
@@ -253,9 +252,8 @@ function createStyles(c: ThemeColors) {
       borderRadius: radius.full,
     },
     tierBadgeText: {
-      fontFamily: fontFamily.handwritten,
+      fontFamily: fontFamily.semibold,
       fontSize: 16,
-      fontWeight: "600",
     },
     // Progress bar
     progressSection: {

@@ -121,13 +121,13 @@ export function DashboardWeekCard({
         </div>
 
         {/* Big number */}
-        <p className="font-handwritten text-4xl font-bold text-primary leading-tight">
+        <p className="text-4xl font-bold text-primary leading-tight">
           {householdTotal}
         </p>
         <p className="text-sm text-muted-foreground mt-0.5">puntos</p>
 
         {/* Tier badge */}
-        <span className={`mt-2 inline-flex items-center gap-1 rounded-full px-3 py-0.5 font-handwritten text-base font-semibold ${getTierBadgeClasses(tier.colorKey)}`}>
+        <span className={`mt-2 inline-flex items-center gap-1 rounded-full px-3 py-0.5 text-base font-semibold ${getTierBadgeClasses(tier.colorKey)}`}>
           {tier.emoji} {tier.label}
         </span>
 

@@ -132,7 +132,7 @@ function createStyles(c: ThemeColors) {
       paddingVertical: spacing.md,
     },
     headline: {
-      fontFamily: "Caveat",
+      fontFamily: fontFamily.semibold,
       fontSize: 26,
       color: c.primary,
     },

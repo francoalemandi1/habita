@@ -90,7 +90,7 @@ function createStyles(c: ThemeColors) {
       paddingVertical: spacing.lg,
     },
     headline: {
-      fontFamily: fontFamily.handwritten,
+      fontFamily: fontFamily.semibold,
       fontSize: 24,
     },
     label: {

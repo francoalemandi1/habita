@@ -67,7 +67,7 @@ export function DashboardTodayTasks({ assignments, allClearHeadline }: Dashboard
   return (
     <div className="rounded-2xl bg-primary/[0.06] dark:bg-primary/[0.10] px-5 py-4 animate-fade-in">
       {/* Headline */}
-      <p className="font-handwritten text-2xl text-primary">
+      <p className="font-semibold text-2xl text-primary">
         {allDone || noTasks ? allClearHeadline : pickByHour(TODAY_HEADLINES)}
       </p>
 

@@ -110,7 +110,7 @@ export function DashboardHeroCard({ state }: DashboardHeroCardProps) {
       href={state.ctaRoute}
       className={`block rounded-2xl px-5 py-4 transition-all hover:shadow-md active:scale-[0.99] ${colors.bg} animate-fade-in`}
     >
-      <p className={`font-handwritten text-2xl ${colors.accent}`}>
+      <p className={`text-2xl font-semibold ${colors.accent}`}>
         {state.headline}
       </p>
       <p className="mt-1 text-sm font-medium text-foreground">

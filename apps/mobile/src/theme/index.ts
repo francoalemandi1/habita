@@ -1,11 +1,14 @@
 import { StyleSheet } from "react-native";
 import {
+  colors as newColors,
+  darkColors as newDarkColors,
   semanticColors,
   darkSemanticColors,
   spacingScale,
   radiusScale,
   palette,
   shadows,
+  typeScale,
   cyclingColors,
   cyclingTextColors,
   assignmentCardColors,
@@ -30,36 +33,56 @@ export type ResolvedThemeMode = "light" | "dark";
 // ============================================
 
 const lightColors = {
-  // Core semantic
+  // Core semantic (deprecated aliases, resolve to §9.1 tokens)
   ...semanticColors,
-  // Extended palette
-  lime: palette.lime,
-  lavender: palette.lavender,
-  lavenderLight: palette.lavenderLight,
-  purpleDark: palette.purpleDark,
-  tan: palette.tan,
-  cream: palette.cream,
-  orange: palette.orange,
-  peach: palette.peach,
-  white: palette.white,
-  // UI semantic
-  muted: "#f0ebe0",
-  mutedForeground: "#595959",
-  border: "#e2d8ce",
-  destructive: "#ef4444",
-  destructiveForeground: "#fef2f2",
+  // §9.1 tokens
+  paper: newColors.paper,
+  surface: newColors.surface,
+  line: newColors.line,
+  lineSoft: newColors.lineSoft,
+  sand: newColors.sand,
+  ink: newColors.ink,
+  ink2: newColors.ink2,
+  ink3: newColors.ink3,
+  monte: newColors.monte,
+  montePressed: newColors.montePressed,
+  monteSoft: newColors.monteSoft,
+  ladrillo: newColors.ladrillo,
+  ladrilloText: newColors.ladrilloText,
+  ladrilloSoft: newColors.ladrilloSoft,
+  manteca: newColors.manteca,
+  mantecaSoft: newColors.mantecaSoft,
+  mantecaText: newColors.mantecaText,
+  scrim: newColors.scrim,
+  // Extended palette — remapped to the §9.1 neutral palette
+  lime: newColors.mantecaSoft,
+  lavender: newColors.monteSoft,
+  lavenderLight: newColors.monteSoft,
+  purpleDark: newColors.ink,
+  tan: newColors.sand,
+  cream: newColors.sand,
+  orange: newColors.ladrillo,
+  peach: newColors.ladrilloSoft,
+  // Literal white — kept as-is, used as foreground text on colored buttons/badges.
+  white: "#ffffff",
+  // UI semantic — remapped to the §9.1 neutral palette
+  muted: newColors.sand,
+  mutedForeground: newColors.ink2,
+  border: newColors.line,
+  destructive: newColors.ladrillo,
+  destructiveForeground: newColors.paper,
   // Overlay
-  overlay: "rgba(0,0,0,0.4)",
+  overlay: newColors.scrim,
   // State backgrounds
-  primaryLight: "#eef2ff",
-  successBg: "#dcfce7",
-  successText: "#16a34a",
-  errorBg: "#fee2e2",
-  errorText: "#b91c1c",
-  warningBg: "#fef3c7",
-  warningText: "#92400e",
-  infoBg: "#dbeafe",
-  infoText: "#2563eb",
+  primaryLight: newColors.monteSoft,
+  successBg: newColors.monteSoft,
+  successText: newColors.monte,
+  errorBg: newColors.ladrilloSoft,
+  errorText: newColors.ladrilloText,
+  warningBg: newColors.mantecaSoft,
+  warningText: newColors.mantecaText,
+  infoBg: newColors.sand,
+  infoText: newColors.ink2,
 } as const;
 
 // ============================================
@@ -67,36 +90,55 @@ const lightColors = {
 // ============================================
 
 const darkColors = {
-  // Core semantic
+  // Core semantic (deprecated aliases, resolve to §9.1 dark tokens)
   ...darkSemanticColors,
-  // Extended palette — adjusted for dark backgrounds
-  lime: "#c5f07a",
-  lavender: "#c4a8f0",
-  lavenderLight: "#d8c9f5",
-  purpleDark: "#a78bfa",
-  tan: "#3d3520",
-  cream: "#3d3520",
-  orange: "#fd9a7a",
-  peach: "#4a2a1e",
+  // §9.1 dark tokens
+  paper: newDarkColors.paper,
+  surface: newDarkColors.surface,
+  line: newDarkColors.line,
+  lineSoft: newDarkColors.lineSoft,
+  sand: newDarkColors.sand,
+  ink: newDarkColors.ink,
+  ink2: newDarkColors.ink2,
+  ink3: newDarkColors.ink3,
+  monte: newDarkColors.monte,
+  montePressed: newDarkColors.montePressed,
+  monteSoft: newDarkColors.monteSoft,
+  ladrillo: newDarkColors.ladrillo,
+  ladrilloText: newDarkColors.ladrilloText,
+  ladrilloSoft: newDarkColors.ladrilloSoft,
+  manteca: newDarkColors.manteca,
+  mantecaSoft: newDarkColors.mantecaSoft,
+  mantecaText: newDarkColors.mantecaText,
+  scrim: newDarkColors.scrim,
+  // Extended palette — remapped to the §9.1 neutral palette (dark)
+  lime: newDarkColors.mantecaSoft,
+  lavender: newDarkColors.monteSoft,
+  lavenderLight: newDarkColors.monteSoft,
+  purpleDark: newDarkColors.ink,
+  tan: newDarkColors.sand,
+  cream: newDarkColors.sand,
+  orange: newDarkColors.ladrillo,
+  peach: newDarkColors.ladrilloSoft,
   white: "#ffffff",
-  // UI semantic
-  muted: "#2a2b30",         // hsl(220 13% 16%)
-  mutedForeground: "#999999", // hsl(0 0% 60%)
-  border: "#333540",         // hsl(220 13% 22%)
-  destructive: "#b91c1c",    // darker red on dark bg
-  destructiveForeground: "#3b1010",
+  // UI semantic — remapped to the §9.1 neutral palette (dark)
+  muted: newDarkColors.sand,
+  mutedForeground: newDarkColors.ink2,
+  border: newDarkColors.line,
+  destructive: newDarkColors.ladrillo,
+  destructiveForeground: newDarkColors.paper,
   // Overlay
-  overlay: "rgba(0,0,0,0.6)",
-  // State backgrounds — muted for dark mode
-  primaryLight: "#1e1f3a",   // dark indigo wash
-  successBg: "#0f2a16",      // dark green wash
-  successText: "#4ade80",    // bright green
-  errorBg: "#2d1010",        // dark red wash
-  errorText: "#fca5a5",      // light red
-  warningBg: "#2d2010",      // dark amber wash
-  warningText: "#fbbf24",    // bright amber
-  infoBg: "#101d2d",         // dark blue wash
-  infoText: "#60a5fa",       // bright blue
+  overlay: newDarkColors.scrim,
+  // State backgrounds
+  primaryLight: newDarkColors.monteSoft,
+  successBg: newDarkColors.monteSoft,
+  successText: newDarkColors.monte,
+  errorBg: newDarkColors.ladrilloSoft,
+  errorText: newDarkColors.ladrilloText,
+  warningBg: newDarkColors.mantecaSoft,
+  warningText: newDarkColors.mantecaText,
+  infoBg: newDarkColors.sand,
+  infoText: newDarkColors.ink2,
 } as const;
 
 /** Theme color token keys — same shape for light and dark. */
@@ -128,51 +170,91 @@ export const radius = radiusScale;
 
 // ============================================
 // FONT FAMILIES
+// Static weights: Android ignores `fontWeight` on custom fonts, so each
+// weight must be loaded and referenced as its own family (see _layout.tsx).
 // ============================================
 
 export const fontFamily = {
-  sans: "DMSans",
-  handwritten: "Caveat",
+  sans: "SchibstedGrotesk-Regular",
+  medium: "SchibstedGrotesk-Medium",
+  semibold: "SchibstedGrotesk-SemiBold",
+  bold: "SchibstedGrotesk-Bold",
 } as const;
+
+/** Returns the loaded family name matching a numeric/string font weight. */
+export function fontFamilyForWeight(weight: number | string): string {
+  const numericWeight = toNumericWeight(weight);
+  if (numericWeight >= 700) return fontFamily.bold;
+  if (numericWeight >= 600) return fontFamily.semibold;
+  if (numericWeight >= 500) return fontFamily.medium;
+  return fontFamily.sans;
+}
+
+/** RN also accepts the keywords "normal" and "bold" as fontWeight values. */
+function toNumericWeight(weight: number | string): number {
+  if (typeof weight === "number") return weight;
+  if (weight === "bold") return 700;
+  return Number.parseInt(weight, 10) || 400;
+}
+
+/** Converts a §9.3 `letterSpacing` (em) into React Native points for a given font size. */
+function emToPt(size: number, em: number): number {
+  return Math.round(size * em * 100) / 100;
+}
 
 // ============================================
 // TYPOGRAPHY (static, uses light colors — will be refactored per-screen)
+// Existing keys are mapped onto the closest §9.3 scale entry; handwritten
+// keys are removed (Fase 1 drops the handwritten font).
 // ============================================
 
 export const typography = {
-  pageTitle: { fontFamily: fontFamily.sans, fontSize: 24, fontWeight: "700" as const, letterSpacing: -0.3, color: colors.text },
-  sectionTitle: { fontFamily: fontFamily.sans, fontSize: 20, fontWeight: "600" as const, color: colors.text },
-  cardTitle: { fontFamily: fontFamily.sans, fontSize: 18, fontWeight: "600" as const, color: colors.text },
-  body: { fontFamily: fontFamily.sans, fontSize: 14, color: colors.text },
-  bodyMedium: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "500" as const, color: colors.text },
-  bodySemibold: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "600" as const, color: colors.text },
-  caption: { fontFamily: fontFamily.sans, fontSize: 12, color: colors.mutedForeground },
-  captionMedium: { fontFamily: fontFamily.sans, fontSize: 12, fontWeight: "500" as const, color: colors.mutedForeground },
-  captionBold: { fontFamily: fontFamily.sans, fontSize: 12, fontWeight: "600" as const, color: colors.text },
-  label: { fontFamily: fontFamily.sans, fontSize: 11, fontWeight: "600" as const, textTransform: "uppercase" as const, letterSpacing: 0.5, color: colors.mutedForeground },
-  displayLg: { fontFamily: fontFamily.sans, fontSize: 32, fontWeight: "700" as const, color: colors.text },
-  displayMd: { fontFamily: fontFamily.sans, fontSize: 22, fontWeight: "700" as const, color: colors.text },
-  handwritten: { fontFamily: fontFamily.handwritten, fontSize: 16, color: colors.text },
-  handwrittenLg: { fontFamily: fontFamily.handwritten, fontSize: 20, color: colors.text },
+  pageTitle: { fontFamily: fontFamilyForWeight(typeScale.H1.weight), fontSize: typeScale.H1.size, letterSpacing: emToPt(typeScale.H1.size, typeScale.H1.letterSpacing), color: colors.text },
+  sectionTitle: { fontFamily: fontFamilyForWeight(typeScale.T1.weight), fontSize: typeScale.T1.size, letterSpacing: emToPt(typeScale.T1.size, typeScale.T1.letterSpacing), color: colors.text },
+  cardTitle: { fontFamily: fontFamilyForWeight(typeScale.T1.weight), fontSize: typeScale.T1.size, letterSpacing: emToPt(typeScale.T1.size, typeScale.T1.letterSpacing), color: colors.text },
+  body: { fontFamily: fontFamilyForWeight(typeScale.B1.weight), fontSize: typeScale.B1.size, color: colors.text },
+  bodyMedium: { fontFamily: fontFamilyForWeight(typeScale.T2.weight), fontSize: typeScale.T2.size, color: colors.text },
+  bodySemibold: { fontFamily: fontFamilyForWeight(typeScale.T1.weight), fontSize: typeScale.T1.size, color: colors.text },
+  caption: { fontFamily: fontFamilyForWeight(typeScale.B2.weight), fontSize: typeScale.B2.size, color: colors.mutedForeground },
+  captionMedium: { fontFamily: fontFamilyForWeight(500), fontSize: typeScale.B2.size, color: colors.mutedForeground },
+  captionBold: { fontFamily: fontFamilyForWeight(600), fontSize: typeScale.B2.size, color: colors.text },
+  label: { fontFamily: fontFamilyForWeight(typeScale.L1.weight), fontSize: typeScale.L1.size, textTransform: "uppercase" as const, letterSpacing: emToPt(typeScale.L1.size, typeScale.L1.letterSpacing), color: colors.mutedForeground },
+  displayLg: { fontFamily: fontFamilyForWeight(typeScale.D2.weight), fontSize: typeScale.D2.size, letterSpacing: emToPt(typeScale.D2.size, typeScale.D2.letterSpacing), color: colors.text },
+  displayMd: { fontFamily: fontFamilyForWeight(typeScale.H1.weight), fontSize: typeScale.H1.size, letterSpacing: emToPt(typeScale.H1.size, typeScale.H1.letterSpacing), color: colors.text },
+  // §9.3 scale, direct keys
+  d1: { fontFamily: fontFamilyForWeight(typeScale.D1.weight), fontSize: typeScale.D1.size, letterSpacing: emToPt(typeScale.D1.size, typeScale.D1.letterSpacing), color: colors.text },
+  d2: { fontFamily: fontFamilyForWeight(typeScale.D2.weight), fontSize: typeScale.D2.size, letterSpacing: emToPt(typeScale.D2.size, typeScale.D2.letterSpacing), color: colors.text },
+  h1: { fontFamily: fontFamilyForWeight(typeScale.H1.weight), fontSize: typeScale.H1.size, letterSpacing: emToPt(typeScale.H1.size, typeScale.H1.letterSpacing), color: colors.text },
+  t1: { fontFamily: fontFamilyForWeight(typeScale.T1.weight), fontSize: typeScale.T1.size, letterSpacing: emToPt(typeScale.T1.size, typeScale.T1.letterSpacing), color: colors.text },
+  t2: { fontFamily: fontFamilyForWeight(typeScale.T2.weight), fontSize: typeScale.T2.size, color: colors.text },
+  b1: { fontFamily: fontFamilyForWeight(typeScale.B1.weight), fontSize: typeScale.B1.size, color: colors.text },
+  b2: { fontFamily: fontFamilyForWeight(typeScale.B2.weight), fontSize: typeScale.B2.size, color: colors.mutedForeground },
+  l1: { fontFamily: fontFamilyForWeight(typeScale.L1.weight), fontSize: typeScale.L1.size, textTransform: "uppercase" as const, letterSpacing: emToPt(typeScale.L1.size, typeScale.L1.letterSpacing), color: colors.mutedForeground },
 } as const;
 
 /** Create typography styles with theme-aware colors. */
 export function createTypography(themeColors: ThemeColors) {
   return {
-    pageTitle: { fontFamily: fontFamily.sans, fontSize: 24, fontWeight: "700" as const, letterSpacing: -0.3, color: themeColors.text },
-    sectionTitle: { fontFamily: fontFamily.sans, fontSize: 20, fontWeight: "600" as const, color: themeColors.text },
-    cardTitle: { fontFamily: fontFamily.sans, fontSize: 18, fontWeight: "600" as const, color: themeColors.text },
-    body: { fontFamily: fontFamily.sans, fontSize: 14, color: themeColors.text },
-    bodyMedium: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "500" as const, color: themeColors.text },
-    bodySemibold: { fontFamily: fontFamily.sans, fontSize: 14, fontWeight: "600" as const, color: themeColors.text },
-    caption: { fontFamily: fontFamily.sans, fontSize: 12, color: themeColors.mutedForeground },
-    captionMedium: { fontFamily: fontFamily.sans, fontSize: 12, fontWeight: "500" as const, color: themeColors.mutedForeground },
-    captionBold: { fontFamily: fontFamily.sans, fontSize: 12, fontWeight: "600" as const, color: themeColors.text },
-    label: { fontFamily: fontFamily.sans, fontSize: 11, fontWeight: "600" as const, textTransform: "uppercase" as const, letterSpacing: 0.5, color: themeColors.mutedForeground },
-    displayLg: { fontFamily: fontFamily.sans, fontSize: 32, fontWeight: "700" as const, color: themeColors.text },
-    displayMd: { fontFamily: fontFamily.sans, fontSize: 22, fontWeight: "700" as const, color: themeColors.text },
-    handwritten: { fontFamily: fontFamily.handwritten, fontSize: 16, color: themeColors.text },
-    handwrittenLg: { fontFamily: fontFamily.handwritten, fontSize: 20, color: themeColors.text },
+    pageTitle: { fontFamily: fontFamilyForWeight(typeScale.H1.weight), fontSize: typeScale.H1.size, letterSpacing: emToPt(typeScale.H1.size, typeScale.H1.letterSpacing), color: themeColors.text },
+    sectionTitle: { fontFamily: fontFamilyForWeight(typeScale.T1.weight), fontSize: typeScale.T1.size, letterSpacing: emToPt(typeScale.T1.size, typeScale.T1.letterSpacing), color: themeColors.text },
+    cardTitle: { fontFamily: fontFamilyForWeight(typeScale.T1.weight), fontSize: typeScale.T1.size, letterSpacing: emToPt(typeScale.T1.size, typeScale.T1.letterSpacing), color: themeColors.text },
+    body: { fontFamily: fontFamilyForWeight(typeScale.B1.weight), fontSize: typeScale.B1.size, color: themeColors.text },
+    bodyMedium: { fontFamily: fontFamilyForWeight(typeScale.T2.weight), fontSize: typeScale.T2.size, color: themeColors.text },
+    bodySemibold: { fontFamily: fontFamilyForWeight(typeScale.T1.weight), fontSize: typeScale.T1.size, color: themeColors.text },
+    caption: { fontFamily: fontFamilyForWeight(typeScale.B2.weight), fontSize: typeScale.B2.size, color: themeColors.mutedForeground },
+    captionMedium: { fontFamily: fontFamilyForWeight(500), fontSize: typeScale.B2.size, color: themeColors.mutedForeground },
+    captionBold: { fontFamily: fontFamilyForWeight(600), fontSize: typeScale.B2.size, color: themeColors.text },
+    label: { fontFamily: fontFamilyForWeight(typeScale.L1.weight), fontSize: typeScale.L1.size, textTransform: "uppercase" as const, letterSpacing: emToPt(typeScale.L1.size, typeScale.L1.letterSpacing), color: themeColors.mutedForeground },
+    displayLg: { fontFamily: fontFamilyForWeight(typeScale.D2.weight), fontSize: typeScale.D2.size, letterSpacing: emToPt(typeScale.D2.size, typeScale.D2.letterSpacing), color: themeColors.text },
+    displayMd: { fontFamily: fontFamilyForWeight(typeScale.H1.weight), fontSize: typeScale.H1.size, letterSpacing: emToPt(typeScale.H1.size, typeScale.H1.letterSpacing), color: themeColors.text },
+    d1: { fontFamily: fontFamilyForWeight(typeScale.D1.weight), fontSize: typeScale.D1.size, letterSpacing: emToPt(typeScale.D1.size, typeScale.D1.letterSpacing), color: themeColors.text },
+    d2: { fontFamily: fontFamilyForWeight(typeScale.D2.weight), fontSize: typeScale.D2.size, letterSpacing: emToPt(typeScale.D2.size, typeScale.D2.letterSpacing), color: themeColors.text },
+    h1: { fontFamily: fontFamilyForWeight(typeScale.H1.weight), fontSize: typeScale.H1.size, letterSpacing: emToPt(typeScale.H1.size, typeScale.H1.letterSpacing), color: themeColors.text },
+    t1: { fontFamily: fontFamilyForWeight(typeScale.T1.weight), fontSize: typeScale.T1.size, letterSpacing: emToPt(typeScale.T1.size, typeScale.T1.letterSpacing), color: themeColors.text },
+    t2: { fontFamily: fontFamilyForWeight(typeScale.T2.weight), fontSize: typeScale.T2.size, color: themeColors.text },
+    b1: { fontFamily: fontFamilyForWeight(typeScale.B1.weight), fontSize: typeScale.B1.size, color: themeColors.text },
+    b2: { fontFamily: fontFamilyForWeight(typeScale.B2.weight), fontSize: typeScale.B2.size, color: themeColors.mutedForeground },
+    l1: { fontFamily: fontFamilyForWeight(typeScale.L1.weight), fontSize: typeScale.L1.size, textTransform: "uppercase" as const, letterSpacing: emToPt(typeScale.L1.size, typeScale.L1.letterSpacing), color: themeColors.mutedForeground },
   } as const;
 }
 

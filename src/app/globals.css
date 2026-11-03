@@ -1,48 +1,80 @@
 @import "tailwindcss";
 
 :root {
-  /* Figma design system - warm cream palette */
-  --background: 39 100% 96%;    /* #FFF7EA */
-  --foreground: 0 0% 15%;       /* #272727 */
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 15%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 15%;
-  /* Primary: indigo/violet - actions, CTA */
-  --primary: 234 99% 66%;       /* #5260FE */
-  --primary-foreground: 0 0% 100%;
-  --secondary: 39 60% 92%;
-  --secondary-foreground: 0 0% 15%;
-  --muted: 39 30% 93%;
-  --muted-foreground: 0 0% 35%; /* #595959 */
-  --accent: 39 60% 94%;
-  --accent-foreground: 0 0% 15%;
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 216 16% 80%;        /* #c3ccd7 */
-  --input: 216 16% 80%;          /* match --border for softer inputs */
-  --ring: 234 99% 66%;
-  /* Accessible foreground scale — replaces raw opacity modifiers */
-  --foreground-secondary: 0 0% 30%;  /* #4d4d4d — 5.9:1 on cream */
-  --foreground-tertiary: 0 0% 42%;   /* #6b6b6b — 3.9:1 on cream */
-  /* Gamification tokens */
-  --success: 142 71% 45%;
-  --xp: 38 92% 50%;
-  --level: 262 83% 58%;
+  /* Rebrand §9.1 — neutral warm palette (Schibsted Grotesk) */
+  --background: 40 33% 93%;      /* paper #F3EFE7 */
+  --foreground: 140 13% 13%;     /* ink #1D2620 */
+  --card: 40 100% 99%;           /* surface #FFFDF9 */
+  --card-foreground: 140 13% 13%; /* ink #1D2620 */
+  --popover: 40 100% 99%;        /* surface #FFFDF9 */
+  --popover-foreground: 140 13% 13%; /* ink #1D2620 */
+  /* Primary: monte — one accent per screen */
+  --primary: 151 32% 27%;        /* monte #2E5A45 */
+  --primary-foreground: 40 33% 93%; /* paper #F3EFE7 */
+  --secondary: 40 32% 89%;       /* sand #ECE6DA */
+  --secondary-foreground: 140 13% 13%; /* ink #1D2620 */
+  --muted: 40 32% 89%;           /* sand #ECE6DA */
+  --muted-foreground: 138 5% 38%; /* ink2 #5C665F */
+  --accent: 40 32% 89%;          /* sand #ECE6DA */
+  --accent-foreground: 140 13% 13%; /* ink #1D2620 */
+  --destructive: 11 54% 50%;     /* ladrillo #C4553B */
+  --destructive-foreground: 40 33% 93%; /* paper #F3EFE7 */
+  --border: 40 25% 86%;          /* line #E4DED2 */
+  --input: 40 25% 86%;           /* line #E4DED2 */
+  --ring: 151 32% 27%;           /* monte #2E5A45 */
+  /* Accessible foreground scale */
+  --foreground-secondary: 138 5% 38%;  /* ink2 #5C665F */
+  --foreground-tertiary: 135 4% 57%;   /* ink3 #8D958F */
+  --success: 151 32% 27%;        /* monte #2E5A45 */
+  --xp: 44 78% 74%;              /* manteca #F0D488 */
+  --level: 151 32% 27%;          /* monte #2E5A45 */
   --radius: 1rem;
 
-  /* Brand palette tokens — keep in sync with src/lib/design-tokens.ts */
-  --brand-primary: #5260fe;
-  --brand-primary-light: #626efe;
-  --brand-lime: #d2ffa0;
-  --brand-success-dark: #7aa649;
-  --brand-lavender: #d0b6ff;
-  --brand-lavender-light: #e4d5ff;
-  --brand-purple-dark: #522a97;
-  --brand-tan: #ffe8c3;
-  --brand-cream: #fff0d7;
-  --brand-orange: #fd7c52;
-  --brand-peach: #fed9cb;
+  /* §9.1 color tokens */
+  --token-paper: #F3EFE7;
+  --token-surface: #FFFDF9;
+  --token-line: #E4DED2;
+  --token-line-soft: #EEE8DD;
+  --token-sand: #ECE6DA;
+  --token-ink: #1D2620;
+  --token-ink-2: #5C665F;
+  --token-ink-3: #8D958F;
+  --token-monte: #2E5A45;
+  --token-monte-pressed: #264B3A;
+  --token-monte-soft: #DCE6DC;
+  --token-ladrillo: #C4553B;
+  --token-ladrillo-text: #A23E27;
+  --token-ladrillo-soft: #F5DFD7;
+  --token-manteca: #F0D488;
+  --token-manteca-soft: #FAF0CF;
+  --token-manteca-text: #6B5310;
+  --token-scrim: rgba(29,38,32,.4);
+
+  /* §9.2 shadows */
+  --token-shadow-level-1: 0 1px 2px rgba(29,38,32,.06), 0 8px 24px -8px rgba(29,38,32,.18);
+  --token-shadow-level-2: 0 24px 64px -12px rgba(29,38,32,.32);
+
+  /* §8.1/§8.2 motion tokens */
+  --motion-duration-instant: 100ms;
+  --motion-duration-quick: 180ms;
+  --motion-duration-base: 260ms;
+  --motion-duration-slow: 420ms;
+  --motion-easing-enter: cubic-bezier(.2, 0, 0, 1);
+  --motion-easing-exit: cubic-bezier(.4, 0, 1, 1);
+  --motion-easing-move: cubic-bezier(.3, 0, 0, 1);
+
+  /** @deprecated Brand palette tokens — remapped to the §9 neutral palette, kept for unmigrated classes. */
+  --brand-primary: var(--token-monte);
+  --brand-primary-light: var(--token-monte-soft);
+  --brand-lime: var(--token-manteca-soft);
+  --brand-success-dark: var(--token-monte);
+  --brand-lavender: var(--token-monte-soft);
+  --brand-lavender-light: var(--token-monte-soft);
+  --brand-purple-dark: var(--token-ink);
+  --brand-tan: var(--token-sand);
+  --brand-cream: var(--token-sand);
+  --brand-orange: var(--token-ladrillo);
+  --brand-peach: var(--token-ladrillo-soft);
 
   /* Shadow tokens */
   --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.05);
@@ -52,38 +84,58 @@
 }
 
 .dark {
-  --background: 220 13% 10%;
-  --foreground: 39 30% 93%;
-  --card: 220 13% 13%;
-  --card-foreground: 39 30% 93%;
-  --popover: 220 13% 13%;
-  --popover-foreground: 39 30% 93%;
-  --primary: 234 99% 72%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 220 13% 18%;
-  --secondary-foreground: 39 30% 93%;
-  --muted: 220 13% 16%;
-  --muted-foreground: 0 0% 60%;
-  --accent: 220 13% 18%;
-  --accent-foreground: 39 30% 93%;
-  --destructive: 0 62% 40%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 220 13% 22%;
-  --input: 220 13% 22%;
-  --ring: 234 99% 72%;
-  --foreground-secondary: 0 0% 75%;
-  --foreground-tertiary: 0 0% 60%;
-  --success: 142 71% 40%;
-  --xp: 38 92% 55%;
-  --level: 262 83% 65%;
+  --background: 130 14% 8%;      /* paper #121813 */
+  --foreground: 40 32% 89%;      /* ink #ECE6DA */
+  --card: 135 13% 12%;           /* surface #1B231D */
+  --card-foreground: 40 32% 89%; /* ink #ECE6DA */
+  --popover: 135 13% 12%;        /* surface #1B231D */
+  --popover-foreground: 40 32% 89%; /* ink #ECE6DA */
+  --primary: 146 26% 60%;        /* monte #7DB394 */
+  --primary-foreground: 130 14% 8%; /* paper #121813 */
+  --secondary: 133 11% 15%;      /* sand #232C25 */
+  --secondary-foreground: 40 32% 89%; /* ink #ECE6DA */
+  --muted: 133 11% 15%;          /* sand #232C25 */
+  --muted-foreground: 133 5% 66%; /* ink2 #A3ACA5 */
+  --accent: 133 11% 15%;         /* sand #232C25 */
+  --accent-foreground: 40 32% 89%; /* ink #ECE6DA */
+  --destructive: 12 73% 67%;     /* ladrillo #E8866E */
+  --destructive-foreground: 130 14% 8%; /* paper #121813 */
+  --border: 142 12% 19%;         /* line #2A352E */
+  --input: 142 12% 19%;          /* line #2A352E */
+  --ring: 146 26% 60%;           /* monte #7DB394 */
+  --foreground-secondary: 133 5% 66%;  /* ink2 #A3ACA5 */
+  --foreground-tertiary: 138 4% 50%;   /* ink3 #7A847D */
+  --success: 146 26% 60%;        /* monte #7DB394 */
+  --xp: 44 78% 74%;              /* manteca #F0D488 */
+  --level: 146 26% 60%;          /* monte #7DB394 */
 
-  /* Dark mode brand palette adjustments */
-  --brand-lime: #c5f07a;
-  --brand-lavender: #c4a8f0;
-  --brand-lavender-light: #d8c9f5;
-  --brand-cream: #3d3520;
-  --brand-tan: #3d3520;
-  --brand-success-dark: #8cc462;
+  /* §9.1 color tokens — dark */
+  --token-paper: #121813;
+  --token-surface: #1B231D;
+  --token-line: #2A352E;
+  --token-line-soft: #232C25;
+  --token-sand: #232C25;
+  --token-ink: #ECE6DA;
+  --token-ink-2: #A3ACA5;
+  --token-ink-3: #7A847D;
+  --token-monte: #7DB394;
+  --token-monte-pressed: #6A9E80;
+  --token-monte-soft: #1F3329;
+  --token-ladrillo: #E8866E;
+  --token-ladrillo-text: #E8866E;
+  --token-ladrillo-soft: #3A2420;
+  --token-manteca: #F0D488;
+  --token-manteca-soft: #3A3320;
+  --token-manteca-text: #F0D488;
+  --token-scrim: rgba(0,0,0,.6);
+
+  /** @deprecated Dark mode brand palette adjustments — remapped to the §9 neutral palette. */
+  --brand-lime: var(--token-manteca-soft);
+  --brand-lavender: var(--token-monte-soft);
+  --brand-lavender-light: var(--token-monte-soft);
+  --brand-cream: var(--token-sand);
+  --brand-tan: var(--token-sand);
+  --brand-success-dark: var(--token-monte);
 }
 
 @theme inline {
@@ -111,16 +163,38 @@
   --color-success: hsl(var(--success));
   --color-xp: hsl(var(--xp));
   --color-level: hsl(var(--level));
-  --font-sans: var(--font-nunito);
-  --font-display: var(--font-nunito);
-  --font-handwritten: var(--font-indie-flower);
-  --font-handwritten-title: var(--font-indie-flower);
+  --font-sans: var(--font-schibsted);
+  --font-display: var(--font-schibsted);
+  /** @deprecated kept so existing font-handwritten classes keep compiling; Fase R9 removes them. */
+  --font-handwritten: var(--font-schibsted);
+  --font-handwritten-title: var(--font-schibsted);
   --radius-sm: calc(var(--radius) - 6px);
   --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
-  /* Brand palette — enables bg-brand-lime, text-brand-purple-dark, etc. */
+  /* §9.1 color tokens */
+  --color-paper: var(--token-paper);
+  --color-surface: var(--token-surface);
+  --color-line: var(--token-line);
+  --color-line-soft: var(--token-line-soft);
+  --color-sand: var(--token-sand);
+  --color-ink: var(--token-ink);
+  --color-ink-2: var(--token-ink-2);
+  --color-ink-3: var(--token-ink-3);
+  --color-monte: var(--token-monte);
+  --color-monte-pressed: var(--token-monte-pressed);
+  --color-monte-soft: var(--token-monte-soft);
+  --color-ladrillo: var(--token-ladrillo);
+  --color-ladrillo-text: var(--token-ladrillo-text);
+  --color-ladrillo-soft: var(--token-ladrillo-soft);
+  --color-manteca: var(--token-manteca);
+  --color-manteca-soft: var(--token-manteca-soft);
+  --color-manteca-text: var(--token-manteca-text);
+  --color-scrim: var(--token-scrim);
+  --shadow-level-1: var(--token-shadow-level-1);
+  --shadow-level-2: var(--token-shadow-level-2);
+  /** @deprecated Brand palette — enables bg-brand-lime, text-brand-purple-dark, etc. */
   --color-brand-primary: var(--brand-primary);
   --color-brand-primary-light: var(--brand-primary-light);
   --color-brand-lime: var(--brand-lime);

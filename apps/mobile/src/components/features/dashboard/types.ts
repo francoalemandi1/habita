@@ -11,7 +11,7 @@ export type HeroPriority =
 
 export interface HeroState {
   priority: HeroPriority;
-  /** Motivational headline (Caveat font) */
+  /** Motivational headline */
   headline: string;
   /** Contextual description */
   label: string;

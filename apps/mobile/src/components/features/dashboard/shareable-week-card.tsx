@@ -171,9 +171,8 @@ function createStyles(c: ThemeColors) {
       marginBottom: spacing.md,
     },
     bigNumber: {
-      fontFamily: fontFamily.handwritten,
+      fontFamily: fontFamily.bold,
       fontSize: 56,
-      fontWeight: "700",
     },
     subtitle: {
       fontFamily: fontFamily.sans,
@@ -182,7 +181,7 @@ function createStyles(c: ThemeColors) {
       marginTop: 2,
     },
     tierLabel: {
-      fontFamily: fontFamily.handwritten,
+      fontFamily: fontFamily.semibold,
       fontSize: 22,
       color: c.text,
       marginTop: spacing.sm,
@@ -229,7 +228,7 @@ function createStyles(c: ThemeColors) {
       marginTop: spacing.xl,
     },
     funMessage: {
-      fontFamily: fontFamily.handwritten,
+      fontFamily: fontFamily.semibold,
       fontSize: 22,
       color: c.text,
       marginTop: spacing.lg,

@@ -53,16 +53,14 @@ const splashStyles = StyleSheet.create({
     marginBottom: 8,
   },
   brand: {
-    fontFamily: "DMSans",
+    fontFamily: fontFamily.bold,
     fontSize: 44,
-    fontWeight: "800",
     color: colors.lime,
     letterSpacing: -1,
   },
   tagline: {
-    fontFamily: "DMSans",
+    fontFamily: fontFamily.medium,
     fontSize: 16,
-    fontWeight: "500",
     color: "rgba(255,255,255,0.7)",
   },
 });
@@ -126,8 +124,10 @@ function RootNavigator() {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    DMSans: require("../assets/fonts/DMSans-Variable.ttf"),
-    Caveat: require("../assets/fonts/Caveat-Variable.ttf"),
+    "SchibstedGrotesk-Regular": require("../assets/fonts/SchibstedGrotesk_400Regular.ttf"),
+    "SchibstedGrotesk-Medium": require("../assets/fonts/SchibstedGrotesk_500Medium.ttf"),
+    "SchibstedGrotesk-SemiBold": require("../assets/fonts/SchibstedGrotesk_600SemiBold.ttf"),
+    "SchibstedGrotesk-Bold": require("../assets/fonts/SchibstedGrotesk_700Bold.ttf"),
   });
 
   if (!fontsLoaded) {

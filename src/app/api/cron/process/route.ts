@@ -9,6 +9,8 @@ import { cleanupExpiredMobileAuthSessions } from "@/lib/mobile-auth";
 import { deliverNotification, deliverNotificationToMembers } from "@/lib/push-delivery";
 import { processRotations } from "@/lib/rotation-generator";
 import { handleApiError } from "@/lib/api-response";
+import { authorizeCronRequest } from "@/lib/cron-auth";
+
 import type { NextRequest } from "next/server";
 
 export const maxDuration = 300;
@@ -776,20 +778,9 @@ async function processSpendingAnomalyAlerts(): Promise<number> {
 }
 
 /**
- * POST /api/cron/process
  * Job programado: (1) redistribución por ausencias, (2) limpieza de notificaciones, (3) push reminders, (4) gastos recurrentes.
- * Protegido por CRON_SECRET.
  */
-export async function POST(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-  }
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+async function runCronProcess(cronSecret: string) {
   try {
     const [absenceResult, cleanupResult, billingResult, expireResult, mobileAuthCleanup, proactiveResult, culturalResult, dealResult, rotationResult, morningBriefingResult, overdueTaskResult, spendingAnomalyResult] = await Promise.all([
       processAbsenceRedistribution(),
@@ -880,27 +871,14 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET /api/cron/process
- * Estado del endpoint (monitoreo). Protegido por CRON_SECRET.
+ * GET and POST /api/cron/process
+ * Vercel Cron sends GET; manual/internal triggers send POST. Both run the same job.
+ * Protegido por CRON_SECRET.
  */
 export async function GET(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-  }
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  try {
-    return NextResponse.json({
-      status: "ready",
-      endpoint: "POST /api/cron/process",
-      description:
-        "Redistribuye asignaciones por ausencias, limpia notificaciones y sesiones mobile expiradas, genera facturas de servicios, envía notificaciones proactivas",
-    });
-  } catch (error) {
-    return handleApiError(error, { route: "/api/cron/process", method: "GET" });
-  }
+  const auth = authorizeCronRequest(request);
+  if (!auth.isAuthorized) return auth.response;
+  return runCronProcess(auth.cronSecret);
 }
+
+export const POST = GET;

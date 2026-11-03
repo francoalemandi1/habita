@@ -5,6 +5,7 @@ import { isAIEnabled } from "@/lib/llm/provider";
 import { getLocalDayOfWeek } from "@/lib/llm/regional-context";
 import { deliverNotificationToMembers } from "@/lib/push-delivery";
 import { handleApiError } from "@/lib/api-response";
+import { authorizeCronRequest } from "@/lib/cron-auth";
 
 import type { NextRequest } from "next/server";
 
@@ -20,20 +21,9 @@ interface HouseholdPlanResult {
 }
 
 /**
- * POST /api/cron/weekly-plan
  * Generates and applies task distribution for households whose planningDay matches today.
- * Runs every 6 hours to cover all timezones. Protected by CRON_SECRET.
  */
-export async function POST(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-  }
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+async function runWeeklyPlanCron() {
   try {
     const now = new Date();
 
@@ -122,30 +112,14 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET /api/cron/weekly-plan
- * Status endpoint for monitoring. Protected by CRON_SECRET.
+ * GET and POST /api/cron/weekly-plan
+ * Vercel Cron sends GET; manual/internal triggers send POST. Both run the same job.
+ * Protected by CRON_SECRET.
  */
 export async function GET(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-  }
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  try {
-    const aiEnabled = isAIEnabled();
-
-    return NextResponse.json({
-      status: "ready",
-      endpoint: "POST /api/cron/weekly-plan",
-      description: "Generates task distribution for households on their configured planning day",
-      aiEnabled,
-      schedule: "Every 6 hours (covers all timezones)",
-    });
-  } catch (error) {
-    return handleApiError(error, { route: "/api/cron/weekly-plan", method: "GET" });
-  }
+  const auth = authorizeCronRequest(request);
+  if (!auth.isAuthorized) return auth.response;
+  return runWeeklyPlanCron();
 }
+
+export const POST = GET;

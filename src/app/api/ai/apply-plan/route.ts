@@ -4,6 +4,7 @@ import { handleApiError } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
 import { getWeekMonday } from "@/lib/calendar-utils";
 import { createNotificationForMembers } from "@/lib/notification-service";
+import { computeDueDateForDayOfWeek } from "@/lib/plan-day-mapping";
 import { z } from "zod";
 
 import type { NextRequest } from "next/server";
@@ -15,7 +16,7 @@ const applyPlanSchema = z.object({
       taskName: z.string(),
       memberId: z.string(),
       memberName: z.string().optional(),
-      dayOfWeek: z.number().int().min(0).max(6).optional(),
+      dayOfWeek: z.number().int().min(0).max(7).optional(),
     }),
   ),
 });
@@ -70,8 +71,8 @@ export async function POST(request: NextRequest) {
     let planStartDate: Date | undefined;
     let planEndDate: Date | undefined;
     if (planId) {
-      const existingPlan = await prisma.weeklyPlan.findUnique({
-        where: { id: planId },
+      const existingPlan = await prisma.weeklyPlan.findFirst({
+        where: { id: planId, householdId: member.householdId },
         select: { expiresAt: true, startDate: true },
       });
       if (existingPlan) {
@@ -95,10 +96,6 @@ export async function POST(request: NextRequest) {
 
     const skipped: string[] = [];
 
-    // Fallback: end-of-today for assignments without dayOfWeek
-    const endOfToday = new Date(now);
-    endOfToday.setHours(23, 59, 59, 999);
-
     for (const assignment of assignments) {
       const memberId = memberIdSet.has(assignment.memberId) ? assignment.memberId : undefined;
       const taskId = taskMap.get(assignment.taskName.toLowerCase());
@@ -108,19 +105,8 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Use dayOfWeek from AI plan when available (1=Mon..7=Sun), relative to plan startDate
-      let dueDate: Date;
-      if (assignment.dayOfWeek && assignment.dayOfWeek >= 1 && assignment.dayOfWeek <= 7) {
-        dueDate = new Date(referenceDate);
-        dueDate.setDate(referenceDate.getDate() + assignment.dayOfWeek - 1);
-        dueDate.setHours(23, 59, 59, 999);
-        // If the computed date is in the past, push to today
-        if (dueDate < now) {
-          dueDate = new Date(endOfToday);
-        }
-      } else {
-        dueDate = new Date(endOfToday);
-      }
+      // Use dayOfWeek from AI plan when available (1=Mon..7=Sun, 0=Sun), relative to plan startDate
+      let dueDate = computeDueDateForDayOfWeek(assignment.dayOfWeek, referenceDate, now);
 
       // Cap at plan end date
       if (planEndDate && dueDate > planEndDate) {
@@ -152,11 +138,11 @@ export async function POST(request: NextRequest) {
         data: { status: "EXPIRED" },
       });
 
-      // Cancel ALL assignments from the old plan (including completed ones)
+      // Cancel only not-yet-finished assignments from the old plan; preserve history
       const cancelled = await tx.assignment.updateMany({
         where: {
           householdId: member.householdId,
-          status: { in: ["PENDING", "IN_PROGRESS", "COMPLETED", "VERIFIED"] },
+          status: { in: ["PENDING", "IN_PROGRESS"] },
         },
         data: { status: "CANCELLED" },
       });

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { verifyCsrfOrigin } from "@/lib/csrf";
+import { assertMembersBelongToHousehold } from "@/lib/member-utils";
 import { Prisma } from "@prisma/client";
 
 import type { NextRequest } from "next/server";
@@ -44,6 +45,20 @@ export async function POST(request: NextRequest) {
     }
 
     const data = validation.data;
+
+    if (data.allocations && data.allocations.length > 0) {
+      const belongs = await assertMembersBelongToHousehold(
+        data.allocations.map((a) => a.memberId),
+        member.householdId,
+      );
+
+      if (!belongs) {
+        return NextResponse.json(
+          { error: "Todos los miembros deben pertenecer al hogar" },
+          { status: 400 },
+        );
+      }
+    }
 
     // Upsert fund
     const fund = await prisma.sharedFund.upsert({

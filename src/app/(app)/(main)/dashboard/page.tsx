@@ -323,19 +323,6 @@ export default async function DashboardPage() {
       })
     : [];
 
-  // Auto-finalize plan if all assignments are done
-  if (activePlan?.status === "APPLIED" && planPendingAssignments.length === 0) {
-    try {
-      await prisma.weeklyPlan.update({
-        where: { id: activePlan.id },
-        data: { status: "COMPLETED" },
-      });
-      redirect("/dashboard");
-    } catch {
-      // Non-blocking: continue rendering normally
-    }
-  }
-
   // Only show calendar assignments when plan is APPLIED (active and running)
   const hasAppliedPlan = activePlan?.status === "APPLIED";
   const calendarData = hasAppliedPlan ? calendarAssignments : [];

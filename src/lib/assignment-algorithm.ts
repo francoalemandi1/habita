@@ -18,9 +18,21 @@ interface MemberWithDetails extends Member {
 }
 
 /**
+ * Minimal shape needed for scoring, so batch scoring can be tested without Prisma types.
+ */
+interface ScoringMember {
+  id: string;
+  name: string;
+  memberType: Member["memberType"];
+  preferences: Array<{ taskId: string; preference: MemberPreference["preference"] }>;
+  assignments: Array<{ status: string }>;
+  absences: Array<{ startDate: Date; endDate: Date }>;
+}
+
+/**
  * Check if a member is absent on a given date.
  */
-function isAbsentOnDate(absences: MemberAbsence[], date: Date): boolean {
+function isAbsentOnDate(absences: Array<{ startDate: Date; endDate: Date }>, date: Date): boolean {
   const checkDate = new Date(date);
   checkDate.setHours(0, 0, 0, 0);
 
@@ -188,8 +200,8 @@ export async function calculateAssignmentScores(
 /**
  * Pre-loaded context for batch scoring (eliminates N+1 queries).
  */
-interface BatchScoreContext {
-  members: MemberWithDetails[];
+export interface BatchScoreContext {
+  members: ScoringMember[];
   /** Map of taskId → Map of memberId → lastCompletedAt */
   lastAssignmentsByTask: Map<string, Map<string, Date | null>>;
   tasks: Task[];
@@ -242,7 +254,7 @@ async function loadBatchScoreContext(
     taskMap.set(entry.memberId, entry._max.completedAt);
   }
 
-  return { members: members as MemberWithDetails[], lastAssignmentsByTask, tasks };
+  return { members, lastAssignmentsByTask, tasks };
 }
 
 /**
@@ -470,16 +482,64 @@ export async function autoAssignAllTasks(
   // Pre-load all scoring data in 3 parallel queries instead of N×2
   const batchContext = await loadBatchScoreContext(householdId, taskIds, now);
 
-  const details: Array<{ taskName: string; memberName: string }> = [];
-  const createData: Array<{ taskId: string; memberId: string; householdId: string; dueDate: Date }> = [];
+  const picks = pickAssigneesForBatch(batchContext, tasksToAssign, now);
 
-  for (const task of tasksToAssign) {
-    let scores = calculateScoresFromContext(batchContext, task.id, now);
+  if (picks.length > 0) {
+    try {
+      await prisma.assignment.createMany({
+        data: picks.map((p) => ({
+          taskId: p.taskId,
+          memberId: p.memberId,
+          householdId,
+          dueDate: p.dueDate,
+        })),
+      });
+    } catch (error) {
+      console.error("Failed to batch create assignments:", { householdId, taskCount: picks.length, error });
+      return { success: false, assignmentsCreated: 0, method: "algorithm", details: [] };
+    }
+  }
+
+  return {
+    success: true,
+    assignmentsCreated: picks.length,
+    method: "algorithm",
+    details: picks.map((p) => ({ taskName: p.taskName, memberName: p.memberName })),
+  };
+}
+
+interface BatchAssignmentPick {
+  taskId: string;
+  taskName: string;
+  memberId: string;
+  memberName: string;
+  dueDate: Date;
+}
+
+/**
+ * Pick the best assignee for each task from pre-loaded context, updating each
+ * chosen member's in-memory pending load so later tasks in the same batch
+ * see an accurate load penalty instead of always picking the same top member.
+ */
+export function pickAssigneesForBatch(
+  context: BatchScoreContext,
+  tasks: Array<{ id: string; name: string; frequency: string }>,
+  now: Date,
+): BatchAssignmentPick[] {
+  const picks: BatchAssignmentPick[] = [];
+  // Work on a copy of each member's load so the caller's context is not mutated
+  const workingContext: BatchScoreContext = {
+    ...context,
+    members: context.members.map((m) => ({ ...m, assignments: [...m.assignments] })),
+  };
+
+  for (const task of tasks) {
+    let scores = calculateScoresFromContext(workingContext, task.id, now);
     if (scores.length === 0) {
       // Retry with only adults if age filter excluded everyone
-      const fullTask = batchContext.tasks.find((t) => t.id === task.id);
+      const fullTask = workingContext.tasks.find((t) => t.id === task.id);
       if (fullTask?.minAge != null) {
-        scores = calculateScoresFromContext(batchContext, task.id, now, { onlyAdults: true });
+        scores = calculateScoresFromContext(workingContext, task.id, now, { onlyAdults: true });
       }
     }
 
@@ -487,22 +547,14 @@ export async function autoAssignAllTasks(
     if (!best) continue;
 
     const dueDate = computeDueDateForFrequency(task.frequency as TaskFrequency, now);
-    createData.push({ taskId: task.id, memberId: best.memberId, householdId, dueDate });
-    details.push({ taskName: task.name, memberName: best.memberName });
-  }
+    picks.push({ taskId: task.id, taskName: task.name, memberId: best.memberId, memberName: best.memberName, dueDate });
 
-  if (createData.length > 0) {
-    try {
-      await prisma.assignment.createMany({ data: createData });
-    } catch (error) {
-      console.error("Failed to batch create assignments:", error);
+    // Reflect this pick's load in-context so the next task's scoring sees it
+    const assignedMember = workingContext.members.find((m) => m.id === best.memberId);
+    if (assignedMember) {
+      assignedMember.assignments.push({ status: "PENDING" });
     }
   }
 
-  return {
-    success: true,
-    assignmentsCreated: details.length,
-    method: "algorithm",
-    details,
-  };
+  return picks;
 }

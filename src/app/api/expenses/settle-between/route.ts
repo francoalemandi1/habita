@@ -7,7 +7,8 @@ import { settleBetweenSchema } from "@/lib/validations/expense";
 /**
  * POST /api/expenses/settle-between
  * Settle all debts between two members in a single transaction.
- * fromMember owes toMember — marks all matching unsettled splits as settled.
+ * Settles both directions: fromMember's splits on expenses paid by toMember,
+ * and toMember's splits on expenses paid by fromMember.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -42,16 +43,15 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      // Find all unsettled splits where fromMember owes toMember
-      // (toMember paid the expense, fromMember has an unsettled split)
+      // Find all unsettled splits in either direction between the pair
       const splitsToSettle = await tx.expenseSplit.findMany({
         where: {
           settled: false,
-          memberId: fromMemberId,
-          expense: {
-            householdId,
-            paidById: toMemberId,
-          },
+          expense: { householdId },
+          OR: [
+            { memberId: fromMemberId, expense: { paidById: toMemberId } },
+            { memberId: toMemberId, expense: { paidById: fromMemberId } },
+          ],
         },
         select: { id: true, amount: true },
       });

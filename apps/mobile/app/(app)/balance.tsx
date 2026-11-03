@@ -48,7 +48,7 @@ import {
 } from "lucide-react-native";
 import { useDeleteExpense, useExpenses, useUpdateExpense } from "@/hooks/use-expenses";
 import { useExpenseInsights } from "@/hooks/use-expense-insights";
-import { useExpenseBalances, useSettleDebts } from "@/hooks/use-expense-balances";
+import { useExpenseBalances, useSettleAll } from "@/hooks/use-expense-balances";
 import { useFund, useContributeToFund, useSetupFund } from "@/hooks/use-fund";
 import { useMembers } from "@/hooks/use-members";
 import { useHouseholdDetail } from "@/hooks/use-households";
@@ -985,7 +985,7 @@ function SaldosTabContent({ currentMemberId }: { currentMemberId: string }) {
   const saldosStyles = useMemo(() => createSaldosStyles(colors), [colors]);
   const balancesQuery = useExpenseBalances();
   const insightsQuery = useExpenseInsights();
-  const settleDebts = useSettleDebts();
+  const settleAll = useSettleAll();
 
   const balances = balancesQuery.data?.balances ?? [];
   const transactions = balancesQuery.data?.transactions ?? [];
@@ -1007,10 +1007,11 @@ function SaldosTabContent({ currentMemberId }: { currentMemberId: string }) {
         {
           text: "Confirmar",
           onPress: async () => {
-            for (const tx of transactions) {
-              await settleDebts.mutateAsync({ fromMemberId: tx.fromMemberId, toMemberId: tx.toMemberId });
-            }
-            Alert.alert("Listo", "Todas las deudas fueron liquidadas.");
+            const result = await settleAll.mutateAsync();
+            Alert.alert(
+              result.settledCount > 0 ? "Listo" : "Nada para liquidar",
+              result.settledCount > 0 ? "Todas las deudas fueron liquidadas." : "No había deudas pendientes.",
+            );
           },
         },
       ],

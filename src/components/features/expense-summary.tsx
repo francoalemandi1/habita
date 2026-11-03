@@ -65,21 +65,18 @@ export function ExpenseSummary({ currentMemberId, refreshKey }: ExpenseSummaryPr
     setShowSettleDialog(false);
 
     try {
-      let totalSettled = 0;
-      for (const tx of previousData.transactions) {
-        const result = await apiFetch<{ settledCount: number; totalAmount: number }>(
-          "/api/expenses/settle-between",
-          {
-            method: "POST",
-            body: { fromMemberId: tx.fromMemberId, toMemberId: tx.toMemberId },
-          },
-        );
-        totalSettled += result.settledCount;
-      }
-      toast.success(
-        "Deudas liquidadas",
-        `${totalSettled} pago${totalSettled !== 1 ? "s" : ""} liquidado${totalSettled !== 1 ? "s" : ""}`,
+      const result = await apiFetch<{ settledCount: number; totalAmount: number }>(
+        "/api/expenses/settle-all",
+        { method: "POST" },
       );
+      if (result.settledCount > 0) {
+        toast.success(
+          "Deudas liquidadas",
+          `${result.settledCount} pago${result.settledCount !== 1 ? "s" : ""} liquidado${result.settledCount !== 1 ? "s" : ""}`,
+        );
+      } else {
+        toast.info("Nada para liquidar", "No había deudas pendientes");
+      }
       await fetchBalances();
       router.refresh();
     } catch {

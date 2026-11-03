@@ -5,6 +5,7 @@ import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { updateExpenseSchema } from "@/lib/validations/expense";
 import { inferExpenseSubcategory } from "@/lib/expense-subcategory";
+import { splitEqually } from "@/lib/expense-splits";
 
 import type { NextRequest } from "next/server";
 
@@ -133,20 +134,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         select: { id: true },
       });
 
-      const shareAmount = data.amount / activeMembers.length;
+      const newSplits = splitEqually(data.amount, activeMembers.map((m) => m.id));
 
       await prisma.$transaction([
         prisma.expense.update({
           where: { id: expenseId },
           data: updateData,
         }),
-        // Delete old splits and recreate with new amounts
+        // TODO(stage-4): recreating splits drops settled state
         prisma.expenseSplit.deleteMany({ where: { expenseId } }),
         prisma.expenseSplit.createMany({
-          data: activeMembers.map((m) => ({
+          data: newSplits.map((s) => ({
             expenseId,
-            memberId: m.id,
-            amount: new Prisma.Decimal(shareAmount.toFixed(2)),
+            memberId: s.memberId,
+            amount: new Prisma.Decimal(s.amount.toFixed(2)),
           })),
         }),
       ]);

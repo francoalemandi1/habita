@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "pnpm run db:up && next dev -p 3001",
     "dev:mobile": "pnpm --filter @habita/mobile dev",
@@ -50,6 +53,7 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@tanstack/react-query": "^5.75.5",
     "@tavily/core": "^0.7.1",
+    "@typesafe-ai/sdk": "0.7.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.36.4",
     "ai": "^6.0.72",

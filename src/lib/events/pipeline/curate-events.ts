@@ -11,6 +11,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { getDeepSeekModel } from "@/lib/llm/deepseek-provider";
+import { runCuratorShadow } from "./curator-shadow";
 
 import type { FilteredEvent, CuratedEvent } from "./types";
 
@@ -105,13 +106,15 @@ export async function curateEvents(
   if (events.length === 0) return [];
 
   const results: CuratedEvent[] = [];
+  const deepseekCurated: CuratedEvent[] = [];
 
   for (let i = 0; i < events.length; i += CURATOR_BATCH_SIZE) {
     const batch = events.slice(i, i + CURATOR_BATCH_SIZE);
 
     try {
-      const curated = await curateBatch(batch, city);
+      const { curated, deepseekOnly } = await curateBatch(batch, city);
       results.push(...curated);
+      deepseekCurated.push(...deepseekOnly);
     } catch (error) {
       console.warn(
         `[curator] Batch ${Math.floor(i / CURATOR_BATCH_SIZE)} failed, using fallback scores:`,
@@ -122,6 +125,9 @@ export async function curateEvents(
   }
 
   console.log(`[curator] Curated ${results.length}/${events.length} events`);
+
+  await runCuratorShadow(deepseekCurated, city);
+
   return results;
 }
 
@@ -129,10 +135,16 @@ export async function curateEvents(
 // Batch curation
 // ============================================
 
+interface BatchCurationResult {
+  curated: CuratedEvent[];
+  /** Events actually scored by DeepSeek — excludes events filled in with fallback scores. */
+  deepseekOnly: CuratedEvent[];
+}
+
 async function curateBatch(
   events: FilteredEvent[],
   city: string,
-): Promise<CuratedEvent[]> {
+): Promise<BatchCurationResult> {
   const eventList = events
     .map((e, i) => `[${i}] "${e.title}" — ${e.venue} — ${e.categoryGuess} — ${e.date}\n${e.description}`)
     .join("\n\n");
@@ -146,13 +158,13 @@ async function curateBatch(
     temperature: CURATOR_TEMPERATURE,
   });
 
-  const curated: CuratedEvent[] = [];
+  const deepseekOnly: CuratedEvent[] = [];
 
   for (const score of result.object.events) {
     const event = events[score.event_index];
     if (!event) continue;
 
-    curated.push({
+    deepseekOnly.push({
       ...event,
       culturalCategory: score.cultural_category,
       culturalScore: score.cultural_score,
@@ -162,6 +174,8 @@ async function curateBatch(
     });
   }
 
+  const curated: CuratedEvent[] = [...deepseekOnly];
+
   // Fill in any events missed by the LLM
   for (let i = 0; i < events.length; i++) {
     const event = events[i]!;
@@ -170,7 +184,7 @@ async function curateBatch(
     }
   }
 
-  return curated;
+  return { curated, deepseekOnly };
 }
 
 // ============================================

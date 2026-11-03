@@ -1063,6 +1063,24 @@ model AiJobLog {
   @@map("ai_job_logs")
 }
 
+/// Shadow-mode comparison between a primary LLM decision and Jev (TypeSafe AI System One).
+/// Write-only — never read back into any production decision path.
+model AiShadowJudgment {
+  id          String   @id @default(cuid())
+  task        String
+  subjectKey  String
+  subject     Json
+  primary     Json
+  shadow      Json
+  shadowModel String
+  latencyMs   Int
+  inputTokens Int?
+  createdAt   DateTime @default(now())
+
+  @@index([task, createdAt])
+  @@map("ai_shadow_judgments")
+}
+
 // ============================================
 // SHARED FUND MODELS
 // ============================================

@@ -42,6 +42,7 @@ const TYPE_TO_CATEGORY: Partial<Record<NotificationType, string>> = {
   TRANSFER_REJECTED: "transfers",
   SERVICE_DUE_SOON: "services",
   EXPENSE_SHARED: "expenses",
+  SETTLEMENT_RECORDED: "expenses",
   EXPENSE_WEEKLY_SUMMARY: "summary",
   MEMBER_JOINED: "household",
   PLAN_READY: "plans",

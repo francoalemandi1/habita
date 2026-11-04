@@ -13,6 +13,8 @@ const DEEP_LINK_MAP: Partial<Record<NotificationType, string>> = {
   TRANSFER_REJECTED: "/(app)/transfers",
   SERVICE_DUE_SOON: "/(app)/services",
   EXPENSE_SHARED: "/(app)/balance",
+  // "/(app)/balance" resolves on old store builds and redirects to Plata on new ones.
+  SETTLEMENT_RECORDED: "/(app)/balance",
   EXPENSE_WEEKLY_SUMMARY: "/(app)/expense-insights",
   MEMBER_JOINED: "/(app)/profile",
   PLAN_READY: "/(app)/plan",

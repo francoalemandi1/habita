@@ -24,7 +24,10 @@ const {
 }));
 
 vi.mock("@/lib/session", () => ({ requireMember: requireMemberMock }));
-vi.mock("@/lib/notification-service", () => ({ createNotification: createNotificationMock }));
+vi.mock("@/lib/push-delivery", () => ({
+  deliverNotification: createNotificationMock,
+  getHouseholdTimezone: vi.fn().mockResolvedValue(null),
+}));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {

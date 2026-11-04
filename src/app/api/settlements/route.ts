@@ -9,7 +9,7 @@ import { verifyCsrfOrigin } from "@/lib/csrf";
 import { ForbiddenError, BadRequestError } from "@/lib/errors";
 import { assertMembersBelongToHousehold } from "@/lib/member-utils";
 import { getHouseholdBalances } from "@/lib/expense-balances";
-import { createNotification } from "@/lib/notification-service";
+import { deliverNotification, getHouseholdTimezone } from "@/lib/push-delivery";
 import { buildSettlementNotices } from "@/lib/settlement-notifications";
 
 import type { NextRequest } from "next/server";
@@ -157,14 +157,17 @@ async function notifySettlementParties(rows: SettlementWithNames[], recorder: Cu
     rows.map((row) => ({ ...row, amount: row.amount.toNumber() })),
     { id: recorder.id, name: recorder.name },
   );
+  if (notices.length === 0) return;
+  const householdTimezone = await getHouseholdTimezone(recorder.id);
   await Promise.all(
     notices.map((notice) =>
-      createNotification({
+      deliverNotification({
         memberId: notice.memberId,
         type: "SETTLEMENT_RECORDED",
         title: "Pago registrado",
         message: notice.message,
         actionUrl: "/plata?v=saldos",
+        householdTimezone,
       }),
     ),
   );

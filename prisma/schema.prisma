@@ -165,6 +165,7 @@ model Household {
   promoPipelineLogs    PromoPipelineLog[]
   aiJobLogs            AiJobLog[]
   sharedFund           SharedFund?
+  settlements          Settlement[]
   @@map("households")
 }
 
@@ -202,6 +203,9 @@ model Member {
   expoPushTokens       ExpoPushToken[]
   notificationPreferences NotificationPreference[]
   pushDeliveryLogs     PushDeliveryLog[]
+  settlementsFrom      Settlement[] @relation("SettlementFrom")
+  settlementsTo        Settlement[] @relation("SettlementTo")
+  settlementsCreated   Settlement[] @relation("SettlementCreatedBy")
   aiJobLogs            AiJobLog[]
   @@unique([userId, householdId])
   @@index([householdId])
@@ -627,7 +631,11 @@ model ExpenseSplit {
   expenseId String
   memberId  String
   amount    Decimal   @db.Decimal(10, 2)
+  /// Legacy flag from the split-level settlement model. No longer written by
+  /// new code — balances are now Σ splits − Σ Settlement rows. Kept for older
+  /// app builds that still read it.
   settled   Boolean   @default(false)
+  /// Legacy, see `settled` above.
   settledAt DateTime?
 
   expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
@@ -637,6 +645,34 @@ model ExpenseSplit {
   @@index([memberId])
   @@index([memberId, settled])
   @@map("expense_splits")
+}
+
+/// Settlement ledger: records money actually transferred between members to
+/// close out expense-split debts. Balances are computed as
+/// Σ ExpenseSplit.amount (non-payer splits) − Σ Settlement.amount, per currency.
+model Settlement {
+  id             String    @id @default(cuid())
+  householdId    String
+  fromMemberId   String // who paid the debt
+  toMemberId     String // who received the payment
+  amount         Decimal   @db.Decimal(10, 2)
+  currency       String    @default("ARS")
+  settledAt      DateTime  @default(now())
+  createdById    String // member who recorded this settlement
+  note           String?
+  idempotencyKey String?
+  createdAt      DateTime  @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  fromMember Member   @relation("SettlementFrom", fields: [fromMemberId], references: [id], onDelete: Cascade)
+  toMember   Member   @relation("SettlementTo", fields: [toMemberId], references: [id], onDelete: Cascade)
+  createdBy  Member   @relation("SettlementCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([householdId, settledAt])
+  @@index([householdId, fromMemberId])
+  @@index([householdId, toMemberId])
+  @@unique([householdId, idempotencyKey])
+  @@map("settlements")
 }
 
 enum ExpenseCategory {

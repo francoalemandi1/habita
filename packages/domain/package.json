@@ -8,6 +8,7 @@
     "./expense-subcategory": "./src/expense-subcategory.ts",
     "./unit-parser": "./src/unit-parser.ts",
     "./onboarding-profile": "./src/onboarding-profile.ts",
-    "./casa-summary": "./src/casa-summary.ts"
+    "./casa-summary": "./src/casa-summary.ts",
+    "./money-balances": "./src/money-balances.ts"
   }
 }

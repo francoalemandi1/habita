@@ -9,6 +9,8 @@ import { verifyCsrfOrigin } from "@/lib/csrf";
 import { ForbiddenError, BadRequestError } from "@/lib/errors";
 import { assertMembersBelongToHousehold } from "@/lib/member-utils";
 import { getHouseholdBalances } from "@/lib/expense-balances";
+import { createNotification } from "@/lib/notification-service";
+import { buildSettlementNotices } from "@/lib/settlement-notifications";
 
 import type { NextRequest } from "next/server";
 import type { CurrentMember } from "@/lib/session";
@@ -86,10 +88,15 @@ export async function POST(request: NextRequest) {
       orderBy: { createdAt: "asc" },
     });
 
-    const settlements =
+    const recorded =
       existing.length > 0
-        ? existing
+        ? { rows: existing, isNew: false }
         : await insertSettlements({ householdId, transfers, idempotencyKey: keyPrefix, note, createdById: member.id });
+    const settlements = recorded.rows;
+    // Replays (retries of the same sheet) must not notify a second time.
+    if (recorded.isNew) {
+      await notifySettlementParties(settlements, member);
+    }
 
     const balances = await getHouseholdBalances(householdId);
     const primary = balances.byCurrency[balances.primaryCurrency] ?? { balances: [], transactions: [] };
@@ -109,11 +116,11 @@ async function insertSettlements(params: {
   idempotencyKey: string;
   note: string | undefined;
   createdById: string;
-}): Promise<SettlementWithNames[]> {
+}): Promise<{ rows: SettlementWithNames[]; isNew: boolean }> {
   const { householdId, transfers, idempotencyKey, note, createdById } = params;
 
   try {
-    return await prisma.$transaction(
+    const rows = await prisma.$transaction(
       transfers.map((transfer, index) =>
         prisma.settlement.create({
           data: {
@@ -130,17 +137,37 @@ async function insertSettlements(params: {
         }),
       ),
     );
+    return { rows, isNew: true };
   } catch (error) {
     // Race: another request inserted the same idempotencyKey first.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return prisma.settlement.findMany({
+      const rows = await prisma.settlement.findMany({
         where: { householdId, idempotencyKey: { startsWith: idempotencyKey } },
         include: settlementInclude,
         orderBy: { createdAt: "asc" },
       });
+      return { rows, isNew: false };
     }
     throw error;
   }
+}
+
+async function notifySettlementParties(rows: SettlementWithNames[], recorder: CurrentMember): Promise<void> {
+  const notices = buildSettlementNotices(
+    rows.map((row) => ({ ...row, amount: row.amount.toNumber() })),
+    { id: recorder.id, name: recorder.name },
+  );
+  await Promise.all(
+    notices.map((notice) =>
+      createNotification({
+        memberId: notice.memberId,
+        type: "SETTLEMENT_RECORDED",
+        title: "Pago registrado",
+        message: notice.message,
+        actionUrl: "/plata?v=saldos",
+      }),
+    ),
+  );
 }
 
 const historyQuerySchema = z.object({

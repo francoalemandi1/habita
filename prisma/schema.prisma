@@ -485,6 +485,7 @@ enum NotificationType {
   DAILY_BRIEFING
   SPENDING_ALERT
   EXPENSE_REMINDER
+  SETTLEMENT_RECORDED
 }
 
 // ============================================

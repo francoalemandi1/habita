@@ -10,6 +10,7 @@ const {
   queryRawMock,
   memberFindManyMock,
   groupByMock,
+  createNotificationMock,
 } = vi.hoisted(() => ({
   requireMemberMock: vi.fn(),
   memberCountMock: vi.fn(),
@@ -19,9 +20,11 @@ const {
   queryRawMock: vi.fn(),
   memberFindManyMock: vi.fn(),
   groupByMock: vi.fn(),
+  createNotificationMock: vi.fn(),
 }));
 
 vi.mock("@/lib/session", () => ({ requireMember: requireMemberMock }));
+vi.mock("@/lib/notification-service", () => ({ createNotification: createNotificationMock }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -106,6 +109,7 @@ describe("POST /api/settlements", () => {
 
     expect(response.status).toBe(200);
     expect(settlementCreateMock).not.toHaveBeenCalled();
+    expect(createNotificationMock).not.toHaveBeenCalled();
     const json = await response.json();
     expect(json.settlements).toHaveLength(1);
     expect(json.settlements[0].amount).toBe(50);

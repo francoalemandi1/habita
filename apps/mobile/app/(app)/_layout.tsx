@@ -133,7 +133,6 @@ export default function AppLayout() {
         <Tabs.Screen name="transfers" options={{ href: null, title: "Transferencias" }} />
         <Tabs.Screen name="task-catalog" options={{ href: null, title: "Catálogo de tareas" }} />
         <Tabs.Screen name="progress" options={{ href: null, title: "Progreso familiar" }} />
-        <Tabs.Screen name="fund" options={{ href: null, title: "Fondo Común" }} />
         <Tabs.Screen name="services" options={{ href: null, title: "Servicios" }} />
         <Tabs.Screen name="preferences" options={{ href: null, title: "Mis preferencias" }} />
         <Tabs.Screen name="rotations" options={{ href: null, title: "Ruleta de tareas" }} />

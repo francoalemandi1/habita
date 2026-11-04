@@ -42,6 +42,27 @@ export interface MemberOption {
   name: string;
 }
 
+/** Data needed to create an optimistic expense before the API responds. */
+export interface CreateExpensePayload {
+  title: string;
+  amount: number;
+  category: ExpenseCategory;
+  paidById: string;
+  splitType: SplitType;
+  splits?: Array<{ memberId: string; amount?: number; percentage?: number }>;
+  notes?: string;
+  /** If true, deduct from the shared fund instead of creating member splits. */
+  chargeToFund?: boolean;
+}
+
+/** Data needed for an optimistic update (only changed fields). */
+export interface UpdateExpensePayload {
+  title?: string;
+  amount?: number;
+  category?: ExpenseCategory;
+  notes?: string | null;
+}
+
 export interface SerializedService {
   id: string;
   title: string;

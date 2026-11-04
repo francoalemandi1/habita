@@ -52,7 +52,7 @@ import type { AlternativeProduct, CartProduct, SearchItem, ShoppingPlanResult, S
 import type { BankPromo, ExpenseCategory, GroceryCategory, SavedCart } from "@prisma/client";
 import type { MemberOption } from "@/types/expense";
 import type { QuickAddDefaults } from "@/components/features/add-expense-dialog";
-import type { CreateExpensePayload } from "@/components/features/expenses-view";
+import type { CreateExpensePayload } from "@/types/expense";
 import type { LucideIcon } from "lucide-react";
 import type { SaveCartInput } from "@/lib/validations/saved-items";
 

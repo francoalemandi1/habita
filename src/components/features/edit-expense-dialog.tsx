@@ -20,7 +20,7 @@ import { iconSize } from "@/lib/design-tokens";
 
 import type { ExpenseCategory } from "@prisma/client";
 import type { SerializedExpense } from "@/types/expense";
-import type { UpdateExpensePayload } from "@/components/features/expenses-view";
+import type { UpdateExpensePayload } from "@/types/expense";
 
 interface EditExpenseDialogProps {
   expense: SerializedExpense;

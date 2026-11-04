@@ -34,13 +34,23 @@ describe("normalizeAppPath", () => {
     expect(normalizeAppPath("/expenses")).toBe("/plata");
     expect(normalizeAppPath("/settings")).toBe("/perfil");
   });
+
+  it("maps /fund to the Fondo view inside Plata", () => {
+    expect(normalizeAppPath("/fund")).toBe("/plata?v=fondo");
+  });
+
+  it("merges an alias target's own query with the path's query and hash", () => {
+    expect(normalizeAppPath("/fund?highlight=abc#top")).toBe("/plata?v=fondo&highlight=abc#top");
+    expect(normalizeAppPath("/fund#top")).toBe("/plata?v=fondo#top");
+  });
 });
 
 describe("route tables", () => {
-  it("only points aliases at canonical routes", () => {
+  it("only points aliases at canonical routes, ignoring any view query", () => {
     const canonical = new Set<string>(Object.values(APP_ROUTES));
     for (const target of Object.values(MOBILE_LEGACY_ROUTE_ALIASES)) {
-      expect(canonical.has(target)).toBe(true);
+      const base = target.split("?")[0] ?? target;
+      expect(canonical.has(base)).toBe(true);
     }
   });
 

@@ -29,7 +29,7 @@ import { APP_ROUTES } from "@habita/contracts";
 
 import type { ExpenseCategory, SplitType } from "@prisma/client";
 import type { MemberOption } from "@/types/expense";
-import type { CreateExpensePayload } from "@/components/features/expenses-view";
+import type { CreateExpensePayload } from "@/types/expense";
 import type { FundState } from "@/types/fund";
 
 interface CustomSplitValidationProps {

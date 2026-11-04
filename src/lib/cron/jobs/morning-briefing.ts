@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { deliverNotificationToMembers } from "@/lib/push-delivery";
+import { getHouseholdBalances } from "@/lib/expense-balances";
 import { APP_ROUTES } from "@habita/contracts";
 
 /**
@@ -52,7 +53,7 @@ export async function processMorningBriefing(): Promise<number> {
       const endOfLocalDay = new Date(startOfLocalDay.getTime() + 24 * 60 * 60 * 1000);
       const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
-      const [pendingToday, unsettledBalance, servicesDueSoon, topDeal] = await Promise.all([
+      const [pendingToday, householdBalances, servicesDueSoon, topDeal] = await Promise.all([
         prisma.assignment.count({
           where: {
             householdId: hh.id,
@@ -60,13 +61,7 @@ export async function processMorningBriefing(): Promise<number> {
             dueDate: { gte: now, lte: endOfLocalDay },
           },
         }),
-        prisma.expenseSplit.aggregate({
-          where: {
-            settled: false,
-            expense: { householdId: hh.id },
-          },
-          _sum: { amount: true },
-        }),
+        getHouseholdBalances(hh.id),
         prisma.service.count({
           where: {
             householdId: hh.id,
@@ -94,7 +89,10 @@ export async function processMorningBriefing(): Promise<number> {
       if (servicesDueSoon > 0) {
         items.push(`${servicesDueSoon} servicio${servicesDueSoon > 1 ? "s" : ""} vencen pronto`);
       }
-      const balance = unsettledBalance._sum.amount?.toNumber() ?? 0;
+      const primaryBalances = householdBalances.byCurrency[householdBalances.primaryCurrency]?.balances ?? [];
+      const balance = primaryBalances
+        .filter((b) => b.balance > 0)
+        .reduce((sum, b) => sum + b.balance, 0);
       if (balance > 0) {
         items.push(`$${balance.toLocaleString("es-AR")} en gastos pendientes de saldar`);
       }

@@ -1,17 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
+import { verifyCsrfOrigin } from "@/lib/csrf";
+import { ForbiddenError } from "@/lib/errors";
 import { settleBetweenSchema } from "@/lib/validations/expense";
+import { getHouseholdBalances } from "@/lib/expense-balances";
 
 /**
  * POST /api/expenses/settle-between
- * Settle all debts between two members in a single transaction.
- * Settles both directions: fromMember's splits on expenses paid by toMember,
- * and toMember's splits on expenses paid by fromMember.
+ * Settle the pair's CURRENT net debt, using the simplified transaction
+ * between them in every currency where one exists.
  */
 export async function POST(request: NextRequest) {
   try {
+    const csrfBlocked = verifyCsrfOrigin(request);
+    if (csrfBlocked) return csrfBlocked;
+
     const member = await requireMember();
     const body = await request.json();
     const validation = settleBetweenSchema.safeParse(body);
@@ -26,13 +32,12 @@ export async function POST(request: NextRequest) {
     const { fromMemberId, toMemberId } = validation.data;
     const householdId = member.householdId;
 
-    // Validate both members belong to this household
+    if (member.memberType !== "ADULT" && member.id !== fromMemberId && member.id !== toMemberId) {
+      throw new ForbiddenError("Solo un adulto o alguien involucrado puede saldar esta deuda");
+    }
+
     const memberCount = await prisma.member.count({
-      where: {
-        id: { in: [fromMemberId, toMemberId] },
-        householdId,
-        isActive: true,
-      },
+      where: { id: { in: [fromMemberId, toMemberId] }, householdId, isActive: true },
     });
 
     if (memberCount !== 2) {
@@ -42,42 +47,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      // Find all unsettled splits in either direction between the pair
-      const splitsToSettle = await tx.expenseSplit.findMany({
-        where: {
-          settled: false,
-          expense: { householdId },
-          OR: [
-            { memberId: fromMemberId, expense: { paidById: toMemberId } },
-            { memberId: toMemberId, expense: { paidById: fromMemberId } },
-          ],
-        },
-        select: { id: true, amount: true },
-      });
+    const { byCurrency } = await getHouseholdBalances(householdId);
+    const pairTransactions = Object.entries(byCurrency).flatMap(([currency, data]) =>
+      data.transactions
+        .filter(
+          (t) =>
+            (t.fromMemberId === fromMemberId && t.toMemberId === toMemberId) ||
+            (t.fromMemberId === toMemberId && t.toMemberId === fromMemberId),
+        )
+        .map((transaction) => ({ currency, transaction })),
+    );
 
-      if (splitsToSettle.length === 0) {
-        return { settledCount: 0, totalAmount: 0 };
-      }
+    if (pairTransactions.length === 0) {
+      return NextResponse.json({ settledCount: 0, totalAmount: 0 });
+    }
 
-      const splitIds = splitsToSettle.map((s) => s.id);
-      const totalAmount = splitsToSettle.reduce(
-        (sum, s) => sum + s.amount.toNumber(),
-        0,
-      );
+    const totalAmount = pairTransactions.reduce((sum, entry) => sum + entry.transaction.amount, 0);
 
-      await tx.expenseSplit.updateMany({
-        where: { id: { in: splitIds } },
-        data: { settled: true, settledAt: new Date() },
-      });
+    await prisma.$transaction(
+      pairTransactions.map(({ currency, transaction }) =>
+        prisma.settlement.create({
+          data: {
+            householdId,
+            fromMemberId: transaction.fromMemberId,
+            toMemberId: transaction.toMemberId,
+            amount: new Prisma.Decimal(transaction.amount.toFixed(2)),
+            currency,
+            createdById: member.id,
+          },
+        }),
+      ),
+    );
 
-      return {
-        settledCount: splitIds.length,
-        totalAmount: Math.round(totalAmount * 100) / 100,
-      };
+    return NextResponse.json({
+      settledCount: pairTransactions.length,
+      totalAmount: Math.round(totalAmount * 100) / 100,
     });
-
-    return NextResponse.json(result);
   } catch (error) {
     return handleApiError(error, { route: "/api/expenses/settle-between", method: "POST" });
   }

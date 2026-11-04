@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { resolveCityId } from "@/lib/events/city-normalizer";
-import { calculateBalances, simplifyDebts } from "@/lib/expense-balances";
+import { getHouseholdBalances } from "@/lib/expense-balances";
 import { getWeekMonday, getWeekSunday } from "@/lib/calendar-utils";
 import { isSoloHousehold } from "@/lib/household-mode";
 import { Banner } from "@/components/ds/banner";
@@ -38,7 +38,7 @@ export default async function CasaPage() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-  const [members, weekAssignments, expensesForBalance, monthlyAgg, latestCart, pendingTransfers, destacadoEvent] =
+  const [members, weekAssignments, householdBalances, monthlyAgg, latestCart, pendingTransfers, destacadoEvent] =
     await Promise.all([
       prisma.member.findMany({
         where: { householdId, isActive: true },
@@ -54,14 +54,7 @@ export default async function CasaPage() {
           task: { select: { name: true, estimatedMinutes: true } },
         },
       }),
-      prisma.expense.findMany({
-        where: { householdId, splits: { some: { settled: false } } },
-        include: {
-          paidBy: { select: { id: true, name: true } },
-          splits: { where: { settled: false }, include: { member: { select: { id: true, name: true } } } },
-        },
-        take: 500,
-      }),
+      getHouseholdBalances(householdId),
       prisma.expense.aggregate({
         where: { householdId, date: { gte: monthStart, lte: monthEnd } },
         _sum: { amount: true },
@@ -92,9 +85,8 @@ export default async function CasaPage() {
     status: a.status,
   }));
 
-  const balances = calculateBalances(expensesForBalance);
-  const transactions = simplifyDebts(balances);
-  const myBalance = summarizeMyBalance(transactions, member.id);
+  const primaryBalances = householdBalances.byCurrency[householdBalances.primaryCurrency];
+  const myBalance = summarizeMyBalance(primaryBalances?.transactions ?? [], member.id);
   const monthlyTotal = monthlyAgg._sum.amount?.toNumber() ?? 0;
 
   const superCart: SuperCardCart | null = latestCart

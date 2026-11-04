@@ -1,5 +1,6 @@
 export * from "./auth";
 export * from "./expenses";
+export * from "./settlements";
 export * from "./expense-insights";
 export * from "./shopping-plan";
 export * from "./saved-items";

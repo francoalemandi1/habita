@@ -137,7 +137,6 @@ export default function AppLayout() {
         <Tabs.Screen name="preferences" options={{ href: null, title: "Mis preferencias" }} />
         <Tabs.Screen name="rotations" options={{ href: null, title: "Ruleta de tareas" }} />
         <Tabs.Screen name="suggest-tasks" options={{ href: null, title: "Sugerencias de tareas" }} />
-        <Tabs.Screen name="grocery-deals" options={{ href: null, title: "Ofertas del super" }} />
         <Tabs.Screen name="notification-settings" options={{ href: null, title: "Notificaciones push" }} />
         <Tabs.Screen name="plans" options={{ href: null, title: "Historial de planes" }} />
       </Tabs>

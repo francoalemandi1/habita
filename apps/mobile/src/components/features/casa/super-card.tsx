@@ -5,7 +5,7 @@ import { ShoppingBasket } from "lucide-react-native";
 import { StoreChip } from "@/components/ds";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
-import { countCartProducts, formatRelativeAge } from "@/lib/casa-cart";
+import { formatRelativeAge } from "@/lib/casa-cart";
 import { radii as radius } from "@habita/design-tokens";
 
 import type { ThemeColors } from "@/theme";
@@ -13,6 +13,8 @@ import type { SavedCart } from "@habita/contracts";
 
 export interface SuperCardProps {
   latestCart: SavedCart | null;
+  /** Unchecked item count on the shared shopping list. */
+  uncheckedCount: number;
   now: Date;
 }
 
@@ -21,9 +23,25 @@ function formatAmount(value: number): string {
 }
 
 /** Casa "Súper" card (§5.3): latest saved cart, or an empty prompt. */
-export function SuperCard({ latestCart, now }: SuperCardProps): React.JSX.Element {
+export function SuperCard({ latestCart, uncheckedCount, now }: SuperCardProps): React.JSX.Element {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  if (uncheckedCount === 0 && !latestCart) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Ver Súper"
+        onPress={() => router.push("/(app)/super")}
+        style={styles.card}
+      >
+        <View style={styles.empty}>
+          <ShoppingBasket size={24} strokeWidth={1.75} color={colors.ink3} />
+          <Text style={styles.emptyText}>Armá la lista y compará precios</Text>
+        </View>
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable
@@ -32,23 +50,16 @@ export function SuperCard({ latestCart, now }: SuperCardProps): React.JSX.Elemen
       onPress={() => router.push("/(app)/super")}
       style={styles.card}
     >
+      <View style={styles.headerRow}>
+        <Text style={styles.productLine}>{`${uncheckedCount} producto${uncheckedCount === 1 ? "" : "s"}`}</Text>
+        {latestCart ? <StoreChip storeName={latestCart.storeName} /> : null}
+      </View>
       {latestCart ? (
         <>
-          <View style={styles.headerRow}>
-            <Text style={styles.productLine}>
-              {`${countCartProducts(latestCart)} productos · ${latestCart.storeName}`}
-            </Text>
-            <StoreChip storeName={latestCart.storeName} />
-          </View>
           <Text style={styles.total}>{formatAmount(latestCart.totalPrice)}</Text>
           <Text style={styles.age}>{formatRelativeAge(latestCart.savedAt, now)}</Text>
         </>
-      ) : (
-        <View style={styles.empty}>
-          <ShoppingBasket size={24} strokeWidth={1.75} color={colors.ink3} />
-          <Text style={styles.emptyText}>Armá la lista y compará precios</Text>
-        </View>
-      )}
+      ) : null}
     </Pressable>
   );
 }

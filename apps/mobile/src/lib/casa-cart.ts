@@ -1,10 +1,5 @@
 import type { SavedCart } from "@habita/contracts";
 
-/** Counts the products of a saved cart, validating the field is actually an array. */
-export function countCartProducts(cart: SavedCart): number {
-  return Array.isArray(cart.products) ? cart.products.length : 0;
-}
-
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** "hace 2 días" / "hace 1 hora" / "hace un momento" relative label for a saved cart's age. */

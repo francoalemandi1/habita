@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countCartProducts, formatRelativeAge, pickLatestCart } from "./casa-cart";
+import { formatRelativeAge, pickLatestCart } from "./casa-cart";
 
 import type { SavedCart } from "@habita/contracts";
 
@@ -18,16 +18,6 @@ function buildCart(overrides: Partial<SavedCart>): SavedCart {
     ...overrides,
   };
 }
-
-describe("countCartProducts", () => {
-  it("counts array products", () => {
-    expect(countCartProducts(buildCart({ products: [{}, {}, {}] }))).toBe(3);
-  });
-
-  it("returns 0 when products is not an array", () => {
-    expect(countCartProducts(buildCart({ products: null as unknown as SavedCart["products"] }))).toBe(0);
-  });
-});
 
 describe("formatRelativeAge", () => {
   it("formats minutes, hours and days", () => {

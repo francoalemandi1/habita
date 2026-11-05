@@ -12,6 +12,8 @@ import { useToggleAssignment } from "@/hooks/use-toggle-assignment";
 import { useExpenseBalances } from "@/hooks/use-expense-balances";
 import { useExpenseInsights } from "@/hooks/use-expense-insights";
 import { useSavedCarts } from "@/hooks/use-saved-carts";
+import { useShoppingList } from "@/hooks/use-shopping-list";
+import { countUnchecked } from "@/lib/super-shopping-list-logic";
 import { useEvents } from "@/hooks/use-events";
 import { useTransfers } from "@/hooks/use-transfers";
 import { useNotifications } from "@/hooks/use-notifications";
@@ -45,6 +47,7 @@ export default function CasaScreen(): React.JSX.Element {
   const balancesQuery = useExpenseBalances();
   const insightsQuery = useExpenseInsights();
   const savedCartsQuery = useSavedCarts();
+  const shoppingListQuery = useShoppingList();
   const eventsQuery = useEvents({ limit: 20 });
   const transfersQuery = useTransfers();
   const notificationsQuery = useNotifications(true);
@@ -81,6 +84,10 @@ export default function CasaScreen(): React.JSX.Element {
   );
 
   const latestCart = useMemo(() => pickLatestCart(savedCartsQuery.data ?? []), [savedCartsQuery.data]);
+  const uncheckedShoppingCount = useMemo(
+    () => countUnchecked(shoppingListQuery.data?.items ?? []),
+    [shoppingListQuery.data],
+  );
 
   const destacadoEvent = useMemo(
     () => pickDestacadoEvent(eventsQuery.data?.events ?? [], now),
@@ -172,7 +179,7 @@ export default function CasaScreen(): React.JSX.Element {
               monthTotal={insightsQuery.data?.thisMonthTotal ?? 0}
               balance={balance}
             />
-            <SuperCard latestCart={latestCart} now={now} />
+            <SuperCard latestCart={latestCart} uncheckedCount={uncheckedShoppingCount} now={now} />
             {destacadoEvent ? <DestacadoCard event={destacadoEvent} /> : null}
           </View>
         </SkeletonGate>

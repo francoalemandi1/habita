@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useProductSelection } from "@/hooks/use-product-selection";
-import { normalizeProductTerm } from "@/components/features/product-search-input";
+import { normalizeProductTerm } from "@/lib/product-term";
 import {
   Dialog,
   DialogContent,

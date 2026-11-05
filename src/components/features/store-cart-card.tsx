@@ -7,7 +7,7 @@ import { SaveButton } from "@/components/ui/save-button";
 import { ChevronDown, Trophy, ExternalLink, ArrowDownRight, Check, Package, Tag, Pin, Share2, AlertCircle, MapPin } from "lucide-react";
 
 import type { AlternativeProduct, ProductUnitInfo } from "@/lib/supermarket-search";
-import type { AdjustedStoreCart, AdjustedCartProduct } from "@/components/features/grocery-advisor";
+import type { AdjustedStoreCart, AdjustedCartProduct } from "@/lib/super-compare-logic";
 import type { BankPromo } from "@prisma/client";
 
 // ============================================

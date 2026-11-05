@@ -166,6 +166,8 @@ model Household {
   aiJobLogs            AiJobLog[]
   sharedFund           SharedFund?
   settlements          Settlement[]
+  shoppingListItems    ShoppingListItem[]
+  shoppingListItemRequests ShoppingListItemRequest[]
   @@map("households")
 }
 
@@ -207,6 +209,8 @@ model Member {
   settlementsTo        Settlement[] @relation("SettlementTo")
   settlementsCreated   Settlement[] @relation("SettlementCreatedBy")
   aiJobLogs            AiJobLog[]
+  shoppingListItemsAdded   ShoppingListItem[] @relation("ShoppingListItemAddedBy")
+  shoppingListItemsChecked ShoppingListItem[] @relation("ShoppingListItemCheckedBy")
   @@unique([userId, householdId])
   @@index([householdId])
   @@index([userId])
@@ -674,6 +678,45 @@ model Settlement {
   @@index([householdId, toMemberId])
   @@unique([householdId, idempotencyKey])
   @@map("settlements")
+}
+
+/// Shared household shopping list. Any member may add, edit, check, or delete
+/// items — it is a single shared list, not per-member.
+model ShoppingListItem {
+  id          String    @id @default(cuid())
+  householdId String
+  name        String
+  quantity    Int       @default(1)
+  addedById   String
+  checkedAt   DateTime?
+  checkedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  addedBy   Member    @relation("ShoppingListItemAddedBy", fields: [addedById], references: [id], onDelete: Cascade)
+  checkedBy Member?   @relation("ShoppingListItemCheckedBy", fields: [checkedById], references: [id], onDelete: SetNull)
+  requests  ShoppingListItemRequest[]
+
+  @@index([householdId, checkedAt])
+  @@map("shopping_list_items")
+}
+
+/// Idempotency record for client-generated add requests. A POST that bumps an
+/// existing item still records its clientId here, so a replay never bumps twice.
+model ShoppingListItemRequest {
+  id          String   @id @default(cuid())
+  householdId String
+  clientId    String
+  itemId      String
+  createdAt   DateTime @default(now())
+
+  household Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  item      ShoppingListItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, clientId])
+  @@index([itemId])
+  @@map("shopping_list_item_requests")
 }
 
 enum ExpenseCategory {

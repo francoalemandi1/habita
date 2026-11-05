@@ -55,6 +55,10 @@ export const queryKeys = {
     list: (type?: string) =>
       [...queryKeys.transfers.all(), type ?? "all"] as const,
   },
+  shoppingList: {
+    all: () => ["shopping-list"] as const,
+    list: () => [...queryKeys.shoppingList.all(), "list"] as const,
+  },
   notifications: {
     all: () => ["notifications"] as const,
     list: (unreadOnly?: boolean) =>

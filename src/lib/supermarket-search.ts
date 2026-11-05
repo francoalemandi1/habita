@@ -8,6 +8,7 @@
 
 import { searchAllStores } from "@/lib/vtex-client";
 import { parseProductUnit } from "@/lib/unit-parser";
+import { createLimiter } from "@/lib/concurrency";
 
 import type { VtexProduct } from "@/lib/vtex-client";
 import type { UnitInfo } from "@/lib/unit-parser";
@@ -57,6 +58,8 @@ export interface StoreCart {
 export interface ShoppingPlanResult {
   storeCarts: StoreCart[];
   notFound: string[];
+  /** Stores that failed every term they were asked about in this call. */
+  unavailableStores: string[];
   searchedAt: string;
 }
 
@@ -344,6 +347,14 @@ function buildStoreCarts(
 // Public API
 // ============================================
 
+/**
+ * Caps simultaneous outbound store fetches across every term in a single
+ * compareProducts call. Without this, N terms x 11 stores can fire hundreds
+ * of concurrent requests, which triggers store-side rate limiting and blows
+ * past the 60s serverless function budget (maxDuration in shopping-plan route).
+ */
+const MAX_CONCURRENT_STORE_REQUESTS = 8;
+
 /** Search all supermarkets for a list of products and build comparison carts. */
 export async function compareProducts(
   searchInput: string[] | SearchItem[],
@@ -353,23 +364,34 @@ export async function compareProducts(
   const searchItems = normalizeSearchItems(searchInput);
   const searchTerms = searchItems.map((item) => item.term);
   if (searchTerms.length === 0) {
-    return { storeCarts: [], notFound: [], searchedAt: new Date().toISOString() };
+    return { storeCarts: [], notFound: [], unavailableStores: [], searchedAt: new Date().toISOString() };
   }
 
-  // Search applicable stores for each term in parallel
+  const limiter = createLimiter(MAX_CONCURRENT_STORE_REQUESTS);
+
+  // Search applicable stores for each term in parallel, sharing one limiter
+  // so the term x store fan-out across this whole call stays bounded.
   const allResults = await Promise.all(
     searchTerms.map(async (term) => ({
       term,
-      results: await searchAllStores(term, city),
+      results: await searchAllStores(term, city, limiter),
     })),
   );
 
   // Organize: Map<storeName, Map<searchTerm, TermResult>>
   const storeResults = new Map<string, Map<string, TermResult>>();
+  const storeAttempts = new Map<string, number>();
+  const storeFailures = new Map<string, number>();
 
   for (const { term, results } of allResults) {
     for (const storeResult of results) {
-      if (storeResult.failed || storeResult.products.length === 0) continue;
+      storeAttempts.set(storeResult.storeName, (storeAttempts.get(storeResult.storeName) ?? 0) + 1);
+
+      if (storeResult.failed) {
+        storeFailures.set(storeResult.storeName, (storeFailures.get(storeResult.storeName) ?? 0) + 1);
+        continue;
+      }
+      if (storeResult.products.length === 0) continue;
 
       const ranked = pickRankedMatches(term, storeResult.products);
       if (!ranked) continue;
@@ -384,11 +406,18 @@ export async function compareProducts(
     }
   }
 
+  // A store is unavailable only when it failed every term it was asked about,
+  // never merely because it had no matching products for some terms.
+  const unavailableStores = Array.from(storeAttempts.entries())
+    .filter(([storeName, attempts]) => storeFailures.get(storeName) === attempts)
+    .map(([storeName]) => storeName);
+
   const { storeCarts, notFound } = buildStoreCarts(searchItems, storeResults, promoStores);
 
   return {
     storeCarts,
     notFound,
+    unavailableStores,
     searchedAt: new Date().toISOString(),
   };
 }

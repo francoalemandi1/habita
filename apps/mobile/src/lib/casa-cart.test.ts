@@ -14,6 +14,7 @@ function buildCart(overrides: Partial<SavedCart>): SavedCart {
     missingTerms: [],
     totalSearched: 1,
     savedAt: new Date().toISOString(),
+    refreshedAt: new Date().toISOString(),
     ...overrides,
   };
 }

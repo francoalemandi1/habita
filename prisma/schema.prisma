@@ -1048,6 +1048,8 @@ model SavedCart {
   missingTerms  String[]  @default([])
   totalSearched Int       @default(0)
   savedAt       DateTime  @default(now())
+  /// Last time prices were re-checked; drives the 24 h "precios viejos" refresh.
+  refreshedAt   DateTime  @default(now())
 
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 

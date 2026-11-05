@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
         cheapestCount: freshStoreCart.cheapestCount,
         missingTerms: freshStoreCart.missingTerms,
         totalSearched: freshStoreCart.totalSearched,
+        refreshedAt: new Date(),
       },
     });
 

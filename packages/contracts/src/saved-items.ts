@@ -22,6 +22,7 @@ export const savedCartSchema = z.object({
   missingTerms: z.array(z.string()),
   totalSearched: z.number().int().nonnegative(),
   savedAt: z.string(),
+  refreshedAt: z.string(),
 });
 
 export const refreshSavedCartInputSchema = z.object({

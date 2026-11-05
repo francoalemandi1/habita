@@ -132,6 +132,7 @@ describe("POST /api/saved-items/deals/refresh", () => {
         cheapestCount: 1,
         missingTerms: [],
         totalSearched: 1,
+        refreshedAt: expect.any(Date),
       },
     });
     expect(body.priceChanges).toEqual([

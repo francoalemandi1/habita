@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -58,7 +61,10 @@ describe("normalizeAppPath", () => {
 
 describe("route tables", () => {
   it("only points aliases at canonical routes, ignoring any view query", () => {
-    const canonical = new Set<string>([...Object.values(APP_ROUTES), ...Object.values(TAREAS_ROUTES)]);
+    const canonical = new Set<string>([
+      ...Object.values(APP_ROUTES),
+      ...Object.values(TAREAS_ROUTES),
+    ]);
     for (const target of Object.values(MOBILE_LEGACY_ROUTE_ALIASES)) {
       const base = target.split("?")[0] ?? target;
       expect(canonical.has(base)).toBe(true);
@@ -68,6 +74,16 @@ describe("route tables", () => {
   it("never aliases a canonical route to something else", () => {
     for (const route of Object.values(APP_ROUTES)) {
       expect(LEGACY_ROUTE_ALIASES[route]).toBeUndefined();
+    }
+  });
+});
+
+describe("web pages", () => {
+  const mainRoutesDir = path.join(process.cwd(), "src/app/(app)/(main)");
+
+  it("has a page for every canonical web route", () => {
+    for (const route of [...Object.values(APP_ROUTES), ...Object.values(TAREAS_ROUTES)]) {
+      expect(existsSync(path.join(mainRoutesDir, route, "page.tsx")), route).toBe(true);
     }
   });
 });

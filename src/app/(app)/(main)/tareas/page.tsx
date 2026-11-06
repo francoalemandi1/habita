@@ -1,196 +1,47 @@
 import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { isAIEnabled } from "@/lib/llm/provider";
-import { getWeekMonday, getWeekSunday } from "@/lib/calendar-utils";
-import { isSoloHousehold } from "@/lib/household-mode";
-import { MyTasksPageClient } from "@/components/features/my-tasks-page-client";
-import { ListRow } from "@/components/ds/list-row";
-import { ClipboardList, CalendarRange, ListChecks, Repeat, ArrowLeftRight, TrendingUp, Sparkles } from "lucide-react";
-import Link from "next/link";
+import { ScreenHeader } from "@/components/ds/screen-header";
+import { TareasSegments } from "@/components/features/tareas/tareas-segments";
+import { SemanaView } from "@/components/features/tareas/semana-view";
+import { ListaView } from "@/components/features/tareas/lista-view";
+import { RepartoView } from "@/components/features/tareas/reparto-view";
 
-export default async function MyTasksPage() {
+import type { TareasViewKey } from "@/components/features/tareas/tareas-segments";
+
+interface TareasPageProps {
+  searchParams: Promise<{ v?: string }>;
+}
+
+function resolveView(v: string | undefined): TareasViewKey {
+  if (v === "lista" || v === "reparto") return v;
+  return "semana";
+}
+
+export default async function TareasPage({ searchParams }: TareasPageProps) {
   const member = await getCurrentMember();
-
   if (!member) {
     redirect("/onboarding");
   }
 
-  const now = new Date();
-  const endOfToday = new Date(now);
-  endOfToday.setHours(23, 59, 59, 999);
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
+  const { v } = await searchParams;
+  const view = resolveView(v);
 
-  const monday = getWeekMonday(now);
-  const sunday = getWeekSunday(monday);
-
-  const [assignments, completedTodayAssignments, completedToday, totalCompleted, transfers, householdMembers, calendarAssignments, calendarMembers] = await Promise.all([
-    prisma.assignment.findMany({
-      where: {
-        memberId: member.id,
-        status: { in: ["PENDING", "IN_PROGRESS"] },
-        dueDate: { lte: endOfToday },
-        NOT: {
-          transfers: {
-            some: {
-              fromMemberId: member.id,
-              status: { in: ["PENDING", "ACCEPTED"] },
-            },
-          },
-        },
-      },
-      include: {
-        task: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            weight: true,
-            frequency: true,
-            estimatedMinutes: true,
-          },
-        },
-      },
-      orderBy: {
-        dueDate: "asc",
-      },
-    }),
-    prisma.assignment.findMany({
-      where: {
-        memberId: member.id,
-        status: { in: ["COMPLETED", "VERIFIED"] },
-        completedAt: { gte: todayStart },
-      },
-      include: {
-        task: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            weight: true,
-            frequency: true,
-            estimatedMinutes: true,
-          },
-        },
-      },
-      orderBy: {
-        completedAt: "desc",
-      },
-    }),
-    prisma.assignment.count({
-      where: {
-        memberId: member.id,
-        status: { in: ["COMPLETED", "VERIFIED"] },
-        completedAt: {
-          gte: new Date(new Date().setHours(0, 0, 0, 0)),
-        },
-      },
-    }),
-    prisma.assignment.count({
-      where: {
-        memberId: member.id,
-        status: { in: ["COMPLETED", "VERIFIED"] },
-      },
-    }),
-    prisma.taskTransfer.findMany({
-      where: {
-        OR: [{ fromMemberId: member.id }, { toMemberId: member.id }],
-        assignment: {
-          householdId: member.householdId,
-        },
-      },
-      include: {
-        assignment: {
-          include: {
-            task: { select: { id: true, name: true } },
-          },
-        },
-        fromMember: { select: { id: true, name: true } },
-        toMember: { select: { id: true, name: true } },
-      },
-      orderBy: { requestedAt: "desc" },
-    }),
-    prisma.member.findMany({
-      where: {
-        householdId: member.householdId,
-        isActive: true,
-      },
-      select: { id: true, name: true },
-    }),
-    prisma.assignment.findMany({
-      where: {
-        householdId: member.householdId,
-        dueDate: { gte: monday, lte: sunday },
-        status: { not: "CANCELLED" },
-      },
-      select: {
-        id: true,
-        dueDate: true,
-        status: true,
-        completedAt: true,
-        task: {
-          select: { id: true, name: true, weight: true, frequency: true, estimatedMinutes: true },
-        },
-        member: {
-          select: { id: true, name: true, memberType: true, avatarUrl: true },
-        },
-      },
-      orderBy: { dueDate: "asc" },
-    }),
-    prisma.member.findMany({
-      where: { householdId: member.householdId, isActive: true },
-      select: { id: true, name: true, memberType: true, avatarUrl: true },
-    }),
-  ]);
-
-  // Check if user can generate a new plan (AI enabled + no active plan)
-  const aiEnabled = isAIEnabled();
-  const activePlan = aiEnabled
-    ? await prisma.weeklyPlan.findFirst({
-        where: {
-          householdId: member.householdId,
-          status: { in: ["PENDING", "APPLIED"] },
-          expiresAt: { gt: now },
-        },
-        select: { id: true },
-      })
-    : null;
-  const showPlanCta = aiEnabled && !activePlan;
-
-  const serializedCalendarAssignments = calendarAssignments.map((a) => ({
-    ...a,
-    dueDate: a.dueDate.toISOString(),
-    completedAt: a.completedAt?.toISOString() ?? null,
-  }));
+  const members = await prisma.member.findMany({
+    where: { householdId: member.householdId, isActive: true },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
 
   return (
     <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <MyTasksPageClient
-        assignments={assignments}
-        completedAssignments={completedTodayAssignments}
-        members={householdMembers}
-        currentMemberId={member.id}
-        completedToday={completedToday}
-        totalCompleted={totalCompleted}
-        showPlanCta={showPlanCta}
-        transfers={transfers}
-        calendarAssignments={serializedCalendarAssignments}
-        calendarMembers={calendarMembers}
-        initialWeekStart={monday.toISOString()}
-        isSolo={isSoloHousehold(householdMembers.length)}
-      />
-
-      {/* Más — interim links for views not yet merged into Tareas (R3) */}
-      <div className="mt-6 rounded-2xl bg-card shadow-sm">
-        <Link href="/tasks"><ListRow leadingIcon={ClipboardList} title="Gestión de tareas" /></Link>
-        <Link href="/plan"><ListRow leadingIcon={CalendarRange} title="Plan semanal" /></Link>
-        <Link href="/plans"><ListRow leadingIcon={ListChecks} title="Historial de planes" /></Link>
-        <Link href="/rotations"><ListRow leadingIcon={Repeat} title="Rotaciones" /></Link>
-        <Link href="/transfers"><ListRow leadingIcon={ArrowLeftRight} title="Transferencias" /></Link>
-        <Link href="/progress"><ListRow leadingIcon={TrendingUp} title="Progreso" /></Link>
-        <Link href="/suggest-tasks"><ListRow leadingIcon={Sparkles} title="Sugerir tareas" /></Link>
+      <ScreenHeader variant="tab" title="Tareas" />
+      <div className="mb-4">
+        <TareasSegments active={view} />
       </div>
+      {view === "semana" && <SemanaView members={members} currentMemberId={member.id} />}
+      {view === "lista" && <ListaView />}
+      {view === "reparto" && <RepartoView currentMemberId={member.id} />}
     </div>
   );
 }

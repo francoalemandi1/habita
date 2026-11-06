@@ -410,7 +410,7 @@ export default function OnboardingScreen() {
         // Plan generation is fire-and-forget
       }
       await hydrate();
-      router.replace("/(app)/plan");
+      router.replace("/(app)/tareas/plan");
     };
 
     const handleSkipToNextStep = () => {

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { router } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useMembers } from "@/hooks/use-members";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
@@ -40,6 +40,7 @@ export default function NewTaskScreen() {
   const [frequency, setFrequency] = useState<TaskFrequency>("WEEKLY");
   const [dueDate, setDueDate] = useState(todayIsoDate());
   const [selectedMemberId, setSelectedMemberId] = useState<string>("");
+  const [isRotating, setIsRotating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const members = membersQuery.data?.members ?? [];
@@ -55,7 +56,7 @@ export default function NewTaskScreen() {
     if (!dueDateIso) { setError("Usá fecha con formato YYYY-MM-DD."); return; }
     if (!selectedMemberId) { setError("Seleccioná a quién asignar la tarea."); return; }
     try {
-      const createdTask = await createTask.mutateAsync({ name: taskName.trim(), description: description.trim() || undefined, frequency, weight: taskWeight, isRouletteEligible: false });
+      const createdTask = await createTask.mutateAsync({ name: taskName.trim(), description: description.trim() || undefined, frequency, weight: taskWeight, isRouletteEligible: false, isRotating });
       await createAssignment.mutateAsync({ taskId: createdTask.task.id, memberId: selectedMemberId, dueDate: dueDateIso });
       router.replace("/(app)/tareas");
     } catch (submitError) { setError(getMobileErrorMessage(submitError)); }
@@ -72,6 +73,10 @@ export default function NewTaskScreen() {
             <StyledTextInput label="Descripción (opcional)" placeholder="Descripción breve" value={description} onChangeText={setDescription} style={styles.field} />
             <StyledTextInput label="Peso (1-5)" placeholder="1" value={weight} onChangeText={setWeight} keyboardType="number-pad" style={styles.field} />
             <StyledTextInput label="Vencimiento (YYYY-MM-DD)" placeholder={todayIsoDate()} value={dueDate} onChangeText={setDueDate} autoCapitalize="none" style={styles.field} />
+            <View style={styles.rotatingRow}>
+              <Text style={styles.sectionLabel}>Hacer rotación entre todos</Text>
+              <Switch value={isRotating} onValueChange={setIsRotating} trackColor={{ false: colors.border, true: colors.primary }} />
+            </View>
             <Text style={styles.sectionLabel}>Frecuencia</Text>
             <View style={styles.freqRow}>
               {FREQUENCY_OPTIONS.map((opt) => (
@@ -104,6 +109,7 @@ function createStyles(c: ThemeColors) {
     card: { marginBottom: spacing.md },
     field: { marginBottom: spacing.md },
     sectionLabel: { fontFamily: fontFamily.sans, fontSize: 13, fontWeight: "600", color: c.text, marginBottom: spacing.sm },
+    rotatingRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.sm },
     freqRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
     freqChip: { borderWidth: 1, borderColor: c.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
     freqChipActive: { borderColor: c.primary, backgroundColor: c.primaryLight },

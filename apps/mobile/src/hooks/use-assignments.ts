@@ -4,6 +4,7 @@ import { mobileApi } from "@/lib/api";
 
 import { queryKeys } from "@habita/contracts";
 import type {
+  AssignmentSummary,
   CompleteAssignmentResponse,
   MyAssignmentsResponse,
   UncompleteAssignmentResponse,
@@ -70,6 +71,42 @@ export function useVerifyAssignment() {
       ),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.assignments.my() });
+    },
+  });
+}
+
+interface UpdateAssignmentInput {
+  assignmentId: string;
+  dueDate?: string;
+  memberId?: string;
+}
+
+interface UpdateAssignmentResponse {
+  assignment: AssignmentSummary;
+}
+
+/** PATCH /api/assignments/[id] — "Cambiar día" / direct reassignment (handoff §7 pattern A). */
+export function useUpdateAssignment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ assignmentId, ...body }: UpdateAssignmentInput) =>
+      mobileApi.patch<UpdateAssignmentResponse>(`/api/assignments/${assignmentId}`, body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all() });
+    },
+  });
+}
+
+/** DELETE /api/assignments/[id] — "Eliminar" (handoff §7 pattern A, deferred client-side). */
+export function useDeleteAssignment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (assignmentId: string) =>
+      mobileApi.delete<{ success: boolean }>(`/api/assignments/${assignmentId}`),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.assignments.all() });
     },
   });
 }

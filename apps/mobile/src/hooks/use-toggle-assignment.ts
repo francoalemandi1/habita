@@ -7,6 +7,21 @@ import { useSnackbar } from "@/components/ds";
 import { queryKeys } from "@habita/contracts";
 import type { AssignmentSummary, MyAssignmentsResponse } from "@habita/contracts";
 
+interface CompleteOptions {
+  /** The assignee's first name, required when completing someone else's task. */
+  assigneeName?: string;
+  /** False when completing someone else's task (handoff §7: allowed, different snackbar copy). */
+  isOwn?: boolean;
+  /** TEEN/CHILD completions wait for an adult's verification before they count as done. */
+  requiresVerification?: boolean;
+}
+
+function resolveCompleteSnackbarText(taskName: string, options: CompleteOptions): string {
+  if (options.isOwn === false) return `La hiciste por ${options.assigneeName ?? "otra persona"}`;
+  if (options.requiresVerification) return `«${taskName}» · para revisar`;
+  return `«${taskName}» · hecha`;
+}
+
 function moveAssignment(
   data: MyAssignmentsResponse,
   assignmentId: string,
@@ -66,7 +81,7 @@ export function useToggleAssignment() {
 
   // A named function declaration (hoisted), not a `const`, so the retry
   // action below can call it by name without a useCallback self-reference.
-  function attemptComplete(assignment: AssignmentSummary, taskName: string): void {
+  function attemptComplete(assignment: AssignmentSummary, taskName: string, options: CompleteOptions = {}): void {
     const previous = setOptimistic(assignment.id, true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -74,7 +89,7 @@ export function useToggleAssignment() {
       onSuccess: () => {
         refreshWeek();
         snackbar.show({
-          text: `«${taskName}» · hecha`,
+          text: resolveCompleteSnackbarText(taskName, options),
           tone: "navigation",
           actionLabel: "Deshacer",
           onAction: () => {
@@ -92,7 +107,7 @@ export function useToggleAssignment() {
           text: "No se pudo guardar",
           tone: "error",
           actionLabel: "Reintentar",
-          onAction: () => attemptComplete(assignment, taskName),
+          onAction: () => attemptComplete(assignment, taskName, options),
         });
       },
     });

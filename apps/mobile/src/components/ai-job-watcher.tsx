@@ -17,7 +17,7 @@ const JOB_CONFIGS: JobConfig[] = [
     jobType: "PREVIEW_PLAN",
     successMessage: "Plan listo",
     actionLabel: "Ver plan",
-    href: "/(app)/plan",
+    href: "/(app)/tareas/plan",
     errorMessage: "Error generando el plan",
   },
   {

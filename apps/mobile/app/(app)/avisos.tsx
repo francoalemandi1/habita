@@ -3,6 +3,7 @@ import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Bell, CheckCheck } from "lucide-react-native";
 import { useMarkAllNotificationsRead, useNotifications } from "@/hooks/use-notifications";
+import { useRespondTransfer, useTransfers } from "@/hooks/use-transfers";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { useThemeColors } from "@/hooks/use-theme";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { TabBar } from "@/components/ui/tab-bar";
 import { SecondaryHeader } from "@/components/ui/secondary-header";
-import { fontFamily, spacing } from "@/theme";
+import { fontFamily, fontFamilyForWeight, spacing } from "@/theme";
 
 import type { ThemeColors } from "@/theme";
 
@@ -22,9 +23,12 @@ export default function NotificationsScreen() {
   const [unreadOnly, setUnreadOnly] = useState(false);
   const notificationsQuery = useNotifications(unreadOnly);
   const markAllRead = useMarkAllNotificationsRead();
+  const pendingTransfersQuery = useTransfers("received");
+  const respondTransfer = useRespondTransfer();
 
   const notifications = notificationsQuery.data?.notifications ?? [];
   const unreadCount = notificationsQuery.data?.unreadCount ?? 0;
+  const pendingTransfers = (pendingTransfersQuery.data?.transfers ?? []).filter((t) => t.status === "PENDING");
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -67,6 +71,37 @@ export default function NotificationsScreen() {
           />
         }
       >
+        {pendingTransfers.length > 0 ? (
+          <View style={styles.resolveSection}>
+            <Text style={styles.sectionLabel}>Para resolver</Text>
+            {pendingTransfers.map((transfer) => (
+              <Card key={transfer.id} style={styles.transferCard}>
+                <CardContent>
+                  <View style={styles.notifHeader}>
+                    <Text style={styles.notifTitle}>{transfer.assignment.task.name}</Text>
+                  </View>
+                  <Text style={styles.notifMessage}>{transfer.fromMember.name} te pide que la hagas vos.</Text>
+                  <View style={styles.transferActions}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onPress={() => respondTransfer.mutate({ transferId: transfer.id, action: "REJECT" })}
+                    >
+                      No puedo
+                    </Button>
+                    <Button
+                      size="sm"
+                      onPress={() => respondTransfer.mutate({ transferId: transfer.id, action: "ACCEPT" })}
+                    >
+                      Aceptar
+                    </Button>
+                  </View>
+                </CardContent>
+              </Card>
+            ))}
+          </View>
+        ) : null}
+
         {notificationsQuery.isLoading ? (
           <View style={styles.loadingList}>
             <SkeletonCard />
@@ -127,6 +162,10 @@ function createStyles(c: ThemeColors) {
     loadingList: { gap: spacing.md },
     errorCard: { backgroundColor: c.errorBg },
     errorText: { fontFamily: fontFamily.sans, color: c.errorText, fontSize: 14 },
+    resolveSection: { gap: spacing.sm, marginBottom: spacing.sm },
+    sectionLabel: { fontFamily: fontFamilyForWeight(700), fontSize: 12, color: c.mutedForeground, textTransform: "uppercase" },
+    transferCard: { borderLeftWidth: 3, borderLeftColor: c.primary },
+    transferActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm, justifyContent: "flex-end" },
     notifCard: { marginBottom: 0 },
     notifCardUnread: { borderLeftWidth: 3, borderLeftColor: c.primary },
     notifHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.xs },

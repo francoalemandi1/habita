@@ -129,16 +129,9 @@ export default function AppLayout() {
         <Tabs.Screen name="dev-components" options={{ href: null, title: "Componentes" }} />
         <Tabs.Screen name="new-expense" options={{ href: null, title: "Nuevo gasto" }} />
         <Tabs.Screen name="expense-insights" options={{ href: null, title: "Insights financieros" }} />
-        <Tabs.Screen name="plan" options={{ href: null, title: "Plan semanal" }} />
-        <Tabs.Screen name="transfers" options={{ href: null, title: "Transferencias" }} />
-        <Tabs.Screen name="task-catalog" options={{ href: null, title: "Catálogo de tareas" }} />
-        <Tabs.Screen name="progress" options={{ href: null, title: "Progreso familiar" }} />
         <Tabs.Screen name="services" options={{ href: null, title: "Servicios" }} />
         <Tabs.Screen name="preferences" options={{ href: null, title: "Mis preferencias" }} />
-        <Tabs.Screen name="rotations" options={{ href: null, title: "Ruleta de tareas" }} />
-        <Tabs.Screen name="suggest-tasks" options={{ href: null, title: "Sugerencias de tareas" }} />
         <Tabs.Screen name="notification-settings" options={{ href: null, title: "Notificaciones push" }} />
-        <Tabs.Screen name="plans" options={{ href: null, title: "Historial de planes" }} />
       </Tabs>
       <AnotarSheet visible={anotarVisible} onClose={() => setAnotarVisible(false)} />
     </>

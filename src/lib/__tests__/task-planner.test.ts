@@ -109,6 +109,19 @@ describe("scoreCandidates", () => {
     expect(scores.map((s) => s.memberId)).toEqual(["b"]);
   });
 
+  it("excludes a member whose availability marks the target weekday as unavailable", () => {
+    const t = task("t1");
+    const monday = new Date(2026, 0, 5); // ISO weekday 1
+    const snap = snapshot({
+      members: [
+        { id: "a", name: "a", memberType: "ADULT", absences: [], unavailableWeekdays: [1] },
+        member("b"),
+      ],
+    });
+    const scores = scoreCandidates(t, monday, snap, now);
+    expect(scores.map((s) => s.memberId)).toEqual(["b"]);
+  });
+
   it("is deterministic: identical input produces identical output", () => {
     const t = task("t1");
     const snap = snapshot({

@@ -17,6 +17,7 @@ const DEEP_LINK_MAP: Partial<Record<NotificationType, string>> = {
   SETTLEMENT_RECORDED: "/(app)/balance",
   EXPENSE_WEEKLY_SUMMARY: "/(app)/expense-insights",
   MEMBER_JOINED: "/(app)/profile",
+  MEMBER_LEFT: "/(app)/profile",
   PLAN_READY: "/(app)/plan",
   CULTURAL_RECOMMENDATION: "/(app)/descubrir",
   DEAL_ALERT: "/(app)/grocery-deals",

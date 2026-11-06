@@ -179,6 +179,9 @@ model Member {
   avatarUrl   String?
   occupationLevel OccupationLevel @default(MODERATE)
   isActive    Boolean    @default(true)
+  quietHoursStart Int?   // 0-23, local hour; both null = quiet hours off
+  quietHoursEnd   Int?   // 0-23, local hour; may be < quietHoursStart (crosses midnight)
+  availability    Json?  // { "1": ["morning","afternoon","evening"], ... "7": [...] }, ISO weekday 1=Mon..7=Sun; null = always available
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -465,6 +468,7 @@ enum NotificationType {
   TASK_REMINDER
   EXPENSE_SHARED
   MEMBER_JOINED
+  MEMBER_LEFT
   CULTURAL_RECOMMENDATION
   DEAL_ALERT
   DAILY_BRIEFING

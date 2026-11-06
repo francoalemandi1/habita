@@ -1,3 +1,5 @@
+import { availabilitySchema } from "@habita/contracts";
+
 import { prisma } from "./prisma";
 
 import type {
@@ -11,6 +13,30 @@ import type {
 
 /** Bounded history window for recency scoring (spec: recency bonus caps at 14 days). */
 const HISTORY_WINDOW_DAYS = 30;
+
+const WEEKDAY_KEYS = ["1", "2", "3", "4", "5", "6", "7"] as const;
+
+/**
+ * A weekday with an explicit empty slot array means the member is unavailable
+ * that whole day; a missing weekday means no restriction.
+ */
+function computeUnavailableWeekdays(availability: unknown): number[] {
+  if (availability === null || availability === undefined) return [];
+
+  const parsed = availabilitySchema.safeParse(availability);
+  if (!parsed.success) {
+    console.warn("[task-planner-context] Ignoring malformed member availability", parsed.error.issues);
+    return [];
+  }
+  const unavailable: number[] = [];
+  for (const key of WEEKDAY_KEYS) {
+    const slots = parsed.data[key];
+    if (slots && slots.length === 0) {
+      unavailable.push(Number(key));
+    }
+  }
+  return unavailable;
+}
 
 /**
  * Load a household's full planning snapshot: active members, active tasks,
@@ -27,6 +53,7 @@ export async function loadTaskPlannerSnapshot(householdId: string): Promise<Task
         id: true,
         name: true,
         memberType: true,
+        availability: true,
         absences: { select: { startDate: true, endDate: true } },
       },
     }),
@@ -70,6 +97,7 @@ export async function loadTaskPlannerSnapshot(householdId: string): Promise<Task
     name: m.name,
     memberType: m.memberType,
     absences: m.absences,
+    unavailableWeekdays: computeUnavailableWeekdays(m.availability),
   }));
 
   const plannerTasks: PlannerTask[] = tasks;

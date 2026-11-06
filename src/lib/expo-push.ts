@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { isWithinQuietHours } from "@habita/domain";
 
 import type { NotificationType } from "@prisma/client";
 
@@ -45,6 +46,7 @@ const TYPE_TO_CATEGORY: Partial<Record<NotificationType, string>> = {
   SETTLEMENT_RECORDED: "expenses",
   EXPENSE_WEEKLY_SUMMARY: "summary",
   MEMBER_JOINED: "household",
+  MEMBER_LEFT: "household",
   PLAN_READY: "plans",
   CULTURAL_RECOMMENDATION: "culture",
   DEAL_ALERT: "deals",
@@ -124,12 +126,21 @@ async function canSendPush(
   // 1. Grace period: no push within 24h of member creation
   const member = await prisma.member.findUnique({
     where: { id: memberId },
-    select: { createdAt: true },
+    select: { createdAt: true, quietHoursStart: true, quietHoursEnd: true },
   });
   if (!member) return false;
 
   const timeSinceCreation = Date.now() - member.createdAt.getTime();
   if (timeSinceCreation < ONBOARDING_GRACE_MS) return false;
+
+  // 1b. Per-member quiet hours override (independent of the default 8-21 window below)
+  if (member.quietHoursStart !== null && member.quietHoursEnd !== null) {
+    const localHour = getLocalHour(householdTimezone);
+    if (isWithinQuietHours({ start: member.quietHoursStart, end: member.quietHoursEnd, hour: localHour })) {
+      console.info("[push] skipped — member quiet hours", { memberId, type });
+      return false;
+    }
+  }
 
   // 2. Check notification preference
   const category = TYPE_TO_CATEGORY[type];

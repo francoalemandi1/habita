@@ -47,6 +47,8 @@ export interface PlannerMember {
   /** Explicit age when known; falls back to a type-based estimate (today's semantics). */
   age?: number;
   absences: Array<{ startDate: Date; endDate: Date }>;
+  /** ISO weekdays (1=Mon..7=Sun) this member's availability marks with zero slots. */
+  unavailableWeekdays?: number[];
 }
 
 export interface PlannerTask {
@@ -112,11 +114,19 @@ interface ScoreOptions {
   onlyAdults?: boolean;
 }
 
-function isAbsentOnDate(absences: Array<{ startDate: Date; endDate: Date }>, date: Date): boolean {
+/** ISO weekday (1=Mon..7=Sun) for a calendar date. */
+function isoWeekday(date: Date): number {
+  const jsDay = date.getDay(); // 0=Sun..6=Sat
+  return jsDay === 0 ? 7 : jsDay;
+}
+
+function isAbsentOnDate(member: PlannerMember, date: Date): boolean {
+  if (member.unavailableWeekdays?.includes(isoWeekday(date))) return true;
+
   const checkDate = new Date(date);
   checkDate.setHours(0, 0, 0, 0);
 
-  return absences.some((absence) => {
+  return member.absences.some((absence) => {
     const startDate = new Date(absence.startDate);
     const endDate = new Date(absence.endDate);
     startDate.setHours(0, 0, 0, 0);
@@ -164,7 +174,7 @@ export function scoreCandidates(
   const scores: ScoreCandidate[] = [];
 
   for (const member of candidateMembers) {
-    if (isAbsentOnDate(member.absences, date)) continue;
+    if (isAbsentOnDate(member, date)) continue;
 
     if (task.minAge !== null && memberAge(member) < task.minAge) continue;
 
@@ -342,7 +352,7 @@ function pickRotationCandidate(
   for (let offset = 0; offset < rotationOrder.length; offset += 1) {
     const candidateId = rotationOrder[(startOffset + occurrenceIndex + offset) % rotationOrder.length];
     const member = snapshot.members.find((m) => m.id === candidateId);
-    if (!member || isAbsentOnDate(member.absences, dueDate)) continue;
+    if (!member || isAbsentOnDate(member, dueDate)) continue;
     return { candidate: { memberId: member.id, memberName: member.name, score: 0, reasons: [] }, reasonCode: "ROTATION" };
   }
   return null;
@@ -378,7 +388,7 @@ function recordAbsenceNotes(
   notes: Set<string>,
 ): void {
   for (const member of snapshot.members) {
-    if (isAbsentOnDate(member.absences, dueDate)) {
+    if (isAbsentOnDate(member, dueDate)) {
       notes.add(`${member.name} no está el ${dayLabel(dayOfWeek)}`);
     }
   }

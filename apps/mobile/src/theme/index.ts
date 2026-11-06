@@ -2,17 +2,10 @@ import { StyleSheet } from "react-native";
 import {
   colors as newColors,
   darkColors as newDarkColors,
-  semanticColors,
-  darkSemanticColors,
-  spacingScale,
-  radiusScale,
-  palette,
+  spacing as tokenSpacing,
+  radii as tokenRadii,
   shadows,
   typeScale,
-  cyclingColors,
-  cyclingTextColors,
-  assignmentCardColors,
-  statCardColors,
   storeColors,
   storeColorFallback,
   categoryColors,
@@ -33,8 +26,13 @@ export type ResolvedThemeMode = "light" | "dark";
 // ============================================
 
 const lightColors = {
-  // Core semantic (deprecated aliases, resolve to §9.1 tokens)
-  ...semanticColors,
+  // Core semantic — resolved directly from §9.1 tokens
+  primary: newColors.monte,
+  text: newColors.ink,
+  background: newColors.paper,
+  card: newColors.surface,
+  success: newColors.monte,
+  warning: newColors.ladrillo,
   // §9.1 tokens
   paper: newColors.paper,
   surface: newColors.surface,
@@ -90,8 +88,13 @@ const lightColors = {
 // ============================================
 
 const darkColors = {
-  // Core semantic (deprecated aliases, resolve to §9.1 dark tokens)
-  ...darkSemanticColors,
+  // Core semantic — resolved directly from §9.1 dark tokens
+  primary: newDarkColors.monte,
+  text: newDarkColors.ink,
+  background: newDarkColors.paper,
+  card: newDarkColors.surface,
+  success: newDarkColors.monte,
+  warning: newDarkColors.ladrillo,
   // §9.1 dark tokens
   paper: newDarkColors.paper,
   surface: newDarkColors.surface,
@@ -160,13 +163,28 @@ export const colors = lightColors;
 // SPACING
 // ============================================
 
-export const spacing = spacingScale;
+export const spacing = {
+  xs: tokenSpacing.xs,
+  sm: tokenSpacing.sm,
+  md: tokenSpacing.md,
+  lg: tokenSpacing.lg,
+  xl: tokenSpacing.xl,
+  xxl: tokenSpacing.xxl,
+} as const;
 
 // ============================================
 // RADIUS
 // ============================================
 
-export const radius = radiusScale;
+export const radius = {
+  sm: tokenRadii.rowIcon,
+  md: tokenRadii.control,
+  lg: tokenRadii.tile,
+  xl: tokenRadii.cardSm,
+  xxl: tokenRadii.card,
+  "2xl": tokenRadii.dialog,
+  full: tokenRadii.full,
+} as const;
 
 // ============================================
 // FONT FAMILIES
@@ -309,10 +327,6 @@ export const commonStyles = StyleSheet.create({
 // ============================================
 
 export {
-  cyclingColors,
-  cyclingTextColors,
-  assignmentCardColors,
-  statCardColors,
   storeColors,
   storeColorFallback,
   categoryColors,
@@ -320,5 +334,4 @@ export {
   subcategoryColorOverrides,
   contrastText,
   shadows,
-  palette,
 };

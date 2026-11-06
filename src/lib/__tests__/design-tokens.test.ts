@@ -1,12 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  colors,
-  darkColors,
-  semanticColors,
-  darkSemanticColors,
-  palette,
-  storeColors,
-} from "@habita/design-tokens";
+import { colors, darkColors, storeColors } from "@habita/design-tokens";
 import { storeColors as webStoreColors } from "../design-tokens";
 
 // §9.1 — exact light/dark values from the rebrand handoff.
@@ -76,31 +69,6 @@ describe("design-tokens — §9.1 colors", () => {
   });
 });
 
-describe("design-tokens — deprecated aliases resolve to new tokens", () => {
-  it("semanticColors maps to the new §9.1 tokens", () => {
-    expect(semanticColors.primary).toBe(colors.monte);
-    expect(semanticColors.text).toBe(colors.ink);
-    expect(semanticColors.background).toBe(colors.paper);
-    expect(semanticColors.card).toBe(colors.surface);
-    expect(semanticColors.success).toBe(colors.monte);
-    expect(semanticColors.warning).toBe(colors.ladrillo);
-  });
-
-  it("darkSemanticColors maps to the new §9.1 dark tokens", () => {
-    expect(darkSemanticColors.primary).toBe(darkColors.monte);
-    expect(darkSemanticColors.text).toBe(darkColors.ink);
-    expect(darkSemanticColors.background).toBe(darkColors.paper);
-  });
-
-  it("palette has no old-brand hue left (lime/lavender/tan/cream/peach remapped)", () => {
-    expect(palette.lime).toBe(colors.mantecaSoft);
-    expect(palette.lavender).toBe(colors.monteSoft);
-    expect(palette.tan).toBe(colors.sand);
-    expect(palette.cream).toBe(colors.sand);
-    expect(palette.peach).toBe(colors.ladrilloSoft);
-  });
-});
-
 describe("design-tokens — storeColors stays unchanged (third-party brand colors)", () => {
   it("keeps Carrefour's real brand color", () => {
     expect(storeColors.Carrefour).toEqual({ bg: "#003da5", text: "#ffffff" });
@@ -111,7 +79,7 @@ describe("design-tokens — storeColors stays unchanged (third-party brand color
 describe("design-tokens — no old-brand hex remains outside storeColors", () => {
   // storeColors intentionally keeps third-party brand hexes (e.g. "Coop. Obrera"
   // historically shares #5260fe with the old primary by coincidence) and is excluded.
-  const exported = { colors, darkColors, semanticColors, darkSemanticColors, palette };
+  const exported = { colors, darkColors };
 
   it.each(OLD_BRAND_HEXES)("does not contain %s", (hex) => {
     const strings = collectStrings(exported).map((s) => s.toLowerCase());

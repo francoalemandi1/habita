@@ -27,10 +27,12 @@ const limiters = redis
       sensitive: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "1 m") }),
       /** AI/scraping endpoints: 20 requests per 10 minutes per member */
       ai: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, "10 m") }),
+      /** Natural-language entry parsing: 10 requests per 10 minutes per member */
+      parse: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, "10 m") }),
     }
   : null;
 
-type LimiterKind = "auth" | "sensitive" | "ai";
+type LimiterKind = "auth" | "sensitive" | "ai" | "parse";
 
 function getClientIp(request: NextRequest): string {
   return (

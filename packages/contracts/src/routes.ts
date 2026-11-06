@@ -26,6 +26,12 @@ export const TAREAS_ROUTES = {
   add: "/tareas/sumar",
 } as const;
 
+/** Settings screens opened from Perfil (handoff §5.3 Global). */
+export const PERFIL_ROUTES = {
+  notificationSettings: "/perfil/avisos",
+  availability: "/perfil/disponibilidad",
+} as const;
+
 /**
  * A canonical route or a screen nested under it, optionally with a query string
  * selecting a view inside it (e.g. `/plata?v=fondo`, `/tareas/rotaciones?sorteo=1`).
@@ -57,6 +63,9 @@ export const LEGACY_ROUTE_ALIASES: Readonly<Record<string, LegacyAliasTarget>> =
   "/profile": APP_ROUTES.perfil,
   // Never existed as a page; older notifications were sent with it.
   "/settings": APP_ROUTES.perfil,
+  // Preferences grew into Disponibilidad (7 days × 3 slots + preferences + absences).
+  "/preferences": PERFIL_ROUTES.availability,
+  "/notification-settings": PERFIL_ROUTES.notificationSettings,
 };
 
 /** Mobile deep-link aliases; identical to web now that Tareas absorbed `/tasks`. */

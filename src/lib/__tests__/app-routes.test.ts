@@ -8,6 +8,7 @@ import {
   LEGACY_ROUTE_ALIASES,
   MOBILE_LEGACY_ROUTE_ALIASES,
   normalizeAppPath,
+  PERFIL_ROUTES,
   TAREAS_ROUTES,
 } from "@habita/contracts";
 
@@ -64,6 +65,7 @@ describe("route tables", () => {
     const canonical = new Set<string>([
       ...Object.values(APP_ROUTES),
       ...Object.values(TAREAS_ROUTES),
+      ...Object.values(PERFIL_ROUTES),
     ]);
     for (const target of Object.values(MOBILE_LEGACY_ROUTE_ALIASES)) {
       const base = target.split("?")[0] ?? target;
@@ -82,7 +84,7 @@ describe("web pages", () => {
   const mainRoutesDir = path.join(process.cwd(), "src/app/(app)/(main)");
 
   it("has a page for every canonical web route", () => {
-    for (const route of [...Object.values(APP_ROUTES), ...Object.values(TAREAS_ROUTES)]) {
+    for (const route of [...Object.values(APP_ROUTES), ...Object.values(TAREAS_ROUTES), ...Object.values(PERFIL_ROUTES)]) {
       expect(existsSync(path.join(mainRoutesDir, route, "page.tsx")), route).toBe(true);
     }
   });

@@ -1,83 +1,65 @@
 import { redirect } from "next/navigation";
-import { getCurrentMember, getCurrentUserMembers } from "@/lib/session";
+import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { ProfileSettings } from "@/components/features/profile-settings";
-import { SignOutButton } from "@/components/features/sign-out-button";
-import { ChevronRight, Sparkles } from "lucide-react";
-import { PageHeader } from "@/components/ui/page-header";
-import { spacing, iconSize, typography } from "@/lib/design-tokens";
-import Link from "next/link";
-import { APP_ROUTES } from "@habita/contracts";
+import { parseOnboardingProfile } from "@/lib/onboarding-profile";
+import { ProfileHeader } from "@/components/features/perfil/profile-header";
+import { HouseholdCard } from "@/components/features/perfil/household-card";
+import { HouseholdSettingsRows } from "@/components/features/perfil/household-settings-rows";
+import { MembersList } from "@/components/features/perfil/members-list";
+import { InviteRow } from "@/components/features/perfil/invite-sheet";
+import { SettingsRows } from "@/components/features/perfil/settings-rows";
+import { AccountActions } from "@/components/features/perfil/account-actions";
 
-export default async function ProfilePage() {
-  const [member, allMembers] = await Promise.all([
-    getCurrentMember(),
-    getCurrentUserMembers(),
+export const metadata = {
+  title: "Perfil",
+};
+
+export default async function PerfilPage(): Promise<React.JSX.Element> {
+  const member = await getCurrentMember();
+  if (!member) redirect("/onboarding");
+
+  const [householdMembers, user] = await Promise.all([
+    prisma.member.findMany({
+      where: { householdId: member.householdId, isActive: true },
+      select: { id: true, name: true, memberType: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.user.findUnique({ where: { id: member.userId }, select: { email: true } }),
   ]);
 
-  if (!member) {
-    redirect("/onboarding");
-  }
-
-  const householdMembers = await prisma.member.findMany({
-    where: { householdId: member.householdId, isActive: true },
-    select: { id: true, name: true, memberType: true, isActive: true },
-    orderBy: { createdAt: "asc" },
-  });
+  const isAdult = member.memberType === "ADULT";
+  const onboardingProfile = parseOnboardingProfile(member.household.onboardingProfile);
 
   return (
-    <div className="container max-w-4xl px-4 py-6 sm:py-8 md:px-8">
-      <PageHeader backButton title="Mi Perfil" />
+    <div className="container max-w-4xl space-y-6 px-4 py-6 sm:py-8 md:px-8">
+      <ProfileHeader memberName={member.name} email={user?.email ?? null} />
 
-      {/* Mi Hogar Section */}
-      <div className={spacing.sectionGap}>
-        <h2 className={`mb-2 ${typography.sectionTitle}`}>Mi Hogar</h2>
-        <Link
-          href={APP_ROUTES.casa}
-          className="flex items-center justify-between gap-2 rounded-2xl bg-card p-4 shadow-sm"
-        >
-          <span className="min-w-0 truncate font-medium text-foreground">{member.household.name}</span>
-          <ChevronRight className={`${iconSize.lg} shrink-0 text-primary`} />
-        </Link>
-      </div>
+      <section className="space-y-2">
+        <h2 className="text-[13px] font-semibold uppercase tracking-[.04em] text-ink-2">Mi hogar</h2>
+        <HouseholdCard householdName={member.household.name} canRename={isAdult} />
+        {isAdult && (
+          <HouseholdSettingsRows
+            location={{
+              city: member.household.city,
+              country: member.household.country,
+              timezone: member.household.timezone,
+            }}
+            planningDay={member.household.planningDay}
+            memberId={member.id}
+            occupationLevel={member.occupationLevel}
+            onboardingProfile={onboardingProfile}
+          />
+        )}
+        <MembersList members={householdMembers} currentMemberId={member.id} />
+        <InviteRow inviteCode={member.household.inviteCode} householdName={member.household.name} />
+      </section>
 
-      {/* Settings (edit name, household, invite code, members list) */}
-      <div className={spacing.sectionGap}>
-        <ProfileSettings
-          memberName={member.name}
-          householdName={member.household.name}
-          inviteCode={member.household.inviteCode}
-          members={householdMembers}
-          isAdult={member.memberType === "ADULT"}
-          planningDay={member.household.planningDay}
-          location={{
-            timezone: member.household.timezone,
-            country: member.household.country,
-            city: member.household.city,
-          }}
-          onboardingProfile={member.household.onboardingProfile}
-        />
-      </div>
+      <section className="space-y-2">
+        <h2 className="text-[13px] font-semibold uppercase tracking-[.04em] text-ink-2">Configuración</h2>
+        <SettingsRows />
+      </section>
 
-      {/* Más — interim links for places not yet rebuilt into Perfil (R3) */}
-      <div className={spacing.sectionGap}>
-        <h2 className={`mb-2 ${typography.sectionTitle}`}>Más</h2>
-        <div className="rounded-2xl bg-card p-1 shadow-sm">
-          <Link
-            href="/preferences"
-            className="flex items-center justify-between gap-2 rounded-xl px-3 py-3 hover:bg-muted/50"
-          >
-            <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <Sparkles className={iconSize.sm} />
-              Preferencias
-            </span>
-            <ChevronRight className={`${iconSize.sm} shrink-0 text-muted-foreground`} />
-          </Link>
-        </div>
-      </div>
-
-      {/* Sign Out */}
-      <SignOutButton />
+      <AccountActions householdName={member.household.name} />
     </div>
   );
 }

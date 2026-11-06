@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { Wallet } from "lucide-react";
 import { Button } from "@/components/ds/button";
-import { Banner } from "@/components/ds/banner";
 import { EmptyState } from "@/components/ds/empty-state";
 import { Skeleton } from "@/components/ds/skeleton";
 import { useBalances } from "@/hooks/use-money";
+import { InlineError } from "../../inline-error";
 import { SettleUpSheet } from "../settle-up-sheet";
 import { BalanceHero } from "./balance-hero";
 import { TransactionsList } from "./transactions-list";
@@ -16,7 +16,7 @@ import { isSettledUp } from "./saldos-logic";
 import type { PlataViewProps } from "../plata-view-props";
 
 export function SaldosContent({ currentMemberId, currentMemberType, members }: PlataViewProps): React.JSX.Element {
-  const { data: balances, isLoading, isError } = useBalances();
+  const { data: balances, isLoading, isError, refetch } = useBalances();
   const [sheetOpen, setSheetOpen] = useState(false);
 
   if (isLoading) {
@@ -29,7 +29,7 @@ export function SaldosContent({ currentMemberId, currentMemberType, members }: P
   }
 
   if (isError || !balances) {
-    return <Banner tone="attention">No pudimos cargar los saldos. Probá de nuevo.</Banner>;
+    return <InlineError message="No pudimos cargar los saldos." onRetry={() => refetch()} />;
   }
 
   const settledUp = isSettledUp(balances.balances);

@@ -1,5 +1,5 @@
-import { GridSkeleton } from "@/components/features/loading-skeletons";
+import { SuperSkeleton } from "@/components/features/route-skeletons";
 
-export default function ComprasLoading() {
-  return <GridSkeleton items={4} />;
+export default function SuperLoading() {
+  return <SuperSkeleton />;
 }

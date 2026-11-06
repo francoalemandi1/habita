@@ -1,5 +1,5 @@
-import { ProfileSkeleton } from "@/components/features/loading-skeletons";
+import { PerfilSkeleton } from "@/components/features/route-skeletons";
 
-export default function ProfileLoading() {
-  return <ProfileSkeleton />;
+export default function PerfilLoading() {
+  return <PerfilSkeleton />;
 }

@@ -2,9 +2,11 @@
 
 import { useMemo } from "react";
 import { Button } from "@/components/ds/button";
+import { Skeleton } from "@/components/ds/skeleton";
 import { useSettlementHistory } from "@/hooks/use-money";
 import { cn } from "@/lib/utils";
 import { formatCurrencyArs, isMigratedSettlement, settlementRowLabel } from "./saldos-logic";
+import { InlineError } from "../../inline-error";
 
 interface SettlementHistoryProps {
   currentMemberId: string;
@@ -12,11 +14,12 @@ interface SettlementHistoryProps {
 
 /** "Historial" — settlement rows newest first, paginated with "Ver más". */
 export function SettlementHistory({ currentMemberId }: SettlementHistoryProps): React.JSX.Element | null {
-  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useSettlementHistory();
+  const { data, isLoading, isError, refetch, hasNextPage, isFetchingNextPage, fetchNextPage } = useSettlementHistory();
 
   const settlements = useMemo(() => data?.pages.flatMap((page) => page.settlements) ?? [], [data]);
 
-  if (isLoading) return null;
+  if (isLoading) return <Skeleton className="h-12 w-full" />;
+  if (isError) return <InlineError message="No pudimos cargar el historial." onRetry={() => refetch()} />;
   if (settlements.length === 0) return null;
 
   return (

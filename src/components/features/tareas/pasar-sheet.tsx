@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Sheet } from "@/components/ds/sheet";
 import { RadioGroup } from "@/components/ds/radio";
+import { Banner } from "@/components/ds/banner";
+import { useIsOnline } from "@/hooks/use-is-online";
 import { computeMemberDayLoadMinutes } from "@/lib/tareas-week";
 
 import type { WeekAssignment } from "@/hooks/use-week-assignments";
@@ -19,6 +21,11 @@ interface PasarSheetProps {
 }
 
 /** "Pasar a alguien" — pattern C: pick a person, see their load, confirm with a consequence line. */
+function describePasarAction(isOnline: boolean, selectedName: string | undefined): string {
+  if (!isOnline) return "Necesitás conexión";
+  return selectedName ? `Pedirle a ${selectedName}` : "Pedirle";
+}
+
 export function PasarSheet({
   open,
   onOpenChange,
@@ -31,6 +38,7 @@ export function PasarSheet({
 }: PasarSheetProps): React.JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const isOnline = useIsOnline();
 
   const options = members.map((member) => {
     const minutes = computeMemberDayLoadMinutes(weekAssignments, member.id, dueDate);
@@ -50,6 +58,7 @@ export function PasarSheet({
   return (
     <Sheet open={open} onOpenChange={handleClose} title={`Pasar «${taskName}»`}>
       <div className="flex flex-col gap-4">
+        {!isOnline && <Banner tone="offline">Necesitás conexión para pasar la tarea.</Banner>}
         <RadioGroup name="pasar-a" options={options} value={selectedId} onChange={setSelectedId} />
         <textarea
           value={reason}
@@ -66,11 +75,11 @@ export function PasarSheet({
         )}
         <button
           type="button"
-          disabled={!selectedId || isSubmitting}
+          disabled={!selectedId || isSubmitting || !isOnline}
           onClick={() => selectedId && onSubmit(selectedId, reason)}
           className="h-11 rounded-[12px] bg-monte px-4 text-[15px] font-semibold text-paper disabled:bg-line disabled:text-ink-3"
         >
-          {selectedMember ? `Pedirle a ${selectedMember.name}` : "Pedirle"}
+          {describePasarAction(isOnline, selectedMember?.name)}
         </button>
       </div>
     </Sheet>

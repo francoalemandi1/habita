@@ -1,5 +1,5 @@
-import { DashboardSkeleton } from "@/components/features/loading-skeletons";
+import { CasaSkeleton } from "@/components/features/route-skeletons";
 
-export default function DashboardLoading() {
-  return <DashboardSkeleton />;
+export default function CasaLoading() {
+  return <CasaSkeleton />;
 }

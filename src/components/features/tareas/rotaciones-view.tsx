@@ -10,6 +10,7 @@ import { useRotationMutations, useRotationsList } from "@/hooks/use-rotations";
 import { useTareasTasks } from "@/hooks/use-tareas-tasks";
 import { buildRotationPatternText } from "@/lib/tareas-rotation";
 import { SorteoSheet } from "./sorteo-sheet";
+import { InlineError } from "../inline-error";
 
 interface RotacionesViewProps {
   members: ReadonlyArray<{ id: string; name: string }>;
@@ -19,7 +20,7 @@ interface RotacionesViewProps {
 
 /** Rotaciones view — toggle active rotations, sortear a task (handoff §5.2 `/tareas/rotaciones`). */
 export function RotacionesView({ members, currentMemberId, initialSorteoOpen }: RotacionesViewProps): React.JSX.Element {
-  const { data, isLoading } = useRotationsList();
+  const { data, isLoading, isError, refetch } = useRotationsList();
   const { data: tasksData } = useTareasTasks();
   const mutations = useRotationMutations();
   const [sorteoOpen, setSorteoOpen] = useState(initialSorteoOpen);
@@ -43,6 +44,8 @@ export function RotacionesView({ members, currentMemberId, initialSorteoOpen }: 
             <Skeleton key={i} className="h-16" />
           ))}
         </div>
+      ) : isError ? (
+        <InlineError message="No pudimos cargar las rotaciones." onRetry={() => refetch()} />
       ) : rotations.length === 0 ? (
         <EmptyState
           icon={Dices}

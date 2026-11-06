@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/features/loading-skeletons";
+import { ListPageSkeleton } from "@/components/features/route-skeletons";
 
-export default function NotificationsLoading() {
-  return <PageSkeleton cards={5} />;
+export default function AvisosLoading() {
+  return <ListPageSkeleton />;
 }

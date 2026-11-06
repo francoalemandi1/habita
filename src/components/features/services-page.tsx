@@ -22,6 +22,7 @@ import { CATEGORY_ICONS, CATEGORY_COLORS } from "@/lib/expense-constants";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { iconSize, spacing, typography } from "@/lib/design-tokens";
+import { Skeleton } from "@/components/ds/skeleton";
 
 import type { SerializedService, MemberOption } from "@/types/expense";
 import type { ExpenseCategory, RecurringFrequency } from "@prisma/client";
@@ -71,8 +72,10 @@ export function ServicesPage({ allMembers, currentMemberId }: ServicesPageProps)
     return (
       <>
         <PageHeader backButton icon={Receipt} title="Servicios" subtitle="Gestión de servicios y gastos recurrentes del hogar." />
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton key={i} className="h-20 w-full rounded-xl" />
+          ))}
         </div>
       </>
     );

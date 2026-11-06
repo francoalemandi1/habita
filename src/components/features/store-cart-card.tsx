@@ -627,7 +627,7 @@ function ProductThumbnail({ imageUrl, size = "md" }: { imageUrl: string | null; 
   }
 
   return (
-    <div className={cn("shrink-0 overflow-hidden rounded-xl bg-white", sizeClass)}>
+    <div className={cn("shrink-0 overflow-hidden rounded-xl bg-surface", sizeClass)}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={imageUrl}

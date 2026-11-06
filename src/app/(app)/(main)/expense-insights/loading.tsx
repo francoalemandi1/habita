@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/features/loading-skeletons";
+import { ListPageSkeleton } from "@/components/features/route-skeletons";
 
 export default function ExpenseInsightsLoading() {
-  return <PageSkeleton cards={4} />;
+  return <ListPageSkeleton />;
 }

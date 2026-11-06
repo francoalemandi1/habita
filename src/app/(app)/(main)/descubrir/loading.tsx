@@ -1,5 +1,5 @@
-import { GridSkeleton } from "@/components/features/loading-skeletons";
+import { GridPageSkeleton } from "@/components/features/route-skeletons";
 
 export default function DescubrirLoading() {
-  return <GridSkeleton items={6} />;
+  return <GridPageSkeleton />;
 }

@@ -8,6 +8,7 @@ import { SplitBar } from "@/components/ds/progress-bar";
 import { Avatar } from "@/components/ds/avatar";
 import { Skeleton } from "@/components/ds/skeleton";
 import { EmptyState } from "@/components/ds/empty-state";
+import { InlineError } from "../inline-error";
 
 import type { SplitBarSegmentInput } from "@/components/ds/progress-bar";
 import type { StatsResponse } from "@habita/contracts";
@@ -27,7 +28,7 @@ function buildSegments(values: ReadonlyArray<{ id: string; value: number }>): Sp
 
 /** Reparto view — per-member done counts this week/month (handoff §5.3 "Tareas", replaces /progress). */
 export function RepartoView({ currentMemberId }: RepartoViewProps): React.JSX.Element {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.stats.all(),
     queryFn: () => apiFetch<StatsResponse>("/api/stats"),
   });
@@ -40,6 +41,10 @@ export function RepartoView({ currentMemberId }: RepartoViewProps): React.JSX.El
         ))}
       </div>
     );
+  }
+
+  if (isError) {
+    return <InlineError message="No pudimos cargar el reparto." onRetry={() => refetch()} />;
   }
 
   if (!data || data.memberStats.length === 0) {

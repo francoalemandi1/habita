@@ -5,7 +5,9 @@ import Link from "next/link";
 import { Sparkles, Loader2 } from "lucide-react";
 import { Dialog } from "@/components/ds/dialog";
 import { Avatar } from "@/components/ds/avatar";
+import { Banner } from "@/components/ds/banner";
 import { EmptyState } from "@/components/ds/empty-state";
+import { useIsOnline } from "@/hooks/use-is-online";
 import { useWeeklyPlan } from "@/hooks/use-weekly-plan";
 import { useTareasTasks } from "@/hooks/use-tareas-tasks";
 import { getWeekMonday, getWeekSunday, formatWeekRange } from "@/lib/calendar-utils";
@@ -16,6 +18,7 @@ export function PlanView(): React.JSX.Element {
   const weeklyPlan = useWeeklyPlan();
   const { data: tasksData } = useTareasTasks();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const isOnline = useIsOnline();
 
   const monday = useMemo(() => getWeekMonday(new Date()), []);
   const sunday = useMemo(() => getWeekSunday(monday), [monday]);
@@ -126,22 +129,26 @@ export function PlanView(): React.JSX.Element {
           </div>
         </div>
       ) : (
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => weeklyPlan.generate(monday, sunday)}
-            className="h-11 flex-1 rounded-[12px] bg-sand text-[15px] font-semibold text-ink"
-          >
-            Otra
-          </button>
-          <button
-            type="button"
-            onClick={() => setConfirmOpen(true)}
-            className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[12px] bg-monte text-[15px] font-semibold text-paper"
-          >
-            <Sparkles className="size-4" strokeWidth={1.75} />
-            Aplicar plan
-          </button>
+        <div className="flex flex-col gap-2">
+          {!isOnline && <Banner tone="offline">Necesitás conexión para aplicar el plan.</Banner>}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => weeklyPlan.generate(monday, sunday)}
+              className="h-11 flex-1 rounded-[12px] bg-sand text-[15px] font-semibold text-ink"
+            >
+              Otra
+            </button>
+            <button
+              type="button"
+              disabled={!isOnline}
+              onClick={() => setConfirmOpen(true)}
+              className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[12px] bg-monte text-[15px] font-semibold text-paper disabled:bg-line disabled:text-ink-3"
+            >
+              <Sparkles className="size-4" strokeWidth={1.75} />
+              {isOnline ? "Aplicar plan" : "Necesitás conexión"}
+            </button>
+          </div>
         </div>
       )}
 

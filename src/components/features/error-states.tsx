@@ -1,9 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { AlertTriangle, RefreshCw, Home, ArrowLeft } from "lucide-react";
+import { AlertTriangle, SearchX, Lock } from "lucide-react";
+import { Button } from "@/components/ds/button";
 import { APP_ROUTES } from "@habita/contracts";
 
 interface ErrorStateProps {
@@ -16,7 +15,7 @@ interface ErrorStateProps {
 
 export function ErrorState({
   title = "Algo salió mal",
-  message = "Ha ocurrido un error inesperado. Por favor, intenta de nuevo.",
+  message = "Ocurrió un error inesperado. Probá de nuevo.",
   retry,
   showHomeButton = true,
   showBackButton = false,
@@ -24,57 +23,39 @@ export function ErrorState({
   const router = useRouter();
 
   return (
-    <Card className="border-destructive/50">
-      <CardContent className="flex flex-col items-center py-12 text-center">
-        <AlertTriangle className="mb-4 h-12 w-12 text-destructive" />
-        <h2 className="mb-2 text-xl font-semibold">{title}</h2>
-        <p className="mb-6 max-w-md text-muted-foreground">{message}</p>
-        <div className="flex gap-3">
-          {showBackButton && (
-            <Button variant="outline" onClick={() => router.back()}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Volver
-            </Button>
-          )}
-          {retry && (
-            <Button variant="outline" onClick={retry}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Reintentar
-            </Button>
-          )}
-          {showHomeButton && (
-            <Button onClick={() => router.push(APP_ROUTES.casa)}>
-              <Home className="mr-2 h-4 w-4" />
-              Ir al inicio
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col items-center gap-3 rounded-[20px] bg-surface px-6 py-12 text-center">
+      <AlertTriangle className="size-10 text-ladrillo" strokeWidth={1.75} />
+      <h2 className="text-[22px] font-bold text-ink">{title}</h2>
+      <p className="max-w-sm text-[15px] text-ink-2">{message}</p>
+      <div className="flex gap-3">
+        {showBackButton && (
+          <Button variant="secondary" onClick={() => router.back()}>
+            Volver
+          </Button>
+        )}
+        {retry && (
+          <Button variant="secondary" onClick={retry}>
+            Reintentar
+          </Button>
+        )}
+        {showHomeButton && <Button onClick={() => router.push(APP_ROUTES.casa)}>Ir al inicio</Button>}
+      </div>
+    </div>
   );
 }
 
-export function NotFoundState({
-  resource = "recurso",
-}: {
-  resource?: string;
-}) {
+export function NotFoundState({ resource = "recurso" }: { resource?: string }) {
   const router = useRouter();
 
   return (
-    <Card>
-      <CardContent className="flex flex-col items-center py-12 text-center">
-        <div className="mb-4 text-6xl">🔍</div>
-        <h2 className="mb-2 text-xl font-semibold">No encontrado</h2>
-        <p className="mb-6 text-muted-foreground">
-          El {resource} que buscas no existe o ha sido eliminado.
-        </p>
-        <Button onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Volver
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col items-center gap-3 rounded-[20px] bg-surface px-6 py-12 text-center">
+      <SearchX className="size-10 text-ink-3" strokeWidth={1.75} />
+      <h2 className="text-[22px] font-bold text-ink">No encontrado</h2>
+      <p className="max-w-sm text-[15px] text-ink-2">El {resource} que buscás no existe o fue eliminado.</p>
+      <Button variant="secondary" onClick={() => router.back()}>
+        Volver
+      </Button>
+    </div>
   );
 }
 
@@ -92,26 +73,24 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <Card>
-      <CardContent className="flex flex-col items-center py-12 text-center">
-        {icon && <div className="mb-4">{icon}</div>}
-        <h2 className="mb-2 text-lg font-semibold">{title}</h2>
-        <p className="mb-6 max-w-md text-muted-foreground">{message}</p>
-        {steps && steps.length > 0 && (
-          <div className="mb-6 mt-2 w-full max-w-sm space-y-2 text-left">
-            {steps.map((step, index) => (
-              <div key={step.label} className="flex items-center gap-2.5">
-                <div className="flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
-                  {index + 1}
-                </div>
-                <span className="text-[13px] text-muted-foreground">{step.label}</span>
+    <div className="flex flex-col items-center gap-3 rounded-[20px] bg-surface px-6 py-12 text-center">
+      {icon}
+      <h2 className="text-[22px] font-bold text-ink">{title}</h2>
+      <p className="max-w-sm text-[15px] text-ink-2">{message}</p>
+      {steps && steps.length > 0 && (
+        <div className="mt-2 flex w-full max-w-sm flex-col gap-2 text-left">
+          {steps.map((step, index) => (
+            <div key={step.label} className="flex items-center gap-2.5">
+              <div className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-monte-soft text-[11px] font-bold text-monte">
+                {index + 1}
               </div>
-            ))}
-          </div>
-        )}
-        {action}
-      </CardContent>
-    </Card>
+              <span className="text-[13px] text-ink-2">{step.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {action}
+    </div>
   );
 }
 
@@ -119,18 +98,11 @@ export function AccessDeniedState() {
   const router = useRouter();
 
   return (
-    <Card className="border-yellow-500/50">
-      <CardContent className="flex flex-col items-center py-12 text-center">
-        <div className="mb-4 text-6xl">🔒</div>
-        <h2 className="mb-2 text-xl font-semibold">Acceso restringido</h2>
-        <p className="mb-6 text-muted-foreground">
-          No tienes permiso para acceder a esta sección.
-        </p>
-        <Button onClick={() => router.push(APP_ROUTES.casa)}>
-          <Home className="mr-2 h-4 w-4" />
-          Ir al inicio
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col items-center gap-3 rounded-[20px] bg-surface px-6 py-12 text-center">
+      <Lock className="size-10 text-ink-3" strokeWidth={1.75} />
+      <h2 className="text-[22px] font-bold text-ink">Acceso restringido</h2>
+      <p className="max-w-sm text-[15px] text-ink-2">No tenés permiso para acceder a esta sección.</p>
+      <Button onClick={() => router.push(APP_ROUTES.casa)}>Ir al inicio</Button>
+    </div>
   );
 }

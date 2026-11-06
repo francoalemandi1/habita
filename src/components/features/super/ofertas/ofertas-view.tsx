@@ -2,18 +2,18 @@
 
 import { useState } from "react";
 import { Tag } from "lucide-react";
-import { Banner } from "@/components/ds/banner";
 import { EmptyState } from "@/components/ds/empty-state";
 import { Skeleton } from "@/components/ds/skeleton";
 import { useSnackbar } from "@/components/ds/snackbar";
 import { useTopDeals } from "@/hooks/use-top-deals";
+import { InlineError } from "@/components/features/inline-error";
 import { useShoppingList, useAddShoppingListItem } from "@/hooks/use-shopping-list";
 import { isDealInList } from "@/lib/super-shopping-list-logic";
 import { OfertaCard } from "@/components/features/super/ofertas/oferta-card";
 import { RubroChips } from "@/components/features/super/ofertas/rubro-chips";
 
 export function OfertasView(): React.JSX.Element {
-  const { data, isLoading, error } = useTopDeals();
+  const { data, isLoading, error, refetch } = useTopDeals();
   const { data: listData } = useShoppingList();
   const addItem = useAddShoppingListItem();
   const snackbar = useSnackbar();
@@ -44,7 +44,7 @@ export function OfertasView(): React.JSX.Element {
   }
 
   if (error) {
-    return <Banner tone="attention">No se pudieron cargar las ofertas</Banner>;
+    return <InlineError message="No se pudieron cargar las ofertas." onRetry={() => refetch()} />;
   }
 
   if (deals.length === 0) {

@@ -13,12 +13,13 @@ import { FREQUENCY_LABELS } from "@/lib/constants";
 import { cancelDelete, isPendingDelete, scheduleDelete, subscribeDeferredDeletes } from "@/lib/deferred-delete";
 import { TAREAS_ROUTES } from "@habita/contracts";
 import { CreateTaskDialog } from "./create-task-dialog";
+import { InlineError } from "../inline-error";
 
 const DELETE_DELAY_MS = 5_000;
 
 /** Lista view — household task catalog: frequency, rotation badge, create/delete (handoff §5.3 "Tareas"). */
 export function ListaView(): React.JSX.Element {
-  const { data, isLoading } = useTareasTasks();
+  const { data, isLoading, isError, refetch } = useTareasTasks();
   const { data: rotationsData } = useRotationsList();
   const taskMutations = useTareasTaskMutations();
   const snackbar = useSnackbar();
@@ -53,6 +54,8 @@ export function ListaView(): React.JSX.Element {
             <Skeleton key={i} className="h-14" />
           ))}
         </div>
+      ) : isError ? (
+        <InlineError message="No pudimos cargar las tareas." onRetry={() => refetch()} />
       ) : tasks.length === 0 ? (
         <EmptyState
           icon={ClipboardList}

@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/features/loading-skeletons";
+import { ListPageSkeleton } from "@/components/features/route-skeletons";
 
 export default function ServicesLoading() {
-  return <PageSkeleton cards={3} />;
+  return <ListPageSkeleton />;
 }

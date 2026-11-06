@@ -13,9 +13,7 @@ import {
   RefreshCw,
   ExternalLink,
   MapPin,
-  Loader2,
   Info,
-  AlertTriangle,
   Clock,
   CalendarPlus,
   Navigation,
@@ -35,6 +33,9 @@ import {
 } from "lucide-react";
 import { Filter } from "lucide-react";
 import { SectionGuideCard } from "@/components/features/section-guide-card";
+import { EmptyState } from "@/components/ds/empty-state";
+import { Skeleton } from "@/components/ds/skeleton";
+import { InlineError } from "@/components/features/inline-error";
 import { useFirstVisit } from "@/hooks/use-first-visit";
 import { wasSectionToured } from "@/hooks/use-guided-tour";
 import { useGeolocation } from "@/hooks/use-geolocation";
@@ -604,29 +605,19 @@ export function DescubrirClient({
 
       {/* Loading state */}
       {isLoading && (
-        <div className="flex flex-col items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="mt-3 text-sm text-muted-foreground">
-            {isPipelineRunning
-              ? "Buscando eventos en la web... esto puede tardar unos minutos"
-              : "Cargando planes y actividades..."}
-          </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {Array.from({ length: 4 }, (_, i) => (
+            <Skeleton key={i} className="h-48 w-full" />
+          ))}
         </div>
       )}
 
       {/* Error states */}
       {query.error && !query.data && (
-        <EmptyState
-          icon={Info}
-          title="Error"
-          description="No pudimos cargar los planes. Intentá en unos minutos."
-        />
+        <InlineError message="No pudimos cargar los planes." onRetry={() => query.refetch()} />
       )}
       {query.error && query.data && (
-        <div className="flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-950/40 p-3 text-sm text-red-700 dark:text-red-400">
-          <AlertTriangle className={iconSize.sm} />
-          No se pudo actualizar. Intentá en unos minutos.
-        </div>
+        <InlineError message="No se pudo actualizar." onRetry={() => query.refetch()} />
       )}
 
       {/* Recomendados para vos — activities only */}
@@ -1195,24 +1186,6 @@ function FilterPill({
       {icon}
       {label}
     </button>
-  );
-}
-
-function EmptyState({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/20 px-6 py-12 text-center">
-      <Icon className="h-10 w-10 text-muted-foreground" />
-      <h3 className="mt-3 text-sm font-semibold">{title}</h3>
-      <p className="mt-1 max-w-xs text-xs text-muted-foreground">{description}</p>
-    </div>
   );
 }
 

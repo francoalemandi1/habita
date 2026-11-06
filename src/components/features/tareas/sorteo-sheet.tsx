@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { Sheet } from "@/components/ds/sheet";
 import { Avatar } from "@/components/ds/avatar";
+import { Banner } from "@/components/ds/banner";
 import { useSnackbar } from "@/components/ds/snackbar";
+import { useIsOnline } from "@/hooks/use-is-online";
 import { apiFetch } from "@/lib/api-client";
 import { pickSorteoWinner } from "@/lib/tareas-sorteo";
 import { cn } from "@/lib/utils";
@@ -21,6 +23,7 @@ export function SorteoSheet({ open, onOpenChange, tasks, members }: SorteoSheetP
   const [winnerId, setWinnerId] = useState<string | null>(null);
   const [isAssigning, setIsAssigning] = useState(false);
   const snackbar = useSnackbar();
+  const isOnline = useIsOnline();
 
   function handleClose(): void {
     setTaskId(null);
@@ -53,6 +56,7 @@ export function SorteoSheet({ open, onOpenChange, tasks, members }: SorteoSheetP
   return (
     <Sheet open={open} onOpenChange={(next) => !next && handleClose()} title="Sortear una tarea">
       <div className="flex flex-col gap-4">
+        {!isOnline && <Banner tone="offline">Necesitás conexión para asignar.</Banner>}
         {!taskId ? (
           <div className="flex flex-col gap-1">
             {tasks.map((task) => (
@@ -106,11 +110,11 @@ export function SorteoSheet({ open, onOpenChange, tasks, members }: SorteoSheetP
                   </button>
                   <button
                     type="button"
-                    disabled={isAssigning}
+                    disabled={isAssigning || !isOnline}
                     onClick={handleAssign}
                     className="h-11 flex-1 rounded-[12px] bg-monte text-[15px] font-semibold text-paper disabled:bg-line disabled:text-ink-3"
                   >
-                    Asignar a {winner?.name}
+                    {isOnline ? `Asignar a ${winner?.name}` : "Necesitás conexión"}
                   </button>
                 </>
               )}

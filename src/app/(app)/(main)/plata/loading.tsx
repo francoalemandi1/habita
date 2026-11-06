@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/features/loading-skeletons";
+import { PlataSkeleton } from "@/components/features/route-skeletons";
 
-export default function BalanceLoading() {
-  return <PageSkeleton cards={4} />;
+export default function PlataLoading() {
+  return <PlataSkeleton />;
 }

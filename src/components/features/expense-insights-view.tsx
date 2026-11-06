@@ -1,12 +1,13 @@
 "use client";
 
-import { BarChart3, TrendingUp, TrendingDown, Minus, AlertCircle, Calendar, Loader2 } from "lucide-react";
+import { BarChart3, TrendingUp, TrendingDown, Minus, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useExpenseInsights } from "@/hooks/use-expense-insights";
 import { formatAmount } from "@/components/features/expense-shared";
 import { CATEGORY_ICONS, CATEGORY_LABELS } from "@/lib/expense-constants";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { Skeleton } from "@/components/ds/skeleton";
 
 import type { ExpenseCategory } from "@prisma/client";
 import type { MonthStatus, SpendingTip } from "@/lib/expense-insights";
@@ -53,8 +54,13 @@ export function ExpenseInsightsView() {
     return (
       <>
         <PageHeader backButton icon={BarChart3} title="Análisis de Gastos" subtitle="Cómo estás este mes." />
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <div className="grid grid-cols-2 gap-3">
+            <Skeleton className="h-24 w-full rounded-xl" />
+            <Skeleton className="h-24 w-full rounded-xl" />
+          </div>
+          <Skeleton className="h-16 w-full rounded-xl" />
         </div>
       </>
     );
@@ -124,10 +130,7 @@ export function ExpenseInsightsView() {
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Consejos</p>
           {data.spendingTips.map((tip) => (
             <div key={tip.id} className={cn("rounded-xl border p-3", tipBgColor(tip.severity))}>
-              <p className="text-sm">
-                <span className="mr-1.5">{tip.emoji}</span>
-                {tip.message}
-              </p>
+              <p className="text-sm">{tip.message}</p>
               {tip.action && (
                 <a
                   href={tip.action.href}

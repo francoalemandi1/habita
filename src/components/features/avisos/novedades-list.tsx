@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/ds/empty-state";
 import { Skeleton } from "@/components/ds/skeleton";
 import { useNotifications } from "@/hooks/use-notifications";
 import { formatNotificationTime } from "@/lib/avisos-logic";
+import { InlineError } from "../inline-error";
 
 import type { LucideIcon } from "lucide-react";
 import type { NotificationItem } from "@/hooks/use-notifications";
@@ -61,7 +62,7 @@ function NovedadRow({ notification }: { notification: NotificationItem }): React
 
 /** §5.3 Avisos → Novedades — read-only feed; marks everything read on view. */
 export function NovedadesList(): React.JSX.Element {
-  const { data, isLoading, markAllAsRead } = useNotifications();
+  const { data, isLoading, isError, refetch, markAllAsRead } = useNotifications();
 
   const unreadCount = data?.unreadCount ?? 0;
   const hasMarkedRef = useRef(false);
@@ -82,6 +83,10 @@ export function NovedadesList(): React.JSX.Element {
         <Skeleton className="h-[60px] w-full" />
       </div>
     );
+  }
+
+  if (isError) {
+    return <InlineError message="No pudimos cargar los avisos." onRetry={() => refetch()} />;
   }
 
   const notifications = data?.notifications ?? [];

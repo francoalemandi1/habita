@@ -18,8 +18,20 @@ export const APP_ROUTES = {
 
 export type AppRoute = (typeof APP_ROUTES)[keyof typeof APP_ROUTES];
 
-/** A canonical route, optionally with a query string selecting a view inside it (e.g. `/plata?v=fondo`). */
-export type LegacyAliasTarget = AppRoute | `${AppRoute}?${string}`;
+/** Screens inside the Tareas place (handoff §5.2). */
+export const TAREAS_ROUTES = {
+  plan: "/tareas/plan",
+  planHistory: "/tareas/plan/historial",
+  rotations: "/tareas/rotaciones",
+  add: "/tareas/sumar",
+} as const;
+
+/**
+ * A canonical route or a screen nested under it, optionally with a query string
+ * selecting a view inside it (e.g. `/plata?v=fondo`, `/tareas/rotaciones?sorteo=1`).
+ */
+type CanonicalPath = AppRoute | `${AppRoute}/${string}`;
+export type LegacyAliasTarget = CanonicalPath | `${CanonicalPath}?${string}`;
 
 /** Legacy path → canonical path (or canonical path + view query), shared by web redirects and mobile deep links. */
 export const LEGACY_ROUTE_ALIASES: Readonly<Record<string, LegacyAliasTarget>> = {
@@ -31,20 +43,24 @@ export const LEGACY_ROUTE_ALIASES: Readonly<Record<string, LegacyAliasTarget>> =
   // The Fondo view now lives inside Plata (handoff §5.2).
   "/fund": `${APP_ROUTES.plata}?v=fondo`,
   "/compras": APP_ROUTES.super,
+  "/tasks": APP_ROUTES.tareas,
+  "/plan": TAREAS_ROUTES.plan,
+  "/plans": TAREAS_ROUTES.planHistory,
+  "/rotations": TAREAS_ROUTES.rotations,
+  "/roulette": `${TAREAS_ROUTES.rotations}?sorteo=1`,
+  "/progress": `${APP_ROUTES.tareas}?v=reparto`,
+  "/suggest-tasks": TAREAS_ROUTES.add,
+  "/task-catalog": TAREAS_ROUTES.add,
+  // Transfer requests are answered from Avisos; their state shows inline on the task.
+  "/transfers": APP_ROUTES.avisos,
   "/notifications": APP_ROUTES.avisos,
   "/profile": APP_ROUTES.perfil,
   // Never existed as a page; older notifications were sent with it.
   "/settings": APP_ROUTES.perfil,
 };
 
-/**
- * Mobile-only aliases. On mobile `/tasks` was the Tasks tab; on web it is the
- * task management page, which keeps its URL until the Tareas place is rebuilt.
- */
-export const MOBILE_LEGACY_ROUTE_ALIASES: Readonly<Record<string, LegacyAliasTarget>> = {
-  ...LEGACY_ROUTE_ALIASES,
-  "/tasks": APP_ROUTES.tareas,
-};
+/** Mobile deep-link aliases; identical to web now that Tareas absorbed `/tasks`. */
+export const MOBILE_LEGACY_ROUTE_ALIASES: Readonly<Record<string, LegacyAliasTarget>> = LEGACY_ROUTE_ALIASES;
 
 /**
  * Rewrites a legacy in-app path to its canonical route, keeping the query

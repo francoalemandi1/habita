@@ -5,6 +5,7 @@ import {
   LEGACY_ROUTE_ALIASES,
   MOBILE_LEGACY_ROUTE_ALIASES,
   normalizeAppPath,
+  TAREAS_ROUTES,
 } from "@habita/contracts";
 
 describe("normalizeAppPath", () => {
@@ -21,13 +22,23 @@ describe("normalizeAppPath", () => {
   });
 
   it("leaves unknown paths and sub-paths unchanged", () => {
-    expect(normalizeAppPath("/plan")).toBe("/plan");
+    expect(normalizeAppPath("/unknown")).toBe("/unknown");
     expect(normalizeAppPath("/compras/123")).toBe("/compras/123");
   });
 
-  it("keeps web /tasks but maps it on mobile", () => {
-    expect(normalizeAppPath("/tasks")).toBe("/tasks");
+  it("maps /tasks to Tareas on web and mobile", () => {
+    expect(normalizeAppPath("/tasks")).toBe("/tareas");
     expect(normalizeAppPath("/tasks", MOBILE_LEGACY_ROUTE_ALIASES)).toBe("/tareas");
+  });
+
+  it("maps the old task screens into the Tareas place", () => {
+    expect(normalizeAppPath("/plan")).toBe("/tareas/plan");
+    expect(normalizeAppPath("/plans")).toBe("/tareas/plan/historial");
+    expect(normalizeAppPath("/rotations")).toBe("/tareas/rotaciones");
+    expect(normalizeAppPath("/roulette")).toBe("/tareas/rotaciones?sorteo=1");
+    expect(normalizeAppPath("/progress?from=push")).toBe("/tareas?v=reparto&from=push");
+    expect(normalizeAppPath("/suggest-tasks")).toBe("/tareas/sumar");
+    expect(normalizeAppPath("/transfers")).toBe("/avisos");
   });
 
   it("maps the URLs older notifications were sent with", () => {
@@ -47,7 +58,7 @@ describe("normalizeAppPath", () => {
 
 describe("route tables", () => {
   it("only points aliases at canonical routes, ignoring any view query", () => {
-    const canonical = new Set<string>(Object.values(APP_ROUTES));
+    const canonical = new Set<string>([...Object.values(APP_ROUTES), ...Object.values(TAREAS_ROUTES)]);
     for (const target of Object.values(MOBILE_LEGACY_ROUTE_ALIASES)) {
       const base = target.split("?")[0] ?? target;
       expect(canonical.has(base)).toBe(true);

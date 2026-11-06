@@ -25,7 +25,11 @@ describe("toInAppHref", () => {
   });
 
   it("keeps routes that did not move", () => {
-    expect(toInAppHref("/plan")).toBe("/plan");
+    expect(toInAppHref("/super")).toBe("/super");
+  });
+
+  it("sends the old plan screen into Tareas", () => {
+    expect(toInAppHref("/plan")).toBe("/tareas/plan");
   });
 
   it("rejects unsafe values", () => {

@@ -1,6 +1,14 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+
+// The AI SDK graph is slow to transform cold; pay that once here, outside the per-test timeout.
+const MODULE_WARMUP_TIMEOUT_MS = 30_000;
 
 describe("getLanguageModel", () => {
+  beforeAll(async () => {
+    await import("@/lib/ai/models");
+    vi.resetModules();
+  }, MODULE_WARMUP_TIMEOUT_MS);
+
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.resetModules();

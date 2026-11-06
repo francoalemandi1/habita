@@ -27,7 +27,13 @@ export const assignmentSummarySchema = z.object({
   status: assignmentStatusSchema,
   notes: z.string().nullable().optional(),
   completedAt: z.string().nullable().optional(),
+  completedByMemberId: z.string().nullable().optional(),
   task: assignmentTaskSummarySchema,
+});
+
+export const assignmentCompletedBySchema = z.object({
+  id: z.string(),
+  name: z.string(),
 });
 
 export const myAssignmentsResponseSchema = z.object({
@@ -43,6 +49,7 @@ export const myAssignmentsResponseSchema = z.object({
 
 export const completeAssignmentResponseSchema = z.object({
   assignment: assignmentSummarySchema,
+  completedBy: assignmentCompletedBySchema.optional(),
   planFinalized: z.boolean().optional(),
   finalizedPlanId: z.string().optional(),
   nextAssignment: z
@@ -66,6 +73,7 @@ export const uncompleteAssignmentResponseSchema = z.object({
 
 export type AssignmentStatus = z.infer<typeof assignmentStatusSchema>;
 export type AssignmentSummary = z.infer<typeof assignmentSummarySchema>;
+export type AssignmentCompletedBy = z.infer<typeof assignmentCompletedBySchema>;
 export type MyAssignmentsResponse = z.infer<typeof myAssignmentsResponseSchema>;
 export type CompleteAssignmentResponse = z.infer<typeof completeAssignmentResponseSchema>;
 export type UncompleteAssignmentResponse = z.infer<typeof uncompleteAssignmentResponseSchema>;

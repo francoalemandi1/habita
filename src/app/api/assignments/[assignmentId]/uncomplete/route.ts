@@ -51,6 +51,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       data: {
         status: "PENDING",
         completedAt: null,
+        completedByMemberId: null,
       },
     });
 

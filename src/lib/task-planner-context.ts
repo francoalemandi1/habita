@@ -39,6 +39,7 @@ export async function loadTaskPlannerSnapshot(householdId: string): Promise<Task
         weight: true,
         minAge: true,
         estimatedMinutes: true,
+        isRotating: true,
       },
     }),
     prisma.memberPreference.findMany({
@@ -53,7 +54,14 @@ export async function loadTaskPlannerSnapshot(householdId: string): Promise<Task
           { status: { in: ["COMPLETED", "VERIFIED"] }, completedAt: { gte: historySince } },
         ],
       },
-      select: { taskId: true, memberId: true, dueDate: true, status: true, completedAt: true },
+      select: {
+        taskId: true,
+        memberId: true,
+        completedByMemberId: true,
+        dueDate: true,
+        status: true,
+        completedAt: true,
+      },
     }),
   ]);
 
@@ -68,7 +76,15 @@ export async function loadTaskPlannerSnapshot(householdId: string): Promise<Task
 
   const plannerPreferences: PlannerPreference[] = preferences;
 
-  const plannerAssignments: PlannerRecentAssignment[] = recentAssignments;
+  // Recency scoring must credit the actual completer, not the original assignee.
+  const plannerAssignments: PlannerRecentAssignment[] = recentAssignments.map((a) => ({
+    taskId: a.taskId,
+    memberId:
+      a.status === "COMPLETED" || a.status === "VERIFIED" ? a.completedByMemberId ?? a.memberId : a.memberId,
+    dueDate: a.dueDate,
+    status: a.status,
+    completedAt: a.completedAt,
+  }));
 
   return {
     members: plannerMembers,

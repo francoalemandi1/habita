@@ -2,7 +2,8 @@ import { z } from "zod";
 
 export const createRotationSchema = z.object({
   taskId: z.string().min(1, "Task ID requerido"),
-  frequency: z.enum(["DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY"]),
+  // Kept for older clients; the task's own frequency is the source of truth now.
+  frequency: z.enum(["DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY"]).optional(),
   nextDueDate: z.string().datetime().optional(),
 });
 

@@ -13,6 +13,8 @@ const MONTH_LABELS = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "S
 
 export interface CasaAssignment {
   memberId: string;
+  /** Who actually did it; null/absent credits the assignee. */
+  completedByMemberId?: string | null;
   status: string;
 }
 
@@ -45,7 +47,8 @@ export function summarizeWeekTasks(input: {
   const doneByMember = new Map<string, number>();
   for (const assignment of counted) {
     if (!DONE_STATUSES.has(assignment.status)) continue;
-    doneByMember.set(assignment.memberId, (doneByMember.get(assignment.memberId) ?? 0) + 1);
+    const doerId = assignment.completedByMemberId ?? assignment.memberId;
+    doneByMember.set(doerId, (doneByMember.get(doerId) ?? 0) + 1);
   }
 
   const orderedMembers = [

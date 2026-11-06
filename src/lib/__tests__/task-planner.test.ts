@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { partitionTasksByDuration, pickNextAssignee, planWeek, scoreCandidates } from "@habita/domain";
+import {
+  partitionTasksByDuration,
+  pickNextAssignee,
+  pickNextRotationAssignee,
+  planWeek,
+  scoreCandidates,
+} from "@habita/domain";
 
 import type { PlannerMember, PlannerTask, TaskPlannerSnapshot } from "@habita/domain";
 
@@ -283,5 +289,44 @@ describe("planWeek", () => {
 
     const mondayAssignment = result.assignments.find((a) => a.dayOfWeek === 1);
     expect(mondayAssignment?.memberId).not.toBe("a");
+  });
+});
+
+describe("pickNextRotationAssignee", () => {
+  it("picks the next member in the ring after the current assignee", () => {
+    const rotTask = task("rot", { isRotating: true });
+    const snap = snapshot({ members: [member("a"), member("b"), member("c")], tasks: [rotTask] });
+
+    expect(pickNextRotationAssignee(rotTask, "a", now, snap)?.memberId).toBe("b");
+    expect(pickNextRotationAssignee(rotTask, "b", now, snap)?.memberId).toBe("c");
+    expect(pickNextRotationAssignee(rotTask, "c", now, snap)?.memberId).toBe("a");
+  });
+
+  it("skips a member absent on the due date", () => {
+    const rotTask = task("rot", { isRotating: true });
+    const snap = snapshot({
+      members: [
+        member("a"),
+        { id: "b", name: "b", memberType: "ADULT", absences: [{ startDate: now, endDate: now }] },
+        member("c"),
+      ],
+      tasks: [rotTask],
+    });
+
+    expect(pickNextRotationAssignee(rotTask, "a", now, snap)?.memberId).toBe("c");
+  });
+
+  it("starts from the ring's beginning when the current assignee is no longer eligible", () => {
+    const rotTask = task("rot", { isRotating: true });
+    const snap = snapshot({ members: [member("a"), member("b")], tasks: [rotTask] });
+
+    expect(pickNextRotationAssignee(rotTask, "ghost", now, snap)?.memberId).toBe("a");
+  });
+
+  it("returns null when no member is eligible", () => {
+    const rotTask = task("rot", { isRotating: true, minAge: 99 });
+    const snap = snapshot({ members: [member("a"), member("b")], tasks: [rotTask] });
+
+    expect(pickNextRotationAssignee(rotTask, "a", now, snap)).toBeNull();
   });
 });

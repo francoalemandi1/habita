@@ -49,6 +49,7 @@ export default async function CasaPage() {
         select: {
           id: true,
           memberId: true,
+          completedByMemberId: true,
           dueDate: true,
           status: true,
           task: { select: { name: true, estimatedMinutes: true } },
@@ -73,7 +74,11 @@ export default async function CasaPage() {
     ]);
 
   const weekSummary = summarizeWeekTasks({
-    assignments: weekAssignments.map((a) => ({ memberId: a.memberId, status: a.status })),
+    assignments: weekAssignments.map((a) => ({
+      memberId: a.memberId,
+      completedByMemberId: a.completedByMemberId,
+      status: a.status,
+    })),
     members,
     currentMemberId: member.id,
   });

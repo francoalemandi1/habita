@@ -3,7 +3,6 @@ import { processAbsenceRedistribution } from "@/lib/absence-redistribution";
 import { cleanupOldNotifications } from "@/lib/notification-service";
 import { expirePastEvents } from "@/lib/events/expire-events";
 import { cleanupExpiredMobileAuthSessions } from "@/lib/mobile-auth";
-import { processRotations } from "@/lib/rotation-generator";
 import { handleApiError } from "@/lib/api-response";
 import { processServiceBilling } from "@/lib/cron/jobs/service-billing";
 import { processProactiveNotifications } from "@/lib/cron/jobs/proactive-notifications";
@@ -46,7 +45,6 @@ export async function runCronProcess(cronSecret: string) {
       proactiveResult,
       culturalResult,
       dealResult,
-      rotationResult,
       morningBriefingResult,
       overdueTaskResult,
       spendingAnomalyResult,
@@ -59,7 +57,6 @@ export async function runCronProcess(cronSecret: string) {
       runJob("proactiveNotifications", processProactiveNotifications, failedJobs),
       runJob("culturalRecommendations", processCulturalRecommendations, failedJobs),
       runJob("dealAlerts", processDealAlerts, failedJobs),
-      runJob("rotations", processRotations, failedJobs),
       runJob("morningBriefing", processMorningBriefing, failedJobs),
       runJob("overdueTaskAlerts", processOverdueTaskAlerts, failedJobs),
       runJob("spendingAnomalyAlerts", processSpendingAnomalyAlerts, failedJobs),
@@ -123,13 +120,6 @@ export async function runCronProcess(cronSecret: string) {
         mobileAuth: {
           revokedExpired: mobileAuthCleanup.revokedExpired,
           deletedOldRevoked: mobileAuthCleanup.deletedOldRevoked,
-        },
-      }),
-      ...(rotationResult && {
-        rotations: {
-          processed: rotationResult.processed,
-          generated: rotationResult.generated,
-          errors: rotationResult.errors,
         },
       }),
       proactiveNotifications: {

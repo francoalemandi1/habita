@@ -249,6 +249,28 @@ export function pickNextAssignee(
   return scores[0] ?? null;
 }
 
+/**
+ * Pick the next assignee for an isRotating task's next occurrence: the member right
+ * after `currentAssigneeId` in the stable id-sorted ring, skipping anyone absent on
+ * `dueDate`. Returns null when the ring has no eligible member (caller falls back to
+ * `pickNextAssignee`).
+ */
+export function pickNextRotationAssignee(
+  task: PlannerTask,
+  currentAssigneeId: string,
+  dueDate: Date,
+  snapshot: TaskPlannerSnapshot,
+): ScoreCandidate | null {
+  const rotationOrder = rotationOrderFor(task, snapshot);
+  if (rotationOrder.length === 0) return null;
+
+  const currentIndex = rotationOrder.indexOf(currentAssigneeId);
+  const startOffset = currentIndex === -1 ? 0 : currentIndex + 1;
+
+  const picked = pickRotationCandidate(rotationOrder, startOffset, 0, snapshot, dueDate);
+  return picked?.candidate ?? null;
+}
+
 function buildAssignmentReason(reasonCode: AssignmentReasonCode): string {
   switch (reasonCode) {
     case "PREFERENCE":

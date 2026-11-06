@@ -5,14 +5,21 @@ import { Badge } from "@/components/ui/badge";
 import { RotationToggle } from "@/components/features/rotation-toggle";
 import { RefreshCw, Calendar, Clock } from "lucide-react";
 
-import type { TaskFrequency, TaskRotation, Task } from "@prisma/client";
+import type { TaskFrequency } from "@prisma/client";
 
-interface RotationWithTask extends TaskRotation {
-  task: Pick<Task, "id" | "name" | "frequency" | "weight">;
+/** The flag-backed rotation shape returned by GET /api/rotations (taskId doubles as id). */
+export interface RotationView {
+  id: string;
+  taskId: string;
+  frequency: TaskFrequency;
+  isActive: boolean;
+  lastGenerated: Date | null;
+  nextDueDate: Date | null;
+  task: { id: string; name: string; frequency: TaskFrequency; weight: number };
 }
 
 interface RotationsListProps {
-  rotations: RotationWithTask[];
+  rotations: RotationView[];
 }
 
 const FREQUENCY_LABELS: Record<TaskFrequency, string> = {

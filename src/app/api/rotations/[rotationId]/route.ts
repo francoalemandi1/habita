@@ -5,43 +5,58 @@ import { updateRotationSchema } from "@/lib/validations/rotation";
 import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
+import type { Task } from "@prisma/client";
 
 interface RouteParams {
   params: Promise<{ rotationId: string }>;
 }
 
+type RotatingTask = Pick<Task, "id" | "name" | "frequency" | "weight" | "createdAt" | "updatedAt">;
+
+/** Same shape as the GET /api/rotations list — the rotationId param is the taskId. */
+function toRotationView(task: RotatingTask, householdId: string, isActive: boolean) {
+  return {
+    id: task.id,
+    taskId: task.id,
+    householdId,
+    frequency: task.frequency,
+    isActive,
+    lastGenerated: null,
+    nextDueDate: null,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+    task: {
+      id: task.id,
+      name: task.name,
+      frequency: task.frequency,
+      weight: task.weight,
+    },
+  };
+}
+
 /**
  * GET /api/rotations/[rotationId]
- * Get a specific rotation
+ * Get a specific rotating task (rotationId is the task id).
  */
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const member = await requireMember();
     const { rotationId } = await params;
 
-    const rotation = await prisma.taskRotation.findFirst({
+    const task = await prisma.task.findFirst({
       where: {
         id: rotationId,
         householdId: member.householdId,
+        isRotating: true,
       },
-      include: {
-        task: {
-          select: {
-            id: true,
-            name: true,
-            frequency: true,
-            weight: true,
-            description: true,
-          },
-        },
-      },
+      select: { id: true, name: true, frequency: true, weight: true, createdAt: true, updatedAt: true },
     });
 
-    if (!rotation) {
+    if (!task) {
       return NextResponse.json({ error: "Rotación no encontrada" }, { status: 404 });
     }
 
-    return NextResponse.json({ rotation });
+    return NextResponse.json({ rotation: toRotationView(task, member.householdId, true) });
   } catch (error) {
     return handleApiError(error, { route: "/api/rotations/[rotationId]", method: "GET" });
   }
@@ -49,7 +64,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
 /**
  * PATCH /api/rotations/[rotationId]
- * Update a rotation
+ * Toggle a rotating task's isActive — maps directly onto Task.isRotating.
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
@@ -65,46 +80,28 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Verify rotation belongs to household
-    const existingRotation = await prisma.taskRotation.findFirst({
+    const existingTask = await prisma.task.findFirst({
       where: {
         id: rotationId,
         householdId: member.householdId,
+        isRotating: true,
       },
       select: { id: true },
     });
 
-    if (!existingRotation) {
+    if (!existingTask) {
       return NextResponse.json({ error: "Rotación no encontrada" }, { status: 404 });
     }
 
-    const updateData: Record<string, unknown> = {};
-    if (validation.data.frequency !== undefined) {
-      updateData.frequency = validation.data.frequency;
-    }
-    if (validation.data.isActive !== undefined) {
-      updateData.isActive = validation.data.isActive;
-    }
-    if (validation.data.nextDueDate !== undefined) {
-      updateData.nextDueDate = new Date(validation.data.nextDueDate);
-    }
+    const isActive = validation.data.isActive ?? true;
 
-    const rotation = await prisma.taskRotation.update({
+    const task = await prisma.task.update({
       where: { id: rotationId },
-      data: updateData,
-      include: {
-        task: {
-          select: {
-            id: true,
-            name: true,
-            frequency: true,
-            weight: true,
-          },
-        },
-      },
+      data: { isRotating: isActive },
+      select: { id: true, name: true, frequency: true, weight: true, createdAt: true, updatedAt: true },
     });
 
-    return NextResponse.json({ rotation });
+    return NextResponse.json({ rotation: toRotationView(task, member.householdId, isActive) });
   } catch (error) {
     return handleApiError(error, { route: "/api/rotations/[rotationId]", method: "PATCH" });
   }
@@ -112,28 +109,29 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 /**
  * DELETE /api/rotations/[rotationId]
- * Delete a rotation
+ * Turn a rotating task back into a regular task.
  */
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
     const member = await requirePermission("rotation:manage");
     const { rotationId } = await params;
 
-    // Verify rotation belongs to household
-    const existingRotation = await prisma.taskRotation.findFirst({
+    const existingTask = await prisma.task.findFirst({
       where: {
         id: rotationId,
         householdId: member.householdId,
+        isRotating: true,
       },
       select: { id: true },
     });
 
-    if (!existingRotation) {
+    if (!existingTask) {
       return NextResponse.json({ error: "Rotación no encontrada" }, { status: 404 });
     }
 
-    await prisma.taskRotation.delete({
+    await prisma.task.update({
       where: { id: rotationId },
+      data: { isRotating: false },
     });
 
     return NextResponse.json({ success: true });

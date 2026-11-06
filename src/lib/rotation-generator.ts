@@ -1,5 +1,7 @@
 import { prisma } from "./prisma";
-import { getBestAssignee } from "./assignment-algorithm";
+import { loadTaskPlannerSnapshot } from "./task-planner-context";
+import { pickNextAssignee } from "@habita/domain";
+
 import type { TaskFrequency } from "@prisma/client";
 
 /**
@@ -30,11 +32,10 @@ export async function processRotations(): Promise<{
   for (const rotation of dueRotations) {
     try {
       // Find the best assignee
-      const { best: bestAssignee } = await getBestAssignee(
-        rotation.householdId,
-        rotation.taskId,
-        rotation.nextDueDate ?? now
-      );
+      const dueDate = rotation.nextDueDate ?? now;
+      const snapshot = await loadTaskPlannerSnapshot(rotation.householdId);
+      const plannerTask = snapshot.tasks.find((t) => t.id === rotation.taskId);
+      const bestAssignee = plannerTask ? pickNextAssignee(plannerTask, dueDate, snapshot, now) : null;
 
       if (!bestAssignee) {
         errors.push(`No eligible member for task ${rotation.task.name}`);

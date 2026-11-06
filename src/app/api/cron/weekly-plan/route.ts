@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { autoAssignAllTasks } from "@/lib/assignment-algorithm";
-import { isAIEnabled } from "@/lib/llm/provider";
 import { getLocalDayOfWeek } from "@/lib/llm/regional-context";
 import { deliverNotificationToMembers } from "@/lib/push-delivery";
 import { handleApiError } from "@/lib/api-response";
@@ -17,7 +16,6 @@ interface HouseholdPlanResult {
   householdName: string;
   success: boolean;
   assignmentsCreated: number;
-  method: "ai" | "algorithm";
   error?: string;
 }
 
@@ -46,18 +44,16 @@ async function runWeeklyPlanCron() {
     });
 
     const results: HouseholdPlanResult[] = [];
-    const aiEnabled = isAIEnabled();
 
     for (const household of households) {
       try {
-        const result = await autoAssignAllTasks(household.id, { useAI: aiEnabled });
+        const result = await autoAssignAllTasks(household.id);
 
         results.push({
           householdId: household.id,
           householdName: household.name,
           success: result.success,
           assignmentsCreated: result.assignmentsCreated,
-          method: result.method,
         });
 
         if (result.success && result.assignmentsCreated > 0) {
@@ -83,7 +79,6 @@ async function runWeeklyPlanCron() {
           householdName: household.name,
           success: false,
           assignmentsCreated: 0,
-          method: "algorithm",
           error: error instanceof Error ? error.message : "Unknown error",
         });
       }
@@ -91,7 +86,6 @@ async function runWeeklyPlanCron() {
 
     const totalAssignments = results.reduce((sum, r) => sum + r.assignmentsCreated, 0);
     const successCount = results.filter((r) => r.success).length;
-    const aiCount = results.filter((r) => r.method === "ai").length;
 
     return NextResponse.json({
       success: true,
@@ -100,10 +94,7 @@ async function runWeeklyPlanCron() {
         householdsMatchedToday: households.length,
         householdsSuccessful: successCount,
         totalAssignmentsCreated: totalAssignments,
-        usedAI: aiCount,
-        usedAlgorithm: results.length - aiCount,
       },
-      aiEnabled,
       results,
       timestamp: now.toISOString(),
     });

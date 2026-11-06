@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { completeAssignmentSchema } from "@/lib/validations/assignment";
-import { getBestAssignee } from "@/lib/assignment-algorithm";
 import { computeDueDateForFrequency } from "@/lib/due-date";
+import { loadTaskPlannerSnapshot } from "@/lib/task-planner-context";
+import { pickNextAssignee } from "@habita/domain";
 import { createNotificationForMembers } from "@/lib/notification-service";
 import { handleApiError } from "@/lib/api-response";
 
@@ -123,11 +124,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           assignment.task.frequency,
           now
         );
-        const { best } = await getBestAssignee(
-          assignment.householdId,
-          assignment.taskId,
-          nextDue
-        );
+        const snapshot = await loadTaskPlannerSnapshot(assignment.householdId);
+        const plannerTask = snapshot.tasks.find((t) => t.id === assignment.taskId);
+        const best = plannerTask ? pickNextAssignee(plannerTask, nextDue, snapshot, now) : null;
         if (best) {
           nextAssignment = await prisma.assignment.create({
             data: {

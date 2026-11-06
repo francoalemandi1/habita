@@ -1,13 +1,15 @@
 import { NextResponse, after } from "next/server";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
-import { generateAIPlan } from "@/lib/llm/ai-planner";
+import { generatePlanNotes } from "@/lib/llm/ai-planner";
 import { isAIEnabled } from "@/lib/llm/provider";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { computeDurationDays, validateDateRange } from "@/lib/plan-duration";
 import { tryStartJob, completeJob } from "@/lib/ai-jobs";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { loadTaskPlannerSnapshot } from "@/lib/task-planner-context";
+import { planWeek } from "@habita/domain";
 
 import type { NextRequest } from "next/server";
 import type { MemberType } from "@prisma/client";
@@ -70,13 +72,6 @@ export async function POST(request: NextRequest) {
     const limited = await applyRateLimit(request, "ai", member.id);
     if (limited) return limited;
 
-    if (!isAIEnabled()) {
-      return NextResponse.json(
-        { error: "AI features not configured. Set DEEPSEEK_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY." },
-        { status: 503 }
-      );
-    }
-
     const body: unknown = await request.json();
     const validation = previewPlanSchema.safeParse(body);
     if (!validation.success) {
@@ -119,9 +114,20 @@ export async function POST(request: NextRequest) {
     after(async () => {
       const startTime = Date.now();
       try {
-        const plan = await generateAIPlan(member.householdId, { durationDays });
+        const snapshot = await loadTaskPlannerSnapshot(member.householdId);
 
-        if (!plan) {
+        if (snapshot.members.length === 0 || snapshot.tasks.length === 0) {
+          await completeJob(jobId, {
+            status: "FAILED",
+            errorMessage: "No se pudo generar el plan. Verifica que hay tareas y miembros activos.",
+            durationMs: Date.now() - startTime,
+          });
+          return;
+        }
+
+        const plan = planWeek({ snapshot, startDate, durationDays, now: new Date() });
+
+        if (plan.assignments.length === 0) {
           await completeJob(jobId, {
             status: "FAILED",
             errorMessage: "No se pudo generar el plan. Verifica que hay tareas y miembros activos.",
@@ -180,7 +186,20 @@ export async function POST(request: NextRequest) {
         const minCount = Math.min(...adultCounts, 0);
         const maxDiff = adultCounts.length > 1 ? maxCount - minCount : 0;
 
-        const excludedTasks: ExcludedTask[] = plan.excludedTasks ?? [];
+        // Deterministic fairness score: 100 minus a flat penalty per unit of imbalance among adults.
+        const balanceScore = Math.max(0, 100 - maxDiff * 15);
+
+        const excludedTasks: ExcludedTask[] = plan.excludedTasks;
+
+        let notes = plan.notes;
+        if (isAIEnabled()) {
+          try {
+            const aiNotes = await generatePlanNotes({ assignments: enrichedAssignments, balanceScore });
+            if (aiNotes.length > 0) notes = aiNotes;
+          } catch (noteError) {
+            console.error("[preview-plan] LLM note generation failed, using template notes:", noteError);
+          }
+        }
 
         // Expire previous PENDING previews and COMPLETED plans, then create the new one atomically
         const expiresAt = new Date(endDate);
@@ -199,8 +218,8 @@ export async function POST(request: NextRequest) {
             data: {
               householdId: member.householdId,
               status: "PENDING",
-              balanceScore: plan.balanceScore,
-              notes: plan.notes,
+              balanceScore,
+              notes,
               assignments: JSON.parse(JSON.stringify(enrichedAssignments)),
               durationDays,
               startDate,
@@ -214,8 +233,8 @@ export async function POST(request: NextRequest) {
           plan: {
             id: savedPlan.id,
             assignments: enrichedAssignments,
-            balanceScore: plan.balanceScore,
-            notes: plan.notes,
+            balanceScore,
+            notes,
             durationDays,
             startDate: startDate.toISOString(),
             endDate: endDate.toISOString(),

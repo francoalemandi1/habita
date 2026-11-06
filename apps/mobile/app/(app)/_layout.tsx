@@ -130,8 +130,6 @@ export default function AppLayout() {
         <Tabs.Screen name="new-expense" options={{ href: null, title: "Nuevo gasto" }} />
         <Tabs.Screen name="expense-insights" options={{ href: null, title: "Insights financieros" }} />
         <Tabs.Screen name="services" options={{ href: null, title: "Servicios" }} />
-        <Tabs.Screen name="preferences" options={{ href: null, title: "Mis preferencias" }} />
-        <Tabs.Screen name="notification-settings" options={{ href: null, title: "Notificaciones push" }} />
       </Tabs>
       <AnotarSheet visible={anotarVisible} onClose={() => setAnotarVisible(false)} />
     </>

@@ -9,6 +9,7 @@ import {
 const OPT_IN_ASKED_KEY = "habita_mobile_push_opt_in_asked";
 const ACTION_COUNT_KEY = "habita_mobile_action_count";
 const ACTIONS_BEFORE_ASK = 1;
+const PUSH_SHEET_ASKED_KEY = "habita_mobile_push_sheet_asked";
 
 /**
  * Hook that tracks user actions and prompts for push notification permission
@@ -64,4 +65,45 @@ export function usePushOptIn() {
   }, [shouldAsk]);
 
   return { trackAction };
+}
+
+/**
+ * §7 "Permiso de push" — shows our own sheet (never the OS prompt directly) the
+ * first time Avisos has an incoming pending transfer, only while OS permission
+ * is undetermined and we haven't asked before.
+ */
+export function usePushPermissionSheet(pendingTransferCount: number) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (pendingTransferCount < 1) return;
+
+    let cancelled = false;
+    void (async () => {
+      const alreadyAsked = await AsyncStorage.getItem(PUSH_SHEET_ASKED_KEY);
+      if (alreadyAsked) return;
+
+      const status = await getPushPermissionStatus();
+      if (status !== "undetermined") return;
+
+      if (!cancelled) setVisible(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingTransferCount]);
+
+  const dismiss = useCallback(async () => {
+    await AsyncStorage.setItem(PUSH_SHEET_ASKED_KEY, "true");
+    setVisible(false);
+  }, []);
+
+  const activate = useCallback(async () => {
+    await AsyncStorage.setItem(PUSH_SHEET_ASKED_KEY, "true");
+    setVisible(false);
+    await registerForPushNotifications();
+  }, []);
+
+  return { visible, dismiss, activate };
 }

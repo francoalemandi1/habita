@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Avatar, SplitBar } from "@/components/ds";
+import { Avatar, Banner, Button, Skeleton, SplitBar } from "@/components/ds";
 import { useMembers } from "@/hooks/use-members";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { useStats } from "@/hooks/use-stats";
@@ -25,7 +25,25 @@ export function RepartoView(): React.JSX.Element {
   const weeklyValues = members.map((m) => weeklyById.get(m.id) ?? 0);
   const weeklyTotal = weeklyValues.reduce((sum, v) => sum + v, 0);
 
-  if (statsQuery.isLoading) return <View style={styles.container} />;
+  if (statsQuery.isLoading) {
+    return (
+      <View style={styles.container}>
+        <Skeleton height={28} width="40%" />
+        <Skeleton height={8} />
+        <Skeleton height={60} />
+        <Skeleton height={60} />
+      </View>
+    );
+  }
+
+  if (statsQuery.isError) {
+    return (
+      <View style={styles.container}>
+        <Banner tone="attention" text="No pudimos cargar el reparto." />
+        <Button label="Reintentar" variant="link" onPress={() => void statsQuery.refetch()} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

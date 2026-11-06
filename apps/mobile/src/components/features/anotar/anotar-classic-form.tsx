@@ -31,8 +31,8 @@ interface AnotarClassicFormProps {
   /** null until the current member's id has loaded — Save stays disabled for expenses until then. */
   currentMemberId: string | null;
   isSaving: boolean;
-  onSave: (input: AnotarSaveInput) => Promise<void>;
-  onSaved: () => void;
+  onSave: (input: AnotarSaveInput) => Promise<boolean>;
+  onSaved: (wasQueued: boolean) => void;
 }
 
 const BANNER_TEXT: Record<AnotarClassicReason, string | null> = {
@@ -78,9 +78,9 @@ export function AnotarClassicForm({
 
   const { error, handleSave } = useAnotarClassicSave({
     onSave,
-    onSaved: () => {
+    onSaved: (wasQueued) => {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      onSaved();
+      onSaved(wasQueued);
     },
   });
 

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { EmptyState, Skeleton } from "@/components/ds";
+import { Banner, Button, EmptyState, Skeleton } from "@/components/ds";
 import { usePlanHistory } from "@/hooks/use-plans";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
@@ -33,6 +33,15 @@ export function PlanHistorialView(): React.JSX.Element {
       <View style={styles.container}>
         <Skeleton height={80} />
         <Skeleton height={80} />
+      </View>
+    );
+  }
+
+  if (plansQuery.isError) {
+    return (
+      <View style={styles.container}>
+        <Banner tone="attention" text="No pudimos cargar el historial." />
+        <Button label="Reintentar" variant="link" onPress={() => void plansQuery.refetch()} />
       </View>
     );
   }

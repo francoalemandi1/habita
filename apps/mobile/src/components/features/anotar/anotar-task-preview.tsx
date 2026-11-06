@@ -18,8 +18,8 @@ interface AnotarTaskPreviewProps {
   onChangeDraft: (next: Partial<TaskDraft>) => void;
   members: MemberSummary[];
   isSaving: boolean;
-  onSave: (input: AnotarSaveInput) => Promise<void>;
-  onSaved: () => void;
+  onSave: (input: AnotarSaveInput) => Promise<boolean>;
+  onSaved: (wasQueued: boolean) => void;
 }
 
 /** §6.22 Composer preview — task card with editable chips (handoff §5.3 Global). Controlled by the parent. */
@@ -41,7 +41,7 @@ export function AnotarTaskPreview({ draft, onChangeDraft, members, isSaving, onS
       return;
     }
     try {
-      await onSave({
+      const wasQueued = await onSave({
         kind: "task",
         name: draft.name,
         frequency: draft.frequency,
@@ -50,7 +50,7 @@ export function AnotarTaskPreview({ draft, onChangeDraft, members, isSaving, onS
         assigneeMemberId: draft.assigneeId,
       });
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      onSaved();
+      onSaved(wasQueued);
     } catch (saveError) {
       setError(getMobileErrorMessage(saveError));
     }

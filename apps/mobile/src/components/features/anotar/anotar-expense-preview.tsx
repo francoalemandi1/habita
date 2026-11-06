@@ -23,8 +23,8 @@ interface AnotarExpensePreviewProps {
   members: MemberSummary[];
   currentMemberId: string | null;
   isSaving: boolean;
-  onSave: (input: AnotarSaveInput) => Promise<void>;
-  onSaved: () => void;
+  onSave: (input: AnotarSaveInput) => Promise<boolean>;
+  onSaved: (wasQueued: boolean) => void;
 }
 
 /** §6.22 Composer preview — expense card with editable chips (handoff §5.3 Global). Controlled by the parent. */
@@ -64,9 +64,9 @@ export function AnotarExpensePreview({
     setError(null);
     try {
       const payload = { ...buildExpensePayload(draft), date: dueDateToIsoStartOfDay(date) ?? undefined };
-      await onSave({ kind: "expense", payload });
+      const wasQueued = await onSave({ kind: "expense", payload });
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      onSaved();
+      onSaved(wasQueued);
     } catch (saveError) {
       setError(getMobileErrorMessage(saveError));
     }

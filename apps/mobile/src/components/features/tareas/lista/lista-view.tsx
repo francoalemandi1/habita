@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { router } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import { Pencil, Repeat, Trash2 } from "lucide-react-native";
-import { Button, ContextMenu, EmptyState, ListRow, useSnackbar } from "@/components/ds";
+import { Banner, Button, ContextMenu, EmptyState, ListRow, Skeleton, useSnackbar } from "@/components/ds";
 import { useDeleteTask, useTasks } from "@/hooks/use-task-management";
 import { useCreateRotation, useDeleteRotation, useRotations } from "@/hooks/use-rotations";
 import { useThemeColors } from "@/hooks/use-theme";
@@ -62,7 +62,24 @@ export function ListaView(): React.JSX.Element {
     }
   }
 
-  if (tasksQuery.isLoading) return <View style={styles.container} />;
+  if (tasksQuery.isLoading) {
+    return (
+      <View style={styles.container}>
+        <Skeleton height={60} />
+        <Skeleton height={60} />
+        <Skeleton height={60} />
+      </View>
+    );
+  }
+
+  if (tasksQuery.isError) {
+    return (
+      <View style={styles.container}>
+        <Banner tone="attention" text="No pudimos cargar las tareas." />
+        <Button label="Reintentar" variant="link" onPress={() => void tasksQuery.refetch()} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

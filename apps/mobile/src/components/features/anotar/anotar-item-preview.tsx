@@ -13,8 +13,8 @@ interface AnotarItemPreviewProps {
   items: ItemDraftEntry[];
   onChangeItems: (items: ItemDraftEntry[]) => void;
   isSaving: boolean;
-  onSave: (input: AnotarSaveInput) => Promise<void>;
-  onSaved: () => void;
+  onSave: (input: AnotarSaveInput) => Promise<boolean>;
+  onSaved: (wasQueued: boolean) => void;
 }
 
 /** §6.22 Composer preview — one or more shopping-list items with editable quantity. Controlled by the parent. */
@@ -30,9 +30,9 @@ export function AnotarItemPreview({ items, onChangeItems, isSaving, onSave, onSa
   const handleSave = async () => {
     setError(null);
     try {
-      await onSave({ kind: "item", items: items.map(({ name, quantity }) => ({ name, quantity })) });
+      const wasQueued = await onSave({ kind: "item", items: items.map(({ name, quantity }) => ({ name, quantity })) });
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      onSaved();
+      onSaved(wasQueued);
     } catch (saveError) {
       setError(getMobileErrorMessage(saveError));
     }

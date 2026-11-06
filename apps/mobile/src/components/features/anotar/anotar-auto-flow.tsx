@@ -27,8 +27,8 @@ interface AnotarAutoFlowProps {
   members: MemberSummary[];
   currentMemberId: string | null;
   isSaving: boolean;
-  onSave: (input: AnotarSaveInput) => Promise<void>;
-  onSaved: (kind: AnotarKind) => void;
+  onSave: (input: AnotarSaveInput) => Promise<boolean>;
+  onSaved: (kind: AnotarKind, wasQueued: boolean) => void;
   onSwitchToClassic: (kind: AnotarKind, reason: AnotarClassicReason) => void;
 }
 
@@ -120,7 +120,7 @@ export function AnotarAutoFlow({
           currentMemberId={currentMemberId}
           isSaving={isSaving}
           onSave={onSave}
-          onSaved={() => onSaved("expense")}
+          onSaved={(wasQueued) => onSaved("expense", wasQueued)}
         />
       ) : null}
 
@@ -131,7 +131,7 @@ export function AnotarAutoFlow({
           members={members}
           isSaving={isSaving}
           onSave={onSave}
-          onSaved={() => onSaved("task")}
+          onSaved={(wasQueued) => onSaved("task", wasQueued)}
         />
       ) : null}
 
@@ -141,7 +141,7 @@ export function AnotarAutoFlow({
           onChangeItems={(items) => setResultState((prev) => (prev?.kind === "item" ? { ...prev, items } : prev))}
           isSaving={isSaving}
           onSave={onSave}
-          onSaved={() => onSaved("item")}
+          onSaved={(wasQueued) => onSaved("item", wasQueued)}
         />
       ) : null}
     </>

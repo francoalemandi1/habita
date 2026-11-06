@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Bell } from "lucide-react-native";
-import { Badge, EmptyState, Skeleton } from "@/components/ds";
+import { Badge, Banner, Button, EmptyState, Skeleton } from "@/components/ds";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
 
@@ -10,13 +10,24 @@ import type { NotificationItem } from "@habita/contracts";
 
 export interface NovedadesListProps {
   isLoading: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
   notifications: NotificationItem[];
 }
 
 /** §5.3 Avisos — "Novedades", the general notification feed below "Para resolver". */
-export function NovedadesList({ isLoading, notifications }: NovedadesListProps): React.JSX.Element {
+export function NovedadesList({ isLoading, isError, onRetry, notifications }: NovedadesListProps): React.JSX.Element {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  if (isError) {
+    return (
+      <View style={styles.loading}>
+        <Banner tone="attention" text="No pudimos cargar las novedades." />
+        {onRetry ? <Button label="Reintentar" variant="link" onPress={onRetry} /> : null}
+      </View>
+    );
+  }
 
   if (isLoading) {
     return (

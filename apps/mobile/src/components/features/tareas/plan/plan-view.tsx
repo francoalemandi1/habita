@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, EmptyState } from "@/components/ds";
+import { Banner, Button, EmptyState } from "@/components/ds";
+import { useIsOnline } from "@/hooks/use-is-online";
 import { mobileApi } from "@/lib/api";
 import { useAiJobStatus } from "@/hooks/use-ai-job-status";
 import { useApplyWeeklyPlan, useDiscardWeeklyPlan, usePreviewWeeklyPlan } from "@/hooks/use-weekly-plan";
@@ -23,6 +24,7 @@ export function PlanView(): React.JSX.Element {
   const applyPlan = useApplyWeeklyPlan();
   const discardPlan = useDiscardWeeklyPlan();
   const tasksQuery = useTasks();
+  const isOnline = useIsOnline();
   const [planResult, setPlanResult] = useState<PlanPreviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const hasStartedRef = useRef(false);
@@ -127,9 +129,16 @@ export function PlanView(): React.JSX.Element {
         </View>
       ) : null}
 
+      {!isOnline ? <Banner tone="offline" text="Necesitás conexión" /> : null}
       <View style={styles.footer}>
         <Button label="Otra" variant="secondary" onPress={handleDiscardAndRetry} style={styles.footerButton} />
-        <Button label="Aplicar plan" onPress={() => void handleApply()} loading={applyPlan.isPending} style={styles.footerButton} />
+        <Button
+          label="Aplicar plan"
+          onPress={() => void handleApply()}
+          loading={applyPlan.isPending}
+          disabled={!isOnline || applyPlan.isPending}
+          style={styles.footerButton}
+        />
       </View>
       <Pressable onPress={() => router.push("/(app)/tareas/plan/historial")}>
         <Text style={styles.historialLink}>Ver historial de planes</Text>

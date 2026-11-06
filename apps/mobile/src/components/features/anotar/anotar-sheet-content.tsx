@@ -41,9 +41,13 @@ export function AnotarSheetContent({ visible, prefill, onClose }: AnotarSheetCon
     prefill?.kind ? { kind: prefill.kind, reason: "manual" } : null,
   );
 
-  const handleSaved = (kind: AnotarKind) => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.expenses.balances() });
+  const handleSaved = (kind: AnotarKind, wasQueued = false) => {
     onClose();
+    if (wasQueued) {
+      show({ text: "Anotado · Se envía cuando vuelva la conexión" });
+      return;
+    }
+    void queryClient.invalidateQueries({ queryKey: queryKeys.expenses.balances() });
     const { text: snackbarText, href } = SNACKBAR_BY_KIND[kind];
     show({ text: snackbarText, actionLabel: "Ver", onAction: () => router.push(href) });
   };
@@ -62,7 +66,7 @@ export function AnotarSheetContent({ visible, prefill, onClose }: AnotarSheetCon
             currentMemberId={currentMemberId}
             isSaving={isSaving}
             onSave={save}
-            onSaved={() => handleSaved(classic.kind)}
+            onSaved={(wasQueued) => handleSaved(classic.kind, wasQueued)}
           />
         ) : (
           <AnotarAutoFlow

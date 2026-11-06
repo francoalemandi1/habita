@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Button, RadioGroup, Sheet, TextField, useSnackbar } from "@/components/ds";
+import { Banner, Button, RadioGroup, Sheet, TextField, useSnackbar } from "@/components/ds";
+import { useIsOnline } from "@/hooks/use-is-online";
 import { useCreateTransfer } from "@/hooks/use-transfers";
 import { computeMemberDayLoad } from "@/lib/tareas-day-load";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
@@ -23,6 +24,7 @@ export function TransferSheet({ visible, assignment, members, dayAssignments, on
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const snackbar = useSnackbar();
+  const isOnline = useIsOnline();
   const createTransfer = useCreateTransfer();
   const [toMemberId, setToMemberId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
@@ -80,11 +82,12 @@ export function TransferSheet({ visible, assignment, members, dayAssignments, on
           </Text>
         ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {!isOnline ? <Banner tone="offline" text="Necesitás conexión" /> : null}
         <Button
           label={toMemberName ? `Pedirle a ${toMemberName}` : "Pedirle"}
           onPress={() => void handleSubmit()}
           loading={createTransfer.isPending}
-          disabled={!toMemberId}
+          disabled={!isOnline || !toMemberId}
         />
       </View>
     </Sheet>

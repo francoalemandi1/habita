@@ -71,7 +71,12 @@ export default function AvisosScreen(): React.JSX.Element {
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Novedades</Text>
-          <NovedadesList isLoading={notificationsQuery.isLoading} notifications={notifications} />
+          <NovedadesList
+            isLoading={notificationsQuery.isLoading}
+            isError={notificationsQuery.isError}
+            onRetry={() => void notificationsQuery.refetch()}
+            notifications={notifications}
+          />
         </View>
 
         <Button

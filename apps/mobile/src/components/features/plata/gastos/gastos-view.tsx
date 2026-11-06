@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { summarizeMyBalance } from "@habita/domain";
-import { EmptyState, Skeleton } from "@/components/ds";
+import { Banner, Button, EmptyState, Skeleton } from "@/components/ds";
 import { useThemeColors } from "@/hooks/use-theme";
 import { useExpenseBalances } from "@/hooks/use-expense-balances";
 import { fontFamilyForWeight, spacing } from "@/theme";
@@ -77,7 +77,12 @@ export function GastosView({ currentMemberId, currentMemberType, members, onScro
         members={members}
       />
 
-      {expenses.length === 0 && !feedQuery.isLoading ? (
+      {feedQuery.isError && expenses.length === 0 ? (
+        <View style={styles.errorBlock}>
+          <Banner tone="attention" text="No pudimos cargar los gastos." />
+          <Button label="Reintentar" variant="link" onPress={() => void feedQuery.refetch()} />
+        </View>
+      ) : expenses.length === 0 && !feedQuery.isLoading ? (
         <EmptyState title="Todavía no hay gastos" description="Anotá el primero para empezar a repartir." />
       ) : null}
     </View>
@@ -140,6 +145,9 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamilyForWeight(400),
       fontSize: 13,
       color: c.ink2,
+    },
+    errorBlock: {
+      gap: spacing.xs,
     },
     footerLinks: {
       flexDirection: "row",

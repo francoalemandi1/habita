@@ -47,21 +47,20 @@ const MAX_HIGHLIGHTED = 5;
 interface CategoryConfig {
   label: string;
   sectionHeader: string;
-  emoji: string;
   chipBg: string;
   chipText: string;
 }
 
 const CATEGORY_CONFIG: Partial<Record<EventCategory, CategoryConfig>> = {
-  CINE: { label: "Cine", sectionHeader: "En cartelera", emoji: "🎬", chipBg: "#dbeafe", chipText: "#1d4ed8" },
-  TEATRO: { label: "Teatro", sectionHeader: "En escena", emoji: "🎭", chipBg: "#fce7f3", chipText: "#be185d" },
-  MUSICA: { label: "Música", sectionHeader: "Música en vivo", emoji: "🎵", chipBg: "#ede9fe", chipText: "#6d28d9" },
-  EXPOSICIONES: { label: "Expo", sectionHeader: "Para ver", emoji: "🖼", chipBg: "#fef3c7", chipText: "#92400e" },
-  FESTIVALES: { label: "Festival", sectionHeader: "Festivales", emoji: "🎪", chipBg: "#fce7f3", chipText: "#be185d" },
-  GASTRONOMIA: { label: "Gastro", sectionHeader: "Dónde comer", emoji: "🍽", chipBg: "#ffedd5", chipText: "#c2410c" },
-  INFANTIL: { label: "Niños", sectionHeader: "Para chicos", emoji: "🧸", chipBg: "#dcfce7", chipText: "#15803d" },
-  MERCADOS: { label: "Mercados", sectionHeader: "Para visitar", emoji: "🛍", chipBg: "#e0e7ff", chipText: "#4338ca" },
-  PASEOS: { label: "Paseos", sectionHeader: "Paseos", emoji: "🌿", chipBg: "#dcfce7", chipText: "#15803d" },
+  CINE: { label: "Cine", sectionHeader: "En cartelera", chipBg: "#dbeafe", chipText: "#1d4ed8" },
+  TEATRO: { label: "Teatro", sectionHeader: "En escena", chipBg: "#fce7f3", chipText: "#be185d" },
+  MUSICA: { label: "Música", sectionHeader: "Música en vivo", chipBg: "#ede9fe", chipText: "#6d28d9" },
+  EXPOSICIONES: { label: "Expo", sectionHeader: "Para ver", chipBg: "#fef3c7", chipText: "#92400e" },
+  FESTIVALES: { label: "Festival", sectionHeader: "Festivales", chipBg: "#fce7f3", chipText: "#be185d" },
+  GASTRONOMIA: { label: "Gastro", sectionHeader: "Dónde comer", chipBg: "#ffedd5", chipText: "#c2410c" },
+  INFANTIL: { label: "Niños", sectionHeader: "Para chicos", chipBg: "#dcfce7", chipText: "#15803d" },
+  MERCADOS: { label: "Mercados", sectionHeader: "Para visitar", chipBg: "#e0e7ff", chipText: "#4338ca" },
+  PASEOS: { label: "Paseos", sectionHeader: "Paseos", chipBg: "#dcfce7", chipText: "#15803d" },
 };
 
 const CATEGORY_ORDER: EventCategory[] = [
@@ -187,7 +186,7 @@ function bucketByCategory(events: EventItem[]): CategoryBucket[] {
   for (const [cat, catEvents] of buckets) {
     if (!CATEGORY_ORDER.includes(cat) && catEvents.length) {
       const config = CATEGORY_CONFIG[cat] ?? {
-        label: cat, sectionHeader: cat, emoji: "📅",
+        label: cat, sectionHeader: cat,
         chipBg: "#f3f4f6", chipText: "#374151",
       };
       result.push({ category: cat, config, events: catEvents });
@@ -288,7 +287,7 @@ function EventCard({
             {catConfig ? (
               <View style={[styles.categoryChip, { backgroundColor: catConfig.chipBg }]}>
                 <Text style={[styles.categoryChipText, { color: catConfig.chipText }]}>
-                  {catConfig.emoji} {catConfig.label}
+                  {catConfig.label}
                 </Text>
               </View>
             ) : null}
@@ -474,7 +473,6 @@ function CategorySection({
   return (
     <View style={styles.categorySection}>
       <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionEmoji}>{bucket.config.emoji}</Text>
         <Text style={styles.sectionTitle}>{bucket.config.sectionHeader}</Text>
         <Text style={styles.sectionCount}>{bucket.events.length}</Text>
       </View>
@@ -558,7 +556,7 @@ function EventsTab() {
           onPress={() => setViewMode("all")}
         />
         <FilterPill
-          label={`🔖 Guardados${savedEvents?.length ? ` (${savedEvents.length})` : ""}`}
+          label={`Guardados${savedEvents?.length ? ` (${savedEvents.length})` : ""}`}
           isActive={viewMode === "saved"}
           onPress={() => setViewMode("saved")}
         />
@@ -643,7 +641,7 @@ function EventsTab() {
               return (
                 <FilterPill
                   key={cat}
-                  label={`${cfg.emoji} ${cfg.label}`}
+                  label={cfg.label}
                   isActive={activeCategory === cat}
                   onPress={() => setActiveCategory(activeCategory === cat ? undefined : cat)}
                 />
@@ -666,7 +664,7 @@ function EventsTab() {
             </Card>
           ) : filteredEvents.length === 0 ? (
             <EmptyState
-              icon={<Text style={{ fontSize: 36 }}>📭</Text>}
+              icon={<Compass size={32} color={colors.mutedForeground} />}
               title="Sin eventos"
               subtitle="Probá con otra fecha o categoría"
               steps={[
@@ -1068,9 +1066,6 @@ function createStyles(c: ThemeColors) {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-    },
-    sectionEmoji: {
-      fontSize: 16,
     },
     sectionTitle: {
       fontFamily: fontFamily.sans,

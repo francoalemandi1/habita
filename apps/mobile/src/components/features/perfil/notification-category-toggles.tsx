@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { Toggle, useSnackbar } from "@/components/ds";
+import { Banner, Button, Toggle, useSnackbar } from "@/components/ds";
 import { useNotificationPreferences, useToggleNotificationPreference } from "@/hooks/use-notification-preferences";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
@@ -40,7 +40,12 @@ export function NotificationCategoryToggles(): React.JSX.Element {
   }
 
   if (!prefsQuery.data) {
-    return <Text style={styles.error}>No se pudieron cargar las categorías.</Text>;
+    return (
+      <View style={styles.list}>
+        <Banner tone="attention" text="No se pudieron cargar las categorías." />
+        <Button label="Reintentar" variant="link" onPress={() => void prefsQuery.refetch()} />
+      </View>
+    );
   }
 
   return (

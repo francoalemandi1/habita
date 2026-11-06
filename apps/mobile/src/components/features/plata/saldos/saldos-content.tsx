@@ -13,7 +13,7 @@ import { isSettledUp } from "@/lib/plata-money-saldos";
 import type { PlataViewProps } from "../plata-view-props";
 
 export function SaldosContent({ currentMemberId, currentMemberType, members }: PlataViewProps): React.JSX.Element {
-  const { data: balances, isLoading, isError } = useBalances();
+  const { data: balances, isLoading, isError, refetch } = useBalances();
   const [sheetVisible, setSheetVisible] = useState(false);
 
   if (isLoading) {
@@ -26,7 +26,12 @@ export function SaldosContent({ currentMemberId, currentMemberType, members }: P
   }
 
   if (isError || !balances) {
-    return <Banner tone="attention" text="No pudimos cargar los saldos. Probá de nuevo." />;
+    return (
+      <View style={styles.gap}>
+        <Banner tone="attention" text="No pudimos cargar los saldos." />
+        <Button label="Reintentar" variant="link" onPress={() => void refetch()} />
+      </View>
+    );
   }
 
   const settledUp = isSettledUp(balances.balances);

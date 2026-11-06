@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Avatar, Button, Sheet } from "@/components/ds";
+import { Avatar, Banner, Button, Sheet } from "@/components/ds";
+import { useIsOnline } from "@/hooks/use-is-online";
 import { useRouletteAssign } from "@/hooks/use-roulette";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { pickSorteoWinner, resolveSorteoAvatarStyle } from "@/lib/tareas-sorteo";
@@ -21,6 +22,7 @@ export function SorteoSheet({ visible, members, taskId, onClose }: SorteoSheetPr
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const assignM = useRouletteAssign();
+  const isOnline = useIsOnline();
   const [winnerId, setWinnerId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,6 +72,7 @@ export function SorteoSheet({ visible, members, taskId, onClose }: SorteoSheetPr
           </View>
         ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {winnerId && !isOnline ? <Banner tone="offline" text="Necesitás conexión" /> : null}
         {winnerId ? (
           <View style={styles.actions}>
             <Button label="Otra vez" variant="secondary" onPress={handleDraw} style={styles.actionButton} />
@@ -77,6 +80,7 @@ export function SorteoSheet({ visible, members, taskId, onClose }: SorteoSheetPr
               label={`Asignar a ${winnerName ?? ""}`}
               onPress={() => void handleAssign()}
               loading={assignM.isPending}
+              disabled={!isOnline || assignM.isPending}
               style={styles.actionButton}
             />
           </View>

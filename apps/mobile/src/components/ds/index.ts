@@ -39,6 +39,9 @@ export type { BadgeProps, BadgeTone } from "./badge";
 export { Banner } from "./banner";
 export type { BannerProps, BannerTone } from "./banner";
 
+export { PendingDot } from "./pending-dot";
+export type { PendingDotProps } from "./pending-dot";
+
 export { SnackbarProvider, useSnackbar } from "./snackbar";
 export type { SnackbarOptions, SnackbarRequest, SnackbarTone } from "./snackbar";
 export { getSnackbarDuration, resolveSnackbarQueue } from "./snackbar-logic";

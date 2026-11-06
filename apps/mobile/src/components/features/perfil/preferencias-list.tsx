@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Chip, Skeleton } from "@/components/ds";
+import { Banner, Button, Chip, Skeleton } from "@/components/ds";
 import { usePreferences, useRemovePreference, useSetPreference } from "@/hooks/use-preferences";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
@@ -60,6 +60,15 @@ export function PreferenciasList(): React.JSX.Element {
 
   if (prefsQuery.isLoading) {
     return <Skeleton height={80} />;
+  }
+
+  if (prefsQuery.isError) {
+    return (
+      <View style={styles.list}>
+        <Banner tone="attention" text="No pudimos cargar las preferencias." />
+        <Button label="Reintentar" variant="link" onPress={() => void prefsQuery.refetch()} />
+      </View>
+    );
   }
 
   const items = [...(prefsQuery.data?.preferred ?? []), ...(prefsQuery.data?.disliked ?? [])];

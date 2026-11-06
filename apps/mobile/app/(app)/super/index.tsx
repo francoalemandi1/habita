@@ -89,6 +89,7 @@ export default function SuperScreen(): React.JSX.Element {
             data={shoppingResult}
             isLoading={shoppingPlan.isPending || isShoppingJobRunning}
             error={shoppingError}
+            onRetry={searchItems.length > 0 ? () => void handleCompare(searchItems) : undefined}
             onScroll={scrollHandler}
           />
         ) : null}

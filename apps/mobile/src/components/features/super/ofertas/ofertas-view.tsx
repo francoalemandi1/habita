@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { Tag } from "lucide-react-native";
-import { Banner, EmptyState, useSnackbar } from "@/components/ds";
+import { Banner, Button, EmptyState, useSnackbar } from "@/components/ds";
 import { useThemeColors } from "@/hooks/use-theme";
 import { spacing } from "@/theme";
 import { useTopDeals } from "@/hooks/use-grocery-deals";
@@ -19,7 +19,7 @@ interface OfertasViewProps {
 
 export function OfertasView({ onScroll }: OfertasViewProps): React.JSX.Element {
   const colors = useThemeColors();
-  const { data, isLoading, error } = useTopDeals();
+  const { data, isLoading, error, refetch } = useTopDeals();
   const { data: listData } = useShoppingList();
   const addItem = useAddShoppingListItem();
   const snackbar = useSnackbar();
@@ -54,7 +54,12 @@ export function OfertasView({ onScroll }: OfertasViewProps): React.JSX.Element {
   }
 
   if (error) {
-    return <Banner tone="attention" text="No se pudieron cargar las ofertas" />;
+    return (
+      <View style={styles.loading}>
+        <Banner tone="attention" text="No se pudieron cargar las ofertas" />
+        <Button label="Reintentar" variant="link" onPress={() => void refetch()} />
+      </View>
+    );
   }
 
   if (deals.length === 0) {

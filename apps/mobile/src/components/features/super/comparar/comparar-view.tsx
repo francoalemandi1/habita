@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { SearchX } from "lucide-react-native";
-import { Banner, EmptyState, useSnackbar } from "@/components/ds";
+import { Banner, Button, EmptyState, useSnackbar } from "@/components/ds";
 import { useThemeColors } from "@/hooks/use-theme";
 import { spacing } from "@/theme";
 import { useDeleteSavedCart, useSaveCart, useSavedCarts } from "@/hooks/use-saved-carts";
@@ -31,10 +31,11 @@ interface CompararViewProps {
   data: ShoppingPlanResult | null;
   isLoading: boolean;
   error: string | null;
+  onRetry?: () => void;
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }
 
-export function CompararView({ searchItems, data, isLoading, error, onScroll }: CompararViewProps): React.JSX.Element {
+export function CompararView({ searchItems, data, isLoading, error, onRetry, onScroll }: CompararViewProps): React.JSX.Element {
   const colors = useThemeColors();
   const [overrides, setOverrides] = useState<Map<string, CartOverride>>(new Map());
   const { paymentMethods, togglePaymentMethod } = usePaymentMethods();
@@ -98,7 +99,12 @@ export function CompararView({ searchItems, data, isLoading, error, onScroll }: 
   }
 
   if (error) {
-    return <Banner tone="attention" text={error} />;
+    return (
+      <View style={styles.loading}>
+        <Banner tone="attention" text={error} />
+        {onRetry ? <Button label="Reintentar" variant="link" onPress={onRetry} /> : null}
+      </View>
+    );
   }
 
   if (!data) {

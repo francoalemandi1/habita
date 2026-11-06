@@ -1,13 +1,14 @@
 import { Redirect, Tabs } from "expo-router";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { fontFamilyForWeight } from "@/theme";
 import { useThemeColors } from "@/hooks/use-theme";
 import { House, ListChecks, Plus, ShoppingBasket, Wallet } from "lucide-react-native";
 
 import { AiJobWatcher } from "@/components/ai-job-watcher";
 import { AnotarSheet } from "@/components/features/anotar-sheet";
+import { openAnotar } from "@/lib/anotar-store";
 
 import type { LucideIcon } from "lucide-react-native";
 import type { ThemeColors } from "@/theme";
@@ -92,7 +93,6 @@ function CustomTabBar({ state, descriptors, navigation, onAnotarPress }: TabBarP
 
 export default function AppLayout() {
   const { isAuthenticated, isBootstrapping, me } = useMobileAuth();
-  const [anotarVisible, setAnotarVisible] = useState(false);
 
   if (!isBootstrapping && !isAuthenticated) {
     return <Redirect href="/(auth)/login" />;
@@ -107,7 +107,7 @@ export default function AppLayout() {
       <AiJobWatcher />
       <Tabs
         tabBar={(props) => (
-          <CustomTabBar {...(props as unknown as TabBarProps)} onAnotarPress={() => setAnotarVisible(true)} />
+          <CustomTabBar {...(props as unknown as TabBarProps)} onAnotarPress={() => openAnotar()} />
         )}
         screenOptions={{
           headerShown: false,
@@ -131,7 +131,7 @@ export default function AppLayout() {
         <Tabs.Screen name="expense-insights" options={{ href: null, title: "Insights financieros" }} />
         <Tabs.Screen name="services" options={{ href: null, title: "Servicios" }} />
       </Tabs>
-      <AnotarSheet visible={anotarVisible} onClose={() => setAnotarVisible(false)} />
+      <AnotarSheet />
     </>
   );
 }

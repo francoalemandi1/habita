@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { apiFetch } from "@/lib/api-client";
 import { queryKeys, taskSummarySchema } from "@habita/contracts";
+import { splitEvenlyExact } from "@habita/domain";
 import { useAddShoppingListItem } from "@/hooks/use-shopping-list";
 import { todayIsoDate } from "@/components/features/anotar/anotar-draft-types";
 
@@ -39,8 +40,9 @@ export function useAnotarSaveExpense() {
           amount: input.amount,
           category: input.category,
           paidById: input.paidById,
-          splitType: "EQUAL",
-          splits: input.participantIds.map((memberId) => ({ memberId })),
+          // CUSTOM, not EQUAL: EQUAL always splits among every active member and would ignore the chosen subset.
+          splitType: "CUSTOM",
+          splits: splitEvenlyExact(input.amount, input.participantIds),
           date: new Date(`${input.date}T12:00:00`).toISOString(),
         },
       }),

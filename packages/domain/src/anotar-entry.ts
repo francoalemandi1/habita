@@ -63,3 +63,22 @@ export function formatExpenseConsequence(
       return null;
   }
 }
+
+/**
+ * Splits an amount evenly in exact cents among a subset of members, so the
+ * parts always add up to the total. Expenses are sent as CUSTOM with these
+ * amounts because the API's EQUAL split always covers every active member.
+ */
+export function splitEvenlyExact(totalAmount: number, memberIds: string[]): Array<{ memberId: string; amount: number }> {
+  const sortedIds = [...memberIds].sort();
+  const count = sortedIds.length;
+  if (count === 0) return [];
+  const totalCents = Math.round(totalAmount * 100);
+  const baseCents = Math.floor(totalCents / count);
+  const remainder = totalCents - baseCents * count;
+
+  return sortedIds.map((memberId, index) => ({
+    memberId,
+    amount: (baseCents + (index < remainder ? 1 : 0)) / 100,
+  }));
+}

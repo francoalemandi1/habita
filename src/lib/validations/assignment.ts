@@ -19,6 +19,10 @@ export const createAssignmentSchema = z.object({
 export const updateAssignmentSchema = z.object({
   status: z.enum(["IN_PROGRESS"]).optional(),
   notes: z.string().max(500).nullable().optional(),
+  // Reschedule ("Cambiar día") and direct reassignment (web drag to a person).
+  // Asking someone else to take it goes through transfers instead.
+  dueDate: z.coerce.date().optional(),
+  memberId: z.string().min(1).max(100).optional(),
 });
 
 export const completeAssignmentSchema = z.object({

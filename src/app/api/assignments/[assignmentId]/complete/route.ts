@@ -143,11 +143,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         );
         const snapshot = await loadTaskPlannerSnapshot(assignment.householdId);
         const plannerTask = snapshot.tasks.find((t) => t.id === assignment.taskId);
-        const best = plannerTask
-          ? (plannerTask.isRotating
-              ? pickNextRotationAssignee(plannerTask, assignment.memberId, nextDue, snapshot)
-              : null) ?? pickNextAssignee(plannerTask, nextDue, snapshot, now)
-          : null;
+        const rotationPick =
+          plannerTask?.isRotating === true
+            ? pickNextRotationAssignee(plannerTask, assignment.memberId, nextDue, snapshot)
+            : null;
+        const best = plannerTask ? (rotationPick ?? pickNextAssignee(plannerTask, nextDue, snapshot, now)) : null;
         if (best) {
           nextAssignment = await prisma.assignment.create({
             data: {

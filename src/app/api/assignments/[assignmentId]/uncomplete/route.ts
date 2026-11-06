@@ -26,8 +26,11 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       },
       select: {
         id: true,
+        taskId: true,
         memberId: true,
         status: true,
+        dueDate: true,
+        completedAt: true,
       },
     });
 
@@ -45,14 +48,24 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Revert assignment to PENDING
-    await prisma.assignment.update({
-      where: { id: assignmentId },
-      data: {
-        status: "PENDING",
-        completedAt: null,
-        completedByMemberId: null,
-      },
+    const completedAt = assignment.completedAt;
+    await prisma.$transaction(async (tx) => {
+      await tx.assignment.update({
+        where: { id: assignmentId },
+        data: { status: "PENDING", completedAt: null, completedByMemberId: null },
+      });
+      if (!completedAt) return;
+      // Completing a recurring task creates its next occurrence; undoing must
+      // remove that occurrence or the household ends up with a duplicate.
+      await tx.assignment.deleteMany({
+        where: {
+          householdId: member.householdId,
+          taskId: assignment.taskId,
+          status: "PENDING",
+          createdAt: { gte: completedAt },
+          dueDate: { gt: assignment.dueDate },
+        },
+      });
     });
 
     return NextResponse.json({ success: true, status: "PENDING" });

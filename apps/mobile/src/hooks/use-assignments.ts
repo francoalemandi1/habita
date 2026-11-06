@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { mobileApi } from "@/lib/api";
+import { OFFLINE_MUTATION_KEYS } from "@/lib/offline-mutation-keys";
 
 import { queryKeys } from "@habita/contracts";
 import type {
@@ -30,15 +31,19 @@ export function useMyAssignments() {
   });
 }
 
+/** Standalone (no React) so it can be registered via `setMutationDefaults` and survive an app restart. */
+export const completeAssignmentMutationFn = async (assignmentId: string) =>
+  mobileApi.post<CompleteAssignmentResponse>(`/api/assignments/${assignmentId}/complete`, {});
+
+export const uncompleteAssignmentMutationFn = async (assignmentId: string) =>
+  mobileApi.post<UncompleteAssignmentResponse>(`/api/assignments/${assignmentId}/uncomplete`, {});
+
 export function useCompleteAssignment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (assignmentId: string) =>
-      mobileApi.post<CompleteAssignmentResponse>(
-        `/api/assignments/${assignmentId}/complete`,
-        {},
-      ),
+    mutationKey: OFFLINE_MUTATION_KEYS.completeAssignment,
+    mutationFn: completeAssignmentMutationFn,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.assignments.my() });
     },
@@ -49,11 +54,8 @@ export function useUncompleteAssignment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (assignmentId: string) =>
-      mobileApi.post<UncompleteAssignmentResponse>(
-        `/api/assignments/${assignmentId}/uncomplete`,
-        {},
-      ),
+    mutationKey: OFFLINE_MUTATION_KEYS.uncompleteAssignment,
+    mutationFn: uncompleteAssignmentMutationFn,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.assignments.my() });
     },

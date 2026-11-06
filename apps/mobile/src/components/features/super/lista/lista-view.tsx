@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { ShoppingCart } from "lucide-react-native";
-import { Button, EmptyState, useSnackbar } from "@/components/ds";
+import { Banner, Button, EmptyState, useSnackbar } from "@/components/ds";
 import {
   useAddShoppingListItem,
   useClearCheckedShoppingList,
   useDeleteShoppingListItem,
+  useShoppingItemPendingIds,
   useShoppingList,
   useUpdateShoppingListItem,
 } from "@/hooks/use-shopping-list";
@@ -32,13 +33,14 @@ interface ListaViewProps {
 
 export function ListaView({ currentMemberId, onCompare, onScroll }: ListaViewProps): React.JSX.Element {
   const colors = useThemeColors();
-  const { data, isLoading } = useShoppingList();
+  const { data, isLoading, isError, refetch } = useShoppingList();
   const addItem = useAddShoppingListItem();
   const updateItem = useUpdateShoppingListItem();
   const deleteItem = useDeleteShoppingListItem();
   const clearChecked = useClearCheckedShoppingList();
   const { data: topDealsData } = useTopDeals();
   const snackbar = useSnackbar();
+  const pendingItemIds = useShoppingItemPendingIds();
   const [catalogOpen, setCatalogOpen] = useState(false);
 
   const items = useMemo(() => data?.items ?? [], [data]);
@@ -111,6 +113,11 @@ export function ListaView({ currentMemberId, onCompare, onScroll }: ListaViewPro
           <View style={styles.loading}>
             <ActivityIndicator color={colors.monte} />
           </View>
+        ) : isError ? (
+          <View style={styles.loading}>
+            <Banner tone="attention" text="No pudimos cargar la lista." />
+            <Button label="Reintentar" variant="link" onPress={() => void refetch()} />
+          </View>
         ) : items.length === 0 ? (
           <EmptyState
             icon={ShoppingCart}
@@ -125,6 +132,7 @@ export function ListaView({ currentMemberId, onCompare, onScroll }: ListaViewPro
                 item={item}
                 currentMemberId={currentMemberId}
                 isOffer={matchesTopDeal(item.name, topDeals)}
+                isPendingSync={pendingItemIds.has(item.id)}
                 onToggle={() => handleToggle(item.id, item.checkedAt === null)}
                 onQuantityChange={(quantity) => handleQuantityChange(item.id, quantity)}
                 onDelete={() => handleDelete(item.id, item.name)}

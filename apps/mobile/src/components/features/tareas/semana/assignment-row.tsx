@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { CalendarClock, Pencil, Repeat, Send, Trash2 } from "lucide-react-native";
-import { Avatar, Checkbox, ContextMenu, SwipeRow } from "@/components/ds";
+import { Avatar, Checkbox, ContextMenu, PendingDot, SwipeRow } from "@/components/ds";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
 import { toCheckboxState } from "@/lib/casa-week";
@@ -25,6 +25,7 @@ interface AssignmentRowProps {
   requiresVerification: boolean;
   isRotating: boolean;
   pendingTransferToName: string | null;
+  isPendingSync: boolean;
   onToggle: (next: CheckboxState) => void;
   onEdit: () => void;
   onChangeDay: () => void;
@@ -41,6 +42,7 @@ export function AssignmentRow({
   requiresVerification,
   isRotating,
   pendingTransferToName,
+  isPendingSync,
   onToggle,
   onEdit,
   onChangeDay,
@@ -69,6 +71,7 @@ export function AssignmentRow({
           {assignment.task.estimatedMinutes ? ` · ${assignment.task.estimatedMinutes} min` : ""}
         </Text>
       </View>
+      {isPendingSync ? <PendingDot /> : null}
       <Avatar name={assigneeName} size={28} isCurrentUser={isAssigneeCurrentUser} />
     </View>
   );

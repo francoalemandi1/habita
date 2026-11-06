@@ -2,7 +2,9 @@ import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { useCompleteAssignment, useUncompleteAssignment } from "./use-assignments";
+import { readStringVariable, usePendingMutationIds } from "./use-pending-mutations";
 import { useSnackbar } from "@/components/ds";
+import { OFFLINE_MUTATION_KEYS } from "@/lib/offline-mutation-keys";
 
 import { queryKeys } from "@habita/contracts";
 import type { AssignmentSummary, MyAssignmentsResponse } from "@habita/contracts";
@@ -127,4 +129,15 @@ export function useToggleAssignment() {
   );
 
   return { complete, uncomplete };
+}
+
+/** Assignment ids with a paused or in-flight complete/uncomplete mutation (§7 Sin conexión). */
+export function usePendingAssignmentIds(): Set<string> {
+  const completing = usePendingMutationIds(OFFLINE_MUTATION_KEYS.completeAssignment, readStringVariable);
+  const uncompleting = usePendingMutationIds(OFFLINE_MUTATION_KEYS.uncompleteAssignment, readStringVariable);
+  return new Set([...completing, ...uncompleting]);
+}
+
+export function useIsAssignmentPending(assignmentId: string): boolean {
+  return usePendingAssignmentIds().has(assignmentId);
 }

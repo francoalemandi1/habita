@@ -1,12 +1,12 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { EmptyState, useSnackbar } from "@/components/ds";
+import { Banner, Button, EmptyState, Skeleton, useSnackbar } from "@/components/ds";
 import { useMembers } from "@/hooks/use-members";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { useThemeColors } from "@/hooks/use-theme";
 import { useWeekAssignments } from "@/hooks/use-week-assignments";
 import { useDeleteAssignment } from "@/hooks/use-assignments";
-import { useToggleAssignment } from "@/hooks/use-toggle-assignment";
+import { usePendingAssignmentIds, useToggleAssignment } from "@/hooks/use-toggle-assignment";
 import { useCreateRotation, useDeleteRotation, useRotations } from "@/hooks/use-rotations";
 import { useTransfers } from "@/hooks/use-transfers";
 import { cancelDelete, getDeferredDeleteVersion, isPendingDelete, scheduleDelete, subscribeDeferredDeletes } from "@/lib/deferred-delete";
@@ -45,6 +45,7 @@ export function SemanaView(): React.JSX.Element {
   const transfersQuery = useTransfers("sent");
   const snackbar = useSnackbar();
   const toggle = useToggleAssignment();
+  const pendingAssignmentIds = usePendingAssignmentIds();
   const deleteAssignment = useDeleteAssignment();
   const createRotation = useCreateRotation();
   const deleteRotation = useDeleteRotation();
@@ -103,7 +104,24 @@ export function SemanaView(): React.JSX.Element {
     }
   }
 
-  if (weekQuery.isLoading) return <View style={styles.container} />;
+  if (weekQuery.isLoading) {
+    return (
+      <View style={styles.container}>
+        <Skeleton height={60} />
+        <Skeleton height={60} />
+        <Skeleton height={60} />
+      </View>
+    );
+  }
+
+  if (weekQuery.isError) {
+    return (
+      <View style={styles.container}>
+        <Banner tone="attention" text="No pudimos cargar la semana." />
+        <Button label="Reintentar" variant="link" onPress={() => void weekQuery.refetch()} />
+      </View>
+    );
+  }
 
   if (visible.length === 0) {
     return <EmptyState title="Sin tareas esta semana" description="Sumá tareas o generá un plan para empezar." />;
@@ -126,6 +144,7 @@ export function SemanaView(): React.JSX.Element {
                 requiresVerification={assignee?.memberType === "TEEN" || assignee?.memberType === "CHILD"}
                 isRotating={rotatingTaskIds.has(assignment.task.id)}
                 pendingTransferToName={pendingTransferByAssignmentId.get(assignment.id) ?? null}
+                isPendingSync={pendingAssignmentIds.has(assignment.id)}
                 onToggle={() =>
                   toggle.complete(assignment, assignment.task.name, {
                     isOwn: assignment.memberId === currentMemberId,

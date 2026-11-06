@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Trash2 } from "lucide-react-native";
-import { Checkbox, Stepper } from "@/components/ds";
+import { Checkbox, PendingDot, Stepper } from "@/components/ds";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
 
@@ -12,6 +12,7 @@ interface ListaRowProps {
   item: ShoppingListItem;
   currentMemberId: string;
   isOffer: boolean;
+  isPendingSync: boolean;
   onToggle: () => void;
   onQuantityChange: (quantity: number) => void;
   onDelete: () => void;
@@ -22,6 +23,7 @@ export function ListaRow({
   item,
   currentMemberId,
   isOffer,
+  isPendingSync,
   onToggle,
   onQuantityChange,
   onDelete,
@@ -47,6 +49,7 @@ export function ListaRow({
               <Text style={styles.offerTagText}>oferta</Text>
             </View>
           ) : null}
+          {isPendingSync ? <PendingDot /> : null}
         </View>
         {item.addedBy.id !== currentMemberId ? (
           <Text style={styles.addedBy} numberOfLines={1}>

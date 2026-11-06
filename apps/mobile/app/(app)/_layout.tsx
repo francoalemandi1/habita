@@ -8,6 +8,7 @@ import { House, ListChecks, Plus, ShoppingBasket, Wallet } from "lucide-react-na
 
 import { AiJobWatcher } from "@/components/ai-job-watcher";
 import { AnotarSheet } from "@/components/features/anotar-sheet";
+import { OfflineBanner } from "@/components/features/offline-banner";
 import { openAnotar } from "@/lib/anotar-store";
 
 import type { LucideIcon } from "lucide-react-native";
@@ -105,6 +106,7 @@ export default function AppLayout() {
   return (
     <>
       <AiJobWatcher />
+      <OfflineBanner />
       <Tabs
         tabBar={(props) => (
           <CustomTabBar {...(props as unknown as TabBarProps)} onAnotarPress={() => openAnotar()} />

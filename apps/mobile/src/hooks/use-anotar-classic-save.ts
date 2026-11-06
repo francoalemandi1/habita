@@ -9,8 +9,8 @@ import type { ClassicItemState } from "@/components/features/anotar/anotar-class
 import type { AnotarKind } from "@/components/features/anotar/anotar-unknown";
 
 interface UseAnotarClassicSaveArgs {
-  onSave: (input: AnotarSaveInput) => Promise<void>;
-  onSaved: () => void;
+  onSave: (input: AnotarSaveInput) => Promise<boolean>;
+  onSaved: (wasQueued: boolean) => void;
 }
 
 /** Validates and submits the classic (manual) Anotar form for whichever kind is selected. */
@@ -19,6 +19,7 @@ export function useAnotarClassicSave({ onSave, onSaved }: UseAnotarClassicSaveAr
 
   const handleSave = async (kind: AnotarKind, expense: ClassicExpenseState, task: ClassicTaskState, item: ClassicItemState) => {
     setError(null);
+    let wasQueued = false;
     try {
       if (kind === "expense") {
         const amount = Number(expense.amount.replace(",", "."));
@@ -31,7 +32,7 @@ export function useAnotarClassicSave({ onSave, onSaved }: UseAnotarClassicSaveAr
           return;
         }
         const dateIso = dueDateToIsoStartOfDay(expense.date);
-        await onSave({
+        wasQueued = await onSave({
           kind: "expense",
           payload: {
             title: expense.title.trim(),
@@ -53,7 +54,7 @@ export function useAnotarClassicSave({ onSave, onSaved }: UseAnotarClassicSaveAr
           setError("Usá fecha con formato YYYY-MM-DD.");
           return;
         }
-        await onSave({
+        wasQueued = await onSave({
           kind: "task",
           name: task.name.trim(),
           frequency: "WEEKLY",
@@ -66,9 +67,9 @@ export function useAnotarClassicSave({ onSave, onSaved }: UseAnotarClassicSaveAr
           setError("Escribí el nombre del ítem.");
           return;
         }
-        await onSave({ kind: "item", items: [{ name: item.name.trim(), quantity: item.quantity }] });
+        wasQueued = await onSave({ kind: "item", items: [{ name: item.name.trim(), quantity: item.quantity }] });
       }
-      onSaved();
+      onSaved(wasQueued);
     } catch (saveError) {
       setError(getMobileErrorMessage(saveError));
     }

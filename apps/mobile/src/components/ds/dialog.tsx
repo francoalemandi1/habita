@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Modal, StyleSheet, Text, View } from "react-native";
 import type { LucideIcon } from "lucide-react-native";
 import { useThemeColors } from "@/hooks/use-theme";
+import { useIsOnline } from "@/hooks/use-is-online";
 import { fontFamilyForWeight, spacing } from "@/theme";
 import type { ThemeColors } from "@/theme";
 import { radii as radius } from "@habita/design-tokens";
@@ -37,6 +38,7 @@ export function Dialog({
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [typedName, setTypedName] = useState("");
   const nameMatches = !confirmName || typedName === confirmName;
+  const isOnline = useIsOnline();
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -57,12 +59,13 @@ export function Dialog({
               autoCapitalize="none"
             />
           ) : null}
+          {!isOnline ? <Text style={styles.offlineHint}>Necesitás conexión</Text> : null}
           <View style={styles.actions}>
             <Button label={cancelLabel} variant="secondary" style={styles.actionButton} onPress={onClose} />
             <Button
               label={actionLabel}
               variant="destructive"
-              disabled={!nameMatches}
+              disabled={!nameMatches || !isOnline}
               style={styles.actionButton}
               onPress={onConfirm}
             />
@@ -106,6 +109,11 @@ function createStyles(c: ThemeColors) {
     body: {
       fontFamily: fontFamilyForWeight(400),
       fontSize: 15,
+      color: c.ink2,
+    },
+    offlineHint: {
+      fontFamily: fontFamilyForWeight(400),
+      fontSize: 13,
       color: c.ink2,
     },
     actions: {

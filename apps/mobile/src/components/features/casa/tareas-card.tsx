@@ -2,8 +2,9 @@ import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { ChevronRight } from "lucide-react-native";
-import { Checkbox, SplitBar } from "@/components/ds";
+import { Checkbox, PendingDot, SplitBar } from "@/components/ds";
 import { useThemeColors } from "@/hooks/use-theme";
+import { usePendingAssignmentIds } from "@/hooks/use-toggle-assignment";
 import { fontFamilyForWeight, spacing } from "@/theme";
 import { toCheckboxState } from "@/lib/casa-week";
 import { radii as radius } from "@habita/design-tokens";
@@ -31,6 +32,7 @@ function buildLegend(summary: WeekTasksSummary): string {
 export function TareasCard({ weekSummary, isSolo, todayAssignments, requiresVerification, onToggle }: TareasCardProps): React.JSX.Element {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const pendingAssignmentIds = usePendingAssignmentIds();
 
   return (
     <View style={styles.card}>
@@ -58,6 +60,7 @@ export function TareasCard({ weekSummary, isSolo, todayAssignments, requiresVeri
                 accessibilityLabel={assignment.task.name}
               />
               <Text style={styles.taskName} numberOfLines={1}>{assignment.task.name}</Text>
+              {pendingAssignmentIds.has(assignment.id) ? <PendingDot /> : null}
             </View>
           ))}
         </View>

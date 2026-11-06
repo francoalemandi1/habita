@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 import { queryKeys } from "@habita/contracts";
 import { sortShoppingListItems } from "@/lib/super-shopping-list-logic";
+import { OFFLINE_MUTATION_KEYS } from "@/lib/offline-mutation-keys";
+import { readStringField, usePendingMutationIds } from "./use-pending-mutations";
 
 import type { ShoppingListItem, ShoppingListResponse } from "@habita/contracts";
 
@@ -18,11 +20,15 @@ export function useShoppingList() {
   });
 }
 
-interface AddItemInput {
+export interface AddItemInput {
   name: string;
   quantity?: number;
   clientId: string;
 }
+
+/** Standalone (no React) so it can be registered via `setMutationDefaults` and survive an app restart. */
+export const addShoppingListItemMutationFn = (input: AddItemInput) =>
+  mobileApi.post<{ item: ShoppingListItem }>("/api/shopping-list", input);
 
 /**
  * Adds an item, optimistically appending it to the cache under a temp id.
@@ -32,8 +38,8 @@ export function useAddShoppingListItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: AddItemInput) =>
-      mobileApi.post<{ item: ShoppingListItem }>("/api/shopping-list", input),
+    mutationKey: OFFLINE_MUTATION_KEYS.addShoppingListItem,
+    mutationFn: addShoppingListItemMutationFn,
     onMutate: async (input) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.shoppingList.list() });
       const previous = queryClient.getQueryData<ShoppingListResponse>(queryKeys.shoppingList.list());
@@ -62,20 +68,24 @@ export function useAddShoppingListItem() {
   });
 }
 
-interface UpdateItemInput {
+export interface UpdateItemInput {
   itemId: string;
   name?: string;
   quantity?: number;
   checked?: boolean;
 }
 
+/** Standalone (no React) so it can be registered via `setMutationDefaults` and survive an app restart. */
+export const updateShoppingListItemMutationFn = ({ itemId, ...body }: UpdateItemInput) =>
+  mobileApi.patch<{ item: ShoppingListItem }>(`/api/shopping-list/${itemId}`, body);
+
 /** Updates name/quantity/checked, optimistically re-sorting the cache. */
 export function useUpdateShoppingListItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ itemId, ...body }: UpdateItemInput) =>
-      mobileApi.patch<{ item: ShoppingListItem }>(`/api/shopping-list/${itemId}`, body),
+    mutationKey: OFFLINE_MUTATION_KEYS.updateShoppingListItem,
+    mutationFn: updateShoppingListItemMutationFn,
     onMutate: async ({ itemId, ...patch }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.shoppingList.list() });
       const previous = queryClient.getQueryData<ShoppingListResponse>(queryKeys.shoppingList.list());
@@ -136,6 +146,18 @@ export function useDeleteShoppingListItem() {
   });
 
   return { ...mutation, removeFromCache, restoreToCache };
+}
+
+/** Item ids with a paused or in-flight add/update mutation — shown with a `PendingDot` until they sync (§7). */
+export function useShoppingItemPendingIds(): Set<string> {
+  const addingIds = usePendingMutationIds(OFFLINE_MUTATION_KEYS.addShoppingListItem, (variables) => {
+    const clientId = readStringField(variables, "clientId");
+    return clientId ? `pending-${clientId}` : null;
+  });
+  const updatingIds = usePendingMutationIds(OFFLINE_MUTATION_KEYS.updateShoppingListItem, (variables) =>
+    readStringField(variables, "itemId"),
+  );
+  return new Set([...addingIds, ...updatingIds]);
 }
 
 /** "Borrar tachados" — deletes every checked item. */

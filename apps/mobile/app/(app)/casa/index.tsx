@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Banner, SkeletonGate } from "@/components/ds";
+import { Banner, Button, SkeletonGate } from "@/components/ds";
 import { useMobileAuth } from "@/providers/mobile-auth-provider";
 import { useThemeColors } from "@/hooks/use-theme";
 import { useHouseholdDetail } from "@/hooks/use-households";
@@ -109,6 +109,13 @@ export default function CasaScreen(): React.JSX.Element {
     insightsQuery.isLoading ||
     savedCartsQuery.isLoading;
 
+  const hasCriticalError =
+    myAssignmentsQuery.isError ||
+    weekAssignmentsQuery.isError ||
+    balancesQuery.isError ||
+    insightsQuery.isError ||
+    savedCartsQuery.isError;
+
   const handleToggle = (assignment: AssignmentSummary, next: CheckboxState) => {
     if (next === "done" || next === "toVerify") {
       toggle.complete(assignment, assignment.task.name);
@@ -165,6 +172,14 @@ export default function CasaScreen(): React.JSX.Element {
           />
         ) : null}
 
+        {!isLoading && hasCriticalError ? (
+          <View style={styles.errorBlock}>
+            <Banner tone="attention" text="No pudimos cargar la casa." />
+            <Button label="Reintentar" variant="link" onPress={handleRefresh} />
+          </View>
+        ) : null}
+
+        {hasCriticalError ? null : (
         <SkeletonGate loading={isLoading} skeleton={<CasaSkeleton />}>
           <View style={styles.cards}>
             <TareasCard
@@ -183,6 +198,7 @@ export default function CasaScreen(): React.JSX.Element {
             {destacadoEvent ? <DestacadoCard event={destacadoEvent} /> : null}
           </View>
         </SkeletonGate>
+        )}
 
         <View style={styles.bottomPadding} />
       </ScrollView>
@@ -221,6 +237,9 @@ function createStyles(c: ThemeColors) {
     },
     cards: {
       gap: spacing.md,
+    },
+    errorBlock: {
+      gap: spacing.sm,
     },
     bottomPadding: {
       height: 20,

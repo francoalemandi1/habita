@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, AlertTriangle } from "lucide-react";
 import { useSnackbar } from "@/components/ds/snackbar";
 import { Button } from "@/components/ds/button";
 import { EmptyState } from "@/components/ds/empty-state";
 import { SkeletonBoundary, Skeleton } from "@/components/ds/skeleton";
 import { useShoppingList, useAddShoppingListItem, useUpdateShoppingListItem, useDeleteShoppingListItem, useClearCheckedShoppingList } from "@/hooks/use-shopping-list";
+import { usePendingMutationIds } from "@/hooks/use-pending-mutations";
+import { extractShoppingListPendingId } from "@/lib/offline-shopping-pending-id";
 import { useTopDeals } from "@/hooks/use-top-deals";
 import { countUnchecked, matchesTopDeal, buildCompareSearchItems } from "@/lib/super-shopping-list-logic";
 import { cancelDelete, scheduleDelete } from "@/lib/deferred-delete";
@@ -24,7 +26,7 @@ interface ListaViewProps {
 }
 
 export function ListaView({ currentMemberId, onCompare }: ListaViewProps): React.JSX.Element {
-  const { data, isLoading } = useShoppingList();
+  const { data, isLoading, isError, refetch } = useShoppingList();
   const addItem = useAddShoppingListItem();
   const updateItem = useUpdateShoppingListItem();
   const deleteItem = useDeleteShoppingListItem();
@@ -32,6 +34,18 @@ export function ListaView({ currentMemberId, onCompare }: ListaViewProps): React
   const { data: topDealsData } = useTopDeals();
   const snackbar = useSnackbar();
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const pendingItemIds = usePendingMutationIds(["shopping-item"], extractShoppingListPendingId);
+
+  if (isError) {
+    return (
+      <EmptyState
+        icon={AlertTriangle}
+        title="No pudimos cargar la lista"
+        description="Revisá tu conexión e intentá de nuevo."
+        action={<Button onClick={() => refetch()}>Reintentar</Button>}
+      />
+    );
+  }
 
   const items = data?.items ?? [];
   const uncheckedCount = countUnchecked(items);
@@ -114,6 +128,7 @@ export function ListaView({ currentMemberId, onCompare }: ListaViewProps): React
                 item={item}
                 currentMemberId={currentMemberId}
                 isOffer={matchesTopDeal(item.name, topDeals)}
+                isSyncPending={pendingItemIds.has(item.id)}
                 onToggle={() => handleToggle(item.id, item.checkedAt === null)}
                 onQuantityChange={(quantity) => handleQuantityChange(item.id, quantity)}
                 onDelete={() => handleDelete(item.id, item.name)}

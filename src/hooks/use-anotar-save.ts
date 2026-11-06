@@ -7,6 +7,8 @@ import { queryKeys, taskSummarySchema } from "@habita/contracts";
 import { splitEvenlyExact } from "@habita/domain";
 import { useAddShoppingListItem } from "@/hooks/use-shopping-list";
 import { todayIsoDate } from "@/components/features/anotar/anotar-draft-types";
+import { OFFLINE_MUTATION_KEYS } from "@/lib/offline-mutation-keys";
+import { offlineMutationRetry } from "@/lib/offline-network";
 
 import type { ExpenseCategory, TaskFrequency } from "@habita/contracts";
 
@@ -32,6 +34,8 @@ export interface SaveExpenseInput {
 export function useAnotarSaveExpense() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: OFFLINE_MUTATION_KEYS.anotarExpense,
+    retry: offlineMutationRetry,
     mutationFn: (input: SaveExpenseInput) =>
       apiFetch("/api/expenses", {
         method: "POST",
@@ -70,6 +74,8 @@ export interface SaveTaskInput {
 export function useAnotarSaveTask() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: OFFLINE_MUTATION_KEYS.anotarTask,
+    retry: offlineMutationRetry,
     mutationFn: async (input: SaveTaskInput) => {
       const raw = await apiFetch<unknown>("/api/tasks", {
         method: "POST",
@@ -109,14 +115,18 @@ export interface SaveItemInput {
   quantity: number;
 }
 
-/** Adds each item one call at a time; duplicates bump quantity server-side. */
+/**
+ * Fires every item's add mutation concurrently instead of awaiting them one
+ * by one — offline, a single paused item must not block the rest from being
+ * queued (each gets its own clientId, so each gets its own PendingDot).
+ */
 export function useAnotarSaveItems() {
   const addItem = useAddShoppingListItem();
 
   async function saveItems(items: SaveItemInput[]): Promise<void> {
-    for (const item of items) {
-      await addItem.mutateAsync({ name: item.name, quantity: item.quantity, clientId: crypto.randomUUID() });
-    }
+    await Promise.all(
+      items.map((item) => addItem.mutateAsync({ name: item.name, quantity: item.quantity, clientId: crypto.randomUUID() })),
+    );
   }
 
   return { saveItems, isPending: addItem.isPending };

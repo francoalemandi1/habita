@@ -4,6 +4,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@/lib/utils";
 import { isConfirmNameMatch } from "./lib/dialog-logic";
+import { useIsOnline } from "@/hooks/use-is-online";
 
 export interface DialogProps {
   open: boolean;
@@ -36,7 +37,9 @@ export function Dialog({
   confirmTone = "destructive",
 }: DialogProps): React.JSX.Element {
   const [typedName, setTypedName] = React.useState("");
-  const confirmDisabled = confirmNameRequired ? !isConfirmNameMatch(typedName, confirmNameRequired) : false;
+  const isOnline = useIsOnline();
+  const confirmDisabled =
+    (confirmNameRequired ? !isConfirmNameMatch(typedName, confirmNameRequired) : false) || !isOnline;
 
   React.useEffect(() => {
     if (!open) setTypedName("");
@@ -66,21 +69,24 @@ export function Dialog({
               className="mt-4 h-11 w-full rounded-[12px] border border-line bg-paper px-3 text-[15px] text-ink outline-none"
             />
           )}
-          <div className="mt-6 flex justify-end gap-2">
-            <DialogPrimitive.Close className="h-11 rounded-[12px] bg-sand px-4 text-[15px] font-semibold text-ink">
-              {cancelLabel}
-            </DialogPrimitive.Close>
-            <button
-              type="button"
-              disabled={confirmDisabled}
-              onClick={onConfirm}
-              className={cn(
-                "h-11 rounded-[12px] px-4 text-[15px] font-semibold text-paper disabled:bg-line disabled:text-ink-3",
-                confirmTone === "destructive" ? "bg-ladrillo" : "bg-monte"
-              )}
-            >
-              {confirmLabel}
-            </button>
+          <div className="mt-6 flex flex-col items-end gap-2">
+            {!isOnline && <p className="text-[13px] text-ink-2">Necesitás conexión</p>}
+            <div className="flex justify-end gap-2">
+              <DialogPrimitive.Close className="h-11 rounded-[12px] bg-sand px-4 text-[15px] font-semibold text-ink">
+                {cancelLabel}
+              </DialogPrimitive.Close>
+              <button
+                type="button"
+                disabled={confirmDisabled}
+                onClick={onConfirm}
+                className={cn(
+                  "h-11 rounded-[12px] px-4 text-[15px] font-semibold text-paper disabled:bg-line disabled:text-ink-3",
+                  confirmTone === "destructive" ? "bg-ladrillo" : "bg-monte"
+                )}
+              >
+                {confirmLabel}
+              </button>
+            </div>
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

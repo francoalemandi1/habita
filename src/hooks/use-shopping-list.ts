@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 import { sortShoppingListItems } from "@/lib/super-shopping-list-logic";
+import { OFFLINE_MUTATION_KEYS } from "@/lib/offline-mutation-keys";
+import { offlineMutationRetry } from "@/lib/offline-network";
 
 import type { ShoppingListItem, ShoppingListResponse } from "@habita/contracts";
 
@@ -34,6 +36,8 @@ export function useAddShoppingListItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: OFFLINE_MUTATION_KEYS.shoppingItemAdd,
+    retry: offlineMutationRetry,
     mutationFn: (input: AddItemInput) =>
       apiFetch<{ item: ShoppingListItem }>("/api/shopping-list", { method: "POST", body: input }),
     onMutate: async (input) => {
@@ -55,7 +59,7 @@ export function useAddShoppingListItem() {
       }));
       return { previous };
     },
-    onError: (_error, _input, context) => {
+    onError: (error, _input, context) => {
       if (context?.previous) queryClient.setQueryData(queryKeys.shoppingList.list(), context.previous);
     },
     onSettled: () => {
@@ -76,6 +80,8 @@ export function useUpdateShoppingListItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: OFFLINE_MUTATION_KEYS.shoppingItemUpdate,
+    retry: offlineMutationRetry,
     mutationFn: ({ itemId, ...body }: UpdateItemInput) =>
       apiFetch<{ item: ShoppingListItem }>(`/api/shopping-list/${itemId}`, { method: "PATCH", body }),
     onMutate: async ({ itemId, ...patch }) => {
@@ -97,7 +103,7 @@ export function useUpdateShoppingListItem() {
       });
       return { previous };
     },
-    onError: (_error, _input, context) => {
+    onError: (error, _input, context) => {
       if (context?.previous) queryClient.setQueryData(queryKeys.shoppingList.list(), context.previous);
     },
     onSettled: () => {

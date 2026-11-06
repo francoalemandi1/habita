@@ -11,6 +11,7 @@ import { cancelDelete, isPendingDelete, scheduleDelete, subscribeDeferredDeletes
 import { getWeekDays, getWeekMonday, getWeekSunday, isSameDay } from "@/lib/calendar-utils";
 import { buildAssignmentPatch, parseDropTargetId } from "@/lib/tareas-week";
 import { dayDropDate } from "@/components/features/tareas/week-day-column";
+import { extractStringVariable, usePendingMutationIds } from "@/hooks/use-pending-mutations";
 
 import type { DragEndEvent } from "@dnd-kit/core";
 import type { EditTaskValues } from "@/components/features/tareas/edit-task-sheet";
@@ -30,7 +31,8 @@ export function useTareasSemana(currentMemberId: string) {
   const mondayISO = monday.toISOString();
   const sundayISO = sunday.toISOString();
 
-  const { data, isLoading } = useWeekAssignments(mondayISO, sundayISO);
+  const { data, isLoading, isError, refetch } = useWeekAssignments(mondayISO, sundayISO);
+  const pendingAssignmentIds = usePendingMutationIds(["assignment"], extractStringVariable);
   const { data: transfersData } = useSentTransfers();
   const { data: rotationsData } = useRotationsList();
   const mutations = useWeekAssignmentMutations(mondayISO);
@@ -77,7 +79,9 @@ export function useTareasSemana(currentMemberId: string) {
             onAction: () => mutations.uncomplete.mutate(assignment.id),
           });
         },
-        onError: () => snackbar.show({ text: "No se pudo completar la tarea", tone: "error" }),
+        onError: () => {
+          snackbar.show({ text: "No se pudo completar la tarea", tone: "error" });
+        },
       });
     },
     [currentMemberId, mutations, snackbar],
@@ -176,8 +180,11 @@ export function useTareasSemana(currentMemberId: string) {
     monday,
     weekDays,
     isLoading,
+    isError,
+    refetch,
     assignments,
     assignmentsByDay,
+    pendingAssignmentIds,
     pendingTransferByAssignment,
     rotatingTaskIds,
     editing,

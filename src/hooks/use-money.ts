@@ -85,23 +85,6 @@ export function useSettleUp(sheetOpen: boolean) {
   });
 }
 
-/** §7 "Sin conexión": C and D actions disable with "Necesitás conexión". */
-export function useIsOnline(): boolean {
-  const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
-
-  useEffect(() => {
-    const update = () => setOnline(navigator.onLine);
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
-    return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
-    };
-  }, []);
-
-  return online;
-}
-
 /** Respects §8.3 "reduced motion → 120ms fundido" by reporting whether tweens should be skipped. */
 export function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(

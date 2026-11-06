@@ -14,6 +14,7 @@ interface WeekDayColumnProps {
   assignments: readonly WeekAssignment[];
   currentMemberId: string;
   rotatingTaskIds: ReadonlySet<string>;
+  pendingAssignmentIds: ReadonlySet<string>;
   pendingTransferByAssignment: ReadonlyMap<string, string>;
   onToggleComplete: (assignment: WeekAssignment) => void;
   onEdit: (assignment: WeekAssignment) => void;
@@ -36,6 +37,7 @@ export function WeekDayColumn({
   assignments,
   currentMemberId,
   rotatingTaskIds,
+  pendingAssignmentIds,
   pendingTransferByAssignment,
   onToggleComplete,
   onEdit,
@@ -68,6 +70,7 @@ export function WeekDayColumn({
           currentMemberId={currentMemberId}
           pendingTransferToName={pendingTransferByAssignment.get(assignment.id) ?? null}
           isRotating={rotatingTaskIds.has(assignment.taskId)}
+          isSyncPending={pendingAssignmentIds.has(assignment.id)}
           onToggleComplete={() => onToggleComplete(assignment)}
           onEdit={() => onEdit(assignment)}
           onChangeDay={() => onChangeDay(assignment)}

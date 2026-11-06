@@ -7,7 +7,7 @@ import { Button } from "@/components/ds/button";
 import { TextField } from "@/components/ds/text-field";
 import { Banner } from "@/components/ds/banner";
 import { useSnackbar } from "@/components/ds/snackbar";
-import { useIsOnline } from "@/hooks/use-money";
+import { useIsOnline } from "@/hooks/use-is-online";
 import { formatCurrencyArs } from "../saldos/saldos-logic";
 import { isValidContributionAmount, suggestedContributionAmount } from "./fondo-logic";
 

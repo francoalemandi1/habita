@@ -2,9 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ds/checkbox";
+import { PendingDot } from "@/components/ds/pending-dot";
 import { useSnackbar } from "@/components/ds/snackbar";
 import { apiFetch } from "@/lib/api-client";
+import { OFFLINE_MUTATION_KEYS } from "@/lib/offline-mutation-keys";
+import { offlineMutationRetry } from "@/lib/offline-network";
+import { extractStringVariable, usePendingMutationIds } from "@/hooks/use-pending-mutations";
 import { checkboxStateForAssignment } from "./casa-logic";
 
 import type { MemberType } from "@prisma/client";
@@ -29,6 +34,18 @@ export function TodayTasksList({ items, currentMemberType }: TodayTasksListProps
   const [tasks, setTasks] = useState(items);
   const router = useRouter();
   const { show } = useSnackbar();
+  const pendingIds = usePendingMutationIds(["assignment"], extractStringVariable);
+
+  const completeMutation = useMutation({
+    mutationKey: OFFLINE_MUTATION_KEYS.assignmentComplete,
+    retry: offlineMutationRetry,
+    mutationFn: (assignmentId: string) => apiFetch(`/api/assignments/${assignmentId}/complete`, { method: "POST", body: {} }),
+  });
+  const uncompleteMutation = useMutation({
+    mutationKey: OFFLINE_MUTATION_KEYS.assignmentUncomplete,
+    retry: offlineMutationRetry,
+    mutationFn: (assignmentId: string) => apiFetch(`/api/assignments/${assignmentId}/uncomplete`, { method: "POST", body: {} }),
+  });
 
   const setStatus = useCallback((id: string, status: TodayAssignmentStatus) => {
     setTasks((current) => current.map((task) => (task.id === id ? { ...task, status } : task)));
@@ -43,8 +60,9 @@ export function TodayTasksList({ items, currentMemberType }: TodayTasksListProps
   const run = useCallback(
     async (task: TodayTaskItem, action: ToggleAction, previousStatus: TodayAssignmentStatus) => {
       setStatus(task.id, action === "complete" ? "COMPLETED" : "PENDING");
+      const mutation = action === "complete" ? completeMutation : uncompleteMutation;
       try {
-        await apiFetch(`/api/assignments/${task.id}/${action}`, { method: "POST", body: action === "complete" ? {} : undefined });
+        await mutation.mutateAsync(task.id);
         if (action === "complete") {
           show({
             text: `«${task.name}» · hecha`,
@@ -53,7 +71,10 @@ export function TodayTasksList({ items, currentMemberType }: TodayTasksListProps
           });
         }
         router.refresh();
-      } catch {
+      } catch (error) {
+        // Offline, the mutation pauses instead of rejecting (PendingDot shows it queued);
+        // reaching here means it really failed, retries included, so roll back.
+        console.warn("Could not toggle assignment", error);
         setStatus(task.id, previousStatus);
         show({
           text: "No se pudo guardar",
@@ -62,7 +83,7 @@ export function TodayTasksList({ items, currentMemberType }: TodayTasksListProps
         });
       }
     },
-    [router, setStatus, show],
+    [completeMutation, router, setStatus, show, uncompleteMutation],
   );
   useEffect(() => {
     runRef.current = run;
@@ -82,7 +103,10 @@ export function TodayTasksList({ items, currentMemberType }: TodayTasksListProps
       {tasks.map((task) => (
         <div key={task.id} className="flex items-center gap-3 border-t border-line-soft py-3 first:border-t-0">
           <Checkbox state={checkboxStateForAssignment(task.status, currentMemberType)} onToggle={() => toggle(task)} />
-          <span className="flex-1 text-[16px] font-medium text-ink">{task.name}</span>
+          <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[16px] font-medium text-ink">
+            <span className="truncate">{task.name}</span>
+            {pendingIds.has(task.id) && <PendingDot />}
+          </span>
           {task.meta && <span className="shrink-0 text-[13px] text-ink-2">{task.meta}</span>}
         </div>
       ))}

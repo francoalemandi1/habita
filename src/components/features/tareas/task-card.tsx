@@ -5,6 +5,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { CalendarClock, ArrowRightLeft, Repeat, Trash2, Pencil, MoreHorizontal } from "lucide-react";
 import { Checkbox } from "@/components/ds/checkbox";
 import { Avatar } from "@/components/ds/avatar";
+import { PendingDot } from "@/components/ds/pending-dot";
 import { ContextMenu } from "@/components/ds/context-menu";
 import { checkboxStateForAssignment } from "@/components/features/casa/casa-logic";
 import { formatTaskCardMeta } from "@/lib/tareas-week";
@@ -18,6 +19,7 @@ interface TaskCardProps {
   currentMemberId: string;
   pendingTransferToName: string | null;
   isRotating: boolean;
+  isSyncPending: boolean;
   onToggleComplete: () => void;
   onEdit: () => void;
   onChangeDay: () => void;
@@ -32,6 +34,7 @@ export function TaskCard({
   currentMemberId,
   pendingTransferToName,
   isRotating,
+  isSyncPending,
   onToggleComplete,
   onEdit,
   onChangeDay,
@@ -75,7 +78,10 @@ export function TaskCard({
         {...attributes}
         className="flex min-w-0 flex-1 flex-col items-start text-left"
       >
-        <span className="truncate text-[14px] font-medium text-ink">{assignment.task.name}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-[14px] font-medium text-ink">{assignment.task.name}</span>
+          {isSyncPending && <PendingDot />}
+        </span>
         <span className="truncate text-[12px] text-ink-2">{meta}</span>
       </button>
       <Avatar name={assignment.member.name} size={22} isSelf={isOwn} />

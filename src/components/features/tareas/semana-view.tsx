@@ -1,9 +1,11 @@
 "use client";
 
 import { DndContext } from "@dnd-kit/core";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
 import { SplitBar } from "@/components/ds/progress-bar";
 import { Skeleton } from "@/components/ds/skeleton";
+import { EmptyState } from "@/components/ds/empty-state";
+import { Button } from "@/components/ds/button";
 import { formatWeekRange, isSameDay } from "@/lib/calendar-utils";
 import { summarizeWeekTasks } from "@habita/domain";
 import { buildWeekLegend } from "@/components/features/casa/casa-logic";
@@ -62,6 +64,13 @@ export function SemanaView({ members, currentMemberId }: SemanaViewProps): React
         <div className="grid grid-cols-7 gap-2">
           {semana.weekDays.map((day) => <Skeleton key={day.toISOString()} className="h-40" />)}
         </div>
+      ) : semana.isError ? (
+        <EmptyState
+          icon={AlertTriangle}
+          title="No pudimos cargar la semana"
+          description="Revisá tu conexión e intentá de nuevo."
+          action={<Button onClick={() => semana.refetch()}>Reintentar</Button>}
+        />
       ) : (
         <DndContext onDragEnd={semana.handleDragEnd}>
           <div className="grid grid-cols-7 gap-2">
@@ -73,6 +82,7 @@ export function SemanaView({ members, currentMemberId }: SemanaViewProps): React
                 assignments={semana.assignmentsByDay[index] ?? []}
                 currentMemberId={currentMemberId}
                 rotatingTaskIds={semana.rotatingTaskIds}
+                pendingAssignmentIds={semana.pendingAssignmentIds}
                 pendingTransferByAssignment={semana.pendingTransferByAssignment}
                 onToggleComplete={semana.handleToggleComplete}
                 onEdit={semana.setEditing}

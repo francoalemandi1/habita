@@ -2,6 +2,7 @@
 
 import { Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ds/checkbox";
+import { PendingDot } from "@/components/ds/pending-dot";
 import { Stepper } from "@/components/ds/stepper";
 import { cn } from "@/lib/utils";
 
@@ -11,13 +12,14 @@ interface ListaRowProps {
   item: ShoppingListItem;
   currentMemberId: string;
   isOffer: boolean;
+  isSyncPending: boolean;
   onToggle: () => void;
   onQuantityChange: (quantity: number) => void;
   onDelete: () => void;
 }
 
 /** One row of the shared shopping list — pattern A: strike through, stay put until the row moves to the end on the next sort. */
-export function ListaRow({ item, currentMemberId, isOffer, onToggle, onQuantityChange, onDelete }: ListaRowProps): React.JSX.Element {
+export function ListaRow({ item, currentMemberId, isOffer, isSyncPending, onToggle, onQuantityChange, onDelete }: ListaRowProps): React.JSX.Element {
   const isChecked = item.checkedAt !== null;
 
   return (
@@ -28,6 +30,7 @@ export function ListaRow({ item, currentMemberId, isOffer, onToggle, onQuantityC
           <span className={cn("truncate text-[15px] font-medium text-ink", isChecked && "text-ink-3 line-through")}>
             {item.name}
           </span>
+          {isSyncPending && <PendingDot />}
           {isOffer && !isChecked && (
             <span className="shrink-0 rounded-full bg-manteca-soft px-1.5 py-0.5 text-[11px] font-semibold text-manteca-text">
               oferta

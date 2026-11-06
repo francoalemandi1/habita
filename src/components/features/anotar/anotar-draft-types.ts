@@ -95,3 +95,19 @@ export const ANOTAR_CTA_LABELS = {
   task: { label: "Guardar tarea", saving: "Guardando" },
   item: { label: "Sumar a la lista", saving: "Sumando" },
 } as const;
+
+export type AnotarSaveKind = "expense" | "task" | "item";
+
+/**
+ * Resolves the sheet's current mode + classic-form kind to the kind that would
+ * actually be saved, or `null` when there's nothing to save yet (idle/unknown) —
+ * the CTA is hidden and the save flow is a no-op in that case.
+ */
+export function resolveAnotarSaveKind(
+  mode: "idle" | "expense" | "task" | "item" | "unknown" | "classic",
+  classicKind: AnotarSaveKind,
+): AnotarSaveKind | null {
+  if (mode === "classic") return classicKind;
+  if (mode === "expense" || mode === "task" || mode === "item") return mode;
+  return null;
+}

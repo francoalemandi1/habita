@@ -40,15 +40,16 @@ async function runWeeklyPlanCron() {
     });
 
     // Filter to households where today (in their timezone) matches their planningDay
-    const households = allHouseholds.filter((h) => {
+    const plannedToday = allHouseholds.filter((h) => {
       const localDay = getLocalDayOfWeek(now, h.timezone!);
       return localDay === h.planningDay;
     });
 
-    const skippedInactive = households.filter((h) => !activeHouseholdIds.has(h.id)).length;
+    // Inactive households get no new plan, so returning users don't find weeks of stale assignments
+    const households = plannedToday.filter((h) => activeHouseholdIds.has(h.id));
     console.log(
-      `[cron/weekly-plan] Plan-ready notifications: ${households.length - skippedInactive}/${households.length} ` +
-        `(skipped ${skippedInactive} inactive)`,
+      `[cron/weekly-plan] Planning ${households.length}/${plannedToday.length} households ` +
+        `(skipped ${plannedToday.length - households.length} inactive)`,
     );
 
     const results: HouseholdPlanResult[] = [];
@@ -64,11 +65,7 @@ async function runWeeklyPlanCron() {
           assignmentsCreated: result.assignmentsCreated,
         });
 
-        if (
-          result.success &&
-          result.assignmentsCreated > 0 &&
-          activeHouseholdIds.has(household.id)
-        ) {
+        if (result.success && result.assignmentsCreated > 0) {
           // In-app notifications
           const householdMembers = await prisma.member.findMany({
             where: { householdId: household.id, isActive: true },

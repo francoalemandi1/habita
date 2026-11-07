@@ -1276,3 +1276,19 @@ model PushDeliveryLog {
   @@index([memberId, type, sentAt])
   @@map("push_delivery_logs")
 }
+
+// ============================================
+// MCP (Ahorrá MCP) API KEYS
+// ============================================
+
+model McpApiKey {
+  id         String    @id @default(cuid())
+  name       String // Consumer label (e.g. "Claude Desktop - Franco")
+  keyPrefix  String // First 12 chars of the plaintext key, for display
+  keyHash    String    @unique // sha256 hex of the plaintext key
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  @@map("mcp_api_keys")
+}

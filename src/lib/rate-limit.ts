@@ -29,10 +29,12 @@ const limiters = redis
       ai: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, "10 m") }),
       /** Natural-language entry parsing: 10 requests per 10 minutes per member */
       parse: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, "10 m") }),
+      /** MCP JSON-RPC requests (initialize and tools/list count too): 60 per 10 minutes per API key */
+      mcp: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, "10 m") }),
     }
   : null;
 
-type LimiterKind = "auth" | "sensitive" | "ai" | "parse";
+type LimiterKind = "auth" | "sensitive" | "ai" | "parse" | "mcp";
 
 function getClientIp(request: NextRequest): string {
   return (

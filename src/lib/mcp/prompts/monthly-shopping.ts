@@ -48,7 +48,7 @@ Steps:
    - The monthly list (item, quantity).
    - Per-store totals, both with and without promos (totalPrice vs bestTotal).
    - The recommended store + payment method (from cheapestWithPromos), with estimated savings vs the most expensive store.
-   - Items not found (notFound) and stores that failed (unavailableStores).
+   - Items not found (notFound) with any near-miss suggestions, and stores that failed (unavailableStores). For notFound items, you may retry once with search_product_prices using a simpler or more common Argentine term.
    - The promo disclaimer, verbatim.
 5. If a budget was given and the cheapest total exceeds it, suggest specific items to cut or substitute.`;
 

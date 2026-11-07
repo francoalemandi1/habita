@@ -216,6 +216,31 @@ describe("createAhorraMcpServer", () => {
       expect(data?.storeCarts[0]?.promoOptions).toEqual([]);
     });
 
+    it("returns near-miss suggestions for not-found terms, never products sharing no word", async () => {
+      searchAllStoresMock.mockResolvedValue([
+        {
+          storeName: "Carrefour",
+          products: [
+            buildProduct({ productName: "Rebozador Preferido 500g", price: 900 }),
+            buildProduct({ productName: "Pan lactal blanco Fargo grande familiar 600g paquete doble bolsa", price: 2500 }),
+          ],
+          failed: false,
+        },
+      ]);
+      fetchAllStorePromosMock.mockResolvedValue([]);
+
+      const { client } = await connectClient();
+      const { data } = await callToolJson<{
+        notFound: string[];
+        suggestions: Array<{ term: string; productName: string }>;
+      }>(client, { name: "compare_cart", arguments: { items: [{ term: "pan rallado condimentado" }] } });
+
+      expect(data?.notFound).toEqual(["pan rallado condimentado"]);
+      expect(data?.suggestions.map((s) => s.productName)).toEqual([
+        "Pan lactal blanco Fargo grande familiar 600g paquete doble bolsa",
+      ]);
+    });
+
     it("sets promosUnavailable when the promo catalog fails to load, without failing the tool", async () => {
       searchAllStoresMock.mockResolvedValue([
         { storeName: "Carrefour", products: [buildProduct({ price: 1000 })], failed: false },

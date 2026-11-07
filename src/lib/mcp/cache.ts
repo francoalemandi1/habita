@@ -65,7 +65,7 @@ export function compareCacheKey(
     .sort()
     .join(",");
   const cityPart = city ? normalizeKeySegment(city) : "all";
-  return `mcp:compare:v1:${sortedItems}:${cityPart}`;
+  return `mcp:compare:v2:${sortedItems}:${cityPart}`;
 }
 
 export const PROMOS_CACHE_KEY = "mcp:promos:v1";

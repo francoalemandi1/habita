@@ -16,13 +16,36 @@ import { cacheGet, cacheSet, compareCacheKey, COMPARE_CACHE_TTL_SECONDS } from "
 import { loadPromoCatalog, isPromoExpired, promoAppliesOnDay, matchesAnyPaymentMethod } from "../promo-catalog";
 import { WEEKDAYS, getTodayDayNameInBuenosAires } from "../weekday";
 
-import type { ShoppingPlanResult } from "@/lib/supermarket-search";
+import type { NotFoundSuggestion, ShoppingPlanResult } from "@/lib/supermarket-search";
 import type { CachedPromo } from "../promo-catalog";
 import type { Weekday } from "../weekday";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 const MAX_ITEMS = 40;
 const MAX_PROMO_OPTIONS_PER_STORE = 3;
+/** A cold promoarg fetch measured ~28 s (2026-11-07); never let it hold the cart past this. */
+const PROMO_LOAD_DEADLINE_MS = 15_000;
+/** Leaves headroom under the route's 60 s maxDuration to return a useful error instead of a timeout. */
+const COMPARE_DEADLINE_MS = 50_000;
+
+class DeadlineExceededError extends Error {}
+
+function withDeadline<T>(work: Promise<T>, deadlineMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new DeadlineExceededError(`${label} exceeded ${deadlineMs} ms`)), deadlineMs);
+  });
+  return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
+}
+
+async function loadPromoCatalogWithinDeadline(): Promise<{ catalog: CachedPromo[]; promosUnavailable: boolean }> {
+  try {
+    return { catalog: await withDeadline(loadPromoCatalog(), PROMO_LOAD_DEADLINE_MS, "promo catalog"), promosUnavailable: false };
+  } catch (error) {
+    console.error("[mcp/compare_cart] Promo catalog unavailable:", error);
+    return { catalog: [], promosUnavailable: true };
+  }
+}
 
 export const compareCartInputSchema = {
   items: z
@@ -79,6 +102,8 @@ interface CompactStoreCart {
 interface PlainCompareCartResult {
   storeCarts: CompactStoreCart[];
   notFound: string[];
+  /** Near-miss products for notFound terms, to pick one or rephrase the term. */
+  suggestions: NotFoundSuggestion[];
   unavailableStores: string[];
   searchedAt: string;
 }
@@ -102,6 +127,7 @@ function toCompact(result: ShoppingPlanResult): PlainCompareCartResult {
       })),
     })),
     notFound: result.notFound,
+    suggestions: result.suggestions ?? [],
     unavailableStores: result.unavailableStores,
     searchedAt: result.searchedAt,
   };
@@ -197,6 +223,7 @@ const PROMO_DISCLAIMER =
 export interface CompareCartResult {
   storeCarts: StoreCartWithPromos[];
   notFound: string[];
+  suggestions: NotFoundSuggestion[];
   unavailableStores: string[];
   searchedAt: string;
   promosUnavailable: boolean;
@@ -211,19 +238,14 @@ export async function runCompareCart(input: {
   day?: Weekday;
 }): Promise<CompareCartResult> {
   const items = input.items.map((item) => ({ term: item.term, quantity: item.quantity ?? 1 }));
-  const plain = await loadPlainCompare(items, input.city);
+  // Promos load in parallel with the compare; both are bounded so the tool answers inside maxDuration.
+  const [plain, { catalog, promosUnavailable }] = await Promise.all([
+    withDeadline(loadPlainCompare(items, input.city), COMPARE_DEADLINE_MS, "compare"),
+    loadPromoCatalogWithinDeadline(),
+  ]);
 
   const day = input.day ?? getTodayDayNameInBuenosAires();
   const now = new Date();
-
-  let catalog: CachedPromo[] = [];
-  let promosUnavailable = false;
-  try {
-    catalog = await loadPromoCatalog();
-  } catch (error) {
-    console.error("[mcp/compare_cart] Failed to load promo catalog:", error);
-    promosUnavailable = true;
-  }
 
   const storeCarts: StoreCartWithPromos[] = plain.storeCarts.map((cart) => {
     const promoOptions = buildPromoOptionsForStore(
@@ -242,6 +264,7 @@ export async function runCompareCart(input: {
   return {
     storeCarts,
     notFound: plain.notFound,
+    suggestions: plain.suggestions,
     unavailableStores: plain.unavailableStores,
     searchedAt: plain.searchedAt,
     promosUnavailable,
@@ -261,9 +284,10 @@ export async function handleCompareCart(args: {
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
   } catch (error) {
     console.error("[mcp/compare_cart] Tool failed:", error);
-    return {
-      content: [{ type: "text", text: "Failed to compare cart prices. Please try again." }],
-      isError: true,
-    };
+    const message =
+      error instanceof DeadlineExceededError
+        ? "Supermarkets are responding slowly. Try again with fewer items (e.g. split the list in two)."
+        : "Failed to compare cart prices. Please try again.";
+    return { content: [{ type: "text", text: message }], isError: true };
   }
 }

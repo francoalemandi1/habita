@@ -9,9 +9,11 @@
 import { searchAllStores } from "@/lib/vtex-client";
 import { parseProductUnit } from "@/lib/unit-parser";
 import { createLimiter } from "@/lib/concurrency";
+import { expandTermVariants, tokenMatches } from "@/lib/product-synonyms";
 
-import type { VtexProduct } from "@/lib/vtex-client";
+import type { VtexProduct, StoreSearchResult } from "@/lib/vtex-client";
 import type { UnitInfo } from "@/lib/unit-parser";
+import type { Limiter } from "@/lib/concurrency";
 
 // ============================================
 // Types
@@ -55,12 +57,22 @@ export interface StoreCart {
   totalSearched: number;
 }
 
+export interface NotFoundSuggestion {
+  term: string;
+  storeName: string;
+  productName: string;
+  price: number;
+  link: string;
+}
+
 export interface ShoppingPlanResult {
   storeCarts: StoreCart[];
   notFound: string[];
   /** Stores that failed every term they were asked about in this call. */
   unavailableStores: string[];
   searchedAt: string;
+  /** Near-miss products for notFound terms, below the match threshold. */
+  suggestions?: NotFoundSuggestion[];
 }
 
 export interface SearchItem {
@@ -122,7 +134,7 @@ function scoreProduct(normalizedTerm: string, termTokens: string[], product: Vte
   const normalizedName = normalize(product.productName);
 
   // Token overlap: how many search tokens appear in the product name
-  const matchCount = termTokens.filter((token) => normalizedName.includes(token)).length;
+  const matchCount = termTokens.filter((token) => tokenMatches(token, normalizedName)).length;
   const tokenMatchRatio = matchCount / termTokens.length;
 
   // Length penalty: avoid overly specific matches
@@ -344,6 +356,146 @@ function buildStoreCarts(
 }
 
 // ============================================
+// Near-miss suggestions
+// ============================================
+
+const SUGGESTION_SCORE_THRESHOLD = 0.15;
+const MAX_SUGGESTIONS_PER_TERM = 3;
+
+function sharesAnyToken(termTokens: string[], product: VtexProduct): boolean {
+  const normalizedName = normalize(product.productName);
+  return termTokens.some((token) => tokenMatches(token, normalizedName));
+}
+
+/**
+ * Best below-threshold candidates for a term that matched nothing in any
+ * store, so the user gets a hint instead of a bare notFound.
+ */
+export function buildNotFoundSuggestions(
+  term: string,
+  candidates: { storeName: string; product: VtexProduct }[],
+): NotFoundSuggestion[] {
+  const normalizedTerm = normalize(term);
+  const termTokens = normalizedTerm.split(/\s+/);
+
+  return candidates
+    .map(({ storeName, product }) => ({
+      storeName,
+      product,
+      score: scoreProduct(normalizedTerm, termTokens, product),
+    }))
+    .filter((c) => c.score >= SUGGESTION_SCORE_THRESHOLD && c.score < MIN_SCORE_THRESHOLD)
+    // The length factor alone scores 0.3 x ratio, so without this a product sharing no word
+    // with the term would still be "suggested".
+    .filter((c) => sharesAnyToken(termTokens, c.product))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_SUGGESTIONS_PER_TERM)
+    .map((c) => ({
+      term,
+      storeName: c.storeName,
+      productName: c.product.productName,
+      price: c.product.price,
+      link: c.product.link,
+    }));
+}
+
+function buildSuggestionsForNotFound(
+  notFoundTerms: string[],
+  resultBatches: { term: string; results: StoreSearchResult[] }[][],
+): NotFoundSuggestion[] {
+  const notFoundSet = new Set(notFoundTerms);
+  const candidatesByTerm = new Map<string, { storeName: string; product: VtexProduct }[]>();
+
+  for (const batch of resultBatches) {
+    for (const { term, results } of batch) {
+      if (!notFoundSet.has(term)) continue;
+      const candidates = candidatesByTerm.get(term) ?? [];
+      for (const storeResult of results) {
+        if (storeResult.failed) continue;
+        for (const product of storeResult.products) {
+          candidates.push({ storeName: storeResult.storeName, product });
+        }
+      }
+      candidatesByTerm.set(term, candidates);
+    }
+  }
+
+  const suggestions: NotFoundSuggestion[] = [];
+  for (const term of notFoundTerms) {
+    const candidates = candidatesByTerm.get(term);
+    if (!candidates) continue;
+    suggestions.push(...buildNotFoundSuggestions(term, candidates));
+  }
+  return suggestions;
+}
+
+// ============================================
+// Synonym retry
+// ============================================
+
+const MAX_SYNONYM_RETRY_TERMS = 10;
+
+function findGloballyNotFoundTerms(
+  searchTerms: string[],
+  storeResults: Map<string, Map<string, TermResult>>,
+): string[] {
+  return searchTerms.filter((term) => {
+    for (const [, termMap] of storeResults) {
+      if (termMap.has(term)) return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * For terms that matched nothing anywhere, retry once with a synonym variant
+ * of the term (e.g. "lavandina" -> "cloro") against every store, then score
+ * the results against the ORIGINAL term so matches stay keyed by what the
+ * user typed. Bounded to MAX_SYNONYM_RETRY_TERMS terms per call.
+ */
+async function retryNotFoundWithSynonyms(
+  notFoundTerms: string[],
+  city: string | null | undefined,
+  limiter: Limiter,
+  storeResults: Map<string, Map<string, TermResult>>,
+): Promise<{ term: string; results: StoreSearchResult[] }[]> {
+  const termsToRetry = notFoundTerms
+    .map((term) => ({ term, variants: expandTermVariants(term).slice(1) }))
+    .filter((entry) => entry.variants.length > 0)
+    .slice(0, MAX_SYNONYM_RETRY_TERMS);
+
+  if (termsToRetry.length === 0) return [];
+
+  const retryResults = await Promise.all(
+    termsToRetry.map(async ({ term, variants }) => {
+      const firstVariant = variants[0];
+      if (firstVariant === undefined) return { term, results: [] };
+      return { term, results: await searchAllStores(firstVariant, city ?? null, limiter) };
+    }),
+  );
+
+  for (const { term, results } of retryResults) {
+    for (const storeResult of results) {
+      if (storeResult.failed || storeResult.products.length === 0) continue;
+
+      const ranked = pickRankedMatches(term, storeResult.products);
+      if (!ranked) continue;
+
+      let termMap = storeResults.get(storeResult.storeName);
+      if (!termMap) {
+        termMap = new Map();
+        storeResults.set(storeResult.storeName, termMap);
+      }
+      if (!termMap.has(term)) {
+        termMap.set(term, ranked);
+      }
+    }
+  }
+
+  return retryResults;
+}
+
+// ============================================
 // Public API
 // ============================================
 
@@ -412,12 +564,17 @@ export async function compareProducts(
     .filter(([storeName, attempts]) => storeFailures.get(storeName) === attempts)
     .map(([storeName]) => storeName);
 
+  const notFoundAfterFirstPass = findGloballyNotFoundTerms(searchTerms, storeResults);
+  const retryResults = await retryNotFoundWithSynonyms(notFoundAfterFirstPass, city, limiter, storeResults);
+
   const { storeCarts, notFound } = buildStoreCarts(searchItems, storeResults, promoStores);
+  const suggestions = buildSuggestionsForNotFound(notFound, [allResults, retryResults]);
 
   return {
     storeCarts,
     notFound,
     unavailableStores,
     searchedAt: new Date().toISOString(),
+    ...(suggestions.length > 0 ? { suggestions } : {}),
   };
 }

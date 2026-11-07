@@ -37,6 +37,20 @@ export async function cacheSet(key: string, value: unknown, ttlSeconds: number):
   }
 }
 
+/**
+ * Set only if the key doesn't exist (a short-lived lock). Returns true when this
+ * caller won it. With no Redis there is nothing to coordinate, so it always wins.
+ */
+export async function cacheSetIfAbsent(key: string, ttlSeconds: number): Promise<boolean> {
+  if (!redis) return true;
+  try {
+    return (await redis.set(key, "1", { nx: true, ex: ttlSeconds })) === "OK";
+  } catch (error) {
+    console.warn(`[mcp/cache] Redis set-if-absent failed for key "${key}" — skipping`, error);
+    return false;
+  }
+}
+
 // ============================================
 // Cache key builders
 // ============================================
@@ -68,7 +82,8 @@ export function compareCacheKey(
   return `mcp:compare:v2:${sortedItems}:${cityPart}`;
 }
 
-export const PROMOS_CACHE_KEY = "mcp:promos:v1";
+export const PROMOS_CACHE_KEY = "mcp:promos:v2";
+export const PROMOS_REFRESH_LOCK_KEY = "mcp:promos:refresh-lock";
 
 // ============================================
 // TTLs (seconds)
@@ -76,4 +91,11 @@ export const PROMOS_CACHE_KEY = "mcp:promos:v1";
 
 export const SEARCH_CACHE_TTL_SECONDS = 4 * 60 * 60;
 export const COMPARE_CACHE_TTL_SECONDS = 60 * 60;
-export const PROMOS_CACHE_TTL_SECONDS = 6 * 60 * 60;
+/**
+ * The promo catalog is kept far past its refresh age so a cold call never finds it
+ * empty: stale promos are still filtered by validUntil and weekday on read.
+ */
+export const PROMOS_CACHE_TTL_SECONDS = 14 * 24 * 60 * 60;
+export const PROMOS_STALE_AFTER_SECONDS = 6 * 60 * 60;
+/** Longer than a full promoarg fetch (~12 s), short enough to retry soon if a refresh dies. */
+export const PROMOS_REFRESH_LOCK_TTL_SECONDS = 2 * 60;

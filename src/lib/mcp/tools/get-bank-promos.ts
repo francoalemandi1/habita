@@ -54,6 +54,8 @@ export interface BankPromoOutput {
 export interface GetBankPromosResult {
   promos: BankPromoOutput[];
   truncated: boolean;
+  /** When the promo catalog was fetched from promoarg; it may be up to ~6 h old. */
+  promosAsOf: string;
 }
 
 function toOutput(promo: CachedPromo): BankPromoOutput {
@@ -78,9 +80,9 @@ export async function runGetBankPromos(input: {
   const now = new Date();
   const day = input.day ?? getTodayDayNameInBuenosAires();
 
-  const catalog = await loadPromoCatalog();
+  const catalog = await loadPromoCatalog(now);
 
-  const filtered = catalog.filter((promo) => {
+  const filtered = catalog.promos.filter((promo) => {
     if (isPromoExpired(promo, now)) return false;
     if (input.store && promo.storeName !== input.store) return false;
     if (input.bank && !matchesBankFilter(promo, input.bank)) return false;
@@ -93,7 +95,7 @@ export async function runGetBankPromos(input: {
   const truncated = filtered.length > MAX_RESULTS;
   const promos = filtered.slice(0, MAX_RESULTS).map(toOutput);
 
-  return { promos, truncated };
+  return { promos, truncated, promosAsOf: catalog.fetchedAt };
 }
 
 export async function handleGetBankPromos(args: {

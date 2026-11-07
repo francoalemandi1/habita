@@ -3,12 +3,22 @@
  * Shared between get_bank_promos and compare_cart's promoOptions.
  */
 
+import { after } from "next/server";
 import { z } from "zod";
 
 import { KNOWN_STORE_NAMES } from "@/lib/promos/constants";
 import { fetchAllStorePromos } from "@/lib/promos/promoarg-client";
 import { normalizeStorePromos } from "@/lib/promos/normalize";
-import { cacheGet, cacheSet, PROMOS_CACHE_KEY, PROMOS_CACHE_TTL_SECONDS } from "./cache";
+import {
+  cacheGet,
+  cacheSet,
+  cacheSetIfAbsent,
+  PROMOS_CACHE_KEY,
+  PROMOS_CACHE_TTL_SECONDS,
+  PROMOS_REFRESH_LOCK_KEY,
+  PROMOS_REFRESH_LOCK_TTL_SECONDS,
+  PROMOS_STALE_AFTER_SECONDS,
+} from "./cache";
 
 import type { NormalizedPromo } from "@/lib/promos/normalize";
 import type { Weekday } from "./weekday";
@@ -33,26 +43,83 @@ const cachedPromoSchema = z.object({
   validUntil: z.string().nullable(),
   sourceUrl: z.string().nullable(),
 });
-const cachedCatalogSchema = z.array(cachedPromoSchema);
+const cachedCatalogEntrySchema = z.object({
+  fetchedAt: z.string(),
+  promos: z.array(cachedPromoSchema),
+});
 
 export type CachedPromo = z.infer<typeof cachedPromoSchema>;
+export type PromoCatalog = z.infer<typeof cachedCatalogEntrySchema>;
 
 function toCachedPromo(promo: NormalizedPromo): CachedPromo {
   return { ...promo, validUntil: promo.validUntil ? promo.validUntil.toISOString() : null };
 }
 
-/** Load the normalized promo catalog, from cache when valid, else fetch fresh and cache it. */
-export async function loadPromoCatalog(): Promise<CachedPromo[]> {
+async function readCachedCatalog(): Promise<PromoCatalog | null> {
   const cached = await cacheGet<unknown>(PROMOS_CACHE_KEY);
+  if (cached === null) return null;
+  const parsed = cachedCatalogEntrySchema.safeParse(cached);
+  if (!parsed.success) {
+    console.warn("[mcp/promo-catalog] Cached catalog has an unexpected shape — refetching", parsed.error.issues[0]);
+    return null;
+  }
+  return parsed.data;
+}
+
+async function fetchAndStoreCatalog(): Promise<PromoCatalog> {
+  const storeResults = await fetchAllStorePromos(KNOWN_STORE_NAMES);
+  const catalog = {
+    fetchedAt: new Date().toISOString(),
+    promos: normalizeStorePromos(storeResults).map(toCachedPromo),
+  };
+  await cacheSet(PROMOS_CACHE_KEY, catalog, PROMOS_CACHE_TTL_SECONDS);
+  return catalog;
+}
+
+/** Runs `work` after the response is sent, keeping the function alive until it settles. */
+function runAfterResponse(work: () => Promise<void>): void {
+  try {
+    after(work);
+  } catch (error) {
+    // Outside a request scope (scripts, tests) there is no response to wait for.
+    console.warn(
+      "[mcp/promo-catalog] after() unavailable — running in the background:",
+      error instanceof Error ? error.message : error,
+    );
+    void work();
+  }
+}
+
+async function refreshCatalogInBackground(): Promise<void> {
+  if (!(await cacheSetIfAbsent(PROMOS_REFRESH_LOCK_KEY, PROMOS_REFRESH_LOCK_TTL_SECONDS))) return;
+  try {
+    await fetchAndStoreCatalog();
+  } catch (error) {
+    console.error("[mcp/promo-catalog] Background refresh failed — keeping the stale catalog", error);
+  }
+}
+
+function isStale(catalog: PromoCatalog, now: Date): boolean {
+  const ageSeconds = (now.getTime() - new Date(catalog.fetchedAt).getTime()) / 1000;
+  return ageSeconds > PROMOS_STALE_AFTER_SECONDS;
+}
+
+/**
+ * Stale-while-revalidate: a cached catalog is always served, and one older than
+ * PROMOS_STALE_AFTER_SECONDS is refreshed after the response. Only an empty
+ * cache (first deploy, Redis flush) makes the caller wait for promoarg.
+ */
+export async function loadPromoCatalog(now: Date = new Date()): Promise<PromoCatalog> {
+  const cached = await readCachedCatalog();
   if (cached) {
-    const parsed = cachedCatalogSchema.safeParse(cached);
-    if (parsed.success) return parsed.data;
+    if (isStale(cached, now)) runAfterResponse(refreshCatalogInBackground);
+    return cached;
   }
 
-  const storeResults = await fetchAllStorePromos(KNOWN_STORE_NAMES);
-  const normalized = normalizeStorePromos(storeResults).map(toCachedPromo);
-  await cacheSet(PROMOS_CACHE_KEY, normalized, PROMOS_CACHE_TTL_SECONDS);
-  return normalized;
+  const freshCatalog = fetchAndStoreCatalog();
+  // If the caller gives up on its deadline, the fetch still finishes and fills the cache.
+  runAfterResponse(() => freshCatalog.then(() => undefined, () => undefined));
+  return freshCatalog;
 }
 
 // ============================================

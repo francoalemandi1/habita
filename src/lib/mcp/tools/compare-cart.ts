@@ -38,12 +38,19 @@ function withDeadline<T>(work: Promise<T>, deadlineMs: number, label: string): P
   return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
 }
 
-async function loadPromoCatalogWithinDeadline(): Promise<{ catalog: CachedPromo[]; promosUnavailable: boolean }> {
+interface LoadedPromos {
+  catalog: CachedPromo[];
+  promosUnavailable: boolean;
+  promosAsOf: string | null;
+}
+
+async function loadPromoCatalogWithinDeadline(): Promise<LoadedPromos> {
   try {
-    return { catalog: await withDeadline(loadPromoCatalog(), PROMO_LOAD_DEADLINE_MS, "promo catalog"), promosUnavailable: false };
+    const { promos, fetchedAt } = await withDeadline(loadPromoCatalog(), PROMO_LOAD_DEADLINE_MS, "promo catalog");
+    return { catalog: promos, promosUnavailable: false, promosAsOf: fetchedAt };
   } catch (error) {
     console.error("[mcp/compare_cart] Promo catalog unavailable:", error);
-    return { catalog: [], promosUnavailable: true };
+    return { catalog: [], promosUnavailable: true, promosAsOf: null };
   }
 }
 
@@ -227,6 +234,8 @@ export interface CompareCartResult {
   unavailableStores: string[];
   searchedAt: string;
   promosUnavailable: boolean;
+  /** When the promo catalog was fetched from promoarg; it may be up to ~6 h old. */
+  promosAsOf: string | null;
   cheapestWithPromos: { storeName: string; bestTotal: number; bank: string | null } | null;
   promoDisclaimer: string;
 }
@@ -239,7 +248,7 @@ export async function runCompareCart(input: {
 }): Promise<CompareCartResult> {
   const items = input.items.map((item) => ({ term: item.term, quantity: item.quantity ?? 1 }));
   // Promos load in parallel with the compare; both are bounded so the tool answers inside maxDuration.
-  const [plain, { catalog, promosUnavailable }] = await Promise.all([
+  const [plain, { catalog, promosUnavailable, promosAsOf }] = await Promise.all([
     withDeadline(loadPlainCompare(items, input.city), COMPARE_DEADLINE_MS, "compare"),
     loadPromoCatalogWithinDeadline(),
   ]);
@@ -268,6 +277,7 @@ export async function runCompareCart(input: {
     unavailableStores: plain.unavailableStores,
     searchedAt: plain.searchedAt,
     promosUnavailable,
+    promosAsOf,
     cheapestWithPromos: computeCheapestWithPromos(storeCarts),
     promoDisclaimer: PROMO_DISCLAIMER,
   };

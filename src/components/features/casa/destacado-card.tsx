@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PLANES_LIST_PATH } from "@/lib/planes-logic";
 
 export interface DestacadoEvent {
   id: string;
@@ -23,8 +24,8 @@ export function DestacadoCard({ event }: DestacadoCardProps): React.JSX.Element 
       ) : (
         <span className="text-[13px] text-ink-2">Todavía no hay planes cerca.</span>
       )}
-      <Link href="/descubrir" className="mt-auto text-[13px] text-monte underline underline-offset-[3px]">
-        Ver más planes
+      <Link href={PLANES_LIST_PATH} className="mt-auto text-[13px] text-monte underline underline-offset-[3px]">
+        Ver todos
       </Link>
     </div>
   );

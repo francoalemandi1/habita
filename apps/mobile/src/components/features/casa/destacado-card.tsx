@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react-native";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
 import { radii as radius } from "@habita/design-tokens";
+import { PLANES_LIST_PATH } from "@/lib/planes-logic";
 
 import type { ThemeColors } from "@/theme";
 import type { EventItem } from "@habita/contracts";
@@ -39,12 +40,12 @@ export function DestacadoCard({ event }: DestacadoCardProps): React.JSX.Element 
       </Pressable>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Ver más planes"
+        accessibilityLabel="Ver todos"
         hitSlop={8}
-        onPress={() => router.push("/(app)/descubrir")}
+        onPress={() => router.push(PLANES_LIST_PATH)}
         style={styles.footerLink}
       >
-        <Text style={styles.footerLinkText}>Ver más planes</Text>
+        <Text style={styles.footerLinkText}>Ver todos</Text>
         <ChevronRight size={12} strokeWidth={1.75} color={colors.monte} />
       </Pressable>
     </View>

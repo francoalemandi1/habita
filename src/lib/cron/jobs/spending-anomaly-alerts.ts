@@ -5,7 +5,9 @@ import { deliverNotificationToMembers } from "@/lib/push-delivery";
  * processSpendingAnomalyAlerts — sends SPENDING_ALERT when monthly variable spending
  * exceeds 130% of the 3-month average. Max 1 per household per month.
  */
-export async function processSpendingAnomalyAlerts(): Promise<number> {
+export async function processSpendingAnomalyAlerts(
+  activeHouseholdIds: Set<string>,
+): Promise<number> {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const start1MonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -15,7 +17,10 @@ export async function processSpendingAnomalyAlerts(): Promise<number> {
   let sent = 0;
 
   const households = await prisma.household.findMany({
-    where: { members: { some: { isActive: true } } },
+    where: {
+      members: { some: { isActive: true } },
+      id: { in: [...activeHouseholdIds] },
+    },
     select: { id: true, timezone: true },
   });
 

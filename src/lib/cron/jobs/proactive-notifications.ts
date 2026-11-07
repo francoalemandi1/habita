@@ -6,7 +6,9 @@ import { APP_ROUTES } from "@habita/contracts";
  * processProactiveNotifications — creates 3 new proactive notification types:
  *   SERVICE_DUE_SOON, TASK_REMINDER, EXPENSE_WEEKLY_SUMMARY
  */
-export async function processProactiveNotifications(): Promise<{
+export async function processProactiveNotifications(
+  activeHouseholdIds: Set<string>,
+): Promise<{
   serviceDueSoon: number;
   taskReminder: number;
   expenseWeeklySummary: number;
@@ -33,6 +35,8 @@ export async function processProactiveNotifications(): Promise<{
   });
 
   for (const service of upcomingServices) {
+    if (!activeHouseholdIds.has(service.householdId)) continue;
+
     // Check if we already sent this notification within the last 7 days
     const existingNotification = await prisma.notification.findFirst({
       where: {
@@ -98,6 +102,8 @@ export async function processProactiveNotifications(): Promise<{
   });
 
   for (const memberRecord of allActiveMembers) {
+    if (!activeHouseholdIds.has(memberRecord.householdId)) continue;
+
     // Check if this member already has a TASK_REMINDER today
     const alreadyNotified = await prisma.notification.findFirst({
       where: {
@@ -153,8 +159,9 @@ export async function processProactiveNotifications(): Promise<{
     const endOfLastWeek = new Date(startOfThisWeek.getTime() - 1); // Sunday 23:59:59.999
     const startOfTwoWeeksAgo = new Date(startOfLastWeek.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    // Get all households
+    // Get all active households
     const households = await prisma.household.findMany({
+      where: { id: { in: [...activeHouseholdIds] } },
       select: { id: true },
     });
 

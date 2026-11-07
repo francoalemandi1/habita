@@ -5,6 +5,7 @@ import { getLocalDayOfWeek } from "@/lib/llm/regional-context";
 import { deliverNotificationToMembers } from "@/lib/push-delivery";
 import { handleApiError } from "@/lib/api-response";
 import { authorizeCronRequest } from "@/lib/cron-auth";
+import { getActiveHouseholdIdsOrEmpty } from "@/lib/cron/active-households";
 import { APP_ROUTES } from "@habita/contracts";
 
 import type { NextRequest } from "next/server";
@@ -25,6 +26,7 @@ interface HouseholdPlanResult {
 async function runWeeklyPlanCron() {
   try {
     const now = new Date();
+    const activeHouseholdIds = await getActiveHouseholdIdsOrEmpty(now);
 
     // Only process households with a configured planning day and timezone
     const allHouseholds = await prisma.household.findMany({
@@ -43,6 +45,12 @@ async function runWeeklyPlanCron() {
       return localDay === h.planningDay;
     });
 
+    const skippedInactive = households.filter((h) => !activeHouseholdIds.has(h.id)).length;
+    console.log(
+      `[cron/weekly-plan] Plan-ready notifications: ${households.length - skippedInactive}/${households.length} ` +
+        `(skipped ${skippedInactive} inactive)`,
+    );
+
     const results: HouseholdPlanResult[] = [];
 
     for (const household of households) {
@@ -56,7 +64,11 @@ async function runWeeklyPlanCron() {
           assignmentsCreated: result.assignmentsCreated,
         });
 
-        if (result.success && result.assignmentsCreated > 0) {
+        if (
+          result.success &&
+          result.assignmentsCreated > 0 &&
+          activeHouseholdIds.has(household.id)
+        ) {
           // In-app notifications
           const householdMembers = await prisma.member.findMany({
             where: { householdId: household.id, isActive: true },
@@ -70,7 +82,6 @@ async function runWeeklyPlanCron() {
             actionUrl: APP_ROUTES.tareas,
             householdTimezone: household.timezone,
           });
-
         }
       } catch (error) {
         console.error(`Weekly plan failed for household ${household.name}:`, error);

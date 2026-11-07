@@ -5,7 +5,9 @@ import { deliverNotification } from "@/lib/push-delivery";
  * processOverdueTaskAlerts — sends TASK_OVERDUE push for assignments past due date.
  * Grace period: 4 hours after dueDate. Max 1 alert per assignment.
  */
-export async function processOverdueTaskAlerts(): Promise<number> {
+export async function processOverdueTaskAlerts(
+  activeHouseholdIds: Set<string>,
+): Promise<number> {
   const now = new Date();
   const gracePeriod = new Date(now.getTime() - 4 * 60 * 60 * 1000);
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -27,6 +29,8 @@ export async function processOverdueTaskAlerts(): Promise<number> {
   });
 
   for (const assignment of overdueAssignments) {
+    if (!activeHouseholdIds.has(assignment.householdId)) continue;
+
     // Dedup: skip if already sent TASK_OVERDUE for this assignment today
     const alreadyNotified = await prisma.notification.findFirst({
       where: {

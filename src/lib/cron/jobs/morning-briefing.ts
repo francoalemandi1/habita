@@ -7,12 +7,17 @@ import { APP_ROUTES } from "@habita/contracts";
  * processMorningBriefing — sends a consolidated daily push at 8am per household timezone.
  * Dedup: max 1 DAILY_BRIEFING per household per day.
  */
-export async function processMorningBriefing(): Promise<number> {
+export async function processMorningBriefing(
+  activeHouseholdIds: Set<string>,
+): Promise<number> {
   const now = new Date();
   let sent = 0;
 
   const households = await prisma.household.findMany({
-    where: { members: { some: { isActive: true } } },
+    where: {
+      members: { some: { isActive: true } },
+      id: { in: [...activeHouseholdIds] },
+    },
     select: { id: true, timezone: true },
   });
 

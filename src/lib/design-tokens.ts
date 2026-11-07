@@ -27,7 +27,6 @@ export {
  */
 export const palette = {
   primary: newColors.monte,
-  primaryLight: newColors.monteSoft,
   lime: newColors.mantecaSoft,
   successDark: newColors.monte,
   lavender: newColors.monteSoft,

@@ -17,7 +17,7 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import { ListRow } from "@/components/ds/list-row";
-import { SaveButton } from "@/components/ui/save-button";
+import { SaveButton } from "@/components/ds/save-button";
 import { formatPlanRowMeta } from "@/lib/planes-logic";
 
 import type { LucideIcon } from "lucide-react";

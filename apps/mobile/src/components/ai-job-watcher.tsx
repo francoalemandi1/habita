@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useAiJobStatus } from "@/hooks/use-ai-job-status";
-import { useToast } from "@/components/ui/toast";
+import { useSnackbar } from "@/components/ds";
 
 import type { AiJobType } from "@habita/contracts";
 
@@ -31,18 +31,20 @@ const JOB_CONFIGS: JobConfig[] = [
 
 function JobWatcher({ config }: { config: JobConfig }) {
   const router = useRouter();
-  const toast = useToast();
+  const snackbar = useSnackbar();
 
   useAiJobStatus({
     jobType: config.jobType,
     onComplete: () => {
-      toast.success(config.successMessage, {
-        label: config.actionLabel,
-        onPress: () => router.push(config.href as never),
+      snackbar.show({
+        text: config.successMessage,
+        tone: "navigation",
+        actionLabel: config.actionLabel,
+        onAction: () => router.push(config.href as never),
       });
     },
     onError: () => {
-      toast.error(config.errorMessage);
+      snackbar.show({ text: config.errorMessage, tone: "error" });
     },
   });
 

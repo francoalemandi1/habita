@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Schibsted_Grotesk } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { QueryProvider } from "@/components/providers/query-provider";
-import { ToastProvider } from "@/components/ui/toast";
+import { SnackbarProvider } from "@/components/ds/snackbar";
 import "./globals.css";
 
 const schibstedGrotesk = Schibsted_Grotesk({
@@ -78,7 +78,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <body className={`${schibstedGrotesk.variable} font-sans antialiased min-h-screen`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <QueryProvider>
-            <ToastProvider>{children}</ToastProvider>
+            <SnackbarProvider>{children}</SnackbarProvider>
           </QueryProvider>
         </ThemeProvider>
       </body>

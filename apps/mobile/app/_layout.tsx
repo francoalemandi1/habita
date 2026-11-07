@@ -3,16 +3,14 @@ import { Animated, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RuntimeBanner } from "@/components/runtime-banner";
 import { MobileQueryProvider } from "@/providers/query-provider";
 import { MobileAuthProvider, useMobileAuth } from "@/providers/mobile-auth-provider";
 import { ThemeProvider, useTheme } from "@/providers/theme-provider";
-import { ToastProvider } from "@/components/ui/toast";
-import { SnackbarProvider } from "@/components/ds";
+import { HabitaLogo, SnackbarProvider } from "@/components/ds";
 import { NotificationProvider } from "@/providers/notification-provider";
 import { colors, fontFamily } from "@/theme";
-import { HabitaLogo } from "@/components/ui/habita-logo";
 
 function BrandedSplash() {
   const fadeIn = useMemo(() => new Animated.Value(0), []);
@@ -142,11 +140,9 @@ export default function RootLayout() {
         <ThemeProvider>
           <MobileAuthProvider>
             <NotificationProvider>
-              <ToastProvider>
-                <SnackbarProvider>
-                  <RootNavigator />
-                </SnackbarProvider>
-              </ToastProvider>
+              <SnackbarProvider>
+                <RootNavigator />
+              </SnackbarProvider>
             </NotificationProvider>
           </MobileAuthProvider>
         </ThemeProvider>

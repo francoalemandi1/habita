@@ -8,7 +8,7 @@ import { useCreateHousehold } from "@/hooks/use-households";
 import { useThemeColors } from "@/hooks/use-theme";
 import { Button, ProgressBar } from "@/components/ds";
 import { fontFamilyForWeight, spacing, typography } from "@/theme";
-import { HabitaLogo } from "@/components/ui/habita-logo";
+import { HabitaLogo } from "@/components/ds";
 import { CrearHogarStep1 } from "@/components/features/onboarding/crear-hogar-step1";
 import { CrearHogarInviteStep } from "@/components/features/onboarding/crear-hogar-invite-step";
 import { starterTasksFor } from "@/lib/onboarding-starter-tasks";

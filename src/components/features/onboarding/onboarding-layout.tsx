@@ -1,8 +1,7 @@
 "use client";
 
 import { ArrowLeft } from "lucide-react";
-import { Button, ProgressBar } from "@/components/ds";
-import { HabitaLogo } from "@/components/ui/habita-logo";
+import { Button, ProgressBar, HabitaLogo } from "@/components/ds";
 
 import type { ReactNode } from "react";
 

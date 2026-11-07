@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
+
 import { cn } from "@/lib/utils";
 import { storeColors, storeColorFallback, getStoreFaviconUrl } from "@/lib/design-tokens";
 
@@ -18,7 +20,7 @@ interface StoreLogoProps {
  * Renders a store favicon fetched from Google's S2 API.
  * Falls back to a brand-colored letter avatar if the favicon fails to load.
  */
-export function StoreLogo({ storeName, sizeClass, radiusClass = "rounded-full", fallbackFontClass = "text-xs" }: StoreLogoProps) {
+export function StoreLogo({ storeName, sizeClass, radiusClass = "rounded-full", fallbackFontClass = "text-xs" }: StoreLogoProps): React.JSX.Element {
   const [hasError, setHasError] = useState(false);
   const faviconUrl = getStoreFaviconUrl(storeName);
   const color = storeColors[storeName] ?? storeColorFallback;
@@ -26,7 +28,7 @@ export function StoreLogo({ storeName, sizeClass, radiusClass = "rounded-full", 
   if (!faviconUrl || hasError) {
     return (
       <div
-        className={cn("flex shrink-0 items-center justify-center font-bold", sizeClass, radiusClass)}
+        className={cn("flex shrink-0 items-center justify-center font-bold", sizeClass, radiusClass, fallbackFontClass)}
         style={{ backgroundColor: color.bg, color: color.text }}
       >
         {storeName.charAt(0).toUpperCase()}
@@ -35,13 +37,15 @@ export function StoreLogo({ storeName, sizeClass, radiusClass = "rounded-full", 
   }
 
   return (
-    <div className={cn("shrink-0 overflow-hidden bg-white", sizeClass, radiusClass)}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+    <div className={cn("relative shrink-0 overflow-hidden bg-paper", sizeClass, radiusClass)}>
+      {/* Remote favicon: skip the optimizer so no remotePatterns entry is needed */}
+      <Image
         src={faviconUrl}
         alt={storeName}
-        className="h-full w-full object-contain"
-        loading="lazy"
+        fill
+        sizes="64px"
+        unoptimized
+        className="object-contain"
         onError={() => setHasError(true)}
       />
     </div>

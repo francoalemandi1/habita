@@ -8,7 +8,7 @@ import { useJoinHousehold } from "@/hooks/use-households";
 import { useThemeColors } from "@/hooks/use-theme";
 import { Button, TextField } from "@/components/ds";
 import { fontFamilyForWeight, spacing, typography } from "@/theme";
-import { HabitaLogo } from "@/components/ui/habita-logo";
+import { HabitaLogo } from "@/components/ds";
 
 /** Unirse — invite code entry, per handoff §5.3. */
 export default function JoinHouseholdScreen() {

@@ -4,7 +4,8 @@ import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
 
 import type { ReactNode } from "react";
 
-export function ScrollReveal({ children, className }: { children: ReactNode; className?: string }) {
+/** Reveal-on-scroll wrapper; `prefers-reduced-motion` is handled globally in globals.css. */
+export function ScrollReveal({ children, className }: { children: ReactNode; className?: string }): React.JSX.Element {
   const { elementRef, isVisible } = useIntersectionObserver();
 
   return (

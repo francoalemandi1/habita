@@ -23,3 +23,7 @@ export * from "./progress-bar";
 export * from "./composer";
 export * from "./coachmark";
 export * from "./sidebar";
+export * from "./habita-logo";
+export * from "./save-button";
+export * from "./store-logo";
+export * from "./scroll-reveal";

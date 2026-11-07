@@ -17,7 +17,7 @@ export function SaveButton({
   onToggle,
   className,
   size = "sm",
-}: SaveButtonProps) {
+}: SaveButtonProps): React.JSX.Element {
   const iconSize = size === "sm" ? 16 : 20;
 
   return (
@@ -32,17 +32,15 @@ export function SaveButton({
       aria-label={isSaved ? "Quitar de guardados" : "Guardar"}
       className={cn(
         "rounded-full p-1.5 transition-colors",
-        "hover:bg-muted disabled:opacity-50",
-        isSaved
-          ? "text-primary"
-          : "text-muted-foreground hover:text-foreground",
+        "hover:bg-sand disabled:opacity-50",
+        isSaved ? "text-monte" : "text-ink-2 hover:text-ink",
         className,
       )}
     >
       {isSaved ? (
-        <BookmarkCheck size={iconSize} className="fill-current" />
+        <BookmarkCheck size={iconSize} className="fill-current" strokeWidth={1.75} />
       ) : (
-        <Bookmark size={iconSize} />
+        <Bookmark size={iconSize} strokeWidth={1.75} />
       )}
     </button>
   );

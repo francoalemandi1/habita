@@ -1,0 +1,31 @@
+interface HabitaLogoProps {
+  /** Size in pixels (width & height). Defaults to 48. */
+  size?: number;
+  className?: string;
+}
+
+/** §12 — casa Monte, H Papel, puntos Manteca. */
+export function HabitaLogo({ size = 48, className }: HabitaLogoProps): React.JSX.Element {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 192 192"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      role="img"
+      aria-label="Habita"
+    >
+      <path
+        d="M96 8L16 80V172C16 180.837 23.163 188 32 188H160C168.837 188 176 180.837 176 172V80L96 8Z"
+        className="fill-monte"
+      />
+      <path d="M96 8L16 80H176L96 8Z" className="fill-monte" />
+      <rect x="56" y="88" width="18" height="72" rx="9" className="fill-paper" />
+      <rect x="118" y="88" width="18" height="72" rx="9" className="fill-paper" />
+      <rect x="56" y="112" width="80" height="16" rx="8" className="fill-paper" />
+      <circle cx="65" cy="74" r="10" className="fill-manteca" />
+      <circle cx="127" cy="74" r="10" className="fill-manteca" />
+    </svg>
+  );
+}

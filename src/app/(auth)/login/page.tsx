@@ -1,6 +1,5 @@
 import { signIn } from "@/lib/auth";
-import { Button } from "@/components/ds";
-import { HabitaLogo } from "@/components/ui/habita-logo";
+import { Button, HabitaLogo } from "@/components/ds";
 import { BienvenidaBullets } from "@/components/features/onboarding/bienvenida-bullets";
 import { APP_ROUTES } from "@habita/contracts";
 

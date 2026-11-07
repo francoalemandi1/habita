@@ -72,7 +72,6 @@ const lightColors = {
   // Overlay
   overlay: newColors.scrim,
   // State backgrounds
-  primaryLight: newColors.monteSoft,
   successBg: newColors.monteSoft,
   successText: newColors.monte,
   errorBg: newColors.ladrilloSoft,
@@ -133,7 +132,6 @@ const darkColors = {
   // Overlay
   overlay: newDarkColors.scrim,
   // State backgrounds
-  primaryLight: newDarkColors.monteSoft,
   successBg: newDarkColors.monteSoft,
   successText: newDarkColors.monte,
   errorBg: newDarkColors.ladrilloSoft,

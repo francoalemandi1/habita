@@ -2,8 +2,7 @@ import { headers } from "next/headers";
 import { auth, signIn } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Home, X } from "lucide-react";
-import { Button } from "@/components/ds";
-import { HabitaLogo } from "@/components/ui/habita-logo";
+import { Button, HabitaLogo } from "@/components/ds";
 import { JoinForm } from "./join-form";
 import { MobileJoinRedirect } from "./mobile-join-redirect";
 

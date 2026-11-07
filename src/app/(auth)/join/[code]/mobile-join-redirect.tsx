@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { HabitaLogo } from "@/components/ui/habita-logo";
+import { HabitaLogo } from "@/components/ds";
 
 interface MobileJoinRedirectProps {
   householdName: string;

@@ -8,7 +8,7 @@ import { useThemeColors } from "@/hooks/use-theme";
 import { mobileApi } from "@/lib/api";
 import { mobileConfig } from "@/lib/config";
 import { fontFamilyForWeight, spacing, typography } from "@/theme";
-import { HabitaLogo } from "@/components/ui/habita-logo";
+import { HabitaLogo } from "@/components/ds";
 import { GoogleSignInButton } from "@/components/features/onboarding/google-sign-in-button";
 import { BienvenidaBullets } from "@/components/features/onboarding/bienvenida-bullets";
 

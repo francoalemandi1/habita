@@ -90,3 +90,5 @@ export type { ComposerProps } from "./composer";
 
 export { Coachmark } from "./coachmark";
 export type { CoachmarkProps } from "./coachmark";
+
+export { HabitaLogo } from "./habita-logo";

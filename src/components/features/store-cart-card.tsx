@@ -6,8 +6,8 @@ import { StoreLogo } from "@/components/ds/store-logo";
 import { SaveButton } from "@/components/ds/save-button";
 import { ChevronDown, Trophy, ExternalLink, ArrowDownRight, Check, Package, Tag, Pin, Share2, AlertCircle, MapPin } from "lucide-react";
 
-import type { AlternativeProduct, ProductUnitInfo } from "@/lib/supermarket-search";
-import type { AdjustedStoreCart, AdjustedCartProduct } from "@/lib/super-compare-logic";
+import type { ProductUnitInfo } from "@/lib/supermarket-search";
+import type { AdjustedStoreCart, AdjustedCartProduct, CompareAlternative as AlternativeProduct } from "@habita/prices";
 import type { BankPromo } from "@prisma/client";
 
 // ============================================

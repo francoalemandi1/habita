@@ -6,7 +6,7 @@ import {
   isDealInList,
   matchesTopDeal,
   sortShoppingListItems,
-} from "@/lib/super-shopping-list-logic";
+} from "@habita/prices";
 
 import type { ShoppingListItem } from "@habita/contracts";
 import type { TopDealProduct } from "@habita/contracts";
@@ -98,6 +98,11 @@ describe("isDealInList", () => {
   it("is true when an unchecked item matches the deal name exactly (normalized)", () => {
     const items = [item({ id: "a", name: "leche" })];
     expect(isDealInList("Leche", items)).toBe(true);
+  });
+
+  it("is accent-insensitive", () => {
+    const items = [item({ id: "a", name: "Café" })];
+    expect(isDealInList("cafe", items)).toBe(true);
   });
 
   it("is false when the matching item is already checked", () => {

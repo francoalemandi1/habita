@@ -8,7 +8,7 @@ import { useSnackbar } from "@/components/ds/snackbar";
 import { useTopDeals } from "@/hooks/use-top-deals";
 import { InlineError } from "@/components/features/inline-error";
 import { useShoppingList, useAddShoppingListItem } from "@/hooks/use-shopping-list";
-import { isDealInList } from "@/lib/super-shopping-list-logic";
+import { isDealInList } from "@habita/prices";
 import { OfertaCard } from "@/components/features/super/ofertas/oferta-card";
 import { RubroChips } from "@/components/features/super/ofertas/rubro-chips";
 

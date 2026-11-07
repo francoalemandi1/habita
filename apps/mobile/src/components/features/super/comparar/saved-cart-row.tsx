@@ -4,7 +4,7 @@ import { Trash2 } from "lucide-react-native";
 import { StoreChip } from "@/components/ds";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
-import { formatCartAge, isCartStale } from "@/lib/super-saved-carts-logic";
+import { formatCartAge, isCartStale } from "@habita/prices";
 
 import type { ThemeColors } from "@/theme";
 import type { SavedCart } from "@habita/contracts";

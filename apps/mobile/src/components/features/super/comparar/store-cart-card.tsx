@@ -10,14 +10,14 @@ import { ProductRow } from "@/components/features/super/comparar/product-row";
 
 import type { ThemeColors } from "@/theme";
 import type { AlternativeProduct, BankPromo } from "@habita/contracts";
-import type { AdjustedStoreCart } from "@/lib/super-compare-logic";
+import type { AdjustedStoreCart } from "@habita/prices";
 
 function formatAmount(amount: number): string {
   return `$${amount.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
 }
 
 interface StoreCartCardProps {
-  cart: AdjustedStoreCart;
+  cart: AdjustedStoreCart<unknown>;
   rank: number;
   promos: BankPromo[];
   isSaved: boolean;

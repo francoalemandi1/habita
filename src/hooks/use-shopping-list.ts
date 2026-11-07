@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
-import { sortShoppingListItems } from "@/lib/super-shopping-list-logic";
+import { sortShoppingListItems } from "@habita/prices";
 import { OFFLINE_MUTATION_KEYS } from "@/lib/offline-mutation-keys";
 import { offlineMutationRetry } from "@/lib/offline-network";
 

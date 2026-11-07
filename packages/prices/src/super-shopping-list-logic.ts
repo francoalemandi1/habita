@@ -1,17 +1,11 @@
 /**
- * Pure logic for the Súper "Lista" view (design handoff §5.3, §7 pattern A).
- * Duplicated from src/lib/super-shopping-list-logic.ts (web) — packages
- * extraction is a later follow-up.
+ * Pure logic for the Súper "Lista" view (handoff §5.3, §7 pattern A).
  */
 
-import type { SearchItem, ShoppingListItem, TopDealProduct } from "@habita/contracts";
+import { normalizeProductTerm } from "./product-term";
 
-const COMBINING_DIACRITICS = /[\u0300-\u036f]/g;
-
-/** Normalizes a product name/term for case- and accent-insensitive comparison. */
-function normalizeProductTerm(value: string): string {
-  return value.toLowerCase().normalize("NFD").replace(COMBINING_DIACRITICS, "").trim();
-}
+import type { ShoppingListItem, TopDealProduct } from "@habita/contracts";
+import type { SearchItem } from "./product-matching";
 
 /**
  * Orders items the same way the server does: unchecked first (oldest first),

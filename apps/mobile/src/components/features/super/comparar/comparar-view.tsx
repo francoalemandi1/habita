@@ -13,10 +13,10 @@ import { StoreCartCard } from "@/components/features/super/comparar/store-cart-c
 import { NotFoundRow } from "@/components/features/super/comparar/not-found-row";
 import { UnavailableStoresRow } from "@/components/features/super/comparar/unavailable-stores-row";
 import { SavedCartsSection } from "@/components/features/super/comparar/saved-carts-section";
-import { applyOverrides, buildSavingsSummary } from "@/lib/super-compare-logic";
+import { applyOverrides, buildSavingsSummary } from "@habita/prices";
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
-import type { CartOverride } from "@/lib/super-compare-logic";
+import type { CartOverride } from "@habita/prices";
 import type { AlternativeProduct, SaveCartInput, SearchItem, ShoppingPlanResult } from "@habita/contracts";
 
 function overrideMapKey(storeName: string, searchTerm: string): string {
@@ -38,7 +38,7 @@ interface CompararViewProps {
 
 export function CompararView({ searchItems, data, isLoading, error, onRetry, onScroll }: CompararViewProps): React.JSX.Element {
   const colors = useThemeColors();
-  const [overrides, setOverrides] = useState<Map<string, CartOverride>>(new Map());
+  const [overrides, setOverrides] = useState<Map<string, CartOverride<unknown>>>(new Map());
   const { paymentMethods, togglePaymentMethod } = usePaymentMethods();
   const { data: savedCarts } = useSavedCarts();
   const deleteSavedCart = useDeleteSavedCart();

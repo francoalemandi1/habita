@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api-client";
-import { pickCartsToAutoRefresh } from "@/lib/super-saved-carts-logic";
+import { pickCartsToAutoRefresh } from "@habita/prices";
 import { useRefreshSavedCart } from "@/hooks/use-saved-items";
 
 import type { SavedCart } from "@prisma/client";

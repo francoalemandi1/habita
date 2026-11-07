@@ -8,7 +8,7 @@ import { generateStructured } from "@/lib/ai/generate";
 import { BadRequestError } from "@/lib/errors";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
-import { normalizeProductTerm } from "@/lib/product-term";
+import { normalizeProductTerm } from "@habita/prices";
 import { expenseCategorySchema, taskFrequencySchema, parseEntryInputSchema, parseEntryResponseSchema } from "@habita/contracts";
 
 import type { NextRequest } from "next/server";

@@ -15,10 +15,10 @@ import { PaymentMethodChips } from "@/components/features/super/comparar/payment
 import { NotFoundRow } from "@/components/features/super/comparar/not-found-row";
 import { UnavailableStoresRow } from "@/components/features/super/comparar/unavailable-stores-row";
 import { SavedCartsSection } from "@/components/features/super/comparar/saved-carts-section";
-import { applyOverrides, buildSavingsSummary } from "@/lib/super-compare-logic";
+import { applyOverrides, buildSavingsSummary } from "@habita/prices";
 
-import type { AlternativeProduct, SearchItem, ShoppingPlanResult } from "@/lib/supermarket-search";
-import type { CartOverride } from "@/lib/super-compare-logic";
+import type { SearchItem, ShoppingPlanResult } from "@/lib/supermarket-search";
+import type { CartOverride, CompareAlternative as AlternativeProduct } from "@habita/prices";
 import type { SaveCartInput } from "@/lib/validations/saved-items";
 
 interface CompararViewProps {

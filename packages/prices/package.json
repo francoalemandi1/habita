@@ -5,6 +5,16 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./promo-math": "./src/promo-math.ts"
+    "./promo-math": "./src/promo-math.ts",
+    "./product-term": "./src/product-term.ts",
+    "./product-synonyms": "./src/product-synonyms.ts",
+    "./product-matching": "./src/product-matching.ts",
+    "./super-compare-logic": "./src/super-compare-logic.ts",
+    "./super-shopping-list-logic": "./src/super-shopping-list-logic.ts",
+    "./super-saved-carts-logic": "./src/super-saved-carts-logic.ts"
+  },
+  "dependencies": {
+    "@habita/domain": "workspace:*",
+    "@habita/contracts": "workspace:*"
   }
 }

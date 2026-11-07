@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatCartAge, isCartStale, pickCartsToAutoRefresh } from "@/lib/super-saved-carts-logic";
+import { formatCartAge, isCartStale, pickCartsToAutoRefresh } from "@habita/prices";
 
 const NOW = new Date("2026-11-05T12:00:00.000Z");
 
@@ -25,6 +25,10 @@ describe("formatCartAge", () => {
 
   it("formats minutes", () => {
     expect(formatCartAge("2026-11-05T11:55:00.000Z", NOW)).toBe("hace 5 minutos");
+  });
+
+  it("falls back to 'hace un momento' for very recent dates", () => {
+    expect(formatCartAge(NOW.toISOString(), NOW)).toBe("hace un momento");
   });
 });
 

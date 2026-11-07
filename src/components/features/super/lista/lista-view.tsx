@@ -10,7 +10,7 @@ import { useShoppingList, useAddShoppingListItem, useUpdateShoppingListItem, use
 import { usePendingMutationIds } from "@/hooks/use-pending-mutations";
 import { extractShoppingListPendingId } from "@/lib/offline-shopping-pending-id";
 import { useTopDeals } from "@/hooks/use-top-deals";
-import { countUnchecked, matchesTopDeal, buildCompareSearchItems } from "@/lib/super-shopping-list-logic";
+import { countUnchecked, matchesTopDeal, buildCompareSearchItems } from "@habita/prices";
 import { cancelDelete, scheduleDelete } from "@/lib/deferred-delete";
 import { CatalogSheet } from "@/components/features/catalog-sheet";
 import { ListaRow } from "@/components/features/super/lista/lista-row";

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useProductSelection } from "@/hooks/use-product-selection";
-import { normalizeProductTerm } from "@/lib/product-term";
+import { normalizeProductTerm } from "@habita/prices";
 import { Sheet } from "@/components/ds/sheet";
 import { Button } from "@/components/ds/button";
 import { cn } from "@/lib/utils";

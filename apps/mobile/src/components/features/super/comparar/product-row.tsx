@@ -7,13 +7,13 @@ import { radii as radius } from "@habita/design-tokens";
 
 import type { ThemeColors } from "@/theme";
 import type { AlternativeProduct } from "@habita/contracts";
-import type { CartProduct } from "@/lib/super-compare-logic";
+import type { CartProduct } from "@habita/prices";
 
 function formatPrice(price: number): string {
   return `$${price.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
 }
 
-function pickCheaperAlternative(product: CartProduct): AlternativeProduct | null {
+function pickCheaperAlternative(product: CartProduct<unknown>): AlternativeProduct | null {
   return product.alternatives.reduce<AlternativeProduct | null>((best, alt) => {
     if (alt.price < product.price && (!best || alt.price < best.price)) return alt;
     return best;
@@ -21,7 +21,7 @@ function pickCheaperAlternative(product: CartProduct): AlternativeProduct | null
 }
 
 interface ProductRowProps {
-  product: CartProduct;
+  product: CartProduct<unknown>;
   onSwap: (alternative: AlternativeProduct) => void;
   onFindAlternatives?: (searchTerm: string, currentProductName: string, query: string) => Promise<AlternativeProduct[]>;
 }

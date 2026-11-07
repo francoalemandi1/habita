@@ -6,7 +6,7 @@ import { useThemeColors } from "@/hooks/use-theme";
 import { spacing } from "@/theme";
 import { useTopDeals } from "@/hooks/use-grocery-deals";
 import { useAddShoppingListItem, useShoppingList } from "@/hooks/use-shopping-list";
-import { isDealInList } from "@/lib/super-shopping-list-logic";
+import { isDealInList } from "@habita/prices";
 import { createUniqueId } from "@/lib/unique-id";
 import { RubroChips } from "@/components/features/super/ofertas/rubro-chips";
 import { OfertaCard } from "@/components/features/super/ofertas/oferta-card";

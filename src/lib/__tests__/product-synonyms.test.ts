@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { expandTermVariants, stemToken, tokenMatches } from "@/lib/product-synonyms";
+import { expandTermVariants, stemToken, tokenMatches } from "@habita/prices";
 
 describe("stemToken", () => {
   it("strips -s after a vowel", () => {

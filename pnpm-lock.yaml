@@ -311,7 +311,14 @@ importers:
 
   packages/domain: {}
 
-  packages/prices: {}
+  packages/prices:
+    dependencies:
+      '@habita/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@habita/domain':
+        specifier: workspace:*
+        version: link:../domain
 
 packages:
 

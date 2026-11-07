@@ -43,3 +43,18 @@ export function useSettleDebts() {
     },
   });
 }
+
+export function useSettleAll() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () =>
+      mobileApi.post<{ settledCount: number; totalAmount: number }>(
+        "/api/expenses/settle-all",
+        {},
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.balances() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all() });
+    },
+  });
+}

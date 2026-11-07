@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { autoAssignAllTasks } from "@/lib/assignment-algorithm";
-import { isAIEnabled } from "@/lib/llm/provider";
 import { getLocalDayOfWeek } from "@/lib/llm/regional-context";
 import { deliverNotificationToMembers } from "@/lib/push-delivery";
 import { handleApiError } from "@/lib/api-response";
+import { authorizeCronRequest } from "@/lib/cron-auth";
+import { getActiveHouseholdIdsOrEmpty } from "@/lib/cron/active-households";
+import { APP_ROUTES } from "@habita/contracts";
 
 import type { NextRequest } from "next/server";
 
@@ -15,27 +17,16 @@ interface HouseholdPlanResult {
   householdName: string;
   success: boolean;
   assignmentsCreated: number;
-  method: "ai" | "algorithm";
   error?: string;
 }
 
 /**
- * POST /api/cron/weekly-plan
  * Generates and applies task distribution for households whose planningDay matches today.
- * Runs every 6 hours to cover all timezones. Protected by CRON_SECRET.
  */
-export async function POST(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-  }
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+async function runWeeklyPlanCron() {
   try {
     const now = new Date();
+    const activeHouseholdIds = await getActiveHouseholdIdsOrEmpty(now);
 
     // Only process households with a configured planning day and timezone
     const allHouseholds = await prisma.household.findMany({
@@ -49,24 +40,29 @@ export async function POST(request: NextRequest) {
     });
 
     // Filter to households where today (in their timezone) matches their planningDay
-    const households = allHouseholds.filter((h) => {
+    const plannedToday = allHouseholds.filter((h) => {
       const localDay = getLocalDayOfWeek(now, h.timezone!);
       return localDay === h.planningDay;
     });
 
+    // Inactive households get no new plan, so returning users don't find weeks of stale assignments
+    const households = plannedToday.filter((h) => activeHouseholdIds.has(h.id));
+    console.log(
+      `[cron/weekly-plan] Planning ${households.length}/${plannedToday.length} households ` +
+        `(skipped ${plannedToday.length - households.length} inactive)`,
+    );
+
     const results: HouseholdPlanResult[] = [];
-    const aiEnabled = isAIEnabled();
 
     for (const household of households) {
       try {
-        const result = await autoAssignAllTasks(household.id, { useAI: aiEnabled });
+        const result = await autoAssignAllTasks(household.id);
 
         results.push({
           householdId: household.id,
           householdName: household.name,
           success: result.success,
           assignmentsCreated: result.assignmentsCreated,
-          method: result.method,
         });
 
         if (result.success && result.assignmentsCreated > 0) {
@@ -80,10 +76,9 @@ export async function POST(request: NextRequest) {
             type: "PLAN_READY",
             title: "Nuevo plan semanal",
             message: `Se asignaron ${result.assignmentsCreated} tareas para esta semana`,
-            actionUrl: "/my-tasks",
+            actionUrl: APP_ROUTES.tareas,
             householdTimezone: household.timezone,
           });
-
         }
       } catch (error) {
         console.error(`Weekly plan failed for household ${household.name}:`, error);
@@ -92,7 +87,6 @@ export async function POST(request: NextRequest) {
           householdName: household.name,
           success: false,
           assignmentsCreated: 0,
-          method: "algorithm",
           error: error instanceof Error ? error.message : "Unknown error",
         });
       }
@@ -100,7 +94,6 @@ export async function POST(request: NextRequest) {
 
     const totalAssignments = results.reduce((sum, r) => sum + r.assignmentsCreated, 0);
     const successCount = results.filter((r) => r.success).length;
-    const aiCount = results.filter((r) => r.method === "ai").length;
 
     return NextResponse.json({
       success: true,
@@ -109,10 +102,7 @@ export async function POST(request: NextRequest) {
         householdsMatchedToday: households.length,
         householdsSuccessful: successCount,
         totalAssignmentsCreated: totalAssignments,
-        usedAI: aiCount,
-        usedAlgorithm: results.length - aiCount,
       },
-      aiEnabled,
       results,
       timestamp: now.toISOString(),
     });
@@ -122,30 +112,14 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET /api/cron/weekly-plan
- * Status endpoint for monitoring. Protected by CRON_SECRET.
+ * GET and POST /api/cron/weekly-plan
+ * Vercel Cron sends GET; manual/internal triggers send POST. Both run the same job.
+ * Protected by CRON_SECRET.
  */
 export async function GET(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-  }
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  try {
-    const aiEnabled = isAIEnabled();
-
-    return NextResponse.json({
-      status: "ready",
-      endpoint: "POST /api/cron/weekly-plan",
-      description: "Generates task distribution for households on their configured planning day",
-      aiEnabled,
-      schedule: "Every 6 hours (covers all timezones)",
-    });
-  } catch (error) {
-    return handleApiError(error, { route: "/api/cron/weekly-plan", method: "GET" });
-  }
+  const auth = authorizeCronRequest(request);
+  if (!auth.isAuthorized) return auth.response;
+  return runWeeklyPlanCron();
 }
+
+export const POST = GET;

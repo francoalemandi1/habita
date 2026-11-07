@@ -16,6 +16,7 @@ export const createTaskInputSchema = z.object({
   minAge: z.number().int().min(0).max(100).nullable().optional(),
   estimatedMinutes: z.number().int().min(1).max(480).nullable().optional(),
   isRouletteEligible: z.boolean().optional().default(false),
+  isRotating: z.boolean().optional(),
 });
 
 export const taskSummarySchema = z.object({
@@ -29,6 +30,7 @@ export const taskSummarySchema = z.object({
   estimatedMinutes: z.number().int().nullable().optional(),
   isRouletteEligible: z.boolean().optional(),
   isActive: z.boolean().optional(),
+  isRotating: z.boolean().optional(),
 });
 
 export const tasksListResponseSchema = z.object({

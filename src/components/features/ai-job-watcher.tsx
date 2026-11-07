@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useAiJobStatus } from "@/hooks/use-ai-job-status";
-import { useToast } from "@/components/ui/toast";
+import { useSnackbar } from "@/components/ds/snackbar";
+import { APP_ROUTES } from "@habita/contracts";
 
 import type { AiJobType } from "@habita/contracts";
 
@@ -23,37 +24,30 @@ const JOB_CONFIGS: JobConfig[] = [
     errorTitle: "Error generando el plan",
   },
   {
-    jobType: "COCINA",
-    successTitle: "Recetas listas",
-    actionLabel: "Ver recetas",
-    href: "/cocina",
-    errorTitle: "Error generando recetas",
-  },
-  {
     jobType: "SHOPPING_PLAN",
     successTitle: "Precios encontrados",
     actionLabel: "Ver resultados",
-    href: "/compras",
+    href: APP_ROUTES.super,
     errorTitle: "Error buscando precios",
   },
 ];
 
 function JobWatcher({ config }: { config: JobConfig }) {
   const router = useRouter();
-  const toast = useToast();
+  const snackbar = useSnackbar();
 
   useAiJobStatus({
     jobType: config.jobType,
     onComplete: () => {
-      toast.success(config.successTitle, {
-        action: {
-          label: config.actionLabel,
-          onClick: () => router.push(config.href),
-        },
+      snackbar.show({
+        text: config.successTitle,
+        actionKind: "navigate",
+        actionLabel: config.actionLabel,
+        onAction: () => router.push(config.href),
       });
     },
     onError: (errorMessage) => {
-      toast.error(config.errorTitle, errorMessage ?? undefined);
+      snackbar.show({ text: errorMessage ?? config.errorTitle, tone: "error" });
     },
   });
 

@@ -5,8 +5,13 @@ import { useCallback } from "react";
 import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 
-import type { SavedEvent, SavedRecipe, SavedCart } from "@prisma/client";
-import type { SaveEventInput, SaveRecipeInput, SaveCartInput } from "@/lib/validations/saved-items";
+import type { SavedEvent, SavedCart } from "@prisma/client";
+import type { SaveEventInput, SaveCartInput } from "@/lib/validations/saved-items";
+import type { PriceChange } from "@/lib/saved-cart-diff";
+
+export interface RefreshedSavedCart extends SavedCart {
+  priceChanges: PriceChange[];
+}
 
 // ============================================
 // Queries
@@ -16,14 +21,6 @@ export function useSavedEvents() {
   return useQuery<SavedEvent[]>({
     queryKey: queryKeys.saved.events(),
     queryFn: () => apiFetch<SavedEvent[]>("/api/saved-items/events"),
-    staleTime: 60_000,
-  });
-}
-
-export function useSavedRecipes() {
-  return useQuery<SavedRecipe[]>({
-    queryKey: queryKeys.saved.recipes(),
-    queryFn: () => apiFetch<SavedRecipe[]>("/api/saved-items/recipes"),
     staleTime: 60_000,
   });
 }
@@ -82,48 +79,6 @@ export function useToggleSaveEvent() {
   };
 }
 
-export function useToggleSaveRecipe() {
-  const queryClient = useQueryClient();
-
-  const saveMutation = useMutation({
-    mutationFn: (input: SaveRecipeInput) =>
-      apiFetch<SavedRecipe>("/api/saved-items/recipes", {
-        method: "POST",
-        body: input,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.saved.recipes() });
-    },
-  });
-
-  const removeMutation = useMutation({
-    mutationFn: (savedRecipeId: string) =>
-      apiFetch<void>(`/api/saved-items/recipes?id=${savedRecipeId}`, {
-        method: "DELETE",
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.saved.recipes() });
-    },
-  });
-
-  const toggle = useCallback(
-    (params: { savedRecipeId?: string; input?: SaveRecipeInput }) => {
-      if (params.savedRecipeId) {
-        return removeMutation.mutateAsync(params.savedRecipeId);
-      }
-      if (params.input) {
-        return saveMutation.mutateAsync(params.input);
-      }
-    },
-    [saveMutation, removeMutation],
-  );
-
-  return {
-    toggle,
-    isPending: saveMutation.isPending || removeMutation.isPending,
-  };
-}
-
 export function useToggleSaveCart() {
   const queryClient = useQueryClient();
 
@@ -167,6 +122,32 @@ export function useToggleSaveCart() {
 }
 
 // ============================================
+// Refresh (stale cart → fresh prices)
+// ============================================
+
+/**
+ * POST /api/saved-items/deals/refresh for a single cart.
+ * Throws ApiError with status 503 when the store is unreachable (cart kept as-is),
+ * or 404 when the store no longer carries it.
+ */
+export function useRefreshSavedCart() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (savedCartId: string) =>
+      apiFetch<RefreshedSavedCart>("/api/saved-items/deals/refresh", {
+        method: "POST",
+        body: { savedCartId },
+      }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<SavedCart[]>(queryKeys.saved.deals(), (current) =>
+        current ? current.map((cart) => (cart.id === updated.id ? updated : cart)) : current,
+      );
+    },
+  });
+}
+
+// ============================================
 // Lookup helpers
 // ============================================
 
@@ -176,14 +157,6 @@ export function isEventSaved(
 ): SavedEvent | undefined {
   if (!savedEvents || !culturalEventId) return undefined;
   return savedEvents.find((e) => e.culturalEventId === culturalEventId);
-}
-
-export function isRecipeSaved(
-  savedRecipes: SavedRecipe[] | undefined,
-  contentHash: string,
-): SavedRecipe | undefined {
-  if (!savedRecipes) return undefined;
-  return savedRecipes.find((r) => r.contentHash === contentHash);
 }
 
 /** Check if a cart for this store is already saved. */

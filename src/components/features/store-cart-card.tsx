@@ -2,12 +2,12 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { StoreLogo } from "@/components/ui/store-logo";
-import { SaveButton } from "@/components/ui/save-button";
+import { StoreLogo } from "@/components/ds/store-logo";
+import { SaveButton } from "@/components/ds/save-button";
 import { ChevronDown, Trophy, ExternalLink, ArrowDownRight, Check, Package, Tag, Pin, Share2, AlertCircle, MapPin } from "lucide-react";
 
 import type { AlternativeProduct, ProductUnitInfo } from "@/lib/supermarket-search";
-import type { AdjustedStoreCart, AdjustedCartProduct } from "@/components/features/grocery-advisor";
+import type { AdjustedStoreCart, AdjustedCartProduct } from "@/lib/super-compare-logic";
 import type { BankPromo } from "@prisma/client";
 
 // ============================================
@@ -627,7 +627,7 @@ function ProductThumbnail({ imageUrl, size = "md" }: { imageUrl: string | null; 
   }
 
   return (
-    <div className={cn("shrink-0 overflow-hidden rounded-xl bg-white", sizeClass)}>
+    <div className={cn("shrink-0 overflow-hidden rounded-xl bg-surface", sizeClass)}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={imageUrl}

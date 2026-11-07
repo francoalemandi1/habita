@@ -1,4 +1,5 @@
 import { authConfig } from "@/lib/auth.config";
+import { APP_ROUTES } from "@habita/contracts";
 import NextAuth from "next-auth";
 
 /**
@@ -27,7 +28,7 @@ export default auth((req) => {
     const callbackUrl = req.nextUrl.searchParams.get("callbackUrl");
     const target = callbackUrl?.startsWith("/") && !callbackUrl.includes("://")
       ? callbackUrl
-      : "/dashboard";
+      : APP_ROUTES.casa;
     return Response.redirect(new URL(target, req.nextUrl));
   }
 

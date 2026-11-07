@@ -2,6 +2,9 @@ import { NextResponse, after } from "next/server";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { runPromosPipeline, markPipelineRunning, findRunningPipeline } from "@/lib/promos/run-pipeline";
+import { applyRateLimit } from "@/lib/rate-limit";
+
+import type { NextRequest } from "next/server";
 
 /**
  * POST /api/promos/refresh
@@ -9,9 +12,13 @@ import { runPromosPipeline, markPipelineRunning, findRunningPipeline } from "@/l
  * Triggers the promos pipeline for the household.
  * Fire-and-forget: returns immediately, pipeline runs in background via after().
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     const member = await requireMember();
+
+    const limited = await applyRateLimit(request, "ai", member.id);
+    if (limited) return limited;
+
     const { householdId } = member;
 
     // Prevent duplicate concurrent runs

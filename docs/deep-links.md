@@ -1,5 +1,33 @@
 # Deep Links — Habita Mobile
 
+## Rutas de la app
+
+La navegación mobile tiene 4 lugares fijos (tabs) + el botón "+" Anotar (sheet, no es una ruta):
+
+| Tab | Ruta |
+|---|---|
+| Casa | `/(app)/casa` |
+| Tareas | `/(app)/tareas` |
+| Plata | `/(app)/plata` |
+| Súper | `/(app)/super` |
+
+Perfil (`/(app)/perfil`) y Avisos (`/(app)/avisos`) se abren desde el avatar y la campana del `ScreenHeader`, no están en la tab bar.
+
+Los alias de rutas viejas (push notifications ya entregadas, bookmarks) viven en `packages/contracts/src/routes.ts` (`MOBILE_LEGACY_ROUTE_ALIASES`) y se resuelven con `normalizeAppPath()`:
+
+| Ruta vieja | Alias a |
+|---|---|
+| `/dashboard` | `/casa` |
+| `/tasks`, `/my-tasks` | `/tareas` |
+| `/balance`, `/expenses` | `/plata` |
+| `/compras` | `/super` |
+| `/notifications` | `/avisos` |
+| `/profile`, `/settings` | `/perfil` |
+
+Ambos puntos de entrada normalizan antes de navegar:
+- **Push notifications** (`src/providers/notification-provider.tsx`): valida que `data.url` sea un path absoluto (`isInAppPath()` en `src/lib/navigation.ts`) y lo normaliza antes de `router.push`.
+- **Universal links / bookmarks viejos** (`app/+not-found.tsx`): si el path sin resolver tiene un alias legacy, redirige al destino canónico; si no, redirige a `/`.
+
 ## Flujo de invitación
 
 El mensaje compartido usa una **Universal Link** (iOS) / **App Link** (Android):

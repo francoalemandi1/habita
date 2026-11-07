@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { subscribeRuntimeEvents } from "@/lib/runtime-events";
 import { useThemeColors } from "@/hooks/use-theme";
+import { fontFamilyForWeight } from "@/theme";
 
 interface BannerState {
   type: "network-error" | "auth-expired";
@@ -59,9 +60,9 @@ export function RuntimeBanner() {
       }}
     >
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-        <Text style={{ color: textColor, flex: 1, fontWeight: "600", fontSize: 12 }}>{banner.message}</Text>
+        <Text style={{ color: textColor, flex: 1, fontFamily: fontFamilyForWeight(600), fontSize: 12 }}>{banner.message}</Text>
         <Pressable onPress={() => setBanner(null)}>
-          <Text style={{ color: textColor, fontWeight: "700" }}>Cerrar</Text>
+          <Text style={{ color: textColor, fontFamily: fontFamilyForWeight(700) }}>Cerrar</Text>
         </Pressable>
       </View>
     </View>

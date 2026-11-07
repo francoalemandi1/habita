@@ -6,12 +6,18 @@ export default defineConfig({
     globals: true,
   },
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@habita/contracts": path.resolve(__dirname, "./packages/contracts/src/index.ts"),
-      "@habita/api-client": path.resolve(__dirname, "./packages/api-client/src/index.ts"),
-      "@habita/domain": path.resolve(__dirname, "./packages/domain/src/index.ts"),
-      "@habita/design-tokens": path.resolve(__dirname, "./packages/design-tokens/src/index.ts"),
-    },
+    // Exact-match rules: a plain "@habita/domain" key would also prefix-match
+    // "@habita/domain/money-balances" and resolve it to "index.ts/money-balances".
+    alias: [
+      { find: "@", replacement: path.resolve(__dirname, "./src") },
+      {
+        find: /^@habita\/(contracts|api-client|domain|design-tokens)$/,
+        replacement: path.resolve(__dirname, "./packages/$1/src/index.ts"),
+      },
+      {
+        find: /^@habita\/(contracts|api-client|domain|design-tokens)\/(.+)$/,
+        replacement: path.resolve(__dirname, "./packages/$1/src/$2.ts"),
+      },
+    ],
   },
 });

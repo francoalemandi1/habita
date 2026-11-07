@@ -57,25 +57,24 @@ export async function GET() {
         },
         select: {
           memberId: true,
+          completedByMemberId: true,
           task: { select: { weight: true } },
         },
       }),
-      prisma.assignment.groupBy({
-        by: ["memberId"],
+      prisma.assignment.findMany({
         where: {
           householdId,
           status: { in: ["COMPLETED", "VERIFIED"] },
           completedAt: { gte: startOfMonth },
         },
-        _count: { id: true },
+        select: { memberId: true, completedByMemberId: true },
       }),
-      prisma.assignment.groupBy({
-        by: ["memberId"],
+      prisma.assignment.findMany({
         where: {
           householdId,
           status: { in: ["COMPLETED", "VERIFIED"] },
         },
-        _count: { id: true },
+        select: { memberId: true, completedByMemberId: true },
       }),
       prisma.assignment.count({
         where: {
@@ -98,6 +97,7 @@ export async function GET() {
         include: {
           task: { select: { name: true } },
           member: { select: { name: true } },
+          completedByMember: { select: { name: true } },
         },
         orderBy: { completedAt: "desc" },
         take: 10,
@@ -116,22 +116,27 @@ export async function GET() {
           status: { in: ["COMPLETED", "VERIFIED"] },
           completedAt: { gte: fiftyTwoWeeksAgo },
         },
-        select: { memberId: true, completedAt: true },
+        select: { memberId: true, completedByMemberId: true, completedAt: true },
       }),
     ]);
 
     const weeklyCountMap = new Map<string, number>();
     const weeklyPointsMap = new Map<string, number>();
     for (const c of weeklyCompletions) {
-      weeklyCountMap.set(c.memberId, (weeklyCountMap.get(c.memberId) ?? 0) + 1);
-      weeklyPointsMap.set(c.memberId, (weeklyPointsMap.get(c.memberId) ?? 0) + c.task.weight);
+      const completerId = c.completedByMemberId ?? c.memberId;
+      weeklyCountMap.set(completerId, (weeklyCountMap.get(completerId) ?? 0) + 1);
+      weeklyPointsMap.set(completerId, (weeklyPointsMap.get(completerId) ?? 0) + c.task.weight);
     }
-    const monthlyCompletionMap = new Map(
-      monthlyCompletions.map((c) => [c.memberId, c._count.id])
-    );
-    const totalCompletionMap = new Map(
-      totalCompletions.map((c) => [c.memberId, c._count.id])
-    );
+    const monthlyCompletionMap = new Map<string, number>();
+    for (const c of monthlyCompletions) {
+      const completerId = c.completedByMemberId ?? c.memberId;
+      monthlyCompletionMap.set(completerId, (monthlyCompletionMap.get(completerId) ?? 0) + 1);
+    }
+    const totalCompletionMap = new Map<string, number>();
+    for (const c of totalCompletions) {
+      const completerId = c.completedByMemberId ?? c.memberId;
+      totalCompletionMap.set(completerId, (totalCompletionMap.get(completerId) ?? 0) + 1);
+    }
 
     // Build member stats
     const memberStats = members.map((m) => ({
@@ -171,7 +176,7 @@ export async function GET() {
         if (!completionsByWeek.has(weekKey)) {
           completionsByWeek.set(weekKey, new Set());
         }
-        completionsByWeek.get(weekKey)!.add(c.memberId);
+        completionsByWeek.get(weekKey)!.add(c.completedByMemberId ?? c.memberId);
       }
     }
 
@@ -202,7 +207,7 @@ export async function GET() {
       recentActivity: recentActivity.map((a) => ({
         id: a.id,
         taskName: a.task.name,
-        memberName: a.member.name,
+        memberName: a.completedByMember?.name ?? a.member.name,
         completedAt: a.completedAt,
       })),
       dailyCompletions,

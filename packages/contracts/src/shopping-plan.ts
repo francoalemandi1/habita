@@ -45,6 +45,8 @@ export const storeCartSchema = z.object({
 export const shoppingPlanResultSchema = z.object({
   storeCarts: z.array(storeCartSchema),
   notFound: z.array(z.string()),
+  // Added after initial release — old AiJobLog.resultData rows lack it.
+  unavailableStores: z.array(z.string()).default([]),
   searchedAt: z.string(),
 });
 

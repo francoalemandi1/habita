@@ -22,6 +22,7 @@ export const savedCartSchema = z.object({
   missingTerms: z.array(z.string()),
   totalSearched: z.number().int().nonnegative(),
   savedAt: z.string(),
+  refreshedAt: z.string(),
 });
 
 export const refreshSavedCartInputSchema = z.object({
@@ -75,37 +76,6 @@ export const savedEventSchema = z.object({
 });
 
 // ============================================
-// Saved recipes
-// ============================================
-
-export const saveRecipeInputSchema = z.object({
-  title: z.string().min(1),
-  description: z.string(),
-  difficulty: z.enum(["facil", "media", "dificil"]),
-  prepTimeMinutes: z.number(),
-  servings: z.number(),
-  ingredients: z.array(z.string()),
-  missingIngredients: z.array(z.string()).optional(),
-  steps: z.array(z.string()),
-  tip: z.string().nullable().optional(),
-});
-
-export const savedRecipeSchema = z.object({
-  id: z.string(),
-  contentHash: z.string(),
-  title: z.string(),
-  description: z.string(),
-  difficulty: z.string(),
-  prepTimeMinutes: z.number(),
-  servings: z.number(),
-  ingredients: z.array(z.string()),
-  missingIngredients: z.array(z.string()),
-  steps: z.array(z.string()),
-  tip: z.string().nullable(),
-  savedAt: z.string(),
-});
-
-// ============================================
 // Inferred types
 // ============================================
 
@@ -114,5 +84,3 @@ export type SavedCart = z.infer<typeof savedCartSchema>;
 export type RefreshSavedCartInput = z.infer<typeof refreshSavedCartInputSchema>;
 export type SaveEventInput = z.infer<typeof saveEventInputSchema>;
 export type SavedEvent = z.infer<typeof savedEventSchema>;
-export type SaveRecipeInput = z.infer<typeof saveRecipeInputSchema>;
-export type SavedRecipe = z.infer<typeof savedRecipeSchema>;

@@ -1,37 +1,26 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
-import { calculateBalances, simplifyDebts } from "@/lib/expense-balances";
+import { getHouseholdBalances } from "@/lib/expense-balances";
 import { handleApiError } from "@/lib/api-response";
 
 /**
  * GET /api/expenses/balances
- * Compute who owes whom in the household.
+ * Compute who owes whom in the household, per currency.
+ * Top-level `balances`/`transactions` mirror the primary currency for
+ * backward compatibility with older app builds.
  */
 export async function GET() {
   try {
     const member = await requireMember();
+    const { byCurrency, primaryCurrency } = await getHouseholdBalances(member.householdId);
+    const primary = byCurrency[primaryCurrency] ?? { balances: [], transactions: [] };
 
-    // Only fetch expenses with at least one unsettled split (settled ones don't affect balances)
-    const expenses = await prisma.expense.findMany({
-      where: {
-        householdId: member.householdId,
-        splits: { some: { settled: false } },
-      },
-      include: {
-        paidBy: { select: { id: true, name: true } },
-        splits: {
-          where: { settled: false },
-          include: { member: { select: { id: true, name: true } } },
-        },
-      },
-      take: 500,
+    return NextResponse.json({
+      balances: primary.balances,
+      transactions: primary.transactions,
+      byCurrency,
+      primaryCurrency,
     });
-
-    const balances = calculateBalances(expenses);
-    const transactions = simplifyDebts(balances);
-
-    return NextResponse.json({ balances, transactions });
   } catch (error) {
     return handleApiError(error, { route: "/api/expenses/balances", method: "GET" });
   }

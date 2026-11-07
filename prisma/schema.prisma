@@ -154,18 +154,19 @@ model Household {
   members      Member[]
   tasks        Task[]
   assignments  Assignment[]
-  rotations    TaskRotation[]
   weeklyPlans          WeeklyPlan[]
   planFeedbacks        PlanFeedback[]
   expenses             Expense[]
   productExclusions    HouseholdProductExclusion[]
-  priceCache           PriceCache[]
   services             Service[]
   invoices             Invoice[]
   bankPromos           BankPromo[]
   promoPipelineLogs    PromoPipelineLog[]
   aiJobLogs            AiJobLog[]
   sharedFund           SharedFund?
+  settlements          Settlement[]
+  shoppingListItems    ShoppingListItem[]
+  shoppingListItemRequests ShoppingListItemRequest[]
   @@map("households")
 }
 
@@ -178,6 +179,9 @@ model Member {
   avatarUrl   String?
   occupationLevel OccupationLevel @default(MODERATE)
   isActive    Boolean    @default(true)
+  quietHoursStart Int?   // 0-23, local hour; both null = quiet hours off
+  quietHoursEnd   Int?   // 0-23, local hour; may be < quietHoursStart (crosses midnight)
+  availability    Json?  // { "1": ["morning","afternoon","evening"], ... "7": [...] }, ISO weekday 1=Mon..7=Sun; null = always available
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -185,6 +189,7 @@ model Member {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   assignments Assignment[]
+  assignmentsCompleted Assignment[] @relation("AssignmentCompletedBy")
   preferences  MemberPreference[]
   absences     MemberAbsence[]
   absencesAssignTo MemberAbsence[] @relation("AbsenceAssignTo")
@@ -192,20 +197,23 @@ model Member {
   transfersTo   TaskTransfer[] @relation("TransferTo")
   notifications    Notification[]
   pushSubscriptions PushSubscription[]
-  whatsappLink     WhatsAppLink?
   planFeedbacks    PlanFeedback[]
   expensesPaid     Expense[]      @relation("ExpensesPaid")
   expenseSplits    ExpenseSplit[] @relation("ExpenseSplits")
   servicesPaid         Service[] @relation("ServicesPaid")
   savedEvents          SavedEvent[]
-  savedRecipes         SavedRecipe[]
   savedCarts           SavedCart[]
   fundAllocations      FundAllocation[]
   fundContributions    FundContribution[]
   expoPushTokens       ExpoPushToken[]
   notificationPreferences NotificationPreference[]
   pushDeliveryLogs     PushDeliveryLog[]
+  settlementsFrom      Settlement[] @relation("SettlementFrom")
+  settlementsTo        Settlement[] @relation("SettlementTo")
+  settlementsCreated   Settlement[] @relation("SettlementCreatedBy")
   aiJobLogs            AiJobLog[]
+  shoppingListItemsAdded   ShoppingListItem[] @relation("ShoppingListItemAddedBy")
+  shoppingListItemsChecked ShoppingListItem[] @relation("ShoppingListItemCheckedBy")
   @@unique([userId, householdId])
   @@index([householdId])
   @@index([userId])
@@ -235,6 +243,7 @@ model Task {
   estimatedMinutes Int?
   isActive           Boolean       @default(true)
   isRouletteEligible Boolean       @default(false)
+  isRotating         Boolean       @default(false)
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -242,7 +251,6 @@ model Task {
   household   Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
   assignments Assignment[]
   preferences MemberPreference[]
-  rotation    TaskRotation?
 
   @@index([householdId])
   @@index([householdId, isActive])
@@ -258,21 +266,23 @@ enum TaskFrequency {
 }
 
 model Assignment {
-  id          String           @id @default(cuid())
-  taskId      String
-  memberId    String
-  householdId String
-  dueDate     DateTime
-  status      AssignmentStatus @default(PENDING)
-  completedAt DateTime?
-  notes              String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  id                  String           @id @default(cuid())
+  taskId              String
+  memberId            String
+  householdId         String
+  dueDate             DateTime
+  status              AssignmentStatus @default(PENDING)
+  completedAt         DateTime?
+  completedByMemberId String?
+  notes               String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
   // Relations
-  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  member          Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  completedByMember Member? @relation("AssignmentCompletedBy", fields: [completedByMemberId], references: [id], onDelete: SetNull)
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   transfers TaskTransfer[]
 
   @@index([householdId, dueDate])
@@ -281,6 +291,7 @@ model Assignment {
   @@index([householdId, status, completedAt])
   @@index([memberId, status, completedAt])
   @@index([memberId, dueDate, status])
+  @@index([completedByMemberId, status, completedAt])
   @@map("assignments")
 }
 
@@ -363,28 +374,6 @@ enum TransferStatus {
   PENDING
   ACCEPTED
   REJECTED
-}
-
-// ============================================
-// SCHEDULING MODELS
-// ============================================
-
-model TaskRotation {
-  id          String        @id @default(cuid())
-  taskId      String        @unique
-  householdId String
-  frequency   TaskFrequency
-  isActive    Boolean       @default(true)
-  lastGenerated DateTime?
-  nextDueDate DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-
-  @@index([householdId, isActive])
-  @@map("task_rotations")
 }
 
 // ============================================
@@ -479,11 +468,14 @@ enum NotificationType {
   TASK_REMINDER
   EXPENSE_SHARED
   MEMBER_JOINED
+  MEMBER_LEFT
   CULTURAL_RECOMMENDATION
   DEAL_ALERT
   DAILY_BRIEFING
   SPENDING_ALERT
   EXPENSE_REMINDER
+  SETTLEMENT_RECORDED
+  TASK_COMPLETED_BY_OTHER
 }
 
 // ============================================
@@ -507,25 +499,6 @@ model PushSubscription {
 // ============================================
 // WHATSAPP BOT MODEL
 // ============================================
-
-model WhatsAppLink {
-  id                       String    @id @default(cuid())
-  memberId                 String    @unique
-  phoneNumber              String    @unique
-  waId                     String?   @unique
-  isActive                 Boolean   @default(true)
-  verificationCode         String?
-  verificationExpiresAt    DateTime?
-  verificationAttempts     Int       @default(0)
-  verifiedAt               DateTime?
-  createdAt                DateTime  @default(now())
-  updatedAt                DateTime  @updatedAt
-
-  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
-
-  @@index([phoneNumber])
-  @@map("whatsapp_links")
-}
 
 // ============================================
 // GROCERY ADVISOR MODELS
@@ -596,20 +569,6 @@ model HouseholdProductExclusion {
   @@map("household_product_exclusions")
 }
 
-model PriceCache {
-  id          String   @id @default(cuid())
-  householdId String
-  locationKey String   // "lat.toFixed(1):lng.toFixed(1)"
-  planData    Json     // ShoppingPlan completo
-  generatedAt DateTime @default(now())
-  expiresAt   DateTime
-
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-
-  @@index([householdId, locationKey, expiresAt])
-  @@map("price_cache")
-}
-
 // ============================================
 // CATALOG MODEL (Predefined Tasks)
 // ============================================
@@ -663,7 +622,11 @@ model ExpenseSplit {
   expenseId String
   memberId  String
   amount    Decimal   @db.Decimal(10, 2)
+  /// Legacy flag from the split-level settlement model. No longer written by
+  /// new code — balances are now Σ splits − Σ Settlement rows. Kept for older
+  /// app builds that still read it.
   settled   Boolean   @default(false)
+  /// Legacy, see `settled` above.
   settledAt DateTime?
 
   expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
@@ -673,6 +636,73 @@ model ExpenseSplit {
   @@index([memberId])
   @@index([memberId, settled])
   @@map("expense_splits")
+}
+
+/// Settlement ledger: records money actually transferred between members to
+/// close out expense-split debts. Balances are computed as
+/// Σ ExpenseSplit.amount (non-payer splits) − Σ Settlement.amount, per currency.
+model Settlement {
+  id             String    @id @default(cuid())
+  householdId    String
+  fromMemberId   String // who paid the debt
+  toMemberId     String // who received the payment
+  amount         Decimal   @db.Decimal(10, 2)
+  currency       String    @default("ARS")
+  settledAt      DateTime  @default(now())
+  createdById    String // member who recorded this settlement
+  note           String?
+  idempotencyKey String?
+  createdAt      DateTime  @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  fromMember Member   @relation("SettlementFrom", fields: [fromMemberId], references: [id], onDelete: Cascade)
+  toMember   Member   @relation("SettlementTo", fields: [toMemberId], references: [id], onDelete: Cascade)
+  createdBy  Member   @relation("SettlementCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([householdId, settledAt])
+  @@index([householdId, fromMemberId])
+  @@index([householdId, toMemberId])
+  @@unique([householdId, idempotencyKey])
+  @@map("settlements")
+}
+
+/// Shared household shopping list. Any member may add, edit, check, or delete
+/// items — it is a single shared list, not per-member.
+model ShoppingListItem {
+  id          String    @id @default(cuid())
+  householdId String
+  name        String
+  quantity    Int       @default(1)
+  addedById   String
+  checkedAt   DateTime?
+  checkedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  addedBy   Member    @relation("ShoppingListItemAddedBy", fields: [addedById], references: [id], onDelete: Cascade)
+  checkedBy Member?   @relation("ShoppingListItemCheckedBy", fields: [checkedById], references: [id], onDelete: SetNull)
+  requests  ShoppingListItemRequest[]
+
+  @@index([householdId, checkedAt])
+  @@map("shopping_list_items")
+}
+
+/// Idempotency record for client-generated add requests. A POST that bumps an
+/// existing item still records its clientId here, so a replay never bumps twice.
+model ShoppingListItemRequest {
+  id          String   @id @default(cuid())
+  householdId String
+  clientId    String
+  itemId      String
+  createdAt   DateTime @default(now())
+
+  household Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  item      ShoppingListItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, clientId])
+  @@index([itemId])
+  @@map("shopping_list_item_requests")
 }
 
 enum ExpenseCategory {
@@ -992,30 +1022,6 @@ model SavedEvent {
   @@map("saved_events")
 }
 
-model SavedRecipe {
-  id                 String   @id @default(cuid())
-  memberId           String
-  householdId        String
-  contentHash        String   // SHA-256 of title+ingredients for dedup
-  title              String
-  description        String
-  difficulty         String   // "facil" | "media" | "dificil"
-  prepTimeMinutes    Int
-  servings           Int
-  ingredients        String[] @default([])
-  missingIngredients String[] @default([])
-  steps              String[] @default([])
-  tip                String?
-  savedAt            DateTime @default(now())
-
-  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
-
-  @@unique([memberId, contentHash])
-  @@index([memberId])
-  @@index([householdId])
-  @@map("saved_recipes")
-}
-
 model SavedCart {
   id            String   @id @default(cuid())
   memberId      String
@@ -1028,6 +1034,8 @@ model SavedCart {
   missingTerms  String[]  @default([])
   totalSearched Int       @default(0)
   savedAt       DateTime  @default(now())
+  /// Last time prices were re-checked; drives the 24 h "precios viejos" refresh.
+  refreshedAt   DateTime  @default(now())
 
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
@@ -1097,7 +1105,6 @@ enum AiJobStatus {
 
 enum AiJobType {
   PREVIEW_PLAN
-  COCINA
   SHOPPING_PLAN
 }
 
@@ -1114,6 +1121,7 @@ model AiJobLog {
   durationMs    Int?
   startedAt     DateTime     @default(now())
   completedAt   DateTime?
+  lockKey       String?      @unique
 
   household  Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
   member     Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
@@ -1121,6 +1129,24 @@ model AiJobLog {
 
   @@index([householdId, jobType, status])
   @@map("ai_job_logs")
+}
+
+/// Shadow-mode comparison between a primary LLM decision and Jev (TypeSafe AI System One).
+/// Write-only — never read back into any production decision path.
+model AiShadowJudgment {
+  id          String   @id @default(cuid())
+  task        String
+  subjectKey  String
+  subject     Json
+  primary     Json
+  shadow      Json
+  shadowModel String
+  latencyMs   Int
+  inputTokens Int?
+  createdAt   DateTime @default(now())
+
+  @@index([task, createdAt])
+  @@map("ai_shadow_judgments")
 }
 
 // ============================================

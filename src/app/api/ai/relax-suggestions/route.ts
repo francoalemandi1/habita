@@ -6,7 +6,9 @@ import { handleApiError } from "@/lib/api-response";
 import { resolveCityId } from "@/lib/events/city-normalizer";
 import { eventRowToRelaxEvent } from "@/lib/events/event-mapper";
 import { generateRelaxSuggestions } from "@/lib/llm/relax-finder";
+import { isAIEnabled } from "@/lib/llm/provider";
 import { normalizeCity } from "@/lib/grocery-deals-scraper";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 import type { NextRequest } from "next/server";
 
@@ -31,6 +33,9 @@ const bodySchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const member = await requireMember();
+
+    const limited = await applyRateLimit(request, "ai", member.id);
+    if (limited) return limited;
 
     const body: unknown = await request.json();
     const validation = bodySchema.safeParse(body);
@@ -76,6 +81,11 @@ export async function POST(request: NextRequest) {
             cached: true,
           });
         }
+      }
+
+      // Cache miss — without AI there is nothing to generate; say so instead of an empty list.
+      if (!isAIEnabled()) {
+        return NextResponse.json({ error: "ai_disabled" }, { status: 503 });
       }
 
       // Cache miss — generate via LLM pipeline

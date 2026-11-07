@@ -4,8 +4,10 @@ import { requireMember } from "@/lib/session";
 import { getStoresForCity, searchStore } from "@/lib/vtex-client";
 import { parseProductUnit } from "@/lib/unit-parser";
 import { handleApiError } from "@/lib/api-response";
+import { applyRateLimit } from "@/lib/rate-limit";
 
 import type { NextRequest } from "next/server";
+import type { StoreConfig, VtexProduct } from "@/lib/vtex-client";
 
 const bodySchema = z.object({
   storeName: z.string().min(1).max(120),
@@ -49,9 +51,23 @@ function scoreMatch(productName: string, query: string): number {
   return score;
 }
 
+/** searchStore throws when the store is down; report that as null, not as "no products". */
+async function searchStoreOrNull(store: StoreConfig, query: string): Promise<VtexProduct[] | null> {
+  try {
+    return await searchStore(store, query);
+  } catch (error) {
+    console.warn(`[alternatives] ${store.name} search failed`, error);
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const member = await requireMember();
+
+    const limited = await applyRateLimit(request, "ai", member.id);
+    if (limited) return limited;
+
     const body: unknown = await request.json();
     const validation = bodySchema.safeParse(body);
     if (!validation.success) {
@@ -69,7 +85,11 @@ export async function POST(request: NextRequest) {
     }
 
     const searchQuery = query.trim().length >= 2 ? query : searchTerm;
-    const products = await searchStore(store, searchQuery);
+    const products = await searchStoreOrNull(store, searchQuery);
+    if (!products) {
+      return NextResponse.json({ error: `${store.name} no responde ahora. Probá en un rato.` }, { status: 503 });
+    }
+
     const ranked = products
       .map((product) => ({ product, score: scoreMatch(product.productName, searchQuery) }))
       .sort((a, b) => {

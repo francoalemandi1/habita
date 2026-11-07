@@ -10,6 +10,7 @@ import {
 } from "./storage";
 import { trackMobileEvent } from "./telemetry";
 import { emitRuntimeEvent } from "./runtime-events";
+import { reportNetworkError } from "./offline-detector";
 
 interface MobileRefreshResponse {
   accessToken: string;
@@ -150,6 +151,7 @@ export const mobileApi = createApiClient({
     });
   },
   onNetworkError: async (error) => {
+    reportNetworkError();
     emitRuntimeEvent({
       type: "network-error",
       message: error.message || "Sin conexion. Revisa internet e intenta nuevamente.",

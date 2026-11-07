@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { verifyCsrfOrigin } from "@/lib/csrf";
+import { assertMembersBelongToHousehold } from "@/lib/member-utils";
+import { ForbiddenError } from "@/lib/errors";
 import { Prisma } from "@prisma/client";
 
 import type { NextRequest } from "next/server";
@@ -33,6 +35,9 @@ export async function POST(request: NextRequest) {
     if (csrfBlocked) return csrfBlocked;
 
     const member = await requireMember();
+    if (member.memberType !== "ADULT") {
+      throw new ForbiddenError("Solo un adulto puede configurar el fondo");
+    }
     const body = (await request.json()) as unknown;
     const validation = setupSchema.safeParse(body);
 
@@ -44,6 +49,20 @@ export async function POST(request: NextRequest) {
     }
 
     const data = validation.data;
+
+    if (data.allocations && data.allocations.length > 0) {
+      const belongs = await assertMembersBelongToHousehold(
+        data.allocations.map((a) => a.memberId),
+        member.householdId,
+      );
+
+      if (!belongs) {
+        return NextResponse.json(
+          { error: "Todos los miembros deben pertenecer al hogar" },
+          { status: 400 },
+        );
+      }
+    }
 
     // Upsert fund
     const fund = await prisma.sharedFund.upsert({

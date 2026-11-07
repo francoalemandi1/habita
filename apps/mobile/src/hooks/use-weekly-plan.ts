@@ -43,19 +43,6 @@ export function useDiscardWeeklyPlan() {
   });
 }
 
-interface PlanFeedbackInput {
-  planId: string;
-  rating: number;
-  comment?: string;
-}
-
-export function usePlanFeedback() {
-  return useMutation({
-    mutationFn: async ({ planId, rating, comment }: PlanFeedbackInput) =>
-      mobileApi.post<{ success: boolean }>(`/api/plans/${planId}/feedback`, { rating, comment }),
-  });
-}
-
 type PlanAssignmentAction = "add" | "remove" | "reassign";
 
 interface PlanAssignmentEditInput {

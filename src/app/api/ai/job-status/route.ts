@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
-import { getLatestJobStatus } from "@/lib/ai-jobs";
+import { getLatestJobStatus, isMemberScopedJobType } from "@/lib/ai-jobs";
 import { BadRequestError } from "@/lib/errors";
 
 import type { NextRequest } from "next/server";
 import type { AiJobType } from "@prisma/client";
 import type { AiJobStatusResponse } from "@habita/contracts";
 
-const VALID_TYPES = new Set<AiJobType>(["PREVIEW_PLAN", "COCINA", "SHOPPING_PLAN"]);
+const VALID_TYPES = new Set<AiJobType>(["PREVIEW_PLAN", "SHOPPING_PLAN"]);
 
 /**
- * GET /api/ai/job-status?type=PREVIEW_PLAN|COCINA|SHOPPING_PLAN
+ * GET /api/ai/job-status?type=PREVIEW_PLAN|SHOPPING_PLAN
  * Returns the latest job status for the household.
  */
 export async function GET(request: NextRequest) {
@@ -23,7 +23,11 @@ export async function GET(request: NextRequest) {
       throw new BadRequestError("Parámetro 'type' inválido");
     }
 
-    const job = await getLatestJobStatus(member.householdId, jobType);
+    const job = await getLatestJobStatus(
+      member.householdId,
+      jobType,
+      isMemberScopedJobType(jobType) ? { memberId: member.id } : {},
+    );
 
     const response: AiJobStatusResponse = {
       status: job?.status ?? null,

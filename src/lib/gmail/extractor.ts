@@ -9,11 +9,10 @@
  * Fallback (catalog only): Regex extraction (extractAmount, extractDueDate, etc.)
  */
 
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { isAIEnabled, getAIProviderType } from "@/lib/llm/provider";
-import { getDeepSeekModel } from "@/lib/llm/deepseek-provider";
+import { isAIEnabled } from "@/lib/llm/provider";
+import { getLanguageModel } from "@/lib/ai/models";
 import {
   extractAmount,
   extractDueDate,
@@ -21,7 +20,6 @@ import {
   extractClientNumber,
 } from "./body-parser";
 
-import type { LanguageModel } from "ai";
 import type { ServiceSection } from "@/lib/service-catalog";
 import type { ExpenseCategory } from "@prisma/client";
 
@@ -88,17 +86,6 @@ const discoverySchema = z.object({
 
 const LLM_TIMEOUT_MS = 15_000;
 
-function getModel(): LanguageModel {
-  const providerType = getAIProviderType();
-  if (providerType === "gemini") {
-    const google = createGoogleGenerativeAI({
-      apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-    });
-    return google("gemini-1.5-flash");
-  }
-  return getDeepSeekModel();
-}
-
 // ─── Catalog extraction (known services) ────────────────────────────
 
 /** Sections where emails are formal invoices — strict classification */
@@ -144,7 +131,7 @@ async function extractWithLLM(
   serviceName: string,
   section: ServiceSection,
 ): Promise<ExtractedInvoiceData> {
-  const model = getModel();
+  const { model } = getLanguageModel("fast");
   const prompt = buildCatalogPrompt(bodyContent, subject, serviceName, section);
 
   const controller = new AbortController();
@@ -261,7 +248,7 @@ export async function extractDiscoveryData(
     return DISCOVERY_FALLBACK;
   }
 
-  const model = getModel();
+  const { model } = getLanguageModel("fast");
   const prompt = buildDiscoveryPrompt(plainText, subject, senderEmail);
 
   const controller = new AbortController();

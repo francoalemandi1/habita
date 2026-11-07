@@ -4,14 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 const STORAGE_KEY = "habita:tour-sections";
 
-export type TourSection = "invitar" | "registra" | "ahorra" | "descubri" | "cocina";
+export type TourSection = "invitar" | "registra" | "ahorra" | "descubri";
 
 interface TourState {
   invitar: boolean;
   registra: boolean;
   ahorra: boolean;
   descubri: boolean;
-  cocina: boolean;
 }
 
 const DEFAULT_STATE: TourState = {
@@ -19,11 +18,10 @@ const DEFAULT_STATE: TourState = {
   registra: false,
   ahorra: false,
   descubri: false,
-  cocina: false,
 };
 
 function getSequence(isSharedHousehold: boolean): TourSection[] {
-  const sections: TourSection[] = ["registra", "ahorra", "descubri", "cocina"];
+  const sections: TourSection[] = ["registra", "ahorra", "descubri"];
   if (isSharedHousehold) sections.unshift("invitar");
   return sections;
 }
@@ -76,7 +74,7 @@ export function useGuidedTour(isSharedHousehold: boolean) {
   }, [activeTourSection, markSectionToured]);
 
   const skipTour = useCallback(() => {
-    const allTrue: TourState = { invitar: true, registra: true, ahorra: true, descubri: true, cocina: true };
+    const allTrue: TourState = { invitar: true, registra: true, ahorra: true, descubri: true };
     persist(allTrue);
     setTourSkipped(true);
   }, [persist]);

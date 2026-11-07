@@ -38,13 +38,8 @@ export const queryKeys = {
   saved: {
     all: () => ["saved"] as const,
     events: () => [...queryKeys.saved.all(), "events"] as const,
-    recipes: () => [...queryKeys.saved.all(), "recipes"] as const,
     deals: () => [...queryKeys.saved.all(), "deals"] as const,
     carts: () => [...queryKeys.saved.all(), "carts"] as const,
-  },
-  cocina: {
-    all: () => ["cocina"] as const,
-    recipes: () => [...queryKeys.cocina.all(), "recipes"] as const,
   },
   assignments: {
     all: () => ["assignments"] as const,
@@ -60,6 +55,10 @@ export const queryKeys = {
     list: (type?: string) =>
       [...queryKeys.transfers.all(), type ?? "all"] as const,
   },
+  shoppingList: {
+    all: () => ["shopping-list"] as const,
+    list: () => [...queryKeys.shoppingList.all(), "list"] as const,
+  },
   notifications: {
     all: () => ["notifications"] as const,
     list: (unreadOnly?: boolean) =>
@@ -73,11 +72,9 @@ export const queryKeys = {
   },
   household: {
     all: () => ["household"] as const,
-    healthScore: () => [...queryKeys.household.all(), "health-score"] as const,
   },
   stats: {
     all: () => ["stats"] as const,
-    briefing: () => [...queryKeys.stats.all(), "briefing"] as const,
   },
   preferences: {
     all: () => ["preferences"] as const,

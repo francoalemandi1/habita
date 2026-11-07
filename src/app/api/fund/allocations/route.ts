@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
+import { assertMembersBelongToHousehold } from "@/lib/member-utils";
+import { ForbiddenError } from "@/lib/errors";
 import { Prisma } from "@prisma/client";
 
 import type { NextRequest } from "next/server";
@@ -24,6 +26,9 @@ const allocationsSchema = z.object({
 export async function PUT(request: NextRequest) {
   try {
     const member = await requireMember();
+    if (member.memberType !== "ADULT") {
+      throw new ForbiddenError("Solo un adulto puede cambiar las cuotas del fondo");
+    }
     const body = (await request.json()) as unknown;
     const validation = allocationsSchema.safeParse(body);
 
@@ -43,6 +48,18 @@ export async function PUT(request: NextRequest) {
     }
 
     const { allocations } = validation.data;
+
+    const belongs = await assertMembersBelongToHousehold(
+      allocations.map((a) => a.memberId),
+      member.householdId,
+    );
+
+    if (!belongs) {
+      return NextResponse.json(
+        { error: "Todos los miembros deben pertenecer al hogar" },
+        { status: 400 },
+      );
+    }
 
     await Promise.all(
       allocations.map((alloc) => {

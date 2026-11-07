@@ -4,7 +4,7 @@ import { z } from "zod";
 // Enums (mirrors Prisma enums)
 // ============================================
 
-export const AI_JOB_TYPES = ["PREVIEW_PLAN", "COCINA", "SHOPPING_PLAN"] as const;
+export const AI_JOB_TYPES = ["PREVIEW_PLAN", "SHOPPING_PLAN"] as const;
 export type AiJobType = (typeof AI_JOB_TYPES)[number];
 
 export const AI_JOB_STATUSES = ["RUNNING", "SUCCESS", "FAILED"] as const;

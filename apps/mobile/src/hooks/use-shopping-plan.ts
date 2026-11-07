@@ -1,12 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 import { queryKeys } from "@habita/contracts";
-import type {
-  AiJobTriggerResponse,
-  SearchItem,
-  ShoppingPlanAlternativesResponse,
-  ShoppingPlanResult,
-} from "@habita/contracts";
+import type { AiJobTriggerResponse, SearchItem, ShoppingPlanAlternativesResponse } from "@habita/contracts";
 
 export interface ProductCatalogItem {
   id: string;
@@ -34,6 +29,7 @@ export function useShoppingPlan() {
 interface AlternativesInput {
   storeName: string;
   searchTerm: string;
+  currentProductName?: string;
   query: string;
 }
 

@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
-import { getLLMProvider, isAIEnabled } from "@/lib/llm/provider";
+import { isAIEnabled } from "@/lib/llm/provider";
+import { generateStructured } from "@/lib/ai/generate";
 import { BadRequestError } from "@/lib/errors";
+import { applyRateLimit } from "@/lib/rate-limit";
+
+import type { NextRequest } from "next/server";
 
 const inputSchema = z.object({
   text: z.string().min(3).max(200),
@@ -22,22 +26,25 @@ const EXPENSE_CATEGORIES = [
   "OTHER",
 ] as const;
 
-const outputSchema = {
-  title: "string — short descriptive name for the expense (2-5 words, title case, Spanish)",
-  amount: "number — the amount in ARS (just the number, no currency symbol)",
-  category: `string — one of: ${EXPENSE_CATEGORIES.join(", ")}`,
-  notes: "string or null — any extra context mentioned",
-  parsed: "boolean — true if successfully parsed, false if the input doesn't describe an expense",
-};
+const parseExpenseSchema = z.object({
+  title: z.string().describe("short descriptive name for the expense (2-5 words, title case, Spanish)"),
+  amount: z.number().describe("the amount in ARS (just the number, no currency symbol)"),
+  category: z.string().describe(`one of: ${EXPENSE_CATEGORIES.join(", ")}`),
+  notes: z.string().nullable().describe("any extra context mentioned"),
+  parsed: z.boolean().describe("true if successfully parsed, false if the input doesn't describe an expense"),
+});
 
 /**
  * POST /api/ai/parse-expense
  * Parses a natural language expense description in Spanish AR.
  * e.g. "Gasté 1500 en el super" → { title: "Supermercado", amount: 1500, category: "GROCERIES" }
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    await requireMember();
+    const member = await requireMember();
+
+    const limited = await applyRateLimit(request, "ai", member.id);
+    if (limited) return limited;
 
     if (!isAIEnabled()) {
       return NextResponse.json({ error: "ai_disabled" }, { status: 503 });
@@ -76,17 +83,11 @@ Categorías disponibles:
 
 Respondé SOLO con JSON válido, sin texto adicional.`;
 
-    const llm = await getLLMProvider();
-    const result = await llm.completeWithSchema<{
-      title: string;
-      amount: number;
-      category: string;
-      notes: string | null;
-      parsed: boolean;
-    }>({
+    const result = await generateStructured({
+      task: "parse-expense",
+      schema: parseExpenseSchema,
       prompt,
-      outputSchema,
-      modelVariant: "fast",
+      tier: "fast",
       timeoutMs: 10_000,
     });
 

@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/features/loading-skeletons";
+import { GridPageSkeleton } from "@/components/features/route-skeletons";
 
 export default function GroceryDealsLoading() {
-  return <PageSkeleton cards={6} />;
+  return <GridPageSkeleton />;
 }

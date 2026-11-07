@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/session";
 import { completeAssignmentSchema } from "@/lib/validations/assignment";
-import { getBestAssignee } from "@/lib/assignment-algorithm";
 import { computeDueDateForFrequency } from "@/lib/due-date";
+import { loadTaskPlannerSnapshot } from "@/lib/task-planner-context";
+import { pickNextAssignee, pickNextRotationAssignee } from "@habita/domain";
 import { createNotificationForMembers } from "@/lib/notification-service";
 import { handleApiError } from "@/lib/api-response";
 
@@ -81,6 +82,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         data: {
           status: "COMPLETED",
           completedAt: now,
+          completedByMemberId: member.id,
           notes: validation.data.notes ?? assignment.notes,
         },
       });
@@ -106,6 +108,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               name: true,
             },
           },
+          completedByMember: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       });
 
@@ -113,6 +121,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         assignment: updatedAssignment,
       };
     });
+
+    // Spec: when someone other than the assignee completes the task, let them know.
+    if (member.id !== assignment.memberId) {
+      await createNotificationForMembers([assignment.memberId], {
+        type: "TASK_COMPLETED_BY_OTHER",
+        title: "Tarea completada",
+        message: `${member.name} hizo ${assignment.task.name} por vos`,
+        actionUrl: "/casa",
+      });
+    }
 
     // Spec §2.1: al completar, crear siguiente instancia y asignar
     let nextAssignment = null;
@@ -123,11 +141,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           assignment.task.frequency,
           now
         );
-        const { best } = await getBestAssignee(
-          assignment.householdId,
-          assignment.taskId,
-          nextDue
-        );
+        const snapshot = await loadTaskPlannerSnapshot(assignment.householdId);
+        const plannerTask = snapshot.tasks.find((t) => t.id === assignment.taskId);
+        const rotationPick =
+          plannerTask?.isRotating === true
+            ? pickNextRotationAssignee(plannerTask, assignment.memberId, nextDue, snapshot)
+            : null;
+        const best = plannerTask ? (rotationPick ?? pickNextAssignee(plannerTask, nextDue, snapshot, now)) : null;
         if (best) {
           nextAssignment = await prisma.assignment.create({
             data: {
@@ -197,6 +217,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({
       ...result,
+      completedBy: result.assignment.completedByMember
+        ? { id: result.assignment.completedByMember.id, name: result.assignment.completedByMember.name }
+        : undefined,
       planFinalized,
       finalizedPlanId: planFinalized ? finalizedPlanId : undefined,
       nextAssignment: nextAssignment

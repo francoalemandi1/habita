@@ -27,24 +27,6 @@ export const saveEventSchema = z.object({
 export type SaveEventInput = z.infer<typeof saveEventSchema>;
 
 // ============================================
-// SavedRecipe
-// ============================================
-
-export const saveRecipeSchema = z.object({
-  title: z.string().min(1).max(500),
-  description: z.string().min(1).max(2000),
-  difficulty: z.enum(["facil", "media", "dificil"]),
-  prepTimeMinutes: z.number().int().min(1).max(600),
-  servings: z.number().int().min(1).max(50),
-  ingredients: z.array(z.string().min(1)).min(1).max(100),
-  missingIngredients: z.array(z.string()).max(100).default([]),
-  steps: z.array(z.string().min(1)).min(1).max(50),
-  tip: z.string().max(1000).nullable().optional(),
-});
-
-export type SaveRecipeInput = z.infer<typeof saveRecipeSchema>;
-
-// ============================================
 // SavedCart (whole store cart)
 // ============================================
 

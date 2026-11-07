@@ -1,8 +1,10 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { isAIEnabled } from "./provider";
-import { getDeepSeekModel } from "./deepseek-provider";
+import { getLanguageModel } from "@/lib/ai/models";
 import { buildRegionalContext } from "./regional-context";
+
+import type { LanguageModel } from "ai";
 import { searchAndExtractLocalEvents, ISO_TO_COUNTRY_NAME } from "@/lib/web-search";
 
 import type { WebSearchResult } from "@/lib/web-search";
@@ -183,7 +185,7 @@ export async function generateRelaxSuggestions(
   });
 
   const todayIso = formatLocalDate(regionalContext.localNow, options.timezone);
-  const model = getDeepSeekModel();
+  const { model } = getLanguageModel();
 
   // Step 3: Build curator input from search results (using rawContent when available)
   const curatorItems = buildCuratorItems(searchResults);
@@ -236,7 +238,7 @@ async function runCurator(
   options: RelaxFinderOptions,
   regionalContext: { promptBlock: string; localHour: number },
   todayIso: string,
-  model: ReturnType<typeof getDeepSeekModel>,
+  model: LanguageModel,
 ): Promise<RelaxResult | null> {
   const curatorPrompt = buildCuratorPrompt(items, options, regionalContext.promptBlock, regionalContext.localHour, todayIso);
   const curatorSchema = buildCuratorSchema(SECTION_CATEGORIES[options.section], searchResults.length);

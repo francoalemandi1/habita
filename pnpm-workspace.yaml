@@ -1,3 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# Keep in sync with package.json "pnpm.overrides" (pnpm 9 reads that one, pnpm 10+ reads this).
+overrides:
+  "@tanstack/query-core": 5.90.20

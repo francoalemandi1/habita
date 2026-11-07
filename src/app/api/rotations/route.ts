@@ -5,32 +5,51 @@ import { createRotationSchema } from "@/lib/validations/rotation";
 import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
+import type { Task } from "@prisma/client";
+
+type RotatingTask = Pick<Task, "id" | "name" | "frequency" | "weight" | "createdAt" | "updatedAt">;
+
+/**
+ * Shape a rotating task as the legacy TaskRotation JSON the web client reads.
+ * The task id doubles as the rotation id; frequency always mirrors the task's
+ * own frequency now that rotation is just a flag on Task.
+ */
+function toRotationView(task: RotatingTask, householdId: string) {
+  return {
+    id: task.id,
+    taskId: task.id,
+    householdId,
+    frequency: task.frequency,
+    isActive: true,
+    lastGenerated: null,
+    nextDueDate: null,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+    task: {
+      id: task.id,
+      name: task.name,
+      frequency: task.frequency,
+      weight: task.weight,
+    },
+  };
+}
 
 /**
  * GET /api/rotations
- * Get all rotations for the household
+ * List every rotating task for the household.
  */
 export async function GET() {
   try {
     const member = await requireMember();
 
-    const rotations = await prisma.taskRotation.findMany({
-      where: { householdId: member.householdId },
-      include: {
-        task: {
-          select: {
-            id: true,
-            name: true,
-            frequency: true,
-            weight: true,
-          },
-        },
-      },
-      orderBy: { nextDueDate: "asc" },
+    const tasks = await prisma.task.findMany({
+      where: { householdId: member.householdId, isRotating: true },
+      select: { id: true, name: true, frequency: true, weight: true, createdAt: true, updatedAt: true },
+      orderBy: { name: "asc" },
       take: 200,
     });
 
-    return NextResponse.json({ rotations });
+    return NextResponse.json({ rotations: tasks.map((task) => toRotationView(task, member.householdId)) });
   } catch (error) {
     return handleApiError(error, { route: "/api/rotations", method: "GET" });
   }
@@ -38,7 +57,7 @@ export async function GET() {
 
 /**
  * POST /api/rotations
- * Create a new rotation for a task
+ * Turn a task into a rotating task.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -53,82 +72,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { taskId, frequency, nextDueDate } = validation.data;
+    const { taskId } = validation.data;
 
-    // Verify task belongs to household
     const task = await prisma.task.findFirst({
       where: {
         id: taskId,
         householdId: member.householdId,
         isActive: true,
       },
+      select: { id: true, name: true, frequency: true, weight: true, isRotating: true, createdAt: true, updatedAt: true },
     });
 
     if (!task) {
       return NextResponse.json({ error: "Tarea no encontrada" }, { status: 404 });
     }
 
-    // Check if rotation already exists
-    const existingRotation = await prisma.taskRotation.findUnique({
-      where: { taskId },
-      select: { id: true },
-    });
-
-    if (existingRotation) {
+    if (task.isRotating) {
       return NextResponse.json(
         { error: "Ya existe una rotación para esta tarea" },
-        { status: 400 }
+        { status: 409 }
       );
     }
 
-    // Calculate next due date if not provided
-    const calculatedNextDueDate = nextDueDate
-      ? new Date(nextDueDate)
-      : calculateNextDueDate(frequency);
-
-    const rotation = await prisma.taskRotation.create({
-      data: {
-        taskId,
-        householdId: member.householdId,
-        frequency,
-        nextDueDate: calculatedNextDueDate,
-      },
-      include: {
-        task: {
-          select: {
-            id: true,
-            name: true,
-            frequency: true,
-            weight: true,
-          },
-        },
-      },
+    const updated = await prisma.task.update({
+      where: { id: taskId },
+      data: { isRotating: true },
+      select: { id: true, name: true, frequency: true, weight: true, createdAt: true, updatedAt: true },
     });
 
-    return NextResponse.json({ rotation }, { status: 201 });
+    return NextResponse.json({ rotation: toRotationView(updated, member.householdId) }, { status: 201 });
   } catch (error) {
     return handleApiError(error, { route: "/api/rotations", method: "POST" });
   }
-}
-
-function calculateNextDueDate(frequency: string): Date {
-  const now = new Date();
-  now.setHours(12, 0, 0, 0); // Noon today
-
-  switch (frequency) {
-    case "DAILY":
-      now.setDate(now.getDate() + 1);
-      break;
-    case "WEEKLY":
-      now.setDate(now.getDate() + 7);
-      break;
-    case "BIWEEKLY":
-      now.setDate(now.getDate() + 14);
-      break;
-    case "MONTHLY":
-      now.setMonth(now.getMonth() + 1);
-      break;
-  }
-
-  return now;
 }

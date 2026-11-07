@@ -1,122 +1,93 @@
-import type { Decimal } from "@prisma/client/runtime/library";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { computeBalancesByCurrency, simplifyDebts } from "@habita/domain/money-balances";
 
-export interface MemberBalance {
-  memberId: string;
-  memberName: string;
-  balance: number; // positive = owed to them, negative = they owe
+import type { MemberBalance, DebtTransaction, MoneyMember, MoneySplit, MoneySettlement } from "@habita/domain/money-balances";
+
+export type { MemberBalance, DebtTransaction };
+
+const splitAggregateRowSchema = z.object({
+  memberId: z.string(),
+  payerId: z.string(),
+  currency: z.string(),
+  totalAmount: z.string(),
+});
+
+const settlementAggregateRowSchema = z.object({
+  fromMemberId: z.string(),
+  toMemberId: z.string(),
+  currency: z.string(),
+  totalAmount: z.string(),
+});
+
+export interface HouseholdBalances {
+  byCurrency: Record<string, { balances: MemberBalance[]; transactions: DebtTransaction[] }>;
+  primaryCurrency: string;
 }
 
-export interface DebtTransaction {
-  fromMemberId: string;
-  fromMemberName: string;
-  toMemberId: string;
-  toMemberName: string;
-  amount: number;
+async function loadSplitAggregates(householdId: string): Promise<MoneySplit[]> {
+  const rows = await prisma.$queryRaw<unknown[]>`
+    SELECT es."memberId" AS "memberId", e."paidById" AS "payerId", e."currency" AS "currency",
+      SUM(es."amount")::text AS "totalAmount"
+    FROM expense_splits es
+    JOIN expenses e ON e.id = es."expenseId"
+    WHERE e."householdId" = ${householdId} AND es."memberId" != e."paidById"
+    GROUP BY es."memberId", e."paidById", e."currency"
+  `;
+
+  return rows.map((row) => {
+    const parsed = splitAggregateRowSchema.parse(row);
+    return { memberId: parsed.memberId, payerId: parsed.payerId, amount: parsed.totalAmount, currency: parsed.currency };
+  });
 }
 
-interface ExpenseForBalance {
-  amount: Decimal;
-  paidById: string;
-  paidBy: { id: string; name: string };
-  splits: Array<{
-    memberId: string;
-    amount: Decimal;
-    settled: boolean;
-    member: { id: string; name: string };
-  }>;
+async function loadSettlementAggregates(householdId: string): Promise<MoneySettlement[]> {
+  const rows = await prisma.$queryRaw<unknown[]>`
+    SELECT "fromMemberId", "toMemberId", currency, SUM(amount)::text AS "totalAmount"
+    FROM settlements
+    WHERE "householdId" = ${householdId}
+    GROUP BY "fromMemberId", "toMemberId", currency
+  `;
+
+  return rows.map((row) => {
+    const parsed = settlementAggregateRowSchema.parse(row);
+    return { fromMemberId: parsed.fromMemberId, toMemberId: parsed.toMemberId, amount: parsed.totalAmount, currency: parsed.currency };
+  });
 }
 
-/**
- * Calculate net balances for each member.
- * Positive balance = others owe this member.
- * Negative balance = this member owes others.
- * Only considers unsettled splits.
- */
-export function calculateBalances(expenses: ExpenseForBalance[]): MemberBalance[] {
-  const balanceMap = new Map<string, { name: string; balance: number }>();
+async function resolvePrimaryCurrency(householdId: string): Promise<string> {
+  const counts = await prisma.expense.groupBy({
+    by: ["currency"],
+    where: { householdId },
+    _count: { _all: true },
+  });
 
-  for (const expense of expenses) {
-    const paidAmount = expense.amount.toNumber();
-    const payerId = expense.paidById;
-    const payerName = expense.paidBy.name;
+  if (counts.length === 0) return "ARS";
 
-    // Ensure payer exists in map
-    if (!balanceMap.has(payerId)) {
-      balanceMap.set(payerId, { name: payerName, balance: 0 });
-    }
-
-    for (const split of expense.splits) {
-      if (split.settled) continue;
-
-      const splitAmount = split.amount.toNumber();
-      const splitMemberId = split.memberId;
-
-      // Ensure split member exists in map
-      if (!balanceMap.has(splitMemberId)) {
-        balanceMap.set(splitMemberId, { name: split.member.name, balance: 0 });
-      }
-
-      if (splitMemberId !== payerId) {
-        // Payer is owed this amount
-        balanceMap.get(payerId)!.balance += splitAmount;
-        // Split member owes this amount
-        balanceMap.get(splitMemberId)!.balance -= splitAmount;
-      }
-    }
-  }
-
-  return Array.from(balanceMap.entries()).map(([memberId, data]) => ({
-    memberId,
-    memberName: data.name,
-    balance: Math.round(data.balance * 100) / 100,
-  }));
+  return counts.reduce((best, current) => (current._count._all > best._count._all ? current : best)).currency;
 }
 
 /**
- * Simplify debts to minimize number of transactions.
- * Greedy algorithm: match largest creditor with largest debtor.
+ * Load every balance input for a household (members, aggregated splits,
+ * aggregated settlements) and compute net balances + simplified transactions
+ * per currency. Members are included even if inactive, since historical
+ * splits/settlements may still reference them.
  */
-export function simplifyDebts(balances: MemberBalance[]): DebtTransaction[] {
-  const creditors: Array<{ memberId: string; memberName: string; amount: number }> = [];
-  const debtors: Array<{ memberId: string; memberName: string; amount: number }> = [];
+export async function getHouseholdBalances(householdId: string): Promise<HouseholdBalances> {
+  const [members, splits, settlements, primaryCurrency] = await Promise.all([
+    prisma.member.findMany({ where: { householdId }, select: { id: true, name: true } }),
+    loadSplitAggregates(householdId),
+    loadSettlementAggregates(householdId),
+    resolvePrimaryCurrency(householdId),
+  ]);
 
-  for (const balance of balances) {
-    if (balance.balance > 0.01) {
-      creditors.push({ memberId: balance.memberId, memberName: balance.memberName, amount: balance.balance });
-    } else if (balance.balance < -0.01) {
-      debtors.push({ memberId: balance.memberId, memberName: balance.memberName, amount: -balance.balance });
-    }
+  const moneyMembers: MoneyMember[] = members.map((member) => ({ id: member.id, name: member.name }));
+  const balancesByCurrency = computeBalancesByCurrency({ members: moneyMembers, splits, settlements });
+
+  const byCurrency: HouseholdBalances["byCurrency"] = {};
+  for (const [currency, balances] of Object.entries(balancesByCurrency)) {
+    byCurrency[currency] = { balances, transactions: simplifyDebts(balances) };
   }
 
-  // Sort descending by amount
-  creditors.sort((a, b) => b.amount - a.amount);
-  debtors.sort((a, b) => b.amount - a.amount);
-
-  const transactions: DebtTransaction[] = [];
-  let creditorIdx = 0;
-  let debtorIdx = 0;
-
-  while (creditorIdx < creditors.length && debtorIdx < debtors.length) {
-    const creditor = creditors[creditorIdx]!;
-    const debtor = debtors[debtorIdx]!;
-    const transferAmount = Math.min(creditor.amount, debtor.amount);
-
-    if (transferAmount > 0.01) {
-      transactions.push({
-        fromMemberId: debtor.memberId,
-        fromMemberName: debtor.memberName,
-        toMemberId: creditor.memberId,
-        toMemberName: creditor.memberName,
-        amount: Math.round(transferAmount * 100) / 100,
-      });
-    }
-
-    creditor.amount -= transferAmount;
-    debtor.amount -= transferAmount;
-
-    if (creditor.amount < 0.01) creditorIdx++;
-    if (debtor.amount < 0.01) debtorIdx++;
-  }
-
-  return transactions;
+  return { byCurrency, primaryCurrency };
 }

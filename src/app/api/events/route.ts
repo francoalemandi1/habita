@@ -4,7 +4,6 @@ import { requireMember } from "@/lib/session";
 import { handleApiError } from "@/lib/api-response";
 import { searchEvents } from "@/lib/events/search";
 import { resolveCityId } from "@/lib/events/city-normalizer";
-import { runPipeline } from "@/lib/events/pipeline/run-pipeline";
 
 import type { NextRequest } from "next/server";
 import type { EventCategory } from "@prisma/client";
@@ -35,7 +34,7 @@ const querySchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const member = await requireMember();
+    await requireMember();
 
     const searchParams = Object.fromEntries(request.nextUrl.searchParams);
     const validation = querySchema.safeParse(searchParams);
@@ -66,17 +65,10 @@ export async function GET(request: NextRequest) {
       offset,
     };
 
-    let result = await searchEvents(searchOptions);
+    const result = await searchEvents(searchOptions);
 
-    // On-demand discovery: if a city was requested but 0 results found,
-    // run a lightweight ingest to populate events for this city.
-    if (city && result.total === 0 && offset === 0 && !q) {
-      const country = member.household.country ?? "AR";
-      const outcome = await runPipeline({ city, country });
-      if (outcome.eventsCreated > 0) {
-        result = await searchEvents(searchOptions);
-      }
-    }
+    // On-demand ingest removed: it ran the full paid scraping pipeline synchronously
+    // per client-provided city with no rate limiting (this feature is being deleted next stage).
 
     return NextResponse.json({
       events: result.events,

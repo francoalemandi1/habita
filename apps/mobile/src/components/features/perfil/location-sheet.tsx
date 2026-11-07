@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Alert } from "react-native";
-import { Button, Sheet, TextField } from "@/components/ds";
+import { Button, CityTypeahead, Sheet } from "@/components/ds";
 import { useUpdateHousehold } from "@/hooks/use-households";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { spacing } from "@/theme";
+
+import type { CityResult } from "@/components/ds";
 
 export interface LocationSheetProps {
   visible: boolean;
@@ -12,19 +14,24 @@ export interface LocationSheetProps {
 }
 
 /**
- * Ubicación: manual city entry (geolocation would need expo-location, a new
- * dependency this task can't add). The device's own timezone travels with it,
- * since quiet hours, the weekly-plan cron and parse-entry all key off the
- * household timezone.
+ * Ubicación: city search with suggestions (geolocation would need expo-location,
+ * a new dependency this task can't add). The device's own timezone travels with
+ * it, since quiet hours, the weekly-plan cron and parse-entry all key off the
+ * household timezone. Typing without picking a suggestion still saves the
+ * typed city, without inventing coordinates.
  */
 export function LocationSheet({ visible, onClose, initialCity }: LocationSheetProps): React.JSX.Element {
   const [city, setCity] = useState(initialCity ?? "");
+  const [selectedCity, setSelectedCity] = useState<CityResult | null>(null);
   const [wasVisible, setWasVisible] = useState(visible);
   const updateHousehold = useUpdateHousehold();
 
   if (visible !== wasVisible) {
     setWasVisible(visible);
-    if (visible) setCity(initialCity ?? "");
+    if (visible) {
+      setCity(initialCity ?? "");
+      setSelectedCity(null);
+    }
   }
 
   const handleSave = () => {
@@ -32,7 +39,15 @@ export function LocationSheet({ visible, onClose, initialCity }: LocationSheetPr
     if (!trimmed) return;
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     updateHousehold.mutate(
-      { location: { city: trimmed, timezone } },
+      {
+        location: {
+          city: selectedCity?.name ?? trimmed,
+          timezone,
+          ...(selectedCity?.latitude != null && { latitude: selectedCity.latitude }),
+          ...(selectedCity?.longitude != null && { longitude: selectedCity.longitude }),
+          ...(selectedCity && { country: "AR" }),
+        },
+      },
       {
         onSuccess: onClose,
         onError: (error) => {
@@ -44,7 +59,16 @@ export function LocationSheet({ visible, onClose, initialCity }: LocationSheetPr
 
   return (
     <Sheet visible={visible} onClose={onClose} title="Ubicación">
-      <TextField label="Ciudad" value={city} onChangeText={setCity} placeholder="Córdoba" />
+      <CityTypeahead
+        label="Ciudad"
+        value={city}
+        onChangeText={(value) => {
+          setCity(value);
+          setSelectedCity(null);
+        }}
+        onSelectCity={setSelectedCity}
+        placeholder="Córdoba"
+      />
       <Button
         label="Guardar"
         loading={updateHousehold.isPending}

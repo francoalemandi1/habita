@@ -4,6 +4,9 @@ export type { ButtonProps, ButtonVariant, ButtonSize } from "./button";
 export { TextField } from "./text-field";
 export type { TextFieldProps } from "./text-field";
 
+export { CityTypeahead } from "./city-typeahead";
+export type { CityResult } from "./city-typeahead";
+
 export { Checkbox } from "./checkbox";
 export type { CheckboxProps } from "./checkbox";
 export { getToggledState, isCheckboxInteractive } from "./checkbox-logic";

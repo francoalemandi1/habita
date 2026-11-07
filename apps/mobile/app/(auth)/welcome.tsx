@@ -1,217 +1,143 @@
-import { useEffect, useRef } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import {
-  ChefHat,
-  ClipboardCheck,
-  Compass,
-  Receipt,
-  ShoppingCart,
-} from "lucide-react-native";
-import { colors, fontFamily, radius, spacing } from "@/theme";
+import * as WebBrowser from "expo-web-browser";
+import { useMobileAuth } from "@/providers/mobile-auth-provider";
+import { useThemeColors } from "@/hooks/use-theme";
+import { mobileApi } from "@/lib/api";
+import { mobileConfig } from "@/lib/config";
+import { fontFamilyForWeight, spacing, typography } from "@/theme";
 import { HabitaLogo } from "@/components/ui/habita-logo";
+import { GoogleSignInButton } from "@/components/features/onboarding/google-sign-in-button";
+import { BienvenidaBullets } from "@/components/features/onboarding/bienvenida-bullets";
 
-// ─── Feature pills ────────────────────────────────────────────────────────────
+import type { ThemeColors } from "@/theme";
+import type { AuthMeResponse } from "@habita/contracts";
 
-interface FeaturePill {
-  icon: React.ComponentType<{ size: number; color: string; strokeWidth?: number }>;
-  label: string;
-}
+WebBrowser.maybeCompleteAuthSession();
 
-const FEATURES: FeaturePill[] = [
-  { icon: ClipboardCheck, label: "Organizá las tareas" },
-  { icon: Receipt,        label: "Controlá los gastos" },
-  { icon: ShoppingCart,   label: "Ahorrá en el super" },
-  { icon: ChefHat,        label: "Cociná con recetas" },
-  { icon: Compass,        label: "Descubrí planes" },
-];
-
-function FeaturePillItem({ item, delay }: { item: FeaturePill; delay: number }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(10)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 400,
-        delay,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 400,
-        delay,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [opacity, translateY, delay]);
-
-  return (
-    <Animated.View
-      style={[styles.pill, { opacity, transform: [{ translateY }] }]}
-    >
-      <item.icon size={14} color={colors.primary} strokeWidth={2} />
-      <Text style={styles.pillLabel}>{item.label}</Text>
-    </Animated.View>
-  );
-}
-
-// ─── WelcomeScreen ────────────────────────────────────────────────────────────
-
+/** Bienvenida — handoff §5.3 Entrada. Merges the former login + welcome screens. */
 export default function WelcomeScreen() {
-  const heroOpacity = useRef(new Animated.Value(0)).current;
-  const heroY = useRef(new Animated.Value(16)).current;
-  const buttonOpacity = useRef(new Animated.Value(0)).current;
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { exchangeTokens } = useMobileAuth();
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(heroOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
-        Animated.timing(heroY, { toValue: 0, duration: 500, useNativeDriver: true }),
-      ]),
-      Animated.timing(buttonOpacity, { toValue: 1, duration: 350, delay: 200, useNativeDriver: true }),
-    ]).start();
-  }, [heroOpacity, heroY, buttonOpacity]);
+  const handleContinue = async (intent: "default" | "join") => {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const signinUrl = `${mobileConfig.oauthBaseUrl}/api/auth/mobile/signin`;
+      const result = await WebBrowser.openAuthSessionAsync(signinUrl, "habita://auth");
+
+      if (result.type !== "success") {
+        setError(`result.type=${result.type}`);
+        return;
+      }
+
+      const url = new URL(result.url);
+      const authError = url.searchParams.get("error");
+      if (authError) {
+        setError(`Error de autenticación: ${authError}`);
+        return;
+      }
+
+      const authCode = url.searchParams.get("code");
+      if (!authCode) {
+        setError("No se recibió código de autenticación");
+        return;
+      }
+
+      const tokenResponse = await mobileApi.post<{
+        accessToken: string;
+        refreshToken: string;
+        expiresInSeconds: number;
+      }>("/api/auth/mobile/code-exchange", { code: authCode });
+
+      await exchangeTokens({
+        accessToken: tokenResponse.accessToken,
+        refreshToken: tokenResponse.refreshToken,
+      });
+
+      if (intent === "join") {
+        router.replace("/(auth)/join");
+        return;
+      }
+
+      try {
+        const me = await mobileApi.get<AuthMeResponse>("/api/auth/me");
+        router.replace(me.households.length === 0 ? "/(auth)/onboarding" : "/(app)/casa");
+      } catch (error) {
+        console.warn("Welcome: failed to fetch /api/auth/me, defaulting to casa", error);
+        router.replace("/(app)/casa");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo iniciar sesión");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.inner}>
-        {/* Logo */}
-        <View style={styles.logo}>
-          <HabitaLogo size={52} />
+        <View style={styles.hero}>
+          <HabitaLogo size={72} />
+          <Text style={styles.headline}>La casa, en orden.</Text>
+          <BienvenidaBullets />
         </View>
 
-        {/* Hero copy */}
-        <Animated.View
-          style={[
-            styles.heroSection,
-            { opacity: heroOpacity, transform: [{ translateY: heroY }] },
-          ]}
-        >
-          <Text style={styles.headline}>Tu hogar,{"\n"}coordinado.</Text>
-          <Text style={styles.subheadline}>
-            Tareas, gastos, compras, recetas y salidas — todo lo que tu casa
-            necesita, en un solo lugar.
-          </Text>
-        </Animated.View>
+        <View style={styles.ctaSection}>
+          {error ? (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
-        {/* Feature pills */}
-        <View style={styles.pillsRow}>
-          {FEATURES.map((f, i) => (
-            <FeaturePillItem key={f.label} item={f} delay={300 + i * 80} />
-          ))}
+          <GoogleSignInButton
+            label={isSubmitting ? "Iniciando sesión..." : "Continuar con Google"}
+            loading={isSubmitting}
+            onPress={() => void handleContinue("default")}
+          />
+
+          <Pressable onPress={() => void handleContinue("join")} style={styles.joinLink} disabled={isSubmitting}>
+            <Text style={styles.joinLinkText}>Tengo un código de invitación</Text>
+          </Pressable>
         </View>
-
-        {/* CTA */}
-        <Animated.View style={[styles.ctaSection, { opacity: buttonOpacity }]}>
-          <Pressable
-            onPress={() => router.push("/(auth)/onboarding")}
-            style={({ pressed }) => [styles.ctaButton, pressed && styles.ctaButtonPressed]}
-          >
-            <Text style={styles.ctaButtonText}>Comencemos</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push("/(auth)/join")}
-            style={styles.joinLink}
-          >
-            <Text style={styles.joinLinkText}>
-              Tengo un código de invitación
-            </Text>
-          </Pressable>
-        </Animated.View>
       </View>
     </SafeAreaView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  inner: {
-    flex: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
-    justifyContent: "center",
-  },
-  logo: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    marginBottom: spacing.xl,
-  },
-  heroSection: {
-    marginBottom: spacing.xl,
-  },
-  headline: {
-    fontFamily: fontFamily.sans,
-    fontSize: 40,
-    fontWeight: "800",
-    color: colors.text,
-    letterSpacing: -1,
-    lineHeight: 46,
-    marginBottom: 14,
-  },
-  subheadline: {
-    fontFamily: fontFamily.sans,
-    fontSize: 16,
-    color: colors.mutedForeground,
-    lineHeight: 24,
-  },
-  pillsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: spacing.xxl,
-  },
-  pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: colors.primaryLight,
-    borderRadius: radius.full ?? 999,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-  },
-  pillLabel: {
-    fontFamily: fontFamily.sans,
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.primary,
-  },
-  ctaSection: {
-    gap: spacing.md,
-  },
-  ctaButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.xl,
-    paddingVertical: 17,
-    alignItems: "center",
-  },
-  ctaButtonPressed: {
-    opacity: 0.85,
-  },
-  ctaButtonText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.white,
-  },
-  joinLink: {
-    alignItems: "center",
-    paddingVertical: spacing.sm,
-  },
-  joinLinkText: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.primary,
-  },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.monte },
+    inner: {
+      flex: 1,
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing.xl,
+      justifyContent: "space-between",
+    },
+    hero: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.xl },
+    headline: {
+      fontFamily: fontFamilyForWeight(700),
+      fontSize: 48,
+      color: c.paper,
+      textAlign: "center",
+      letterSpacing: -1,
+      lineHeight: 52,
+    },
+    ctaSection: { gap: spacing.md },
+    errorBanner: { backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 14, padding: spacing.md },
+    errorText: { fontFamily: fontFamilyForWeight(400), color: c.ladrilloSoft, fontSize: typography.b2.fontSize },
+    joinLink: { alignItems: "center", paddingVertical: spacing.sm },
+    joinLinkText: {
+      fontFamily: fontFamilyForWeight(500),
+      fontSize: typography.b1.fontSize,
+      color: c.paper,
+      textDecorationLine: "underline",
+    },
+  });
+}

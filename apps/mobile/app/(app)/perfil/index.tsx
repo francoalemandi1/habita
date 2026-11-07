@@ -41,7 +41,7 @@ export default function PerfilScreen(): React.JSX.Element {
 
   const handleLogout = async () => {
     await logout();
-    router.replace("/(auth)/login");
+    router.replace("/(auth)/welcome");
   };
 
   return (

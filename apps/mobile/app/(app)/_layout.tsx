@@ -98,7 +98,7 @@ export default function AppLayout() {
   const { isAuthenticated, isBootstrapping, me } = useMobileAuth();
 
   if (!isBootstrapping && !isAuthenticated) {
-    return <Redirect href="/(auth)/login" />;
+    return <Redirect href="/(auth)/welcome" />;
   }
 
   if (!isBootstrapping && isAuthenticated && me && !me.hasMembership) {

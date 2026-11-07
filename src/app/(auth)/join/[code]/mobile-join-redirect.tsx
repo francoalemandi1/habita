@@ -21,15 +21,12 @@ export function MobileJoinRedirect({
   platform,
 }: MobileJoinRedirectProps) {
   useEffect(() => {
-    // Try to open the app
     window.location.href = deepLink;
 
-    // If the app doesn't open within 1.5s, assume it's not installed → go to store
     const timeout = setTimeout(() => {
       window.location.href = storeUrl;
     }, 1500);
 
-    // If the page goes into background (app opened), cancel the store redirect
     const handleVisibilityChange = () => {
       if (document.hidden) clearTimeout(timeout);
     };
@@ -44,34 +41,24 @@ export function MobileJoinRedirect({
   const storeLabel = platform === "ios" ? "App Store" : "Google Play";
 
   return (
-    <div className="rounded-2xl border-2 border-border/60 bg-card p-6 shadow-lg sm:p-8">
-      <div className="mb-6 text-center">
-        <div className="mx-auto mb-4">
-          <HabitaLogo size={64} className="rounded-2xl" />
+    <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-8">
+      <div className="w-full rounded-2xl bg-surface p-6 sm:p-8">
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-4">
+            <HabitaLogo size={64} />
+          </div>
+          <h1 className="text-[22px] font-bold tracking-[-0.02em] text-ink">Unite a {householdName}</h1>
+          <p className="mt-2 text-ink-2">Abriendo Habita…</p>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Unite a {householdName}
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          Abriendo Habita…
-        </p>
-      </div>
 
-      <p className="mb-4 text-center text-sm text-muted-foreground">
-        ¿No tenés la app instalada?
-      </p>
-      <a
-        href={storeUrl}
-        className="block w-full rounded-xl bg-primary px-4 py-3 text-center text-sm font-semibold text-primary-foreground"
-      >
-        Descargar desde {storeLabel}
-      </a>
-      <a
-        href={deepLink}
-        className="mt-3 block w-full rounded-xl border border-border px-4 py-3 text-center text-sm font-semibold text-foreground"
-      >
-        Abrir la app
-      </a>
+        <p className="mb-4 text-center text-[13px] text-ink-2">¿No tenés la app instalada?</p>
+        <a href={storeUrl} className="block w-full rounded-[12px] bg-monte px-4 py-3 text-center text-[15px] font-semibold text-paper">
+          Descargar desde {storeLabel}
+        </a>
+        <a href={deepLink} className="mt-3 block w-full rounded-[12px] border border-line px-4 py-3 text-center text-[15px] font-semibold text-ink">
+          Abrir la app
+        </a>
+      </div>
     </div>
   );
 }

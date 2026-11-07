@@ -1,7 +1,8 @@
 import { headers } from "next/headers";
 import { auth, signIn } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Button } from "@/components/ui/button";
+import { Home, X } from "lucide-react";
+import { Button } from "@/components/ds";
 import { HabitaLogo } from "@/components/ui/habita-logo";
 import { JoinForm } from "./join-form";
 import { MobileJoinRedirect } from "./mobile-join-redirect";
@@ -20,6 +21,7 @@ function detectMobilePlatform(userAgent: string): "ios" | "android" | "web" {
   return "web";
 }
 
+/** Unirse — entry via invite link, per handoff §5.3. */
 export default async function JoinPage({ params }: JoinPageProps) {
   const { code } = await params;
   const normalizedCode = code.trim().toUpperCase();
@@ -35,21 +37,20 @@ export default async function JoinPage({ params }: JoinPageProps) {
 
   if (!household) {
     return (
-      <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-lg sm:p-8">
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/15 text-4xl">
-            ✕
+      <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-8">
+        <div className="w-full rounded-2xl bg-surface p-6 sm:p-8">
+          <div className="text-center">
+            <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-ladrillo-soft">
+              <X className="size-6 text-ladrillo-text" strokeWidth={1.75} />
+            </div>
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-ink">Código inválido</h1>
+            <p className="mt-2 text-ink-2">El link de invitación no es válido o ya no está disponible.</p>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Código inválido</h1>
-          <p className="mt-muted-foreground mt-2">
-            El link de invitación no es válido o ya no está disponible.
-          </p>
         </div>
       </div>
     );
   }
 
-  // Mobile: try to open the app via universal link, fallback to store
   if (platform !== "web") {
     const deepLink = `habita://join?code=${normalizedCode}`;
     const storeUrl = platform === "ios" ? IOS_APP_STORE_URL : ANDROID_PLAY_STORE_URL;
@@ -67,52 +68,42 @@ export default async function JoinPage({ params }: JoinPageProps) {
 
   if (!session?.user) {
     return (
-      <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-lg sm:p-8">
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-4">
-            <HabitaLogo size={64} className="rounded-2xl" />
+      <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-8">
+        <div className="w-full rounded-2xl bg-surface p-6 sm:p-8">
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-4">
+              <HabitaLogo size={64} />
+            </div>
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-ink">Unite a {household.name}</h1>
+            <p className="mt-2 text-ink-2">Te invitaron a formar parte de este hogar en Habita</p>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Unite a {household.name}
-          </h1>
-          <p className="mt-2 text-muted-foreground">
-            Te invitaron a formar parte de este hogar en Habita
-          </p>
+          <form
+            action={async () => {
+              "use server";
+              await signIn("google", { redirectTo: `/join/${normalizedCode}` });
+            }}
+          >
+            <Button type="submit" className="w-full">
+              Continuar con Google
+            </Button>
+          </form>
         </div>
-
-        <form
-          action={async () => {
-            "use server";
-            await signIn("google", { redirectTo: `/join/${normalizedCode}` });
-          }}
-        >
-          <Button type="submit" className="w-full" size="lg">
-            Continuar con Google
-          </Button>
-        </form>
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-lg sm:p-8">
-      <div className="mb-6 text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 text-4xl">
-          🏠
+    <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-4 py-8">
+      <div className="w-full rounded-2xl bg-surface p-6 sm:p-8">
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-monte-soft">
+            <Home className="size-6 text-monte" strokeWidth={1.75} />
+          </div>
+          <h1 className="text-[22px] font-bold tracking-[-0.02em] text-ink">Unite a {household.name}</h1>
+          <p className="mt-2 text-ink-2">Confirmá para unirte al hogar</p>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Unite a {household.name}
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          Ingresá tu nombre para unirte al hogar
-        </p>
+        <JoinForm code={normalizedCode} />
       </div>
-
-      <JoinForm
-        code={normalizedCode}
-        householdName={household.name}
-        userName={session.user.name ?? ""}
-      />
     </div>
   );
 }

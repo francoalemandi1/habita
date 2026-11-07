@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { useThemeColors } from "@/hooks/use-theme";
+import { fontFamilyForWeight, spacing } from "@/theme";
+import { radii as radius } from "@habita/design-tokens";
+import { useCitySearch } from "@/hooks/use-cities";
+import { TextField } from "./text-field";
 
 import type { CityResult } from "@/hooks/use-cities";
-import { useCitySearch } from "@/hooks/use-cities";
-import { useThemeColors } from "@/hooks/use-theme";
-import { fontFamily, radius, spacing } from "@/theme";
 import type { ThemeColors } from "@/theme";
 
-import { StyledTextInput } from "./text-input";
+export type { CityResult };
 
 interface CityTypeaheadProps {
   value: string;
@@ -17,52 +19,16 @@ interface CityTypeaheadProps {
   label?: string;
 }
 
-function createStyles(c: ThemeColors) {
-  return StyleSheet.create({
-    container: {
-      position: "relative",
-    },
-    dropdown: {
-      position: "absolute",
-      top: "100%",
-      left: 0,
-      right: 0,
-      backgroundColor: c.card,
-      borderWidth: 1,
-      borderColor: c.border,
-      borderRadius: radius.lg,
-      zIndex: 10,
-    },
-    dropdownItem: {
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.md,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: c.border,
-    },
-    itemText: {
-      fontFamily: fontFamily.sans,
-      fontSize: 14,
-      color: c.text,
-    },
-    provinceText: {
-      fontFamily: fontFamily.sans,
-      fontSize: 12,
-      color: c.mutedForeground,
-    },
-  });
-}
-
-export function CityTypeahead({ value, onChangeText, onSelectCity, placeholder, label }: CityTypeaheadProps) {
-  const c = useThemeColors();
-  const styles = useMemo(() => createStyles(c), [c]);
+/** §6.3 TextField shape — city search with suggestions, used in Crear hogar and Perfil → Ubicación. */
+export function CityTypeahead({ value, onChangeText, onSelectCity, placeholder, label = "Ciudad" }: CityTypeaheadProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [debouncedQuery, setDebouncedQuery] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedQuery(value);
-    }, 200);
+    const timer = setTimeout(() => setDebouncedQuery(value), 200);
     return () => clearTimeout(timer);
   }, [value]);
 
@@ -78,11 +44,11 @@ export function CityTypeahead({ value, onChangeText, onSelectCity, placeholder, 
 
   return (
     <View style={styles.container}>
-      <StyledTextInput
+      <TextField
+        label={label}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        label={label}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         autoCorrect={false}
@@ -105,4 +71,37 @@ export function CityTypeahead({ value, onChangeText, onSelectCity, placeholder, 
       ) : null}
     </View>
   );
+}
+
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: { position: "relative" },
+    dropdown: {
+      position: "absolute",
+      top: "100%",
+      left: 0,
+      right: 0,
+      backgroundColor: c.surface,
+      borderWidth: 1,
+      borderColor: c.line,
+      borderRadius: radius.control,
+      zIndex: 10,
+    },
+    dropdownItem: {
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.line,
+    },
+    itemText: {
+      fontFamily: fontFamilyForWeight(400),
+      fontSize: 14,
+      color: c.ink,
+    },
+    provinceText: {
+      fontFamily: fontFamilyForWeight(400),
+      fontSize: 12,
+      color: c.ink2,
+    },
+  });
 }

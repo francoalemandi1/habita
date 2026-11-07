@@ -5,12 +5,12 @@ import { MapPin } from "lucide-react";
 import { Sheet } from "@/components/ds/sheet";
 import { ListRow } from "@/components/ds/list-row";
 import { useSnackbar } from "@/components/ds/snackbar";
-import { CityTypeahead } from "@/components/ui/city-typeahead";
+import { CityTypeahead } from "@/components/ds/city-typeahead";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { apiFetch } from "@/lib/api-client";
 import { formatLocationLabel } from "@/lib/perfil-household-logic";
 
-import type { CityResult } from "@/components/ui/city-typeahead";
+import type { CityResult } from "@/components/ds/city-typeahead";
 import type { HouseholdLocationSummary } from "@/lib/perfil-household-logic";
 
 export interface LocationRowProps {

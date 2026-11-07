@@ -1,8 +1,7 @@
 "use client";
 
-import { ArrowLeft, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ProgressIndicator } from "@/components/features/onboarding/progress-indicator";
+import { ArrowLeft } from "lucide-react";
+import { Button, ProgressBar } from "@/components/ds";
 import { HabitaLogo } from "@/components/ui/habita-logo";
 
 import type { ReactNode } from "react";
@@ -15,23 +14,24 @@ interface OnboardingLayoutProps {
   continueDisabled?: boolean;
   continueLoading?: boolean;
   showContinue?: boolean;
-  progress?: { steps: string[]; currentStep: string };
+  /** 2-step progress bar, per handoff §5.3 Crear hogar. */
+  step?: { current: number; total: number };
 }
 
+/** Shared chrome for Crear hogar / Invitar / Unirse — ds primitives only. */
 export function OnboardingLayout({
   children,
   onBack,
   onContinue,
-  continueLabel = "Continuar",
+  continueLabel = "Seguir",
   continueDisabled = false,
   continueLoading = false,
   showContinue = true,
-  progress,
+  step,
 }: OnboardingLayoutProps) {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      {/* Header */}
-      <header className="space-y-3 p-4">
+    <div className="flex min-h-screen flex-col bg-paper">
+      <header className="flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between">
           {onBack ? (
             <button
@@ -40,7 +40,7 @@ export function OnboardingLayout({
               className="flex size-9 items-center justify-center rounded-full"
               aria-label="Volver"
             >
-              <ArrowLeft className="size-5 text-foreground" />
+              <ArrowLeft className="size-5 text-ink" strokeWidth={1.75} />
             </button>
           ) : (
             <div className="size-9" />
@@ -48,34 +48,22 @@ export function OnboardingLayout({
           <HabitaLogo size={24} />
           <div className="size-9" />
         </div>
-        {progress && (
-          <ProgressIndicator steps={progress.steps} currentStep={progress.currentStep} />
-        )}
+        {step && <ProgressBar value={step.current} max={step.total} />}
       </header>
 
-      {/* Content */}
-      <main className="flex-1 px-4 py-8 md:mx-auto md:w-full md:max-w-lg">
-        {children}
-      </main>
+      <main className="flex-1 px-4 py-8 md:mx-auto md:w-full md:max-w-lg">{children}</main>
 
-      {/* Sticky bottom button */}
       {showContinue && onContinue && (
-        <div className="sticky bottom-0 bg-background p-4 pb-6 md:mx-auto md:w-full md:max-w-lg">
+        <div className="sticky bottom-0 bg-paper p-4 pb-6 md:mx-auto md:w-full md:max-w-lg">
           <Button
             type="button"
-            size="lg"
             className="w-full"
             onClick={onContinue}
-            disabled={continueDisabled || continueLoading}
+            disabled={continueDisabled}
+            loading={continueLoading}
+            loadingLabel="Creando"
           >
-            {continueLoading ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                Cargando...
-              </>
-            ) : (
-              continueLabel
-            )}
+            {continueLabel}
           </Button>
         </div>
       )}

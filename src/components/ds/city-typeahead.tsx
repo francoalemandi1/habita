@@ -1,17 +1,21 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Input } from "@/components/ui/input";
+import { useEffect, useRef, useState } from "react";
 import { MapPin } from "lucide-react";
+import { z } from "zod";
 import { cn } from "@/lib/utils";
 
-export interface CityResult {
-  id: string;
-  name: string;
-  province: string;
-  latitude?: number;
-  longitude?: number;
-}
+const cityResultSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  province: z.string(),
+  latitude: z.number().nullish(),
+  longitude: z.number().nullish(),
+});
+
+const citySearchResponseSchema = z.object({ cities: z.array(cityResultSchema) });
+
+export type CityResult = z.infer<typeof cityResultSchema>;
 
 interface CityTypeaheadProps {
   value: string;
@@ -21,16 +25,15 @@ interface CityTypeaheadProps {
   className?: string;
 }
 
+/** §6.3 TextField shape — city search with suggestions, used in Crear hogar and Perfil → Ubicación. */
 export function CityTypeahead({ value, onChange, onSelectCity, placeholder = "Buscar ciudad...", className }: CityTypeaheadProps) {
   const [cities, setCities] = useState<CityResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Debounced search
   useEffect(() => {
     if (value.length < 2) {
-      setCities([]);
       return;
     }
 
@@ -38,11 +41,16 @@ export function CityTypeahead({ value, onChange, onSelectCity, placeholder = "Bu
       try {
         const res = await fetch(`/api/cities?q=${encodeURIComponent(value)}`);
         if (res.ok) {
-          const data = (await res.json()) as { cities: CityResult[] };
-          setCities(data.cities);
+          const parsed = citySearchResponseSchema.safeParse(await res.json());
+          if (!parsed.success) {
+            console.warn("CityTypeahead: unexpected city search response", parsed.error);
+            return;
+          }
+          setCities(parsed.data.cities);
           setIsOpen(true);
         }
-      } catch {
+      } catch (error) {
+        console.warn("CityTypeahead: city search failed", error);
         setCities([]);
       }
     }, 200);
@@ -50,10 +58,11 @@ export function CityTypeahead({ value, onChange, onSelectCity, placeholder = "Bu
     return () => clearTimeout(timer);
   }, [value]);
 
-  // Close dropdown on outside click
+  const effectiveCities = value.length < 2 ? [] : cities;
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (containerRef.current && !(e.target instanceof Node && containerRef.current.contains(e.target))) {
         setIsOpen(false);
       }
     }
@@ -61,32 +70,31 @@ export function CityTypeahead({ value, onChange, onSelectCity, placeholder = "Bu
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const showDropdown = isOpen && isFocused && cities.length > 0;
+  const showDropdown = isOpen && isFocused && effectiveCities.length > 0;
 
   return (
     <div ref={containerRef} className={cn("relative", className)}>
-      <Input
+      <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         onFocus={() => {
           setIsFocused(true);
-          if (cities.length > 0) setIsOpen(true);
+          if (effectiveCities.length > 0) setIsOpen(true);
         }}
         onBlur={() => {
-          // Delay to allow click on dropdown item
           setTimeout(() => setIsFocused(false), 150);
         }}
         autoComplete="off"
-        className="text-sm"
+        className="h-12 w-full rounded-[12px] border border-line bg-paper px-3.5 text-[15px] text-ink outline-none transition-colors duration-180 focus:border-[1.5px] focus:border-monte focus:bg-surface"
       />
       {showDropdown && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-xl border border-border/50 bg-card shadow-lg">
-          {cities.map((city) => (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-[12px] border border-line bg-surface shadow-[0_1px_2px_rgba(29,38,32,.06),0_8px_24px_-8px_rgba(29,38,32,.18)]">
+          {effectiveCities.map((city) => (
             <button
               key={city.id}
               type="button"
-              className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-muted/50 first:rounded-t-xl last:rounded-b-xl"
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-sand first:rounded-t-[12px] last:rounded-b-[12px]"
               onMouseDown={(e) => {
                 e.preventDefault();
                 onChange(`${city.name}, ${city.province}`);
@@ -94,10 +102,10 @@ export function CityTypeahead({ value, onChange, onSelectCity, placeholder = "Bu
                 setIsOpen(false);
               }}
             >
-              <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <MapPin className="size-[14px] shrink-0 text-ink-2" strokeWidth={1.75} />
               <div>
-                <p className="text-sm font-medium">{city.name}</p>
-                <p className="text-xs text-muted-foreground">{city.province}</p>
+                <p className="text-[15px] font-medium text-ink">{city.name}</p>
+                <p className="text-[13px] text-ink-2">{city.province}</p>
               </div>
             </button>
           ))}

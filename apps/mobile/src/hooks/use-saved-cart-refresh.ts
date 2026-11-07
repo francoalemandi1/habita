@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError } from "@habita/api-client";
-import { pickCartsToAutoRefresh } from "@/lib/super-saved-carts-logic";
+import { pickCartsToAutoRefresh } from "@habita/prices";
 import { useRefreshSavedCart } from "@/hooks/use-saved-carts";
 
 import type { SavedCart } from "@habita/contracts";

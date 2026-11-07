@@ -11,7 +11,7 @@ import {
   useUpdateShoppingListItem,
 } from "@/hooks/use-shopping-list";
 import { useTopDeals } from "@/hooks/use-grocery-deals";
-import { buildCompareSearchItems, countUnchecked, matchesTopDeal } from "@/lib/super-shopping-list-logic";
+import { buildCompareSearchItems, countUnchecked, matchesTopDeal } from "@habita/prices";
 import { cancelDelete, scheduleDelete } from "@/lib/deferred-delete";
 import { createUniqueId } from "@/lib/unique-id";
 import { useThemeColors } from "@/hooks/use-theme";

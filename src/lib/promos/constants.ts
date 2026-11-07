@@ -11,8 +11,8 @@ import { SUPERMARKET_STORES } from "@/lib/vtex-client";
 /** Base URL for the promoarg.com promotions API. */
 export const PROMOARG_API_URL = "https://www.promoarg.com/api/promotions";
 
-/** Max concurrent store fetches. */
-export const FETCH_CONCURRENCY = 3;
+/** Max concurrent promoarg page requests, shared across all stores (~368 pages per full fetch). */
+export const FETCH_CONCURRENCY = 8;
 
 // ============================================
 // Store matching

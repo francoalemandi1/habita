@@ -12,12 +12,13 @@ import { useSavedCarts, useToggleSaveCart, isCartSaved } from "@/hooks/use-saved
 import { usePromos, getStorePromos } from "@/hooks/use-promos";
 import { StoreCartCard } from "@/components/features/store-cart-card";
 import { PaymentMethodChips } from "@/components/features/super/comparar/payment-method-chips";
+import { NotFoundRow } from "@/components/features/super/comparar/not-found-row";
 import { UnavailableStoresRow } from "@/components/features/super/comparar/unavailable-stores-row";
 import { SavedCartsSection } from "@/components/features/super/comparar/saved-carts-section";
-import { applyOverrides, buildSavingsSummary } from "@/lib/super-compare-logic";
+import { applyOverrides, buildSavingsSummary } from "@habita/prices";
 
-import type { AlternativeProduct, SearchItem, ShoppingPlanResult } from "@/lib/supermarket-search";
-import type { CartOverride } from "@/lib/super-compare-logic";
+import type { SearchItem, ShoppingPlanResult } from "@/lib/supermarket-search";
+import type { CartOverride, CompareAlternative as AlternativeProduct } from "@habita/prices";
 import type { SaveCartInput } from "@/lib/validations/saved-items";
 
 interface CompararViewProps {
@@ -133,6 +134,8 @@ export function CompararView({ searchItems, data, isLoading, error, householdCit
           />
         ))}
       </div>
+
+      <NotFoundRow notFound={data.notFound} suggestions={data.suggestions} />
 
       <UnavailableStoresRow stores={data.unavailableStores} />
 

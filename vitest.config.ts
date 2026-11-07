@@ -11,11 +11,11 @@ export default defineConfig({
     alias: [
       { find: "@", replacement: path.resolve(__dirname, "./src") },
       {
-        find: /^@habita\/(contracts|api-client|domain|design-tokens)$/,
+        find: /^@habita\/(contracts|api-client|domain|design-tokens|prices)$/,
         replacement: path.resolve(__dirname, "./packages/$1/src/index.ts"),
       },
       {
-        find: /^@habita\/(contracts|api-client|domain|design-tokens)\/(.+)$/,
+        find: /^@habita\/(contracts|api-client|domain|design-tokens|prices)\/(.+)$/,
         replacement: path.resolve(__dirname, "./packages/$1/src/$2.ts"),
       },
     ],

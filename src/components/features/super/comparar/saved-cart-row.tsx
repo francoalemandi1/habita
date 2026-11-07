@@ -2,7 +2,7 @@
 
 import { Trash2 } from "lucide-react";
 import { StoreChip } from "@/components/ds/store-chip";
-import { formatCartAge, isCartStale } from "@/lib/super-saved-carts-logic";
+import { formatCartAge, isCartStale } from "@habita/prices";
 
 import type { SavedCart } from "@prisma/client";
 import type { SavedCartRefreshResult } from "@/hooks/use-saved-cart-refresh";

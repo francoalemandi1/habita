@@ -13,7 +13,7 @@ import { useExpenseBalances } from "@/hooks/use-expense-balances";
 import { useExpenseInsights } from "@/hooks/use-expense-insights";
 import { useSavedCarts } from "@/hooks/use-saved-carts";
 import { useShoppingList } from "@/hooks/use-shopping-list";
-import { countUnchecked } from "@/lib/super-shopping-list-logic";
+import { countUnchecked } from "@habita/prices";
 import { useEvents } from "@/hooks/use-events";
 import { useTransfers } from "@/hooks/use-transfers";
 import { useNotifications } from "@/hooks/use-notifications";

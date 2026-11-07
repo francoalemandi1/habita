@@ -27,7 +27,9 @@
       "@habita/contracts": ["./packages/contracts/src/index.ts"],
       "@habita/design-tokens": ["./packages/design-tokens/src/index.ts"],
       "@habita/domain": ["./packages/domain/src/index.ts"],
-      "@habita/domain/*": ["./packages/domain/src/*"]
+      "@habita/domain/*": ["./packages/domain/src/*"],
+      "@habita/prices": ["./packages/prices/src/index.ts"],
+      "@habita/prices/*": ["./packages/prices/src/*"]
     }
   },
   "include": [

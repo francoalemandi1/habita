@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { applyOverrides, buildSavingsSummary, isTermMissing } from "@/lib/super-compare-logic";
+import { applyOverrides, buildSavingsSummary, isTermMissing } from "@habita/prices";
 
-import type { AdjustedStoreCart } from "@/lib/super-compare-logic";
-import type { StoreCart } from "@/lib/supermarket-search";
+import type { AdjustedStoreCart, StoreCart } from "@habita/prices";
 
 function baseCart(overrides: Partial<StoreCart> = {}): StoreCart {
   return {
@@ -72,6 +71,10 @@ describe("buildSavingsSummary", () => {
 
   it("returns nulls with only one cart", () => {
     expect(buildSavingsSummary([baseCart()])).toEqual({ savingsVsNext: null, nextStoreName: null });
+  });
+
+  it("returns nulls with no carts", () => {
+    expect(buildSavingsSummary([])).toEqual({ savingsVsNext: null, nextStoreName: null });
   });
 });
 

@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 import { queryKeys } from "@habita/contracts";
-import { sortShoppingListItems } from "@/lib/super-shopping-list-logic";
+import { sortShoppingListItems } from "@habita/prices";
 import { OFFLINE_MUTATION_KEYS } from "@/lib/offline-mutation-keys";
 import { readStringField, usePendingMutationIds } from "./use-pending-mutations";
 

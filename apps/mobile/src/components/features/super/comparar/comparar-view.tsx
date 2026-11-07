@@ -10,12 +10,13 @@ import { usePromos } from "@/hooks/use-promos";
 import { usePaymentMethods } from "@/components/features/super/comparar/payment-methods";
 import { PaymentMethodChips } from "@/components/features/super/comparar/payment-method-chips";
 import { StoreCartCard } from "@/components/features/super/comparar/store-cart-card";
+import { NotFoundRow } from "@/components/features/super/comparar/not-found-row";
 import { UnavailableStoresRow } from "@/components/features/super/comparar/unavailable-stores-row";
 import { SavedCartsSection } from "@/components/features/super/comparar/saved-carts-section";
-import { applyOverrides, buildSavingsSummary } from "@/lib/super-compare-logic";
+import { applyOverrides, buildSavingsSummary } from "@habita/prices";
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
-import type { CartOverride } from "@/lib/super-compare-logic";
+import type { CartOverride } from "@habita/prices";
 import type { AlternativeProduct, SaveCartInput, SearchItem, ShoppingPlanResult } from "@habita/contracts";
 
 function overrideMapKey(storeName: string, searchTerm: string): string {
@@ -37,7 +38,7 @@ interface CompararViewProps {
 
 export function CompararView({ searchItems, data, isLoading, error, onRetry, onScroll }: CompararViewProps): React.JSX.Element {
   const colors = useThemeColors();
-  const [overrides, setOverrides] = useState<Map<string, CartOverride>>(new Map());
+  const [overrides, setOverrides] = useState<Map<string, CartOverride<unknown>>>(new Map());
   const { paymentMethods, togglePaymentMethod } = usePaymentMethods();
   const { data: savedCarts } = useSavedCarts();
   const deleteSavedCart = useDeleteSavedCart();
@@ -149,6 +150,8 @@ export function CompararView({ searchItems, data, isLoading, error, onRetry, onS
           />
         ))}
       </View>
+
+      <NotFoundRow notFound={data.notFound} suggestions={data.suggestions} />
 
       <UnavailableStoresRow stores={data.unavailableStores} />
 

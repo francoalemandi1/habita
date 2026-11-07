@@ -12,6 +12,7 @@ import { useSavedCarts, useToggleSaveCart, isCartSaved } from "@/hooks/use-saved
 import { usePromos, getStorePromos } from "@/hooks/use-promos";
 import { StoreCartCard } from "@/components/features/store-cart-card";
 import { PaymentMethodChips } from "@/components/features/super/comparar/payment-method-chips";
+import { NotFoundRow } from "@/components/features/super/comparar/not-found-row";
 import { UnavailableStoresRow } from "@/components/features/super/comparar/unavailable-stores-row";
 import { SavedCartsSection } from "@/components/features/super/comparar/saved-carts-section";
 import { applyOverrides, buildSavingsSummary } from "@/lib/super-compare-logic";
@@ -133,6 +134,8 @@ export function CompararView({ searchItems, data, isLoading, error, householdCit
           />
         ))}
       </div>
+
+      <NotFoundRow notFound={data.notFound} suggestions={data.suggestions} />
 
       <UnavailableStoresRow stores={data.unavailableStores} />
 

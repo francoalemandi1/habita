@@ -42,16 +42,27 @@ export const storeCartSchema = z.object({
   totalSearched: z.number().int().nonnegative(),
 });
 
+export const notFoundSuggestionSchema = z.object({
+  term: z.string(),
+  storeName: z.string(),
+  productName: z.string(),
+  price: z.number(),
+  link: z.string(),
+});
+
 export const shoppingPlanResultSchema = z.object({
   storeCarts: z.array(storeCartSchema),
   notFound: z.array(z.string()),
   // Added after initial release — old AiJobLog.resultData rows lack it.
   unavailableStores: z.array(z.string()).default([]),
   searchedAt: z.string(),
+  // Near-miss products for notFound terms. Absent on results saved before it existed.
+  suggestions: z.array(notFoundSuggestionSchema).optional(),
 });
 
 export type SearchItem = z.infer<typeof searchItemSchema>;
 export type StoreCart = z.infer<typeof storeCartSchema>;
 export type ShoppingPlanResult = z.infer<typeof shoppingPlanResultSchema>;
 export type AlternativeProduct = z.infer<typeof alternativeProductSchema>;
+export type NotFoundSuggestion = z.infer<typeof notFoundSuggestionSchema>;
 export type ShoppingPlanAlternativesResponse = z.infer<typeof shoppingPlanAlternativesResponseSchema>;

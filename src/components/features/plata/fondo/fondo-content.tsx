@@ -5,7 +5,8 @@ import { Wallet } from "lucide-react";
 import { EmptyState } from "@/components/ds/empty-state";
 import { Button } from "@/components/ds/button";
 import { Skeleton } from "@/components/ds/skeleton";
-import { useFund } from "@/hooks/use-fund";
+import { InlineError } from "@/components/features/inline-error";
+import { useContributeToFund, useFund, useSetupFund } from "@/hooks/use-fund";
 import { FundSetupDialog } from "@/components/features/fund-setup-dialog";
 import { FondoHero } from "./fondo-hero";
 import { FondoQuotasList } from "./fondo-quotas-list";
@@ -15,7 +16,9 @@ import { FondoContributeSheet } from "./fondo-contribute-sheet";
 import type { PlataViewProps } from "../plata-view-props";
 
 export function FondoContent({ currentMemberId, currentMemberType, members }: PlataViewProps): React.JSX.Element {
-  const { fund, isLoading, contribute, setup } = useFund();
+  const { data: fund, isLoading, isError, refetch } = useFund();
+  const contribute = useContributeToFund();
+  const setup = useSetupFund();
   const [showSetup, setShowSetup] = useState(false);
   const [showContribute, setShowContribute] = useState(false);
 
@@ -26,6 +29,10 @@ export function FondoContent({ currentMemberId, currentMemberType, members }: Pl
         <Skeleton className="h-32 w-full" />
       </div>
     );
+  }
+
+  if (isError) {
+    return <InlineError message="No pudimos cargar el fondo." onRetry={() => refetch()} />;
   }
 
   if (!fund) {
@@ -53,7 +60,7 @@ export function FondoContent({ currentMemberId, currentMemberType, members }: Pl
             allMembers={members}
             currentMemberId={currentMemberId}
             onSaved={async (payload) => {
-              await setup(payload);
+              await setup.mutateAsync(payload);
               setShowSetup(false);
             }}
           />
@@ -76,7 +83,7 @@ export function FondoContent({ currentMemberId, currentMemberType, members }: Pl
         open={showContribute}
         onOpenChange={setShowContribute}
         currentMemberStatus={currentMemberStatus}
-        onContribute={contribute}
+        onContribute={async (payload) => { await contribute.mutateAsync(payload); }}
       />
     </div>
   );

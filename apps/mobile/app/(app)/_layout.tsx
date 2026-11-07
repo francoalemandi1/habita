@@ -130,8 +130,6 @@ export default function AppLayout() {
         <Tabs.Screen name="new-task" options={{ href: null, title: "Nueva tarea" }} />
         <Tabs.Screen name="dev-components" options={{ href: null, title: "Componentes" }} />
         <Tabs.Screen name="new-expense" options={{ href: null, title: "Nuevo gasto" }} />
-        <Tabs.Screen name="expense-insights" options={{ href: null, title: "Insights financieros" }} />
-        <Tabs.Screen name="services" options={{ href: null, title: "Servicios" }} />
       </Tabs>
       <AnotarSheet />
     </>

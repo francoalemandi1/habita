@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Receipt } from "lucide-react";
+import { PLATA_ROUTES } from "@habita/contracts";
 import { useSnackbar } from "@/components/ds/snackbar";
 import { EditExpenseDialog } from "@/components/features/edit-expense-dialog";
 import { apiFetch } from "@/lib/api-client";
@@ -66,16 +67,6 @@ export function ExpenseDetailView({
     }
   }
 
-  async function handleExpenseDeleted(expenseId: string): Promise<void> {
-    try {
-      await apiFetch(`/api/expenses/${expenseId}`, { method: "DELETE" });
-      snackbar.show({ text: "Gasto eliminado" });
-      router.push("/plata");
-    } catch {
-      snackbar.show({ text: "No se pudo eliminar", tone: "error" });
-    }
-  }
-
   return (
     <div className="flex flex-col gap-6 px-5 py-4">
       <div className="flex items-center justify-between">
@@ -126,7 +117,7 @@ export function ExpenseDetailView({
 
       {invoice && (
         <a
-          href={invoice.pdfUrl ?? "/services"}
+          href={invoice.pdfUrl ?? PLATA_ROUTES.servicios}
           target={invoice.pdfUrl ? "_blank" : undefined}
           rel={invoice.pdfUrl ? "noreferrer" : undefined}
           className="flex items-center gap-2 text-[14px] text-monte underline underline-offset-[3px]"
@@ -150,7 +141,6 @@ export function ExpenseDetailView({
           open={editOpen}
           onClose={() => setEditOpen(false)}
           onExpenseUpdated={handleExpenseUpdated}
-          onExpenseDeleted={handleExpenseDeleted}
         />
       )}
     </div>

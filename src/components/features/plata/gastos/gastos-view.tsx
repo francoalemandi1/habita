@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { PLATA_ROUTES } from "@habita/contracts";
 import { AddExpenseDialog } from "@/components/features/add-expense-dialog";
 import { Receipt } from "lucide-react";
 import { useExpenseInsights } from "@/hooks/use-expense-insights";
@@ -51,7 +52,7 @@ export function GastosView({
 }: GastosViewProps): React.JSX.Element {
   const router = useRouter();
   const snackbar = useSnackbar();
-  const { data: insights, isLoading: insightsLoading } = useExpenseInsights({});
+  const { data: insights, isLoading: insightsLoading } = useExpenseInsights();
 
   const [expenses, setExpenses] = useState(initialExpenses);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -135,11 +136,11 @@ export function GastosView({
       )}
 
       <div className="flex gap-5 pt-2">
-        <Link href="/services" className="text-[13px] text-ink-2 underline underline-offset-[3px]">
+        <Link href={PLATA_ROUTES.servicios} className="text-[13px] text-ink-2 underline underline-offset-[3px]">
           Servicios
         </Link>
-        <Link href="/expense-insights" className="text-[13px] text-ink-2 underline underline-offset-[3px]">
-          Análisis
+        <Link href={PLATA_ROUTES.comoVenimos} className="text-[13px] text-ink-2 underline underline-offset-[3px]">
+          Cómo venimos
         </Link>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Wallet } from "lucide-react-native";
-import { EmptyState, Skeleton } from "@/components/ds";
+import { Banner, Button, EmptyState, Skeleton } from "@/components/ds";
 import { spacing } from "@/theme";
 import { useContributeToFund, useFund, useSetupFund } from "@/hooks/use-fund";
 import { FondoHero } from "./fondo-hero";
@@ -13,7 +13,7 @@ import { FondoSetupSheet } from "./fondo-setup-sheet";
 import type { PlataViewProps } from "../plata-view-props";
 
 export function FondoContent({ currentMemberId, currentMemberType, members }: PlataViewProps): React.JSX.Element {
-  const { data: fund, isLoading } = useFund();
+  const { data: fund, isLoading, isError, refetch } = useFund();
   const contribute = useContributeToFund();
   const setup = useSetupFund();
   const [showSetup, setShowSetup] = useState(false);
@@ -24,6 +24,15 @@ export function FondoContent({ currentMemberId, currentMemberType, members }: Pl
       <View style={styles.gap}>
         <Skeleton height={160} />
         <Skeleton height={96} />
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.errorBlock}>
+        <Banner tone="attention" text="No pudimos cargar el fondo." />
+        <Button label="Reintentar" variant="link" onPress={() => void refetch()} />
       </View>
     );
   }
@@ -78,5 +87,8 @@ export function FondoContent({ currentMemberId, currentMemberType, members }: Pl
 const styles = StyleSheet.create({
   gap: {
     gap: spacing.xl,
+  },
+  errorBlock: {
+    gap: spacing.xs,
   },
 });

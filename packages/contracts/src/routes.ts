@@ -32,6 +32,12 @@ export const PERFIL_ROUTES = {
   availability: "/perfil/disponibilidad",
 } as const;
 
+/** Screens inside the Plata place (handoff §5.2 / §5.3 "Servicios", "Cómo venimos"). */
+export const PLATA_ROUTES = {
+  servicios: "/plata/servicios",
+  comoVenimos: "/plata/como-venimos",
+} as const;
+
 /**
  * A canonical route or a screen nested under it, optionally with a query string
  * selecting a view inside it (e.g. `/plata?v=fondo`, `/tareas/rotaciones?sorteo=1`).
@@ -66,6 +72,8 @@ export const LEGACY_ROUTE_ALIASES: Readonly<Record<string, LegacyAliasTarget>> =
   // Preferences grew into Disponibilidad (7 days × 3 slots + preferences + absences).
   "/preferences": PERFIL_ROUTES.availability,
   "/notification-settings": PERFIL_ROUTES.notificationSettings,
+  "/services": PLATA_ROUTES.servicios,
+  "/expense-insights": PLATA_ROUTES.comoVenimos,
 };
 
 /** Mobile deep-link aliases; identical to web now that Tareas absorbed `/tasks`. */

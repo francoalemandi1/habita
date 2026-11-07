@@ -90,11 +90,11 @@ export function GastosView({ currentMemberId, currentMemberType, members, onScro
 
   const footer = (
     <View style={styles.footerLinks}>
-      <Pressable onPress={() => router.push("/(app)/services")}>
+      <Pressable onPress={() => router.push("/(app)/plata/servicios")}>
         <Text style={styles.footerLink}>Servicios</Text>
       </Pressable>
-      <Pressable onPress={() => router.push("/(app)/expense-insights")}>
-        <Text style={styles.footerLink}>Análisis</Text>
+      <Pressable onPress={() => router.push("/(app)/plata/como-venimos")}>
+        <Text style={styles.footerLink}>Cómo venimos</Text>
       </Pressable>
     </View>
   );

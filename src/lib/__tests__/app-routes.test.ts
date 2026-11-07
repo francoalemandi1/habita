@@ -9,6 +9,7 @@ import {
   MOBILE_LEGACY_ROUTE_ALIASES,
   normalizeAppPath,
   PERFIL_ROUTES,
+  PLATA_ROUTES,
   TAREAS_ROUTES,
 } from "@habita/contracts";
 
@@ -50,6 +51,11 @@ describe("normalizeAppPath", () => {
     expect(normalizeAppPath("/settings")).toBe("/perfil");
   });
 
+  it("maps the old Services and Cómo venimos screens into the Plata place", () => {
+    expect(normalizeAppPath("/services")).toBe(PLATA_ROUTES.servicios);
+    expect(normalizeAppPath("/expense-insights")).toBe(PLATA_ROUTES.comoVenimos);
+  });
+
   it("maps /fund to the Fondo view inside Plata", () => {
     expect(normalizeAppPath("/fund")).toBe("/plata?v=fondo");
   });
@@ -66,6 +72,7 @@ describe("route tables", () => {
       ...Object.values(APP_ROUTES),
       ...Object.values(TAREAS_ROUTES),
       ...Object.values(PERFIL_ROUTES),
+      ...Object.values(PLATA_ROUTES),
     ]);
     for (const target of Object.values(MOBILE_LEGACY_ROUTE_ALIASES)) {
       const base = target.split("?")[0] ?? target;
@@ -84,7 +91,12 @@ describe("web pages", () => {
   const mainRoutesDir = path.join(process.cwd(), "src/app/(app)/(main)");
 
   it("has a page for every canonical web route", () => {
-    for (const route of [...Object.values(APP_ROUTES), ...Object.values(TAREAS_ROUTES), ...Object.values(PERFIL_ROUTES)]) {
+    for (const route of [
+      ...Object.values(APP_ROUTES),
+      ...Object.values(TAREAS_ROUTES),
+      ...Object.values(PERFIL_ROUTES),
+      ...Object.values(PLATA_ROUTES),
+    ]) {
       expect(existsSync(path.join(mainRoutesDir, route, "page.tsx")), route).toBe(true);
     }
   });

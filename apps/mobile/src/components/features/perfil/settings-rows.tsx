@@ -28,7 +28,8 @@ export function SettingsRows({ onEditNamePress }: SettingsRowsProps): React.JSX.
         onPress={() => router.push("/(app)/perfil/disponibilidad")}
       />
       <ListRow icon={Bell} title="Avisos" onPress={() => router.push("/(app)/perfil/avisos")} />
-      <ListRow icon={Wrench} title="Servicios" onPress={() => router.push("/(app)/services")} />
+      {/* Mirrors PLATA_ROUTES.servicios (@habita/contracts) with the mobile route-group prefix */}
+      <ListRow icon={Wrench} title="Servicios" onPress={() => router.push("/(app)/plata/servicios")} />
       <View style={styles.themeRow}>
         <Text style={styles.themeLabel}>Apariencia</Text>
         <ThemeRow />

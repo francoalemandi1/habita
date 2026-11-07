@@ -126,7 +126,6 @@ export default function AppLayout() {
         <Tabs.Screen name="avisos" options={{ href: null, title: "Avisos" }} />
 
         {/* ── Hidden screens (accessible via router.push) ── */}
-        <Tabs.Screen name="descubrir" options={{ href: null, title: "Descubrí" }} />
         <Tabs.Screen name="new-task" options={{ href: null, title: "Nueva tarea" }} />
         <Tabs.Screen name="dev-components" options={{ href: null, title: "Componentes" }} />
         <Tabs.Screen name="new-expense" options={{ href: null, title: "Nuevo gasto" }} />

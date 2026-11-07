@@ -32,6 +32,11 @@ export const PERFIL_ROUTES = {
   availability: "/perfil/disponibilidad",
 } as const;
 
+/** Screens inside the Casa place (handoff §5.2: Descubrí became the Planes list). */
+export const CASA_ROUTES = {
+  plans: "/casa/planes",
+} as const;
+
 /** Screens inside the Plata place (handoff §5.2 / §5.3 "Servicios", "Cómo venimos"). */
 export const PLATA_ROUTES = {
   servicios: "/plata/servicios",
@@ -74,6 +79,7 @@ export const LEGACY_ROUTE_ALIASES: Readonly<Record<string, LegacyAliasTarget>> =
   "/notification-settings": PERFIL_ROUTES.notificationSettings,
   "/services": PLATA_ROUTES.servicios,
   "/expense-insights": PLATA_ROUTES.comoVenimos,
+  "/descubrir": CASA_ROUTES.plans,
 };
 
 /** Mobile deep-link aliases; identical to web now that Tareas absorbed `/tasks`. */

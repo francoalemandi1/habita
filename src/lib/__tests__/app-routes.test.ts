@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   APP_ROUTES,
+  CASA_ROUTES,
   LEGACY_ROUTE_ALIASES,
   MOBILE_LEGACY_ROUTE_ALIASES,
   normalizeAppPath,
@@ -56,6 +57,10 @@ describe("normalizeAppPath", () => {
     expect(normalizeAppPath("/expense-insights")).toBe(PLATA_ROUTES.comoVenimos);
   });
 
+  it("maps the old Descubrí screen to the Planes list in Casa", () => {
+    expect(normalizeAppPath("/descubrir")).toBe(CASA_ROUTES.plans);
+  });
+
   it("maps /fund to the Fondo view inside Plata", () => {
     expect(normalizeAppPath("/fund")).toBe("/plata?v=fondo");
   });
@@ -73,6 +78,7 @@ describe("route tables", () => {
       ...Object.values(TAREAS_ROUTES),
       ...Object.values(PERFIL_ROUTES),
       ...Object.values(PLATA_ROUTES),
+      ...Object.values(CASA_ROUTES),
     ]);
     for (const target of Object.values(MOBILE_LEGACY_ROUTE_ALIASES)) {
       const base = target.split("?")[0] ?? target;
@@ -96,6 +102,7 @@ describe("web pages", () => {
       ...Object.values(TAREAS_ROUTES),
       ...Object.values(PERFIL_ROUTES),
       ...Object.values(PLATA_ROUTES),
+      ...Object.values(CASA_ROUTES),
     ]) {
       expect(existsSync(path.join(mainRoutesDir, route, "page.tsx")), route).toBe(true);
     }

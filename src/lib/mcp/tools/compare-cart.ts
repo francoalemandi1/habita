@@ -11,9 +11,11 @@
 
 import { z } from "zod";
 
+import { isPromoExpired, promoAppliesOnDay } from "@habita/prices";
+
 import { compareProducts } from "@/lib/supermarket-search";
 import { cacheGet, cacheSet, compareCacheKey, COMPARE_CACHE_TTL_SECONDS } from "../cache";
-import { loadPromoCatalog, isPromoExpired, promoAppliesOnDay, matchesAnyPaymentMethod } from "../promo-catalog";
+import { loadPromoCatalog, matchesAnyPaymentMethod } from "../promo-catalog";
 import { WEEKDAYS, getTodayDayNameInBuenosAires } from "../weekday";
 
 import type { NotFoundSuggestion, ShoppingPlanResult } from "@/lib/supermarket-search";

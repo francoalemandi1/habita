@@ -7,8 +7,10 @@
 
 import { z } from "zod";
 
+import { isPromoExpired, promoAppliesOnDay } from "@habita/prices";
+
 import { SUPERMARKET_STORES } from "@/lib/vtex-client";
-import { loadPromoCatalog, isPromoExpired, promoAppliesOnDay, matchesBankFilter } from "../promo-catalog";
+import { loadPromoCatalog, matchesBankFilter } from "../promo-catalog";
 import { WEEKDAYS, getTodayDayNameInBuenosAires } from "../weekday";
 
 import type { CachedPromo } from "../promo-catalog";

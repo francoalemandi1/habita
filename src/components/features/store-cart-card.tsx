@@ -644,37 +644,11 @@ function ProductThumbnail({ imageUrl, size = "md" }: { imageUrl: string | null; 
 // Promo Banner
 // ============================================
 
-import { scorePromo, parseDaysOfWeek, getTodayDayName, isPromoExpired, promoAppliesToday } from "@/lib/promos/scoring";
-
-/** Map lowercase day names → short labels (case-insensitive lookup). */
-const DAY_SHORT: Record<string, string> = {
-  lunes: "Lun", martes: "Mar", "miércoles": "Mié", miercoles: "Mié",
-  jueves: "Jue", viernes: "Vie", "sábado": "Sáb", sabado: "Sáb", domingo: "Dom",
-};
-
-function formatDaysShort(daysOfWeek: string): string {
-  const days = parseDaysOfWeek(daysOfWeek);
-  if (days.length === 0 || days.length === 7) return "Todos";
-  return days.map((d) => DAY_SHORT[d.toLowerCase()] ?? d).join(", ");
-}
+import { bestPromoPerBank, formatDaysShort, getLocalDayName, promoAppliesOnDay, sortActivePromosByScore } from "@habita/prices";
 
 function formatCapShort(capAmount: number | null): string | null {
   if (!capAmount) return null;
   return `$${capAmount.toLocaleString("es-AR")}`;
-}
-
-function getBankBestPromos(promos: BankPromo[], todayName: string) {
-  const active = promos.filter((p) => !isPromoExpired(p));
-  const bankMap = new Map<string, BankPromo>();
-  for (const promo of active) {
-    const existing = bankMap.get(promo.bankSlug);
-    if (!existing || scorePromo(promo, todayName) > scorePromo(existing, todayName)) {
-      bankMap.set(promo.bankSlug, promo);
-    }
-  }
-  return Array.from(bankMap.values()).sort(
-    (a, b) => scorePromo(b, todayName) - scorePromo(a, todayName),
-  );
 }
 
 interface PromoBannerProps {
@@ -685,14 +659,13 @@ interface PromoBannerProps {
 
 function PromoBanner({ promos, selectedPromoId, onSelectPromo }: PromoBannerProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const todayName = getTodayDayName();
-  const bestPerBank = getBankBestPromos(promos, todayName);
+  const now = new Date();
+  const todayName = getLocalDayName(now);
+  const bestPerBank = bestPromoPerBank(promos, todayName, now);
   const best = bestPerBank[0]!;
   const extraPromos = promos.length - bestPerBank.length;
 
-  const allSorted = promos.filter((p) => !isPromoExpired(p)).sort(
-    (a, b) => scorePromo(b, todayName) - scorePromo(a, todayName),
-  );
+  const allSorted = sortActivePromosByScore(promos, todayName, now);
   const visiblePromos = isExpanded ? allSorted : bestPerBank;
 
   const selectedBank = selectedPromoId ? promos.find((p) => p.id === selectedPromoId) : null;
@@ -700,7 +673,7 @@ function PromoBanner({ promos, selectedPromoId, onSelectPromo }: PromoBannerProp
   const summaryText = selectedBank
     ? `${selectedBank.discountPercent}% ${selectedBank.bankDisplayName}`
     : bestPerBank.length === 1
-      ? `${best.discountPercent}% ${best.bankDisplayName} (${formatDaysShort(best.daysOfWeek)})`
+      ? `${best.discountPercent}% ${best.bankDisplayName} (${formatDaysShort(best.daysOfWeek, { allDaysLabel: "Todos" })})`
       : `Hasta ${best.discountPercent}% dto · ${bestPerBank.length} bancos`;
 
   return (
@@ -732,7 +705,7 @@ function PromoBanner({ promos, selectedPromoId, onSelectPromo }: PromoBannerProp
             const isSelected = promo.id === selectedPromoId;
             const cap = formatCapShort(promo.capAmount);
             const paymentMethods = parseJsonArray(promo.paymentMethods);
-            const appliesToday = promoAppliesToday(promo, todayName);
+            const appliesToday = promoAppliesOnDay(promo, todayName);
             return (
               <button
                 key={promo.id}
@@ -763,7 +736,7 @@ function PromoBanner({ promos, selectedPromoId, onSelectPromo }: PromoBannerProp
                   <span className="text-[10px] text-muted-foreground">· {paymentMethods[0]}</span>
                 )}
                 <span className="text-[10px] text-muted-foreground">
-                  {formatDaysShort(promo.daysOfWeek)}
+                  {formatDaysShort(promo.daysOfWeek, { allDaysLabel: "Todos" })}
                 </span>
                 {appliesToday && (
                   <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">

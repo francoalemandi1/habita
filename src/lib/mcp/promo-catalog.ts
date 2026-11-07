@@ -21,7 +21,6 @@ import {
 } from "./cache";
 
 import type { NormalizedPromo } from "@/lib/promos/normalize";
-import type { Weekday } from "./weekday";
 
 // ============================================
 // Cached catalog (normalized, dates as ISO strings)
@@ -136,17 +135,6 @@ export function normalizeForMatch(text: string): string {
 /** Like normalizeForMatch, but also strips whitespace — for slug-style comparisons ("mercado pago" ↔ "mercadopago"). */
 function normalizeSlug(text: string): string {
   return normalizeForMatch(text).replace(/\s+/g, "");
-}
-
-export function isPromoExpired(promo: CachedPromo, now: Date): boolean {
-  if (!promo.validUntil) return false;
-  return new Date(promo.validUntil) < now;
-}
-
-/** Empty daysOfWeek means the promo applies every day. */
-export function promoAppliesOnDay(promo: CachedPromo, day: Weekday): boolean {
-  if (promo.daysOfWeek.length === 0) return true;
-  return promo.daysOfWeek.some((d) => normalizeForMatch(d) === normalizeForMatch(day));
 }
 
 /** Exact match (case/accent-insensitive) against bankSlug or bankDisplayName. */

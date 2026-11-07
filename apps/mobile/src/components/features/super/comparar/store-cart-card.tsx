@@ -4,7 +4,7 @@ import { Bookmark, BookmarkCheck, ChevronDown, Trophy } from "lucide-react-nativ
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
 import { radii as radius } from "@habita/design-tokens";
-import { calcDiscountedPrice } from "@/lib/super-promo-logic";
+import { discountedPrice } from "@habita/prices";
 import { PromoBanner } from "@/components/features/super/comparar/promo-banner";
 import { ProductRow } from "@/components/features/super/comparar/product-row";
 
@@ -46,7 +46,7 @@ export function StoreCartCard({
 
   const selectedPromo = selectedPromoId ? promos.find((p) => p.id === selectedPromoId) : null;
   const discountedTotal = selectedPromo
-    ? calcDiscountedPrice(cart.totalPrice, selectedPromo.discountPercent, selectedPromo.capAmount)
+    ? discountedPrice(cart.totalPrice, selectedPromo.discountPercent, selectedPromo.capAmount)
     : null;
 
   return (

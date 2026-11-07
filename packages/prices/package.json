@@ -1,0 +1,10 @@
+{
+  "name": "@habita/prices",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./promo-math": "./src/promo-math.ts"
+  }
+}

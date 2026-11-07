@@ -4,13 +4,7 @@ import { Check, ChevronDown, ChevronUp, CreditCard } from "lucide-react-native";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
 import { radii as radius } from "@habita/design-tokens";
-import {
-  formatDaysShort,
-  getBestPromosByBank,
-  getTodayDayName,
-  isPromoExpired,
-  scorePromo,
-} from "@/lib/super-promo-logic";
+import { bestPromoPerBank, formatDaysShort, getLocalDayName, sortActivePromosByScore } from "@habita/prices";
 
 import type { ThemeColors } from "@/theme";
 import type { BankPromo } from "@habita/contracts";
@@ -29,13 +23,14 @@ export function PromoBanner({ promos, selectedPromoId, onSelectPromo }: PromoBan
 
   if (promos.length === 0) return null;
 
-  const todayName = getTodayDayName();
-  const bestPerBank = getBestPromosByBank(promos, todayName);
+  const now = new Date();
+  const todayName = getLocalDayName(now);
+  const bestPerBank = bestPromoPerBank(promos, todayName, now);
   const best = bestPerBank[0];
   if (!best) return null;
   const extraCount = promos.length - bestPerBank.length;
 
-  const allSorted = promos.filter((p) => !isPromoExpired(p)).sort((a, b) => scorePromo(b, todayName) - scorePromo(a, todayName));
+  const allSorted = sortActivePromosByScore(promos, todayName, now);
   const visiblePromos = expanded ? allSorted : bestPerBank;
 
   const selectedPromo = selectedPromoId ? promos.find((p) => p.id === selectedPromoId) : null;
@@ -43,7 +38,7 @@ export function PromoBanner({ promos, selectedPromoId, onSelectPromo }: PromoBan
   const summaryText = selectedPromo
     ? `${selectedPromo.discountPercent}% ${selectedPromo.bankDisplayName}`
     : bestPerBank.length === 1
-      ? `${best.discountPercent}% ${best.bankDisplayName} · ${formatDaysShort(best.daysOfWeek)}`
+      ? `${best.discountPercent}% ${best.bankDisplayName} · ${formatDaysShort(best.daysOfWeek, { allDaysLabel: "Todos los días" })}`
       : `Hasta ${best.discountPercent}% dto · ${bestPerBank.length} bancos`;
 
   return (
@@ -74,7 +69,7 @@ export function PromoBanner({ promos, selectedPromoId, onSelectPromo }: PromoBan
                   <Text style={[styles.badgeText, isSelected && styles.badgeTextSelected]}>{promo.discountPercent}%</Text>
                 </View>
                 <Text style={styles.itemBank} numberOfLines={1}>
-                  {promo.bankDisplayName} · {formatDaysShort(promo.daysOfWeek)}
+                  {promo.bankDisplayName} · {formatDaysShort(promo.daysOfWeek, { allDaysLabel: "Todos los días" })}
                 </Text>
                 {isSelected ? <Check size={14} strokeWidth={1.75} color={colors.monte} /> : null}
               </Pressable>

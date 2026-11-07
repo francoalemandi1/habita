@@ -7,8 +7,16 @@ import { fontFamilyForWeight, spacing } from "@/theme";
 import { describeExpenseConsequence, formatExpenseConsequence } from "@habita/domain";
 import { formatCurrencyArs } from "@/lib/plata-money-saldos";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
-import { EXPENSE_CATEGORY_LABELS, buildExpensePayload, dueDateToIsoStartOfDay } from "@/lib/anotar-draft-logic";
+import { useFund } from "@/hooks/use-fund";
+import {
+  EXPENSE_CATEGORY_LABELS,
+  buildExpensePayload,
+  dueDateToIsoStartOfDay,
+  isFundToggleVisible,
+  resolveChargeToFund,
+} from "@/lib/anotar-draft-logic";
 import { AnotarExpenseFieldEditor } from "./anotar-expense-field-editor";
+import { AnotarExpenseMoreOptions } from "./anotar-expense-more-options";
 import type { AnotarExpenseField } from "./anotar-expense-field-editor";
 import type { ThemeColors } from "@/theme";
 import type { MemberSummary } from "@habita/contracts";
@@ -43,6 +51,7 @@ export function AnotarExpensePreview({
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [editingField, setEditingField] = useState<AnotarExpenseField | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { data: fund } = useFund();
 
   const nameByMemberId = useMemo(() => new Map(members.map((m) => [m.id, m.name])), [members]);
   const consequence = currentMemberId
@@ -63,7 +72,8 @@ export function AnotarExpensePreview({
   const handleSave = async () => {
     setError(null);
     try {
-      const payload = { ...buildExpensePayload(draft), date: dueDateToIsoStartOfDay(date) ?? undefined };
+      const resolvedChargeToFund = resolveChargeToFund(draft.chargeToFund, isFundToggleVisible(fund, draft.category));
+      const payload = { ...buildExpensePayload(draft, resolvedChargeToFund), date: dueDateToIsoStartOfDay(date) ?? undefined };
       const wasQueued = await onSave({ kind: "expense", payload });
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onSaved(wasQueued);
@@ -100,6 +110,9 @@ export function AnotarExpensePreview({
       </View>
 
       {consequence ? <Text style={styles.consequence}>{consequence}</Text> : null}
+
+      <AnotarExpenseMoreOptions draft={draft} members={members} onChange={onChangeDraft} />
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Button

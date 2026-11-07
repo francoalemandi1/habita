@@ -15,6 +15,12 @@ export interface ExpenseDraft {
   participantIds: string[];
   /** yyyy-mm-dd */
   date: string;
+  splitType: "EQUAL" | "CUSTOM";
+  /** memberId -> typed amount, only used when splitType is CUSTOM. */
+  customSplits: Record<string, string>;
+  /** null — user hasn't touched it; resolved with `resolveChargeToFund` at display/save time. */
+  chargeToFund: boolean | null;
+  notes: string;
 }
 
 export interface TaskDraft {
@@ -23,6 +29,10 @@ export interface TaskDraft {
   /** yyyy-mm-dd, null when unset */
   dueDate: string | null;
   frequency: TaskFrequency;
+  description: string;
+  /** 1-5 */
+  weight: number;
+  isRotating: boolean;
 }
 
 export interface ItemDraft {
@@ -57,11 +67,23 @@ export function buildExpenseDraftFromParsed(
     payerId,
     participantIds,
     date: parsed.date ?? todayIsoDate(),
+    splitType: "EQUAL",
+    customSplits: {},
+    chargeToFund: null,
+    notes: "",
   };
 }
 
 export function buildTaskDraftFromParsed(parsed: ParsedTaskEntry): TaskDraft {
-  return { name: parsed.name, assigneeId: parsed.assigneeMemberId, dueDate: parsed.dueDate, frequency: parsed.frequency };
+  return {
+    name: parsed.name,
+    assigneeId: parsed.assigneeMemberId,
+    dueDate: parsed.dueDate,
+    frequency: parsed.frequency,
+    description: "",
+    weight: 2,
+    isRotating: false,
+  };
 }
 
 export function buildItemDraftsFromParsed(parsed: ParsedItemEntry[]): ItemDraft[] {
@@ -76,11 +98,15 @@ export function defaultExpenseDraft(members: MemberSummary[], currentMemberId: s
     payerId: currentMemberId,
     participantIds: members.map((member) => member.id),
     date: todayIsoDate(),
+    splitType: "EQUAL",
+    customSplits: {},
+    chargeToFund: null,
+    notes: "",
   };
 }
 
 export function defaultTaskDraft(name = ""): TaskDraft {
-  return { name, assigneeId: null, dueDate: null, frequency: "WEEKLY" };
+  return { name, assigneeId: null, dueDate: null, frequency: "WEEKLY", description: "", weight: 2, isRotating: false };
 }
 
 export function defaultItemDrafts(name = ""): ItemDraft[] {

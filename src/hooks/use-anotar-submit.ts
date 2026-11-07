@@ -6,8 +6,10 @@ import { onlineManager } from "@tanstack/react-query";
 import { APP_ROUTES } from "@habita/contracts";
 import { useSnackbar } from "@/components/ds/snackbar";
 import { useIsOnline } from "@/hooks/use-is-online";
+import { useFund } from "@/hooks/use-fund";
 import { useAnotarSaveExpense, useAnotarSaveItems, useAnotarSaveTask } from "@/hooks/use-anotar-save";
 import { resolveAnotarSaveKind } from "@/components/features/anotar/anotar-draft-types";
+import { isFundToggleVisible, resolveChargeToFund } from "@/lib/anotar-expense-logic";
 
 import type { ClassicKind } from "@/components/features/anotar/anotar-classic-form";
 import type { AnotarMode } from "@/hooks/use-anotar-draft-state";
@@ -41,6 +43,7 @@ export function useAnotarSubmit({
   const router = useRouter();
   const snackbar = useSnackbar();
   const isOnline = useIsOnline();
+  const { data: fund } = useFund();
   const saveExpense = useAnotarSaveExpense();
   const saveTask = useAnotarSaveTask();
   const { saveItems, isPending: itemsPending } = useAnotarSaveItems();
@@ -65,6 +68,10 @@ export function useAnotarSubmit({
             paidById: expenseDraft.payerId,
             participantIds: expenseDraft.participantIds,
             date: expenseDraft.date,
+            splitType: expenseDraft.splitType,
+            customSplits: expenseDraft.customSplits,
+            chargeToFund: resolveChargeToFund(expenseDraft.chargeToFund, isFundToggleVisible(fund, expenseDraft.category)),
+            notes: expenseDraft.notes,
           })
         : resolvedKind === "task"
           ? saveTask.mutateAsync({
@@ -72,6 +79,9 @@ export function useAnotarSubmit({
               frequency: taskDraft.frequency,
               assigneeId: taskDraft.assigneeId,
               dueDate: taskDraft.dueDate,
+              description: taskDraft.description,
+              weight: taskDraft.weight,
+              isRotating: taskDraft.isRotating,
             })
           : saveItems(itemDrafts.filter((item) => item.name.trim().length > 0));
 

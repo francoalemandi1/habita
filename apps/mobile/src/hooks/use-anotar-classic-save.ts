@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { splitEvenlyExact } from "@habita/domain";
-import { DEFAULT_TASK_WEIGHT, dueDateToIsoStartOfDay } from "@/lib/anotar-draft-logic";
+import { useFund } from "@/hooks/use-fund";
+import { dueDateToIsoStartOfDay, isFundToggleVisible, resolveChargeToFund } from "@/lib/anotar-draft-logic";
 import type { AnotarSaveInput } from "./use-anotar-save";
 import type { ClassicExpenseState } from "@/components/features/anotar/anotar-classic-expense-fields";
 import type { ClassicTaskState } from "@/components/features/anotar/anotar-classic-task-fields";
@@ -16,6 +17,7 @@ interface UseAnotarClassicSaveArgs {
 /** Validates and submits the classic (manual) Anotar form for whichever kind is selected. */
 export function useAnotarClassicSave({ onSave, onSaved }: UseAnotarClassicSaveArgs) {
   const [error, setError] = useState<string | null>(null);
+  const { data: fund } = useFund();
 
   const handleSave = async (kind: AnotarKind, expense: ClassicExpenseState, task: ClassicTaskState, item: ClassicItemState) => {
     setError(null);
@@ -32,6 +34,13 @@ export function useAnotarClassicSave({ onSave, onSaved }: UseAnotarClassicSaveAr
           return;
         }
         const dateIso = dueDateToIsoStartOfDay(expense.date);
+        const splits =
+          expense.splitType === "CUSTOM"
+            ? expense.participantIds.map((memberId) => ({
+                memberId,
+                amount: parseFloat(expense.customSplits[memberId] ?? "0") || 0,
+              }))
+            : splitEvenlyExact(amount, expense.participantIds);
         wasQueued = await onSave({
           kind: "expense",
           payload: {
@@ -40,8 +49,10 @@ export function useAnotarClassicSave({ onSave, onSaved }: UseAnotarClassicSaveAr
             category: expense.category,
             paidById: expense.payerId,
             splitType: "CUSTOM",
-            splits: splitEvenlyExact(amount, expense.participantIds),
+            splits,
             date: dateIso ?? undefined,
+            notes: expense.notes.trim() || undefined,
+            chargeToFund: resolveChargeToFund(expense.chargeToFund, isFundToggleVisible(fund, expense.category)) || undefined,
           },
         });
       } else if (kind === "task") {
@@ -58,9 +69,11 @@ export function useAnotarClassicSave({ onSave, onSaved }: UseAnotarClassicSaveAr
           kind: "task",
           name: task.name.trim(),
           frequency: "WEEKLY",
-          weight: DEFAULT_TASK_WEIGHT,
+          weight: task.weight,
           dueDateIso,
           assigneeMemberId: task.assigneeId,
+          description: task.description,
+          isRotating: task.isRotating,
         });
       } else {
         if (!item.name.trim()) {

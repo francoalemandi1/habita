@@ -80,6 +80,9 @@ export const LEGACY_ROUTE_ALIASES: Readonly<Record<string, LegacyAliasTarget>> =
   "/services": PLATA_ROUTES.servicios,
   "/expense-insights": PLATA_ROUTES.comoVenimos,
   "/descubrir": CASA_ROUTES.plans,
+  // The separate create screens are gone (handoff §5.1): "+ Anotar" is the only entry.
+  "/new-expense": `${APP_ROUTES.plata}?anotar=expense`,
+  "/new-task": `${APP_ROUTES.tareas}?anotar=task`,
 };
 
 /** Mobile deep-link aliases; identical to web now that Tareas absorbed `/tasks`. */

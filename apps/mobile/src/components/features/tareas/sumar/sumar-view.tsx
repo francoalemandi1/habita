@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Check, Plus } from "lucide-react-native";
 import { Button, Chip, EmptyState } from "@/components/ds";
 import { useCreateTask } from "@/hooks/use-task-management";
 import { useSuggestTasks } from "@/hooks/use-suggest-tasks";
+import { openAnotar } from "@/lib/anotar-store";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
 
@@ -117,7 +117,7 @@ export function SumarView(): React.JSX.Element {
         {selectedKeys.size > 0 ? (
           <Button label={`Sumar ${selectedKeys.size} tareas`} onPress={() => void handleSumar()} loading={createTask.isPending} />
         ) : null}
-        <Pressable onPress={() => router.push("/(app)/new-task")}>
+        <Pressable onPress={() => openAnotar({ kind: "task" })}>
           <Text style={styles.createLink}>Crear una tarea propia</Text>
         </Pressable>
       </View>

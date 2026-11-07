@@ -4,18 +4,15 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { apiFetch } from "@/lib/api-client";
 import { queryKeys, taskSummarySchema } from "@habita/contracts";
-import { splitEvenlyExact } from "@habita/domain";
 import { useAddShoppingListItem } from "@/hooks/use-shopping-list";
 import { todayIsoDate } from "@/components/features/anotar/anotar-draft-types";
+import { buildExpenseSplits } from "@/lib/anotar-expense-logic";
 import { OFFLINE_MUTATION_KEYS } from "@/lib/offline-mutation-keys";
 import { offlineMutationRetry } from "@/lib/offline-network";
 
 import type { ExpenseCategory, TaskFrequency } from "@habita/contracts";
 
 const createTaskResponseSchema = z.object({ task: taskSummarySchema });
-
-/** Matches the "crear tarea" dialog's own default (2 of 5) so quick-anotar tasks land mid-pack in the rotation algorithm. */
-const DEFAULT_ANOTAR_TASK_WEIGHT = 2;
 
 export interface SaveExpenseInput {
   title: string;
@@ -25,6 +22,10 @@ export interface SaveExpenseInput {
   participantIds: string[];
   /** yyyy-mm-dd */
   date: string;
+  splitType: "EQUAL" | "CUSTOM";
+  customSplits: Record<string, string>;
+  chargeToFund: boolean;
+  notes: string;
 }
 
 /**
@@ -44,10 +45,18 @@ export function useAnotarSaveExpense() {
           amount: input.amount,
           category: input.category,
           paidById: input.paidById,
-          // CUSTOM, not EQUAL: EQUAL always splits among every active member and would ignore the chosen subset.
+          // EQUAL here means "every chosen participant, evenly" (sent as CUSTOM amounts), never
+          // the API's own EQUAL which always splits among every active household member.
           splitType: "CUSTOM",
-          splits: splitEvenlyExact(input.amount, input.participantIds),
+          splits: buildExpenseSplits({
+            amount: input.amount,
+            splitType: input.splitType,
+            participantIds: input.participantIds,
+            customSplits: input.customSplits,
+          }),
           date: new Date(`${input.date}T12:00:00`).toISOString(),
+          notes: input.notes.trim() || undefined,
+          chargeToFund: input.chargeToFund || undefined,
         },
       }),
     onSuccess: () => {
@@ -64,6 +73,10 @@ export interface SaveTaskInput {
   assigneeId: string | null;
   /** yyyy-mm-dd; defaults to today when the parse/form left it unset. */
   dueDate: string | null;
+  description: string;
+  /** 1-5; matches the "crear tarea" dialog's own default of 2 so quick-anotar tasks land mid-pack in the rotation algorithm. */
+  weight: number;
+  isRotating: boolean;
 }
 
 /**
@@ -79,7 +92,13 @@ export function useAnotarSaveTask() {
     mutationFn: async (input: SaveTaskInput) => {
       const raw = await apiFetch<unknown>("/api/tasks", {
         method: "POST",
-        body: { name: input.name, frequency: input.frequency, weight: DEFAULT_ANOTAR_TASK_WEIGHT },
+        body: {
+          name: input.name,
+          frequency: input.frequency,
+          weight: input.weight,
+          description: input.description.trim() || undefined,
+          isRotating: input.isRotating || undefined,
+        },
       });
       const parsed = createTaskResponseSchema.safeParse(raw);
       if (!parsed.success) {

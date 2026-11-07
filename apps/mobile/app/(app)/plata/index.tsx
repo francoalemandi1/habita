@@ -9,6 +9,7 @@ import { useMembers } from "@/hooks/use-members";
 import { useThemeColors } from "@/hooks/use-theme";
 import { spacing } from "@/theme";
 import { PlataSegments, isPlataSegment } from "@/components/features/plata/plata-segments";
+import { openAnotar } from "@/lib/anotar-store";
 import { GastosView } from "@/components/features/plata/gastos/gastos-view";
 import { SaldosView } from "@/components/features/plata/saldos-view";
 import { FondoView } from "@/components/features/plata/fondo-view";
@@ -51,7 +52,7 @@ export default function PlataScreen(): React.JSX.Element {
             accessibilityRole="button"
             accessibilityLabel="Nuevo gasto"
             hitSlop={8}
-            onPress={() => router.push("/(app)/new-expense")}
+            onPress={() => openAnotar({ kind: "expense" })}
           >
             <Plus size={22} strokeWidth={1.75} color={colors.monte} />
           </Pressable>

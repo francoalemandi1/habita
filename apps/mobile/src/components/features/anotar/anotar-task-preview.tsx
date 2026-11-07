@@ -5,8 +5,9 @@ import { Button, Chip } from "@/components/ds";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
-import { DEFAULT_TASK_WEIGHT, TASK_FREQUENCY_LABELS, dueDateToIsoStartOfDay } from "@/lib/anotar-draft-logic";
+import { TASK_FREQUENCY_LABELS, dueDateToIsoStartOfDay } from "@/lib/anotar-draft-logic";
 import { AnotarTaskFieldEditor } from "./anotar-task-field-editor";
+import { AnotarTaskMoreOptions } from "./anotar-task-more-options";
 import type { AnotarTaskField } from "./anotar-task-field-editor";
 import type { ThemeColors } from "@/theme";
 import type { MemberSummary } from "@habita/contracts";
@@ -45,9 +46,11 @@ export function AnotarTaskPreview({ draft, onChangeDraft, members, isSaving, onS
         kind: "task",
         name: draft.name,
         frequency: draft.frequency,
-        weight: DEFAULT_TASK_WEIGHT,
+        weight: draft.weight,
         dueDateIso,
         assigneeMemberId: draft.assigneeId,
+        description: draft.description,
+        isRotating: draft.isRotating,
       });
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onSaved(wasQueued);
@@ -78,6 +81,11 @@ export function AnotarTaskPreview({ draft, onChangeDraft, members, isSaving, onS
         <Chip label={draft.dueDate} tone="filterOff" onPress={() => setEditingField("dueDate")} />
         <Chip label={TASK_FREQUENCY_LABELS[draft.frequency]} tone="filterOff" onPress={() => setEditingField("frequency")} />
       </View>
+
+      <AnotarTaskMoreOptions
+        draft={{ description: draft.description, weight: draft.weight, isRotating: draft.isRotating }}
+        onChange={onChangeDraft}
+      />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 

@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PLATA_ROUTES } from "@habita/contracts";
-import { AddExpenseDialog } from "@/components/features/add-expense-dialog";
+import { openAnotar } from "@/components/features/anotar/anotar-events";
 import { Receipt } from "lucide-react";
 import { useExpenseInsights } from "@/hooks/use-expense-insights";
 import { useSnackbar } from "@/components/ds/snackbar";
@@ -19,7 +18,6 @@ import { expenseListResponseSchema } from "./expense-list-schema";
 
 import type { ExpenseListRow } from "./expense-list-schema";
 import type { PlataViewProps } from "../plata-view-props";
-import type { CreateExpensePayload } from "@/types/expense";
 
 const PAGE_SIZE = 30;
 
@@ -50,7 +48,6 @@ export function GastosView({
   iOwe,
   isSettled,
 }: GastosViewProps): React.JSX.Element {
-  const router = useRouter();
   const snackbar = useSnackbar();
   const { data: insights, isLoading: insightsLoading } = useExpenseInsights();
 
@@ -72,15 +69,6 @@ export function GastosView({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expenses.length]);
-
-  const handleExpenseCreated = useCallback(
-    (payload: CreateExpensePayload) => {
-      apiFetch("/api/expenses", { method: "POST", body: payload })
-        .then(() => router.refresh())
-        .catch(() => snackbar.show({ text: "No se pudo registrar el gasto", actionKind: "retry" }));
-    },
-    [router, snackbar],
-  );
 
   const comparisonText = insights
     ? buildMonthComparisonText({
@@ -116,7 +104,13 @@ export function GastosView({
         members={members}
       />
 
-      <AddExpenseDialog members={members} currentMemberId={currentMemberId} onExpenseCreated={handleExpenseCreated} />
+      <button
+        type="button"
+        onClick={() => openAnotar({ kind: "expense" })}
+        className="inline-flex h-10 w-fit items-center rounded-[12px] bg-ink px-4 text-[14px] font-semibold text-paper"
+      >
+        Agregar
+      </button>
 
       {expenses.length === 0 ? (
         <EmptyState icon={Receipt} title="Todavía no hay gastos" description="Anotá el primero para empezar a repartir." />

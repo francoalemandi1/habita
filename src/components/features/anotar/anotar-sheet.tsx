@@ -9,6 +9,7 @@ import { useAnotarParse } from "@/hooks/use-anotar-parse";
 import { useAnotarHousehold } from "@/hooks/use-anotar-household";
 import { useAnotarDraftState } from "@/hooks/use-anotar-draft-state";
 import { useAnotarSubmit } from "@/hooks/use-anotar-submit";
+import { useAnotarUrlParam } from "@/hooks/use-anotar-url-param";
 import { AnotarExpensePreview } from "./anotar-expense-preview";
 import { AnotarTaskPreview } from "./anotar-task-preview";
 import { AnotarItemPreview } from "./anotar-item-preview";
@@ -19,6 +20,7 @@ import { AnotarHouseholdError } from "./anotar-household-error";
 import { ANOTAR_CTA_LABELS as CTA_LABELS, ANOTAR_PARSE_DEBOUNCE_MS as DEBOUNCE_MS } from "./anotar-draft-types";
 
 export function AnotarSheet(): React.JSX.Element {
+  useAnotarUrlParam();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
 

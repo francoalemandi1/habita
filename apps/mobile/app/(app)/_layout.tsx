@@ -10,6 +10,7 @@ import { AiJobWatcher } from "@/components/ai-job-watcher";
 import { AnotarSheet } from "@/components/features/anotar-sheet";
 import { OfflineBanner } from "@/components/features/offline-banner";
 import { openAnotar } from "@/lib/anotar-store";
+import { useAnotarUrlParam } from "@/hooks/use-anotar-url-param";
 
 import type { LucideIcon } from "lucide-react-native";
 import type { ThemeColors } from "@/theme";
@@ -93,6 +94,7 @@ function CustomTabBar({ state, descriptors, navigation, onAnotarPress }: TabBarP
 // ─── Layout ──────────────────────────────────────────────────────────────────
 
 export default function AppLayout() {
+  useAnotarUrlParam();
   const { isAuthenticated, isBootstrapping, me } = useMobileAuth();
 
   if (!isBootstrapping && !isAuthenticated) {
@@ -126,9 +128,7 @@ export default function AppLayout() {
         <Tabs.Screen name="avisos" options={{ href: null, title: "Avisos" }} />
 
         {/* ── Hidden screens (accessible via router.push) ── */}
-        <Tabs.Screen name="new-task" options={{ href: null, title: "Nueva tarea" }} />
         <Tabs.Screen name="dev-components" options={{ href: null, title: "Componentes" }} />
-        <Tabs.Screen name="new-expense" options={{ href: null, title: "Nuevo gasto" }} />
       </Tabs>
       <AnotarSheet />
     </>

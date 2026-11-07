@@ -25,7 +25,7 @@ const DEEP_LINK_MAP: Partial<Record<NotificationType, string>> = {
   DAILY_BRIEFING: "/(app)/dashboard",
   TASK_OVERDUE: "/(app)/tasks",
   SPENDING_ALERT: "/(app)/expense-insights",
-  EXPENSE_REMINDER: "/(app)/new-expense",
+  EXPENSE_REMINDER: "/plata?anotar=expense",
 };
 
 // ── Interfaces ─────────────────────────────────────────────────────────────────

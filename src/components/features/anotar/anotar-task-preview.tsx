@@ -5,6 +5,7 @@ import { taskFrequencySchema } from "@habita/contracts";
 import { RadioGroup } from "@/components/ds/radio";
 import { FREQUENCY_LABELS } from "@/lib/constants";
 import { TASK_FREQUENCIES } from "@/lib/tareas-frequency";
+import { AnotarTaskMoreOptions } from "./anotar-task-more-options";
 import { cn } from "@/lib/utils";
 
 import type { MemberSummary } from "@habita/contracts";
@@ -95,6 +96,8 @@ export function AnotarTaskPreview({ draft, onChange, members }: AnotarTaskPrevie
           className="rounded-[12px] bg-paper p-2"
         />
       )}
+
+      <AnotarTaskMoreOptions draft={draft} onChange={onChange} />
     </div>
   );
 }

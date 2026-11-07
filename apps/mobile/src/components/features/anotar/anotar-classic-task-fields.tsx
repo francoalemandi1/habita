@@ -3,6 +3,8 @@ import { StyleSheet, Text, View } from "react-native";
 import { RadioGroup, TextField } from "@/components/ds";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
+import { DEFAULT_TASK_WEIGHT } from "@/lib/anotar-draft-logic";
+import { AnotarTaskMoreOptions } from "./anotar-task-more-options";
 import type { ThemeColors } from "@/theme";
 import type { MemberSummary } from "@habita/contracts";
 
@@ -12,6 +14,13 @@ export interface ClassicTaskState {
   name: string;
   assigneeId: string | null;
   date: string;
+  description: string;
+  weight: number;
+  isRotating: boolean;
+}
+
+export function defaultClassicTaskExtras(): Pick<ClassicTaskState, "description" | "weight" | "isRotating"> {
+  return { description: "", weight: DEFAULT_TASK_WEIGHT, isRotating: false };
 }
 
 interface AnotarClassicTaskFieldsProps {
@@ -42,6 +51,11 @@ export function AnotarClassicTaskFields({ state, members, onChange }: AnotarClas
       />
 
       <TextField label="Vencimiento (YYYY-MM-DD)" value={state.date} onChangeText={(date) => onChange({ date })} autoCapitalize="none" />
+
+      <AnotarTaskMoreOptions
+        draft={{ description: state.description, weight: state.weight, isRotating: state.isRotating }}
+        onChange={onChange}
+      />
     </View>
   );
 }

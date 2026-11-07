@@ -24,6 +24,8 @@ export interface SaveTaskInput {
   dueDateIso: string;
   /** null → "Que lo decida el reparto": auto-assigned via POST /api/assignments/auto-assign. */
   assigneeMemberId: string | null;
+  description: string;
+  isRotating: boolean;
 }
 
 export interface SaveItemInput {
@@ -69,7 +71,8 @@ export async function performAnotarSaveMutationFn(
         frequency: input.frequency,
         weight: input.weight,
         isRouletteEligible: input.assigneeMemberId === null,
-        isRotating: false,
+        isRotating: input.isRotating,
+        description: input.description.trim() || undefined,
       },
     );
 

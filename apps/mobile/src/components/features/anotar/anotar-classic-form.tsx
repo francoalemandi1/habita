@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Banner, Button, SegmentedControl } from "@/components/ds";
 import { useThemeColors } from "@/hooks/use-theme";
@@ -8,7 +7,7 @@ import { fontFamilyForWeight, spacing } from "@/theme";
 import { useAnotarClassicSave } from "@/hooks/use-anotar-classic-save";
 import { todayIsoDate } from "@/lib/anotar-draft-logic";
 import { AnotarClassicExpenseFields } from "./anotar-classic-expense-fields";
-import { AnotarClassicTaskFields } from "./anotar-classic-task-fields";
+import { AnotarClassicTaskFields, defaultClassicTaskExtras } from "./anotar-classic-task-fields";
 import { AnotarClassicItemFields } from "./anotar-classic-item-fields";
 import type { ClassicExpenseState } from "./anotar-classic-expense-fields";
 import type { ClassicTaskState } from "./anotar-classic-task-fields";
@@ -65,11 +64,16 @@ export function AnotarClassicForm({
     payerId: currentMemberId,
     participantIds: members.map((m) => m.id),
     date: todayIsoDate(),
+    splitType: "EQUAL",
+    customSplits: {},
+    chargeToFund: null,
+    notes: "",
   });
   const [task, setTask] = useState<ClassicTaskState>({
     name: initialKind === "task" ? initialText : "",
     assigneeId: null,
     date: todayIsoDate(),
+    ...defaultClassicTaskExtras(),
   });
   const [item, setItem] = useState<ClassicItemState>({
     name: initialKind === "item" ? initialText : "",
@@ -85,7 +89,6 @@ export function AnotarClassicForm({
   });
 
   const saveLabel = kind === "expense" ? "Guardar gasto" : kind === "task" ? "Guardar tarea" : "Sumar a la lista";
-  const moreOptionsHref = kind === "expense" ? "/(app)/new-expense" : kind === "task" ? "/(app)/new-task" : null;
 
   return (
     <View style={styles.container}>
@@ -121,12 +124,6 @@ export function AnotarClassicForm({
         disabled={kind === "expense" && !expense.payerId}
         onPress={() => void handleSave(kind, expense, task, item)}
       />
-
-      {moreOptionsHref ? (
-        <Text style={styles.moreOptions} onPress={() => router.push(moreOptionsHref)}>
-          Más opciones
-        </Text>
-      ) : null}
     </View>
   );
 }
@@ -141,12 +138,6 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamilyForWeight(400),
       fontSize: 13,
       color: c.ladrilloText,
-    },
-    moreOptions: {
-      fontFamily: fontFamilyForWeight(600),
-      fontSize: 14,
-      color: c.monte,
-      textAlign: "center",
     },
   });
 }

@@ -65,6 +65,11 @@ describe("normalizeAppPath", () => {
     expect(normalizeAppPath("/fund")).toBe("/plata?v=fondo");
   });
 
+  it("maps the old create screens to the Anotar sheet (handoff §5.1)", () => {
+    expect(normalizeAppPath("/new-expense")).toBe("/plata?anotar=expense");
+    expect(normalizeAppPath("/new-task")).toBe("/tareas?anotar=task");
+  });
+
   it("merges an alias target's own query with the path's query and hash", () => {
     expect(normalizeAppPath("/fund?highlight=abc#top")).toBe("/plata?v=fondo&highlight=abc#top");
     expect(normalizeAppPath("/fund#top")).toBe("/plata?v=fondo#top");

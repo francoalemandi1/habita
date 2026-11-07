@@ -6,6 +6,7 @@ import { RadioGroup } from "@/components/ds/radio";
 import { CATEGORY_LABELS } from "@/lib/expense-constants";
 import { describeExpenseConsequence, formatExpenseConsequence } from "@habita/domain";
 import { formatArs } from "./anotar-draft-types";
+import { AnotarExpenseMoreOptions } from "./anotar-expense-more-options";
 import { cn } from "@/lib/utils";
 
 import type { MemberSummary } from "@habita/contracts";
@@ -136,6 +137,8 @@ export function AnotarExpensePreview({ draft, onChange, members, currentMemberId
       )}
 
       {consequenceText && <p className="text-[13px] text-ink-2">{consequenceText}</p>}
+
+      <AnotarExpenseMoreOptions draft={draft} onChange={onChange} members={members} />
     </div>
   );
 }

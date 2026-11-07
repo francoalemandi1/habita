@@ -5,7 +5,9 @@ import { deliverNotificationToMembers } from "@/lib/push-delivery";
  * processCulturalRecommendations — sends max 1 push/week per household
  * with the best-scored upcoming event in their city.
  */
-export async function processCulturalRecommendations(): Promise<number> {
+export async function processCulturalRecommendations(
+  activeHouseholdIds: Set<string>,
+): Promise<number> {
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -16,6 +18,7 @@ export async function processCulturalRecommendations(): Promise<number> {
     where: {
       city: { not: null },
       members: { some: { isActive: true } },
+      id: { in: [...activeHouseholdIds] },
     },
     select: { id: true, city: true, timezone: true },
   });

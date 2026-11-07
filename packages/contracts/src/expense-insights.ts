@@ -22,6 +22,13 @@ export const categoryAmountSchema = z.object({
   amount: z.number(),
 });
 
+export const monthlyHistoryPointSchema = z.object({
+  month: z.string(),
+  fixed: z.number(),
+  variable: z.number(),
+  total: z.number(),
+});
+
 export const expenseInsightsResponseSchema = z.object({
   variableDailyAverage: z.number(),
   variableProjected: z.number(),
@@ -36,6 +43,9 @@ export const expenseInsightsResponseSchema = z.object({
   variableVsAverageTrend: z.enum(["up", "down", "flat"]),
   variableVsAveragePercent: z.number(),
   categoryBreakdown: z.array(categoryAmountSchema),
+  hasReliableMonthlyTrend: z.boolean(),
+  /** Oldest → newest; the last point is the current month. */
+  monthlyHistory: z.array(monthlyHistoryPointSchema),
 });
 
 export type SpendingTip = z.infer<typeof spendingTipSchema>;

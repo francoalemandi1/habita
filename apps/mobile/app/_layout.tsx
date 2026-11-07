@@ -1,16 +1,16 @@
 import { Stack } from "expo-router";
 import { Animated, StyleSheet, Text, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RuntimeBanner } from "@/components/runtime-banner";
 import { MobileQueryProvider } from "@/providers/query-provider";
 import { MobileAuthProvider, useMobileAuth } from "@/providers/mobile-auth-provider";
 import { ThemeProvider, useTheme } from "@/providers/theme-provider";
-import { ToastProvider } from "@/components/ui/toast";
+import { HabitaLogo, SnackbarProvider } from "@/components/ds";
 import { NotificationProvider } from "@/providers/notification-provider";
 import { colors, fontFamily } from "@/theme";
-import { HabitaLogo } from "@/components/ui/habita-logo";
 
 function BrandedSplash() {
   const fadeIn = useMemo(() => new Animated.Value(0), []);
@@ -53,16 +53,14 @@ const splashStyles = StyleSheet.create({
     marginBottom: 8,
   },
   brand: {
-    fontFamily: "DMSans",
+    fontFamily: fontFamily.bold,
     fontSize: 44,
-    fontWeight: "800",
     color: colors.lime,
     letterSpacing: -1,
   },
   tagline: {
-    fontFamily: "DMSans",
+    fontFamily: fontFamily.medium,
     fontSize: 16,
-    fontWeight: "500",
     color: "rgba(255,255,255,0.7)",
   },
 });
@@ -126,8 +124,10 @@ function RootNavigator() {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    DMSans: require("../assets/fonts/DMSans-Variable.ttf"),
-    Caveat: require("../assets/fonts/Caveat-Variable.ttf"),
+    "SchibstedGrotesk-Regular": require("../assets/fonts/SchibstedGrotesk_400Regular.ttf"),
+    "SchibstedGrotesk-Medium": require("../assets/fonts/SchibstedGrotesk_500Medium.ttf"),
+    "SchibstedGrotesk-SemiBold": require("../assets/fonts/SchibstedGrotesk_600SemiBold.ttf"),
+    "SchibstedGrotesk-Bold": require("../assets/fonts/SchibstedGrotesk_700Bold.ttf"),
   });
 
   if (!fontsLoaded) {
@@ -135,16 +135,24 @@ export default function RootLayout() {
   }
 
   return (
-    <MobileQueryProvider>
-      <ThemeProvider>
-        <MobileAuthProvider>
-          <NotificationProvider>
-            <ToastProvider>
-              <RootNavigator />
-            </ToastProvider>
-          </NotificationProvider>
-        </MobileAuthProvider>
-      </ThemeProvider>
-    </MobileQueryProvider>
+    <GestureHandlerRootView style={styles.gestureRoot}>
+      <MobileQueryProvider>
+        <ThemeProvider>
+          <MobileAuthProvider>
+            <NotificationProvider>
+              <SnackbarProvider>
+                <RootNavigator />
+              </SnackbarProvider>
+            </NotificationProvider>
+          </MobileAuthProvider>
+        </ThemeProvider>
+      </MobileQueryProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  gestureRoot: {
+    flex: 1,
+  },
+});

@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
+import { useOfflineProbe } from "@/hooks/use-offline-probe";
 
 import type { ReactNode } from "react";
 
@@ -24,6 +25,8 @@ export function QueryProvider({ children }: QueryProviderProps) {
         },
       })
   );
+
+  useOfflineProbe();
 
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }

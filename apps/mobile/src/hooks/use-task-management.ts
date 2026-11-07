@@ -58,6 +58,26 @@ export function useCreateTask() {
   });
 }
 
+interface UpdateTaskInput {
+  taskId: string;
+  name?: string;
+  frequency?: CreateTaskInput["frequency"];
+  weight?: number;
+  isRotating?: boolean;
+}
+
+export function useUpdateTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ taskId, ...body }: UpdateTaskInput) =>
+      mobileApi.patch<CreateTaskResponse>(`/api/tasks/${taskId}`, body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all() });
+    },
+  });
+}
+
 export function useDeleteTask() {
   const queryClient = useQueryClient();
 

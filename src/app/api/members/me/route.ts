@@ -3,12 +3,53 @@ import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { handleApiError } from "@/lib/api-response";
+import { availabilitySchema, quietHourValueSchema } from "@habita/contracts";
+import { Prisma } from "@prisma/client";
 
 import type { NextRequest } from "next/server";
 
-const updateMemberSchema = z.object({
-  name: z.string().min(1, "El nombre es obligatorio").max(50, "Máximo 50 caracteres"),
-});
+const updateMemberSchema = z
+  .object({
+    name: z.string().min(1, "El nombre es obligatorio").max(50, "Máximo 50 caracteres").optional(),
+    quietHoursStart: quietHourValueSchema.nullable().optional(),
+    quietHoursEnd: quietHourValueSchema.nullable().optional(),
+    availability: availabilitySchema.nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    const hasStart = value.quietHoursStart !== undefined;
+    const hasEnd = value.quietHoursEnd !== undefined;
+
+    if (hasStart !== hasEnd) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "quietHoursStart y quietHoursEnd deben enviarse juntos",
+        path: [hasStart ? "quietHoursEnd" : "quietHoursStart"],
+      });
+      return;
+    }
+
+    if (!hasStart) return;
+
+    const bothNull = value.quietHoursStart === null && value.quietHoursEnd === null;
+    const bothSet = value.quietHoursStart !== null && value.quietHoursEnd !== null;
+
+    if (!bothNull && !bothSet) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "quietHoursStart y quietHoursEnd deben ser ambos null o ambos un número",
+        path: ["quietHoursStart"],
+      });
+      return;
+    }
+
+    if (bothSet && value.quietHoursStart === value.quietHoursEnd) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "quietHoursStart y quietHoursEnd no pueden ser iguales",
+        path: ["quietHoursEnd"],
+      });
+    }
+  });
 
 /**
  * GET /api/members/me
@@ -48,9 +89,16 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
 
+    const { name, quietHoursStart, quietHoursEnd, availability } = validation.data;
+
     const updated = await prisma.member.update({
       where: { id: member.id },
-      data: { name: validation.data.name },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(quietHoursStart !== undefined && { quietHoursStart }),
+        ...(quietHoursEnd !== undefined && { quietHoursEnd }),
+        ...(availability !== undefined && { availability: availability ?? Prisma.JsonNull }),
+      },
     });
 
     return NextResponse.json({ member: updated });

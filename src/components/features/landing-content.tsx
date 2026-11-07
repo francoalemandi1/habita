@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { ScrollReveal, HabitaLogo } from "@/components/ds";
 import {
   CheckCircle2,
   Sparkles,
@@ -17,7 +16,6 @@ import {
   Compass,
   ShoppingCart,
 } from "lucide-react";
-import { HabitaLogo } from "@/components/ui/habita-logo";
 
 export function LandingContent() {
   return (
@@ -36,12 +34,13 @@ export function LandingContent() {
             necesita, en un solo lugar. Gratis y automático.
           </p>
           <div className="flex w-full max-w-xs flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
-            <Button asChild size="lg" className="w-full sm:w-auto">
-              <Link href="/login">
-                Comenzar gratis
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
+            <Link
+              href="/login"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-monte px-[18px] text-[15px] font-semibold text-paper active:scale-[0.97] sm:w-auto"
+            >
+              Comenzar gratis
+              <ArrowRight className="h-5 w-5" />
+            </Link>
           </div>
         </div>
       </section>
@@ -267,17 +266,13 @@ export function LandingContent() {
           <p className="mb-6 text-base opacity-90 sm:mb-8 sm:text-lg">
             Gratis, en un minuto, y con toda la familia.
           </p>
-          <Button
-            asChild
-            size="lg"
-            variant="secondary"
-            className="w-full max-w-xs sm:w-auto"
+          <Link
+            href="/login"
+            className="inline-flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-[12px] bg-paper px-[18px] text-[15px] font-semibold text-ink active:scale-[0.97] sm:w-auto"
           >
-            <Link href="/login">
-              Crear mi hogar
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Link>
-          </Button>
+            Crear mi hogar
+            <ArrowRight className="h-5 w-5" />
+          </Link>
         </div>
       </section>
 

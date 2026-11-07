@@ -4,6 +4,7 @@ import { requireMember, requirePermission } from "@/lib/session";
 import { respondTransferSchema } from "@/lib/validations/transfer";
 import { deliverNotification, getHouseholdTimezone } from "@/lib/push-delivery";
 import { handleApiError } from "@/lib/api-response";
+import { APP_ROUTES } from "@habita/contracts";
 
 import type { NextRequest } from "next/server";
 
@@ -121,7 +122,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         type: "TRANSFER_ACCEPTED",
         title: "Transferencia aceptada",
         message: `${updatedTransfer.toMember.name} aceptó "${updatedTransfer.assignment.task.name}"`,
-        actionUrl: "/my-tasks",
+        actionUrl: APP_ROUTES.tareas,
         householdTimezone: tz,
       });
 
@@ -152,7 +153,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         type: "TRANSFER_REJECTED",
         title: "Transferencia rechazada",
         message: `${updatedTransfer.toMember.name} rechazó "${updatedTransfer.assignment.task.name}"`,
-        actionUrl: "/my-tasks",
+        actionUrl: APP_ROUTES.tareas,
         householdTimezone: rejectTz,
       });
 

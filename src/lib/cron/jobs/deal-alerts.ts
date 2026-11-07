@@ -5,7 +5,7 @@ import { deliverNotificationToMembers } from "@/lib/push-delivery";
  * processDealAlerts — sends push for deals with >50% discount.
  * Max 3/week per household.
  */
-export async function processDealAlerts(): Promise<number> {
+export async function processDealAlerts(activeHouseholdIds: Set<string>): Promise<number> {
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -14,6 +14,7 @@ export async function processDealAlerts(): Promise<number> {
   const households = await prisma.household.findMany({
     where: {
       members: { some: { isActive: true } },
+      id: { in: [...activeHouseholdIds] },
     },
     select: { id: true, timezone: true },
   });

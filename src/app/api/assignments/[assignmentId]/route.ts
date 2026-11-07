@@ -5,6 +5,9 @@ import { updateAssignmentSchema } from "@/lib/validations/assignment";
 import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
+import type { AssignmentStatus } from "@prisma/client";
+
+const OPEN_STATUSES = new Set<AssignmentStatus>(["PENDING", "IN_PROGRESS"]);
 
 interface RouteParams {
   params: Promise<{ assignmentId: string }>;
@@ -42,7 +45,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
 /**
  * PATCH /api/assignments/[assignmentId]
- * Update assignment status or notes
+ * Update status or notes, reschedule (dueDate) or reassign (memberId) an open assignment
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
@@ -64,11 +67,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         id: assignmentId,
         householdId: member.householdId,
       },
-      select: { id: true },
+      select: { id: true, status: true },
     });
 
     if (!existingAssignment) {
       return NextResponse.json({ error: "Asignación no encontrada" }, { status: 404 });
+    }
+
+    const { dueDate, memberId } = validation.data;
+    const isMoving = dueDate !== undefined || memberId !== undefined;
+    if (isMoving && !OPEN_STATUSES.has(existingAssignment.status)) {
+      return NextResponse.json({ error: "Solo se pueden mover tareas pendientes" }, { status: 409 });
+    }
+
+    if (memberId !== undefined) {
+      const assignee = await prisma.member.findFirst({
+        where: { id: memberId, householdId: member.householdId, isActive: true },
+        select: { id: true },
+      });
+      if (!assignee) {
+        return NextResponse.json({ error: "Esa persona no está en tu casa" }, { status: 400 });
+      }
     }
 
     const assignment = await prisma.assignment.update({

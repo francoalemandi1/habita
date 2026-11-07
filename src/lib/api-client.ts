@@ -1,4 +1,6 @@
+import { onlineManager } from "@tanstack/react-query";
 import { ApiError, createApiClient } from "@habita/api-client";
+import { isNetworkError } from "@/lib/offline-network";
 
 const webApiClient = createApiClient({
   baseUrl: "",
@@ -21,19 +23,26 @@ export async function apiFetch<T>(
   const headers = (options?.headers ?? {}) as Record<string, string>;
   const signal = options?.signal ?? undefined;
 
-  switch (method) {
-    case "GET":
-      return webApiClient.get<T>(url, { headers, signal });
-    case "POST":
-      return webApiClient.post<T>(url, options?.body, { headers, signal });
-    case "PUT":
-      return webApiClient.put<T>(url, options?.body, { headers, signal });
-    case "PATCH":
-      return webApiClient.patch<T>(url, options?.body, { headers, signal });
-    case "DELETE":
-      return webApiClient.delete<T>(url, { headers, signal });
-    default:
-      throw new ApiError("Método HTTP no soportado", 400, "INVALID_METHOD");
+  try {
+    switch (method) {
+      case "GET":
+        return await webApiClient.get<T>(url, { headers, signal });
+      case "POST":
+        return await webApiClient.post<T>(url, options?.body, { headers, signal });
+      case "PUT":
+        return await webApiClient.put<T>(url, options?.body, { headers, signal });
+      case "PATCH":
+        return await webApiClient.patch<T>(url, options?.body, { headers, signal });
+      case "DELETE":
+        return await webApiClient.delete<T>(url, { headers, signal });
+      default:
+        throw new ApiError("Método HTTP no soportado", 400, "INVALID_METHOD");
+    }
+  } catch (error) {
+    // Feeds React Query's onlineManager so the offline banner, queued dots and
+    // "Necesitás conexión" gates react to a real connectivity failure, never an HTTP error.
+    if (isNetworkError(error)) onlineManager.setOnline(false);
+    throw error;
   }
 }
 

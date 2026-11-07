@@ -4,6 +4,7 @@ import { requireMember, requirePermission } from "@/lib/session";
 import { createTransferSchema } from "@/lib/validations/transfer";
 import { deliverNotification, getHouseholdTimezone } from "@/lib/push-delivery";
 import { handleApiError } from "@/lib/api-response";
+import { APP_ROUTES } from "@habita/contracts";
 
 import type { NextRequest } from "next/server";
 
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
       type: "TRANSFER_REQUEST",
       title: "Solicitud de transferencia",
       message: `${transfer.fromMember.name} quiere transferirte "${transfer.assignment.task.name}"`,
-      actionUrl: "/my-tasks",
+      actionUrl: APP_ROUTES.tareas,
       householdTimezone: tz,
     });
 

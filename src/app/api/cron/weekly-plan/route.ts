@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { autoAssignAllTasks } from "@/lib/assignment-algorithm";
-import { isAIEnabled } from "@/lib/llm/provider";
 import { getLocalDayOfWeek } from "@/lib/llm/regional-context";
 import { deliverNotificationToMembers } from "@/lib/push-delivery";
 import { handleApiError } from "@/lib/api-response";
 import { authorizeCronRequest } from "@/lib/cron-auth";
+import { getActiveHouseholdIdsOrEmpty } from "@/lib/cron/active-households";
+import { APP_ROUTES } from "@habita/contracts";
 
 import type { NextRequest } from "next/server";
 
@@ -16,7 +17,6 @@ interface HouseholdPlanResult {
   householdName: string;
   success: boolean;
   assignmentsCreated: number;
-  method: "ai" | "algorithm";
   error?: string;
 }
 
@@ -26,6 +26,7 @@ interface HouseholdPlanResult {
 async function runWeeklyPlanCron() {
   try {
     const now = new Date();
+    const activeHouseholdIds = await getActiveHouseholdIdsOrEmpty(now);
 
     // Only process households with a configured planning day and timezone
     const allHouseholds = await prisma.household.findMany({
@@ -39,24 +40,29 @@ async function runWeeklyPlanCron() {
     });
 
     // Filter to households where today (in their timezone) matches their planningDay
-    const households = allHouseholds.filter((h) => {
+    const plannedToday = allHouseholds.filter((h) => {
       const localDay = getLocalDayOfWeek(now, h.timezone!);
       return localDay === h.planningDay;
     });
 
+    // Inactive households get no new plan, so returning users don't find weeks of stale assignments
+    const households = plannedToday.filter((h) => activeHouseholdIds.has(h.id));
+    console.log(
+      `[cron/weekly-plan] Planning ${households.length}/${plannedToday.length} households ` +
+        `(skipped ${plannedToday.length - households.length} inactive)`,
+    );
+
     const results: HouseholdPlanResult[] = [];
-    const aiEnabled = isAIEnabled();
 
     for (const household of households) {
       try {
-        const result = await autoAssignAllTasks(household.id, { useAI: aiEnabled });
+        const result = await autoAssignAllTasks(household.id);
 
         results.push({
           householdId: household.id,
           householdName: household.name,
           success: result.success,
           assignmentsCreated: result.assignmentsCreated,
-          method: result.method,
         });
 
         if (result.success && result.assignmentsCreated > 0) {
@@ -70,10 +76,9 @@ async function runWeeklyPlanCron() {
             type: "PLAN_READY",
             title: "Nuevo plan semanal",
             message: `Se asignaron ${result.assignmentsCreated} tareas para esta semana`,
-            actionUrl: "/my-tasks",
+            actionUrl: APP_ROUTES.tareas,
             householdTimezone: household.timezone,
           });
-
         }
       } catch (error) {
         console.error(`Weekly plan failed for household ${household.name}:`, error);
@@ -82,7 +87,6 @@ async function runWeeklyPlanCron() {
           householdName: household.name,
           success: false,
           assignmentsCreated: 0,
-          method: "algorithm",
           error: error instanceof Error ? error.message : "Unknown error",
         });
       }
@@ -90,7 +94,6 @@ async function runWeeklyPlanCron() {
 
     const totalAssignments = results.reduce((sum, r) => sum + r.assignmentsCreated, 0);
     const successCount = results.filter((r) => r.success).length;
-    const aiCount = results.filter((r) => r.method === "ai").length;
 
     return NextResponse.json({
       success: true,
@@ -99,10 +102,7 @@ async function runWeeklyPlanCron() {
         householdsMatchedToday: households.length,
         householdsSuccessful: successCount,
         totalAssignmentsCreated: totalAssignments,
-        usedAI: aiCount,
-        usedAlgorithm: results.length - aiCount,
       },
-      aiEnabled,
       results,
       timestamp: now.toISOString(),
     });

@@ -63,15 +63,6 @@ function isPendingStatus(status: AssignmentStatus): boolean {
   return status === "PENDING" || status === "IN_PROGRESS";
 }
 
-/** Deterministic micro-rotation from assignment/member ID for handwritten feel */
-function microRotation(id: string): number {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (hash * 31 + id.charCodeAt(i)) | 0;
-  }
-  return ((Math.abs(hash) % 7) - 3) * 0.1; // -0.3 to 0.3 degrees
-}
-
 export function FridgeCalendarDay({
   date,
   isToday,
@@ -100,18 +91,18 @@ export function FridgeCalendarDay({
     );
   }
 
-  // Desktop: grid cell — notebook style
+  // Desktop: grid cell
   return (
     <div
       className={cn(
-        "min-h-[72px] p-1 notebook-ruled notebook-subdivider",
-        isToday && "notebook-today-highlight",
+        "min-h-[72px] p-1 border-b border-border",
+        isToday && "bg-primary/5",
         !isLast && "border-r border-border",
       )}
     >
       {isEmpty ? (
         <div className="flex h-full min-h-[56px] items-center justify-center">
-          <span className="handwritten-note text-base text-foreground-tertiary">-</span>
+          <span className="text-base text-foreground-tertiary">-</span>
         </div>
       ) : (
         <div className="space-y-1">
@@ -149,14 +140,12 @@ function DesktopMemberGroup({
   onUncomplete: (assignmentId: string) => void;
 }) {
   const bgColor = getMemberColor(group.member.id, allMembers);
-  const rotation = microRotation(group.member.id);
 
   return (
     <div
       className="rounded py-0.5 pl-1.5 pr-0.5"
       style={{
         backgroundColor: `${bgColor}12`,
-        transform: `rotate(${rotation}deg)`,
       }}
     >
       {/* Member initial chip */}
@@ -170,7 +159,7 @@ function DesktopMemberGroup({
         >
           {getInitial(group.member.name)}
         </div>
-        <span className="handwritten-note truncate text-sm font-semibold text-foreground-secondary">
+        <span className="truncate text-sm font-semibold text-foreground-secondary">
           {group.member.name.split(" ")[0] ?? group.member.name}
         </span>
       </div>
@@ -192,7 +181,7 @@ function DesktopMemberGroup({
   );
 }
 
-/** Desktop: minimal task row — pen-strikethrough on completion */
+/** Desktop: minimal task row */
 function DesktopTaskRow({
   assignment,
   canUncomplete,
@@ -209,7 +198,6 @@ function DesktopTaskRow({
   const completed = isCompletedStatus(assignment.status);
   const pending = isPendingStatus(assignment.status);
   const isInteractive = pending || (completed && canUncomplete);
-  const rotation = microRotation(assignment.id);
 
   return (
     <button
@@ -223,21 +211,15 @@ function DesktopTaskRow({
         "flex w-full items-center rounded py-px pl-0.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isInteractive && "hover:bg-foreground/5 active:bg-foreground/8",
       )}
-      style={{ transform: `rotate(${rotation}deg)` }}
     >
       <span
         className={cn(
-          "handwritten-note truncate text-sm leading-tight",
+          "truncate text-sm leading-tight",
           isCompleting && "task-loading-pulse",
           !completed && "text-foreground-secondary",
         )}
       >
-        <span
-          className={cn(
-            "task-strikethrough",
-            completed && "task-strikethrough--active text-foreground-tertiary",
-          )}
-        >
+        <span className={cn(completed && "line-through text-foreground-tertiary")}>
           {assignment.task.name}
         </span>
       </span>
@@ -273,31 +255,30 @@ function MobileDayCard({
   }
 
   return (
-    <div className="notebook-subdivider px-3 py-2">
+    <div className="border-b border-border px-3 py-2">
       {/* Day header row */}
       <div className="mb-1.5 flex items-center gap-2">
         <span
           className={cn(
-            "handwritten-note flex h-8 w-8 shrink-0 items-center justify-center text-xl font-bold",
+            "flex h-8 w-8 shrink-0 items-center justify-center text-xl font-bold",
             isToday
               ? "text-primary"
               : "text-foreground-tertiary",
           )}
-          style={{ transform: "rotate(-0.5deg)" }}
         >
           {dayNumber}
         </span>
         <div>
           <span
             className={cn(
-              "handwritten-title text-base",
+              "font-semibold text-base",
               isToday ? "text-primary" : "text-foreground-secondary",
             )}
           >
             {dayName}
           </span>
           {isToday && (
-            <span className="handwritten-title ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
+            <span className="font-semibold ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
               HOY
             </span>
           )}
@@ -306,7 +287,7 @@ function MobileDayCard({
 
       {/* Member groups */}
       {isEmpty ? (
-        <p className="handwritten-note pb-1 pl-12 text-base text-foreground-tertiary">
+        <p className="pb-1 pl-12 text-base text-foreground-tertiary">
           Sin tareas
         </p>
       ) : (
@@ -373,12 +354,12 @@ function MobileMemberGroup({
           >
             {getInitial(group.member.name)}
           </div>
-          <span className="handwritten-title text-base text-foreground-secondary">
+          <span className="font-semibold text-base text-foreground-secondary">
             {firstName}
           </span>
         </div>
         {totalTasks > 1 && (
-          <span className="handwritten-note text-sm tabular-nums text-foreground-tertiary">
+          <span className="text-sm tabular-nums text-foreground-tertiary">
             {doneTasks}/{totalTasks}
           </span>
         )}
@@ -401,7 +382,7 @@ function MobileMemberGroup({
   );
 }
 
-/** Mobile: task row — pen-strikethrough on completion */
+/** Mobile: task row */
 function MobileTaskRow({
   assignment,
   canUncomplete,
@@ -418,7 +399,6 @@ function MobileTaskRow({
   const completed = isCompletedStatus(assignment.status);
   const pending = isPendingStatus(assignment.status);
   const isInteractive = pending || (completed && canUncomplete);
-  const rotation = microRotation(assignment.id);
 
   return (
     <button
@@ -432,21 +412,15 @@ function MobileTaskRow({
         "flex w-full items-center gap-2 rounded-lg py-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isInteractive && "active:bg-foreground/5",
       )}
-      style={{ transform: `rotate(${rotation}deg)` }}
     >
       <span
         className={cn(
-          "handwritten-note flex-1 truncate text-base leading-snug",
+          "flex-1 truncate text-base leading-snug",
           isCompleting && "task-loading-pulse",
           !completed && "text-foreground-secondary",
         )}
       >
-        <span
-          className={cn(
-            "task-strikethrough",
-            completed && "task-strikethrough--active text-foreground-tertiary",
-          )}
-        >
+        <span className={cn(completed && "line-through text-foreground-tertiary")}>
           {assignment.task.name}
         </span>
       </span>

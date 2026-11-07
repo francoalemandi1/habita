@@ -1,111 +1,121 @@
 /**
- * Habita Design System Tokens
+ * Habita Design System Tokens (web mirror) — Rebrand (Fase 1, §9)
  *
- * Single source of truth for colors, typography, spacing, shadows, and animations.
- * IMPORTANT: Raw hex values in `palette` MUST stay in sync with the CSS custom
- * properties defined in src/app/globals.css (:root --brand-* variables).
- * When changing a color, update BOTH files.
+ * Deprecated exports below are kept so unmigrated pages keep compiling; they
+ * resolve to the new §9 tokens re-exported from `@habita/design-tokens`.
  */
-import { semanticColors } from "@habita/design-tokens";
+import { colors as newColors } from "@habita/design-tokens";
+
+export {
+  colors as newColors,
+  darkColors as newDarkColors,
+  shadowTokens,
+  typeScale,
+  motion,
+  radii,
+  spacing as newSpacing,
+} from "@habita/design-tokens";
 
 // ============================================
 // 1. COLOR PALETTE (raw hex values)
 // ============================================
 
-/** Raw hex palette — use for canvas, SVG, and inline styles where Tailwind classes cannot be used. */
+/**
+ * @deprecated Use `newColors` / `newDarkColors` instead. Remapped to the §9
+ * neutral palette: lime/tan/cream→sand, lavender/lavenderLight→monteSoft,
+ * purpleDark/foregroundDark→ink, orange→ladrillo, peach→ladrilloSoft.
+ */
 export const palette = {
-  primary: semanticColors.primary,
-  primaryLight: semanticColors.primaryLight,
-  lime: "#d2ffa0",
-  successDark: "#7aa649",
-  lavender: "#d0b6ff",
-  lavenderLight: "#e4d5ff",
-  purpleDark: "#522a97",
-  foregroundDark: semanticColors.text,
-  tan: "#ffe8c3",
-  cream: "#fff0d7",
-  background: semanticColors.background,
-  orange: "#fd7c52",
-  peach: "#fed9cb",
-  white: "#ffffff",
+  primary: newColors.monte,
+  lime: newColors.mantecaSoft,
+  successDark: newColors.monte,
+  lavender: newColors.monteSoft,
+  lavenderLight: newColors.monteSoft,
+  purpleDark: newColors.ink,
+  foregroundDark: newColors.ink,
+  tan: newColors.sand,
+  cream: newColors.sand,
+  background: newColors.paper,
+  orange: newColors.ladrillo,
+  peach: newColors.ladrilloSoft,
+  white: newColors.paper,
 } as const;
 
 // ============================================
 // 2. CYCLING COLORS (member/segment assignment)
 // ============================================
 
-/** Color cycle for member avatars, roulette segments, calendar badges. */
+/** @deprecated Avatars are now an initial over `line` (§9) — kept as a flat neutral cycle. */
 export const cyclingColors = [
-  palette.primary,
-  palette.lime,
-  palette.lavender,
-  "#ff9f43",
-  "#ff6b6b",
-  "#54a0ff",
-  "#ffd32a",
-  "#ff9ff3",
+  newColors.line,
+  newColors.sand,
+  newColors.monteSoft,
+  newColors.mantecaSoft,
+  newColors.line,
+  newColors.sand,
+  newColors.monteSoft,
+  newColors.mantecaSoft,
 ] as const;
 
-/** Text colors that contrast against each cyclingColors entry. */
+/** @deprecated Text color paired with each `cyclingColors` entry. */
 export const cyclingTextColors = [
-  palette.white,
-  palette.foregroundDark,
-  palette.foregroundDark,
-  palette.white,
-  palette.white,
-  palette.white,
-  palette.foregroundDark,
-  palette.foregroundDark,
+  newColors.ink,
+  newColors.ink,
+  newColors.ink,
+  newColors.ink,
+  newColors.ink,
+  newColors.ink,
+  newColors.ink,
+  newColors.ink,
 ] as const;
 
 // ============================================
 // 2b. WHEEL COLORS (richer palette for roulette)
 // ============================================
 
-/** Richer versions of the brand palette for the roulette wheel — deep enough for white text. */
+/** @deprecated Neutral replacement — the roulette result no longer uses per-segment brand hues. */
 export const wheelColors = [
-  "#5260fe", // brand primary (indigo)
-  "#fd7c52", // brand orange
-  "#522a97", // brand purple-dark
-  "#7aa649", // brand success-dark (deep lime)
-  "#d0a0ff", // brand lavender (saturated)
-  "#e0952a", // deep golden (from brand tan family)
-  "#626efe", // brand primary-light
-  "#c94040", // deep coral (from cycling red family)
-  "#8b5cf6", // grape (lavender-purple bridge)
-  "#d48c00", // amber (from cycling amber family)
-  "#4080d0", // steel blue (from cycling blue family)
-  "#e06090", // rose (from cycling pink family)
+  newColors.monte,
+  newColors.ladrillo,
+  newColors.ink,
+  newColors.monteSoft,
+  newColors.sand,
+  newColors.manteca,
+  newColors.monte,
+  newColors.ladrilloSoft,
+  newColors.monteSoft,
+  newColors.mantecaSoft,
+  newColors.sand,
+  newColors.ladrillo,
 ] as const;
 
-/** Text colors for each wheelColors entry. */
+/** @deprecated Text colors for each `wheelColors` entry. */
 export const wheelTextColors: readonly string[] = [
-  "#ffffff", // indigo → white
-  "#ffffff", // orange → white
-  "#ffffff", // purple-dark → white
-  "#ffffff", // deep lime → white
-  "#272727", // lavender → dark
-  "#ffffff", // deep golden → white
-  "#ffffff", // primary-light → white
-  "#ffffff", // deep coral → white
-  "#ffffff", // grape → white
-  "#ffffff", // amber → white
-  "#ffffff", // steel blue → white
-  "#ffffff", // rose → white
+  newColors.paper,
+  newColors.paper,
+  newColors.paper,
+  newColors.ink,
+  newColors.ink,
+  newColors.mantecaText,
+  newColors.paper,
+  newColors.ladrilloText,
+  newColors.ink,
+  newColors.ink,
+  newColors.ink,
+  newColors.paper,
 ];
 
 // ============================================
 // 3. CONTRAST HELPERS
 // ============================================
 
-const LIGHT_BACKGROUNDS = new Set([
+const LIGHT_BACKGROUNDS = new Set<string>([
   palette.lime,
   palette.lavender,
   palette.tan,
   palette.cream,
   palette.lavenderLight,
   palette.peach,
-  "#ffd32a",
 ]);
 
 /** Returns the appropriate foreground hex for a given background hex. */
@@ -119,29 +129,29 @@ export function contrastText(backgroundHex: string): string {
 // 4. SEMANTIC CARD COLOR SETS (Tailwind classes)
 // ============================================
 
-/** Assignment card colors — used by my-assignments-list. */
+/** @deprecated Neutral replacement — no more per-slot brand-colored assignment cards. */
 export const assignmentCardColors = [
   {
-    bg: "bg-[#5260fe]",
-    text: "text-white",
-    meta: "text-white/85",
-    btnBg: "bg-white/20 hover:bg-white/30 text-white",
+    bg: "bg-[--color-monte-soft]",
+    text: "text-[--color-ink]",
+    meta: "text-[--color-ink-2]",
+    btnBg: "bg-[--color-sand] hover:bg-[--color-line] text-[--color-ink]",
   },
   {
-    bg: "bg-[#d2ffa0]",
-    text: "text-[#272727]",
-    meta: "text-[#272727]/80",
-    btnBg: "bg-[#272727]/10 hover:bg-[#272727]/20 text-[#272727]",
+    bg: "bg-[--color-sand]",
+    text: "text-[--color-ink]",
+    meta: "text-[--color-ink-2]",
+    btnBg: "bg-[--color-line] hover:bg-[--color-line-soft] text-[--color-ink]",
   },
   {
-    bg: "bg-[#d0b6ff]",
-    text: "text-[#272727]",
-    meta: "text-[#272727]/80",
-    btnBg: "bg-[#272727]/10 hover:bg-[#272727]/20 text-[#272727]",
+    bg: "bg-[--color-manteca-soft]",
+    text: "text-[--color-ink]",
+    meta: "text-[--color-ink-2]",
+    btnBg: "bg-[--color-sand] hover:bg-[--color-line] text-[--color-ink]",
   },
 ] as const;
 
-// ── 4b. STORE BRAND COLORS (supermarket comparison) ──
+// ── 4b. STORE BRAND COLORS (supermarket comparison) — UNCHANGED (third-party) ──
 
 /** Store brand colors — letter avatars for the supermarket comparison feature. */
 export const storeColors: Record<string, { bg: string; text: string }> = {
@@ -182,21 +192,21 @@ export function getStoreFaviconUrl(storeName: string, size: number = 64): string
   return `https://www.google.com/s2/favicons?domain=${domain}&sz=${size}`;
 }
 
-/** Notification type → style mapping. */
+/** @deprecated Neutral replacement — notification cards no longer carry per-type brand color. */
 export const notificationStyles: Record<
   string,
   { bg: string; iconColor: string }
 > = {
-  TRANSFER_REQUEST: { bg: "bg-[#e4d5ff]/50", iconColor: "text-primary" },
-  TRANSFER_ACCEPTED: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-600" },
-  TRANSFER_REJECTED: { bg: "bg-red-50", iconColor: "text-red-500" },
-  TASK_OVERDUE: { bg: "bg-[#fff0d7]", iconColor: "text-red-500" },
-  REMINDER_DUE: { bg: "bg-blue-50", iconColor: "text-blue-500" },
-  PLAN_READY: { bg: "bg-[#e4d5ff]/50", iconColor: "text-primary" },
-  PLAN_APPLIED: { bg: "bg-[#d2ffa0]/40", iconColor: "text-green-600" },
-  SERVICE_DUE_SOON: { bg: "bg-amber-50", iconColor: "text-amber-600" },
-  EXPENSE_WEEKLY_SUMMARY: { bg: "bg-blue-50", iconColor: "text-blue-500" },
-  TASK_REMINDER: { bg: "bg-purple-50", iconColor: "text-purple-600" },
+  TRANSFER_REQUEST: { bg: "bg-[--color-sand]/50", iconColor: "text-primary" },
+  TRANSFER_ACCEPTED: { bg: "bg-[--color-monte-soft]/40", iconColor: "text-primary" },
+  TRANSFER_REJECTED: { bg: "bg-[--color-ladrillo-soft]", iconColor: "text-destructive" },
+  TASK_OVERDUE: { bg: "bg-[--color-manteca-soft]", iconColor: "text-destructive" },
+  REMINDER_DUE: { bg: "bg-[--color-sand]", iconColor: "text-[--color-ink-2]" },
+  PLAN_READY: { bg: "bg-[--color-sand]/50", iconColor: "text-primary" },
+  PLAN_APPLIED: { bg: "bg-[--color-monte-soft]/40", iconColor: "text-primary" },
+  SERVICE_DUE_SOON: { bg: "bg-[--color-manteca-soft]", iconColor: "text-[--color-manteca-text]" },
+  EXPENSE_WEEKLY_SUMMARY: { bg: "bg-[--color-sand]", iconColor: "text-[--color-ink-2]" },
+  TASK_REMINDER: { bg: "bg-[--color-sand]", iconColor: "text-[--color-ink-2]" },
 };
 
 export const notificationStyleDefault = {
@@ -204,22 +214,22 @@ export const notificationStyleDefault = {
   iconColor: "text-muted-foreground",
 } as const;
 
-/** Stat card colors — bg + text for each branded card variant. */
+/** @deprecated Neutral replacement — stat cards no longer carry per-variant brand color. */
 export const statCardColors = {
-  purple: { bg: "bg-[#d0b6ff]", text: "text-[#522a97]" },
-  lime: { bg: "bg-[#d2ffa0]", text: "text-[#272727]" },
-  tan: { bg: "bg-[#ffe8c3]", text: "text-[#272727]" },
-  cream: { bg: "bg-[#fff0d7]", text: "text-[#272727]" },
-  primary: { bg: "bg-[#5260fe]", text: "text-white" },
-  orange: { bg: "bg-[#fd7c52]", text: "text-white" },
-  lavenderLight: { bg: "bg-[#e4d5ff]", text: "text-[#522a97]" },
+  purple: { bg: "bg-[--color-monte-soft]", text: "text-[--color-ink]" },
+  lime: { bg: "bg-[--color-manteca-soft]", text: "text-[--color-ink]" },
+  tan: { bg: "bg-[--color-sand]", text: "text-[--color-ink]" },
+  cream: { bg: "bg-[--color-sand]", text: "text-[--color-ink]" },
+  primary: { bg: "bg-[--color-monte]", text: "text-[--color-paper]" },
+  orange: { bg: "bg-[--color-ladrillo-soft]", text: "text-[--color-ladrillo-text]" },
+  lavenderLight: { bg: "bg-[--color-monte-soft]", text: "text-[--color-ink]" },
 } as const;
 
 // ============================================
 // 5. SHADOWS
 // ============================================
 
-/** Semantic shadow scale. */
+/** Semantic shadow scale (Tailwind utility classes). */
 export const shadows = {
   /** Default card surface */
   card: "shadow-sm",
@@ -338,8 +348,8 @@ export const animation = {
 export const presets = {
   /** Stat card container */
   statCard: "rounded-[10px] p-4",
-  /** Notice/info card (cream background) */
-  noticeCard: "rounded-2xl bg-[#fff0d7] px-5 py-4",
+  /** Notice/info card */
+  noticeCard: "rounded-2xl bg-[--color-manteca-soft] px-5 py-4",
   /** Feature card base (dashboard) */
   featureCard: "rounded-2xl transition-all duration-200",
 } as const;

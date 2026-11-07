@@ -5,6 +5,7 @@ import { handleApiError } from "@/lib/api-response";
 import { refreshCartSchema } from "@/lib/validations/saved-items";
 import { compareProducts } from "@/lib/supermarket-search";
 import { applyRateLimit } from "@/lib/rate-limit";
+import { diffCartPrices } from "@/lib/saved-cart-diff";
 
 import type { NextRequest } from "next/server";
 import type { Prisma } from "@prisma/client";
@@ -64,6 +65,13 @@ export async function POST(request: NextRequest) {
     const city = member.household.city;
     const freshResults = await compareProducts(extractSearchItems(savedCart), city);
 
+    if (freshResults.unavailableStores.includes(savedCart.storeName)) {
+      return NextResponse.json(
+        { error: `${savedCart.storeName} no responde ahora. Probá en un rato.` },
+        { status: 503 },
+      );
+    }
+
     // Find the matching store in fresh results
     const freshStoreCart = freshResults.storeCarts.find(
       (sc) => sc.storeName === savedCart.storeName,
@@ -72,6 +80,8 @@ export async function POST(request: NextRequest) {
     if (!freshStoreCart) {
       return NextResponse.json({ error: "Supermercado no encontrado en resultados frescos" }, { status: 404 });
     }
+
+    const priceChanges = diffCartPrices(savedCart.products, freshStoreCart.products);
 
     // Update the saved cart with fresh data
     const updated = await prisma.savedCart.update({
@@ -82,10 +92,11 @@ export async function POST(request: NextRequest) {
         cheapestCount: freshStoreCart.cheapestCount,
         missingTerms: freshStoreCart.missingTerms,
         totalSearched: freshStoreCart.totalSearched,
+        refreshedAt: new Date(),
       },
     });
 
-    return NextResponse.json(updated);
+    return NextResponse.json({ ...updated, priceChanges });
   } catch (error) {
     return handleApiError(error, { route: "/api/saved-items/deals/refresh", method: "POST" });
   }

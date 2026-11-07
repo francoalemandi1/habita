@@ -1,163 +1,158 @@
-export const semanticColors = {
-  primary: "#5260fe",
-  primaryLight: "#626efe",
-  text: "#272727",
-  background: "#fff7ea",
-  card: "#ffffff",
-  success: "#7aa649",
-  warning: "#fd7c52",
+/**
+ * Habita Design System Tokens — Rebrand (Fase 1, §9)
+ *
+ * Single source of truth for colors, typography, spacing, radii, shadows and motion.
+ * Deprecated exports below are kept so unmigrated screens keep compiling; they
+ * resolve to the new tokens and will be removed in Fase 9 (cleanup).
+ */
+
+// ============================================
+// 1. NEW SEMANTIC COLORS (§9.1)
+// ============================================
+
+export const colors = {
+  paper: "#F3EFE7",
+  surface: "#FFFDF9",
+  line: "#E4DED2",
+  lineSoft: "#EEE8DD",
+  sand: "#ECE6DA",
+  ink: "#1D2620",
+  ink2: "#5C665F",
+  ink3: "#8D958F",
+  monte: "#2E5A45",
+  montePressed: "#264B3A",
+  monteSoft: "#DCE6DC",
+  ladrillo: "#C4553B",
+  ladrilloText: "#A23E27",
+  ladrilloSoft: "#F5DFD7",
+  manteca: "#F0D488",
+  mantecaSoft: "#FAF0CF",
+  mantecaText: "#6B5310",
+  scrim: "rgba(29,38,32,.4)",
 } as const;
 
-/** Dark mode semantic colors — aligned with web `.dark` CSS variables. */
-export const darkSemanticColors = {
-  primary: "#7b86fe",     // hsl(234 99% 72%) — lighter for dark bg
-  primaryLight: "#8a94fe",
-  text: "#ede5d8",        // hsl(39 30% 93%) — warm light text
-  background: "#191a1e",  // hsl(220 13% 10%)
-  card: "#202125",        // hsl(220 13% 13%)
-  success: "#4ade80",     // hsl(142 71% 40%)
-  warning: "#fd9a7a",
+export const darkColors = {
+  paper: "#121813",
+  surface: "#1B231D",
+  line: "#2A352E",
+  lineSoft: "#232C25",
+  sand: "#232C25",
+  ink: "#ECE6DA",
+  ink2: "#A3ACA5",
+  ink3: "#7A847D",
+  monte: "#7DB394",
+  montePressed: "#6A9E80",
+  monteSoft: "#1F3329",
+  ladrillo: "#E8866E",
+  ladrilloText: "#E8866E",
+  ladrilloSoft: "#3A2420",
+  manteca: "#F0D488",
+  mantecaSoft: "#3A3320",
+  mantecaText: "#F0D488",
+  scrim: "rgba(0,0,0,.6)",
 } as const;
 
-export const spacingScale = {
+// ============================================
+// 2. SPACING, RADII, SHADOWS (§9.2)
+// ============================================
+
+export const spacing = {
   xs: 4,
   sm: 8,
   md: 12,
   lg: 16,
   xl: 20,
   xxl: 24,
+  xxxl: 32,
+  huge: 48,
 } as const;
 
-export const radiusScale = {
-  sm: 8,
-  md: 10,
-  lg: 12,
-  xl: 16,
-  xxl: 20,
-  "2xl": 24,
+export const radii = {
+  checkbox: 6,
+  rowIcon: 10,
+  control: 12,
+  tile: 14,
+  cardSm: 16,
+  card: 20,
+  dialog: 24,
+  sheet: 28,
   full: 999,
 } as const;
 
-export const typographyScale = {
-  titleLg: 24,
-  titleMd: 20,
-  body: 14,
-  caption: 12,
+/** CSS box-shadow strings, per §9.2. */
+export const shadowTokens = {
+  level1: "0 1px 2px rgba(29,38,32,.06), 0 8px 24px -8px rgba(29,38,32,.18)",
+  level2: "0 24px 64px -12px rgba(29,38,32,.32)",
 } as const;
 
 // ============================================
-// EXTENDED PALETTE (raw hex values)
+// 3. TYPOGRAPHY — Schibsted Grotesk (§9.3)
 // ============================================
 
-export const palette = {
-  primary: "#5260fe",
-  primaryLight: "#626efe",
-  lime: "#d2ffa0",
-  successDark: "#7aa649",
-  lavender: "#d0b6ff",
-  lavenderLight: "#e4d5ff",
-  purpleDark: "#522a97",
-  foregroundDark: "#272727",
-  tan: "#ffe8c3",
-  cream: "#fff0d7",
-  background: "#fff7ea",
-  orange: "#fd7c52",
-  peach: "#fed9cb",
-  white: "#ffffff",
+export const typeScale = {
+  D1: { size: 56, weight: 700, lineHeight: 0.95, letterSpacing: -0.04 },
+  D2: { size: 32, weight: 700, lineHeight: 1.05, letterSpacing: -0.035 },
+  pageTitle: { size: 30, weight: 700, letterSpacing: -0.035 },
+  H1: { size: 22, weight: 700, letterSpacing: -0.02 },
+  T1: { size: 17, weight: 600, letterSpacing: -0.01 },
+  T2: { size: 16, weight: 500, letterSpacing: 0 },
+  B1: { size: 15, weight: 400, letterSpacing: 0 },
+  B2: { size: 13, weight: 400, letterSpacing: 0 },
+  L1: { size: 11, weight: 600, letterSpacing: 0.08 },
 } as const;
 
 // ============================================
-// CYCLING COLORS (member avatars, segments)
+// 4. MOTION (§8.1 / §8.2)
 // ============================================
 
-export const cyclingColors = [
-  "#5260fe",
-  "#d2ffa0",
-  "#d0b6ff",
-  "#ff9f43",
-  "#ff6b6b",
-  "#54a0ff",
-  "#ffd32a",
-  "#ff9ff3",
-] as const;
-
-export const cyclingTextColors = [
-  "#ffffff",
-  "#272727",
-  "#272727",
-  "#ffffff",
-  "#ffffff",
-  "#ffffff",
-  "#272727",
-  "#272727",
-] as const;
-
-// ============================================
-// ASSIGNMENT CARD COLORS
-// ============================================
-
-export const assignmentCardColors = [
-  {
-    bg: "#5260fe",
-    text: "#ffffff",
-    meta: "rgba(255,255,255,0.85)",
-    btnBg: "rgba(255,255,255,0.2)",
+export const motion = {
+  duration: {
+    instant: 100,
+    quick: 180,
+    base: 260,
+    slow: 420,
   },
-  {
-    bg: "#d2ffa0",
-    text: "#272727",
-    meta: "rgba(39,39,39,0.8)",
-    btnBg: "rgba(39,39,39,0.1)",
+  easing: {
+    enter: [0.2, 0, 0, 1],
+    exit: [0.4, 0, 1, 1],
+    move: [0.3, 0, 0, 1],
   },
-  {
-    bg: "#d0b6ff",
-    text: "#272727",
-    meta: "rgba(39,39,39,0.8)",
-    btnBg: "rgba(39,39,39,0.1)",
+  sheetSpring: {
+    damping: 28,
+    stiffness: 300,
   },
-] as const;
-
-// ============================================
-// STAT CARD COLORS
-// ============================================
-
-export const statCardColors = {
-  purple: { bg: "#d0b6ff", text: "#522a97" },
-  lime: { bg: "#d2ffa0", text: "#272727" },
-  tan: { bg: "#ffe8c3", text: "#272727" },
-  cream: { bg: "#fff0d7", text: "#272727" },
-  primary: { bg: "#5260fe", text: "#ffffff" },
-  orange: { bg: "#fd7c52", text: "#ffffff" },
-  lavenderLight: { bg: "#e4d5ff", text: "#522a97" },
 } as const;
 
 // ============================================
-// EXPENSE CATEGORY COLORS
+// 5. CATEGORY COLORS — used by category badges
 // ============================================
 
+/** @deprecated Expense categories are now distinguished by icon, not color (§9). */
 export const categoryColors: Record<string, { bg: string; text: string; bar: string }> = {
-  GROCERIES: { bg: "#dcfce7", text: "#16a34a", bar: "#22c55e" },
-  UTILITIES: { bg: "#fef9c3", text: "#ca8a04", bar: "#eab308" },
-  RENT: { bg: "#dbeafe", text: "#2563eb", bar: "#3b82f6" },
-  FOOD: { bg: "#ffedd5", text: "#ea580c", bar: "#f97316" },
-  TRANSPORT: { bg: "#e0f2fe", text: "#0284c7", bar: "#0ea5e9" },
-  HEALTH: { bg: "#fee2e2", text: "#dc2626", bar: "#ef4444" },
-  ENTERTAINMENT: { bg: "#f3e8ff", text: "#9333ea", bar: "#a855f7" },
-  EDUCATION: { bg: "#e0e7ff", text: "#4f46e5", bar: "#6366f1" },
-  HOME: { bg: "#f5f5f4", text: "#57534e", bar: "#78716c" },
-  OTHER: { bg: "#f3f4f6", text: "#4b5563", bar: "#9ca3af" },
+  GROCERIES: { bg: colors.monteSoft, text: colors.ink, bar: colors.monte },
+  UTILITIES: { bg: colors.mantecaSoft, text: colors.mantecaText, bar: colors.manteca },
+  RENT: { bg: colors.sand, text: colors.ink, bar: colors.ink2 },
+  FOOD: { bg: colors.mantecaSoft, text: colors.mantecaText, bar: colors.manteca },
+  TRANSPORT: { bg: colors.sand, text: colors.ink, bar: colors.ink2 },
+  HEALTH: { bg: colors.ladrilloSoft, text: colors.ladrilloText, bar: colors.ladrillo },
+  ENTERTAINMENT: { bg: colors.monteSoft, text: colors.ink, bar: colors.monte },
+  EDUCATION: { bg: colors.sand, text: colors.ink, bar: colors.ink2 },
+  HOME: { bg: colors.line, text: colors.ink2, bar: colors.ink3 },
+  OTHER: { bg: colors.line, text: colors.ink2, bar: colors.ink3 },
 };
 
-export const categoryColorFallback = { bg: "#f3f4f6", text: "#4b5563", bar: "#9ca3af" } as const;
+/** @deprecated Use `colors.line` / `colors.ink2` directly. */
+export const categoryColorFallback = { bg: colors.line, text: colors.ink2, bar: colors.ink3 } as const;
 
+/** @deprecated Neutral replacement for subcategory badges. */
 export const subcategoryColorOverrides: Record<string, { bg: string; text: string }> = {
-  DELIVERY: { bg: "#ffedd5", text: "#ea580c" },
-  KIOSCO: { bg: "#fae8ff", text: "#c026d3" },
-  SUPERMARKET: { bg: "#dcfce7", text: "#16a34a" },
+  DELIVERY: { bg: colors.mantecaSoft, text: colors.mantecaText },
+  KIOSCO: { bg: colors.monteSoft, text: colors.ink },
+  SUPERMARKET: { bg: colors.monteSoft, text: colors.ink },
 };
 
 // ============================================
-// STORE BRAND COLORS
+// 6. STORE BRAND COLORS — UNCHANGED (third-party brand colors)
 // ============================================
 
 export const storeColors: Record<string, { bg: string; text: string }> = {
@@ -177,9 +172,10 @@ export const storeColors: Record<string, { bg: string; text: string }> = {
 export const storeColorFallback = { bg: "#595959", text: "#ffffff" } as const;
 
 // ============================================
-// SHADOWS (React Native format)
+// 7. SHADOWS (React Native format) — deprecated, use `shadowTokens`
 // ============================================
 
+/** @deprecated React Native shadow objects for legacy screens; prefer `shadowTokens` (web) or theme shadow styles (mobile). */
 export const shadows = {
   card: {
     shadowColor: "#000",
@@ -205,20 +201,17 @@ export const shadows = {
 } as const;
 
 // ============================================
-// CONTRAST HELPER
+// 8. CONTRAST HELPER
 // ============================================
 
-const LIGHT_BACKGROUNDS = new Set([
-  "#d2ffa0",
-  "#d0b6ff",
-  "#ffe8c3",
-  "#fff0d7",
-  "#e4d5ff",
-  "#fed9cb",
-  "#ffd32a",
+const LIGHT_BACKGROUNDS = new Set<string>([
+  colors.sand,
+  colors.monteSoft,
+  colors.mantecaSoft,
+  colors.ladrilloSoft,
 ]);
 
-/** Returns white or dark text depending on the background color. */
+/** Returns the appropriate foreground hex for a given background hex. */
 export function contrastText(backgroundHex: string): string {
-  return LIGHT_BACKGROUNDS.has(backgroundHex) ? "#272727" : "#ffffff";
+  return LIGHT_BACKGROUNDS.has(backgroundHex) ? colors.ink : colors.paper;
 }

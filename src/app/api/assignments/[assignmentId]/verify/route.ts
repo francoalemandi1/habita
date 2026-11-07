@@ -95,6 +95,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         data: {
           status: "PENDING",
           completedAt: null,
+          completedByMemberId: null,
           notes: feedback ? `Rechazado: ${feedback}` : "Rechazado - debe rehacerse",
         },
       });

@@ -7,6 +7,11 @@ import { queryKeys } from "@/lib/query-keys";
 
 import type { SavedEvent, SavedCart } from "@prisma/client";
 import type { SaveEventInput, SaveCartInput } from "@/lib/validations/saved-items";
+import type { PriceChange } from "@/lib/saved-cart-diff";
+
+export interface RefreshedSavedCart extends SavedCart {
+  priceChanges: PriceChange[];
+}
 
 // ============================================
 // Queries
@@ -114,6 +119,32 @@ export function useToggleSaveCart() {
     toggle,
     isPending: saveMutation.isPending || removeMutation.isPending,
   };
+}
+
+// ============================================
+// Refresh (stale cart → fresh prices)
+// ============================================
+
+/**
+ * POST /api/saved-items/deals/refresh for a single cart.
+ * Throws ApiError with status 503 when the store is unreachable (cart kept as-is),
+ * or 404 when the store no longer carries it.
+ */
+export function useRefreshSavedCart() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (savedCartId: string) =>
+      apiFetch<RefreshedSavedCart>("/api/saved-items/deals/refresh", {
+        method: "POST",
+        body: { savedCartId },
+      }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<SavedCart[]>(queryKeys.saved.deals(), (current) =>
+        current ? current.map((cart) => (cart.id === updated.id ? updated : cart)) : current,
+      );
+    },
+  });
 }
 
 // ============================================

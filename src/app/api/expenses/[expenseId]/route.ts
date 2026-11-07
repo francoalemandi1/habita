@@ -6,11 +6,19 @@ import { handleApiError } from "@/lib/api-response";
 import { updateExpenseSchema } from "@/lib/validations/expense";
 import { inferExpenseSubcategory } from "@/lib/expense-subcategory";
 import { splitEqually } from "@/lib/expense-splits";
+import { ForbiddenError } from "@/lib/errors";
 
 import type { NextRequest } from "next/server";
+import type { CurrentMember } from "@/lib/session";
 
 interface RouteContext {
   params: Promise<{ expenseId: string }>;
+}
+
+/** Editing or deleting an expense is limited to its payer or an ADULT. */
+function assertCanEditExpense(member: CurrentMember, paidById: string): void {
+  if (member.memberType === "ADULT" || member.id === paidById) return;
+  throw new ForbiddenError("Solo quien pagó o un adulto puede cambiar este gasto");
 }
 
 /**
@@ -36,10 +44,26 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Gasto no encontrado" }, { status: 404 });
     }
 
+    const splitMemberIds = expense.splits.map((s) => s.memberId);
+    const laterSettlement = splitMemberIds.length
+      ? await prisma.settlement.findFirst({
+          where: {
+            householdId: member.householdId,
+            settledAt: { gte: expense.createdAt },
+            OR: [
+              { fromMemberId: expense.paidById, toMemberId: { in: splitMemberIds } },
+              { toMemberId: expense.paidById, fromMemberId: { in: splitMemberIds } },
+            ],
+          },
+          select: { id: true },
+        })
+      : null;
+
     return NextResponse.json({
       ...expense,
       amount: expense.amount.toNumber(),
       splits: expense.splits.map((s) => ({ ...s, amount: s.amount.toNumber() })),
+      hasLaterSettlement: laterSettlement !== null,
     });
   } catch (error) {
     return handleApiError(error, { route: "/api/expenses/[expenseId]", method: "GET" });
@@ -57,12 +81,14 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
     const expense = await prisma.expense.findFirst({
       where: { id: expenseId, householdId: member.householdId },
-      select: { id: true },
+      select: { id: true, paidById: true },
     });
 
     if (!expense) {
       return NextResponse.json({ error: "Gasto no encontrado" }, { status: 404 });
     }
+
+    assertCanEditExpense(member, expense.paidById);
 
     await prisma.expense.delete({ where: { id: expenseId } });
 
@@ -97,12 +123,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const existing = await prisma.expense.findFirst({
       where: { id: expenseId, householdId },
-      select: { id: true, amount: true, splitType: true, category: true, title: true },
+      select: { id: true, amount: true, splitType: true, category: true, title: true, paidById: true },
     });
 
     if (!existing) {
       return NextResponse.json({ error: "Gasto no encontrado" }, { status: 404 });
     }
+
+    assertCanEditExpense(member, existing.paidById);
 
     const amountChanged = data.amount !== undefined && data.amount !== existing.amount.toNumber();
 
@@ -141,7 +169,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           where: { id: expenseId },
           data: updateData,
         }),
-        // TODO(stage-4): recreating splits drops settled state
         prisma.expenseSplit.deleteMany({ where: { expenseId } }),
         prisma.expenseSplit.createMany({
           data: newSplits.map((s) => ({

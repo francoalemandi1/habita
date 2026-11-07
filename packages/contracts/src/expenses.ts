@@ -81,9 +81,38 @@ export const expensesListResponseSchema = z.object({
   }),
 });
 
+export const memberBalanceSchema = z.object({
+  memberId: z.string(),
+  memberName: z.string(),
+  balance: z.number(),
+});
+
+export const debtTransactionSchema = z.object({
+  fromMemberId: z.string(),
+  fromMemberName: z.string(),
+  toMemberId: z.string(),
+  toMemberName: z.string(),
+  amount: z.number(),
+});
+
+export const currencyBalancesSchema = z.object({
+  balances: z.array(memberBalanceSchema),
+  transactions: z.array(debtTransactionSchema),
+});
+
+export const expenseBalancesResponseSchema = z.object({
+  balances: z.array(memberBalanceSchema),
+  transactions: z.array(debtTransactionSchema),
+  byCurrency: z.record(z.string(), currencyBalancesSchema),
+  primaryCurrency: z.string(),
+});
+
 export type ExpenseCategory = z.infer<typeof expenseCategorySchema>;
 export type SplitType = z.infer<typeof splitTypeSchema>;
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
 export type SerializedExpense = z.infer<typeof serializedExpenseSchema>;
 export type ExpensesListResponse = z.infer<typeof expensesListResponseSchema>;
+export type MemberBalance = z.infer<typeof memberBalanceSchema>;
+export type DebtTransaction = z.infer<typeof debtTransactionSchema>;
+export type ExpenseBalancesResponse = z.infer<typeof expenseBalancesResponseSchema>;

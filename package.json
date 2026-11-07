@@ -93,5 +93,10 @@
     "tsx": "^4.19.4",
     "typescript": "^5.6.3",
     "vitest": "^4.0.18"
+  },
+  "pnpm": {
+    "overrides": {
+      "@tanstack/query-core": "5.90.20"
+    }
   }
 }

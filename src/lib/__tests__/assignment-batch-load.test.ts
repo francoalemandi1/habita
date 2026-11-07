@@ -1,27 +1,30 @@
 import { describe, it, expect } from "vitest";
 import { pickAssigneesForBatch } from "../assignment-algorithm";
 
-import type { BatchScoreContext } from "../assignment-algorithm";
-import type { Task } from "@prisma/client";
+import type { TaskPlannerSnapshot, PlannerTask } from "@habita/domain";
 
-function buildTask(id: string, minAge: number | null = null): Task {
+function buildTask(id: string, minAge: number | null = null): PlannerTask {
   return {
     id,
     name: id,
+    frequency: "DAILY",
+    weight: 1,
     minAge,
-  } as Task;
+    estimatedMinutes: null,
+  };
 }
 
 describe("pickAssigneesForBatch", () => {
   it("splits 4 equal tasks 2/2 across 2 members with no prior load", () => {
     const now = new Date(2026, 0, 5);
 
-    const context: BatchScoreContext = {
+    const snapshot: TaskPlannerSnapshot = {
       members: [
-        { id: "m1", name: "Ana", memberType: "ADULT", preferences: [], assignments: [], absences: [] },
-        { id: "m2", name: "Bruno", memberType: "ADULT", preferences: [], assignments: [], absences: [] },
+        { id: "m1", name: "Ana", memberType: "ADULT", absences: [] },
+        { id: "m2", name: "Bruno", memberType: "ADULT", absences: [] },
       ],
-      lastAssignmentsByTask: new Map(),
+      preferences: [],
+      recentAssignments: [],
       tasks: [buildTask("t1"), buildTask("t2"), buildTask("t3"), buildTask("t4")],
     };
 
@@ -32,7 +35,7 @@ describe("pickAssigneesForBatch", () => {
       { id: "t4", name: "Tender ropa", frequency: "DAILY" },
     ];
 
-    const picks = pickAssigneesForBatch(context, tasks, now);
+    const picks = pickAssigneesForBatch(snapshot, tasks, now);
 
     expect(picks).toHaveLength(4);
     const countByMember = new Map<string, number>();
@@ -45,14 +48,15 @@ describe("pickAssigneesForBatch", () => {
 
   it("skips a task when no member is eligible", () => {
     const now = new Date(2026, 0, 5);
-    const context: BatchScoreContext = {
+    const snapshot: TaskPlannerSnapshot = {
       members: [],
-      lastAssignmentsByTask: new Map(),
+      preferences: [],
+      recentAssignments: [],
       tasks: [buildTask("t1")],
     };
 
     const picks = pickAssigneesForBatch(
-      context,
+      snapshot,
       [{ id: "t1", name: "Tarea", frequency: "DAILY" }],
       now,
     );

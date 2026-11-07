@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
+import { createUniqueId } from "@/lib/unique-id";
 
 // Sensitive keys — stored in SecureStore (Keychain on iOS, EncryptedSharedPreferences on Android)
 const ACCESS_TOKEN_KEY = "habita_mobile_access_token";
@@ -93,7 +94,7 @@ export async function getOrCreateDeviceId(): Promise<string> {
   const existing = await AsyncStorage.getItem(DEVICE_ID_KEY);
   if (existing) return existing;
 
-  const generated = `device_${Date.now()}_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+  const generated = `device_${Date.now()}_${createUniqueId().replace(/-/g, "").slice(0, 16)}`;
   await AsyncStorage.setItem(DEVICE_ID_KEY, generated);
   return generated;
 }

@@ -1,16 +1,23 @@
 import { prisma } from "@/lib/prisma";
 import { deliverNotificationToMembers } from "@/lib/push-delivery";
+import { getHouseholdBalances } from "@/lib/expense-balances";
+import { APP_ROUTES } from "@habita/contracts";
 
 /**
  * processMorningBriefing — sends a consolidated daily push at 8am per household timezone.
  * Dedup: max 1 DAILY_BRIEFING per household per day.
  */
-export async function processMorningBriefing(): Promise<number> {
+export async function processMorningBriefing(
+  activeHouseholdIds: Set<string>,
+): Promise<number> {
   const now = new Date();
   let sent = 0;
 
   const households = await prisma.household.findMany({
-    where: { members: { some: { isActive: true } } },
+    where: {
+      members: { some: { isActive: true } },
+      id: { in: [...activeHouseholdIds] },
+    },
     select: { id: true, timezone: true },
   });
 
@@ -51,7 +58,7 @@ export async function processMorningBriefing(): Promise<number> {
       const endOfLocalDay = new Date(startOfLocalDay.getTime() + 24 * 60 * 60 * 1000);
       const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
-      const [pendingToday, unsettledBalance, servicesDueSoon, topDeal] = await Promise.all([
+      const [pendingToday, householdBalances, servicesDueSoon, topDeal] = await Promise.all([
         prisma.assignment.count({
           where: {
             householdId: hh.id,
@@ -59,13 +66,7 @@ export async function processMorningBriefing(): Promise<number> {
             dueDate: { gte: now, lte: endOfLocalDay },
           },
         }),
-        prisma.expenseSplit.aggregate({
-          where: {
-            settled: false,
-            expense: { householdId: hh.id },
-          },
-          _sum: { amount: true },
-        }),
+        getHouseholdBalances(hh.id),
         prisma.service.count({
           where: {
             householdId: hh.id,
@@ -93,7 +94,10 @@ export async function processMorningBriefing(): Promise<number> {
       if (servicesDueSoon > 0) {
         items.push(`${servicesDueSoon} servicio${servicesDueSoon > 1 ? "s" : ""} vencen pronto`);
       }
-      const balance = unsettledBalance._sum.amount?.toNumber() ?? 0;
+      const primaryBalances = householdBalances.byCurrency[householdBalances.primaryCurrency]?.balances ?? [];
+      const balance = primaryBalances
+        .filter((b) => b.balance > 0)
+        .reduce((sum, b) => sum + b.balance, 0);
       if (balance > 0) {
         items.push(`$${balance.toLocaleString("es-AR")} en gastos pendientes de saldar`);
       }
@@ -121,7 +125,7 @@ export async function processMorningBriefing(): Promise<number> {
         type: "DAILY_BRIEFING",
         title: "Resumen del día",
         message,
-        actionUrl: "/dashboard",
+        actionUrl: APP_ROUTES.casa,
         householdTimezone: hh.timezone,
       });
 

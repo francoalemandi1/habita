@@ -13,8 +13,11 @@ const DEEP_LINK_MAP: Partial<Record<NotificationType, string>> = {
   TRANSFER_REJECTED: "/(app)/transfers",
   SERVICE_DUE_SOON: "/(app)/services",
   EXPENSE_SHARED: "/(app)/balance",
+  // "/(app)/balance" resolves on old store builds and redirects to Plata on new ones.
+  SETTLEMENT_RECORDED: "/(app)/balance",
   EXPENSE_WEEKLY_SUMMARY: "/(app)/expense-insights",
   MEMBER_JOINED: "/(app)/profile",
+  MEMBER_LEFT: "/(app)/profile",
   PLAN_READY: "/(app)/plan",
   CULTURAL_RECOMMENDATION: "/(app)/descubrir",
   DEAL_ALERT: "/(app)/grocery-deals",
@@ -22,7 +25,7 @@ const DEEP_LINK_MAP: Partial<Record<NotificationType, string>> = {
   DAILY_BRIEFING: "/(app)/dashboard",
   TASK_OVERDUE: "/(app)/tasks",
   SPENDING_ALERT: "/(app)/expense-insights",
-  EXPENSE_REMINDER: "/(app)/new-expense",
+  EXPENSE_REMINDER: "/plata?anotar=expense",
 };
 
 // ── Interfaces ─────────────────────────────────────────────────────────────────

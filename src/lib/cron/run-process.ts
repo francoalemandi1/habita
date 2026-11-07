@@ -1,10 +1,11 @@
 import { after, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { processAbsenceRedistribution } from "@/lib/absence-redistribution";
 import { cleanupOldNotifications } from "@/lib/notification-service";
 import { expirePastEvents } from "@/lib/events/expire-events";
 import { cleanupExpiredMobileAuthSessions } from "@/lib/mobile-auth";
-import { processRotations } from "@/lib/rotation-generator";
 import { handleApiError } from "@/lib/api-response";
+import { getActiveHouseholdIdsOrEmpty } from "@/lib/cron/active-households";
 import { processServiceBilling } from "@/lib/cron/jobs/service-billing";
 import { processProactiveNotifications } from "@/lib/cron/jobs/proactive-notifications";
 import { processCulturalRecommendations } from "@/lib/cron/jobs/cultural-recommendations";
@@ -37,6 +38,16 @@ export async function runJob<T>(
 export async function runCronProcess(cronSecret: string) {
   try {
     const failedJobs: string[] = [];
+    const now = new Date();
+    const [activeHouseholdIds, totalHouseholds] = await Promise.all([
+      getActiveHouseholdIdsOrEmpty(now),
+      prisma.household.count(),
+    ]);
+    console.log(
+      `[cron/process] Active households: ${activeHouseholdIds.size}/${totalHouseholds} ` +
+        `(skipped ${totalHouseholds - activeHouseholdIds.size} inactive)`,
+    );
+
     const [
       absenceResult,
       cleanupResult,
@@ -46,7 +57,6 @@ export async function runCronProcess(cronSecret: string) {
       proactiveResult,
       culturalResult,
       dealResult,
-      rotationResult,
       morningBriefingResult,
       overdueTaskResult,
       spendingAnomalyResult,
@@ -56,13 +66,28 @@ export async function runCronProcess(cronSecret: string) {
       runJob("serviceBilling", processServiceBilling, failedJobs),
       runJob("expireEvents", expirePastEvents, failedJobs),
       runJob("mobileAuthCleanup", cleanupExpiredMobileAuthSessions, failedJobs),
-      runJob("proactiveNotifications", processProactiveNotifications, failedJobs),
-      runJob("culturalRecommendations", processCulturalRecommendations, failedJobs),
-      runJob("dealAlerts", processDealAlerts, failedJobs),
-      runJob("rotations", processRotations, failedJobs),
-      runJob("morningBriefing", processMorningBriefing, failedJobs),
-      runJob("overdueTaskAlerts", processOverdueTaskAlerts, failedJobs),
-      runJob("spendingAnomalyAlerts", processSpendingAnomalyAlerts, failedJobs),
+      runJob(
+        "proactiveNotifications",
+        () => processProactiveNotifications(activeHouseholdIds),
+        failedJobs,
+      ),
+      runJob(
+        "culturalRecommendations",
+        () => processCulturalRecommendations(activeHouseholdIds),
+        failedJobs,
+      ),
+      runJob("dealAlerts", () => processDealAlerts(activeHouseholdIds), failedJobs),
+      runJob("morningBriefing", () => processMorningBriefing(activeHouseholdIds), failedJobs),
+      runJob(
+        "overdueTaskAlerts",
+        () => processOverdueTaskAlerts(activeHouseholdIds),
+        failedJobs,
+      ),
+      runJob(
+        "spendingAnomalyAlerts",
+        () => processSpendingAnomalyAlerts(activeHouseholdIds),
+        failedJobs,
+      ),
     ]);
 
     // Fire-and-forget: trigger events ingest and grocery-deals in background
@@ -123,13 +148,6 @@ export async function runCronProcess(cronSecret: string) {
         mobileAuth: {
           revokedExpired: mobileAuthCleanup.revokedExpired,
           deletedOldRevoked: mobileAuthCleanup.deletedOldRevoked,
-        },
-      }),
-      ...(rotationResult && {
-        rotations: {
-          processed: rotationResult.processed,
-          generated: rotationResult.generated,
-          errors: rotationResult.errors,
         },
       }),
       proactiveNotifications: {

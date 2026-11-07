@@ -2,52 +2,59 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardCheck, Receipt, ShoppingCart, Compass } from "lucide-react";
-import { NotificationsDropdown } from "@/components/features/notifications-dropdown";
-import { cn } from "@/lib/utils";
+import { ClipboardCheck, Receipt, ShoppingCart, Home } from "lucide-react";
+import { Sidebar } from "@/components/ds/sidebar";
+import { HouseholdSwitcher } from "@/components/features/household-switcher";
+import { APP_ROUTES } from "@habita/contracts";
+import { ANOTAR_OPEN_EVENT } from "@/components/features/anotar/anotar-events";
 
-const NAV_ITEMS = [
-  { href: "/my-tasks", icon: ClipboardCheck, label: "Organizá" },
-  { href: "/balance", icon: Receipt, label: "Controlá" },
-  { href: "/compras", icon: ShoppingCart, label: "Ahorrá" },
-  { href: "/descubrir", icon: Compass, label: "Descubrí", requiresLocation: true },
+import type { SidebarItem } from "@/components/ds/sidebar";
+
+const PLACES: SidebarItem[] = [
+  { id: "casa", label: "Casa", icon: Home, href: APP_ROUTES.casa },
+  { id: "tareas", label: "Tareas", icon: ClipboardCheck, href: APP_ROUTES.tareas },
+  { id: "plata", label: "Plata", icon: Receipt, href: APP_ROUTES.plata },
+  { id: "super", label: "Súper", icon: ShoppingCart, href: APP_ROUTES.super },
 ];
 
-interface AppNavProps {
-  hasLocation?: boolean;
+interface HouseholdOption {
+  id: string;
+  name: string;
 }
 
-export function AppNav({ hasLocation = false }: AppNavProps) {
+interface AppNavProps {
+  household: { name: string };
+  member: { name: string };
+  households: HouseholdOption[];
+  currentHouseholdId: string;
+}
+
+/** Desktop (md+) shell nav: §6.15 240px sidebar. */
+export function AppNav({ household, member, households, currentHouseholdId }: AppNavProps) {
   const pathname = usePathname();
+  const active = PLACES.find((item) => pathname.startsWith(item.href))?.id ?? "casa";
+  const householdSlot =
+    households.length > 1 ? (
+      <HouseholdSwitcher households={households} currentHouseholdId={currentHouseholdId} className="w-full" />
+    ) : undefined;
 
   return (
-    <nav className="flex items-center gap-2 sm:gap-4">
-      <div className="hidden md:flex md:items-center md:gap-4">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname.startsWith(item.href);
-          const isDimmed = item.requiresLocation && !hasLocation;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={isDimmed ? "Configurá tu ubicación en el perfil para desbloquear" : undefined}
-              className={cn(
-                "flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-all duration-200 hover:bg-muted/60 hover:text-foreground",
-                isActive
-                  ? "bg-primary/10 text-primary"
-                  : isDimmed
-                    ? "text-muted-foreground/40"
-                    : "text-muted-foreground"
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
-      </div>
-      <NotificationsDropdown />
-    </nav>
+    <div className="hidden h-screen shrink-0 md:block">
+      <Sidebar
+        items={PLACES}
+        active={active}
+        household={household}
+        member={member}
+        onAnotar={() => window.dispatchEvent(new Event(ANOTAR_OPEN_EVENT))}
+        householdSlot={householdSlot}
+        profileHref={APP_ROUTES.perfil}
+        notificationsHref={APP_ROUTES.avisos}
+        renderLink={(href, children, ariaLabel) => (
+          <Link href={href} aria-label={ariaLabel}>
+            {children}
+          </Link>
+        )}
+      />
+    </div>
   );
 }

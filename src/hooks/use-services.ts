@@ -1,103 +1,109 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@habita/contracts";
 import { apiFetch } from "@/lib/api-client";
-import { useToast } from "@/components/ui/toast";
 
 import type { SerializedService } from "@/types/expense";
+import type { ExpenseCategory, RecurringFrequency, SplitType } from "@prisma/client";
+import type { DetectedService } from "@/lib/gmail/scanner";
 
-export function useServices(onExpenseGenerated: () => void) {
-  const [services, setServices] = useState<SerializedService[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
-  const router = useRouter();
-  const toast = useToast();
+export interface CreateServicePayload {
+  title: string;
+  provider: string | null;
+  accountNumber: string | null;
+  lastAmount: number | null;
+  category: ExpenseCategory;
+  frequency: RecurringFrequency;
+  dayOfMonth: number | null;
+  paidById: string;
+  autoGenerate: boolean;
+  notes: string | null;
+  splitType: SplitType;
+  nextDueDate: string;
+}
 
-  const fetchServices = useCallback(async () => {
-    try {
-      const result = await apiFetch<SerializedService[]>("/api/services");
-      setServices(result);
-    } catch {
-      // Silently fail — services are not critical for page load
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+export type UpdateServicePayload = Partial<Omit<CreateServicePayload, "splitType" | "nextDueDate">>;
 
-  useEffect(() => {
-    fetchServices();
-  }, [fetchServices]);
+export interface GmailScanResult {
+  detected: DetectedService[];
+  alreadyExists: Array<{ id: string; title: string }>;
+}
 
-  const activeServices = useMemo(
-    () => services.filter((s) => s.isActive),
-    [services],
-  );
+/** List all services for the household, including isError/refetch for the error + Reintentar state (§10). */
+export function useServices() {
+  return useQuery({
+    queryKey: queryKeys.services.list(),
+    queryFn: () => apiFetch<SerializedService[]>("/api/services"),
+  });
+}
 
-  const inactiveServices = useMemo(
-    () => services.filter((s) => !s.isActive),
-    [services],
-  );
+export function useCreateService() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateServicePayload) =>
+      apiFetch<SerializedService>("/api/services", { method: "POST", body: payload }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.services.all() }),
+  });
+}
 
-  const generate = useCallback(
-    async (serviceId: string) => {
-      setGeneratingIds((prev) => new Set(prev).add(serviceId));
-      try {
-        await apiFetch(`/api/services/${serviceId}/generate`, { method: "POST" });
-        toast.success("Gasto registrado");
-        await fetchServices();
-        onExpenseGenerated();
-        router.refresh();
-      } catch {
-        toast.error("Error", "No se pudo registrar el gasto");
-      } finally {
-        setGeneratingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(serviceId);
-          return next;
-        });
-      }
+export function useUpdateService() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateServicePayload }) =>
+      apiFetch<SerializedService>(`/api/services/${id}`, { method: "PATCH", body: payload }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.services.all() }),
+  });
+}
+
+export function useToggleServiceActive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (service: SerializedService) =>
+      apiFetch<SerializedService>(`/api/services/${service.id}`, {
+        method: "PATCH",
+        body: { isActive: !service.isActive },
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.services.all() }),
+  });
+}
+
+export function useDeleteService() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (serviceId: string) => apiFetch(`/api/services/${serviceId}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.services.all() }),
+  });
+}
+
+export function useGenerateServiceExpense() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (serviceId: string) => apiFetch(`/api/services/${serviceId}/generate`, { method: "POST" }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.services.all() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all() });
     },
-    [fetchServices, onExpenseGenerated, router, toast],
-  );
+  });
+}
 
-  const deleteService = useCallback(
-    async (serviceId: string) => {
-      try {
-        await apiFetch(`/api/services/${serviceId}`, { method: "DELETE" });
-        setServices((prev) => prev.filter((s) => s.id !== serviceId));
-        toast.success("Servicio eliminado");
-      } catch {
-        toast.error("Error", "No se pudo eliminar");
-      }
-    },
-    [toast],
-  );
+/**
+ * Scans Gmail for detected invoices. There is no GET status endpoint for the
+ * Gmail connection (§11 — no backend changes in this stage), so this is the
+ * only signal of "connected" we have; a `GMAIL_NOT_CONNECTED` error means the
+ * household hasn't linked Gmail yet.
+ */
+export function useScanGmail() {
+  return useMutation({
+    mutationFn: () => apiFetch<GmailScanResult>("/api/services/scan-gmail", { method: "POST" }),
+  });
+}
 
-  const toggleActive = useCallback(
-    async (service: SerializedService) => {
-      try {
-        await apiFetch(`/api/services/${service.id}`, {
-          method: "PATCH",
-          body: { isActive: !service.isActive },
-        });
-        await fetchServices();
-      } catch {
-        toast.error("Error", "No se pudo actualizar");
-      }
-    },
-    [fetchServices, toast],
-  );
-
-  return {
-    services,
-    activeServices,
-    inactiveServices,
-    isLoading,
-    generatingIds,
-    generate,
-    deleteService,
-    toggleActive,
-    refresh: fetchServices,
-  };
+export function useImportServices() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (services: Array<Pick<DetectedService, "title" | "provider" | "category" | "frequency" | "lastAmount"> & { currency: string; accountNumber: string | null }>) =>
+      apiFetch<{ imported: number }>("/api/services/import", { method: "POST", body: { services } }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.services.all() }),
+  });
 }

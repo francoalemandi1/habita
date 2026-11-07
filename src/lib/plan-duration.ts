@@ -1,15 +1,11 @@
 import { differenceInCalendarDays, startOfDay, isBefore } from "date-fns";
+import { partitionTasksByDuration } from "@habita/domain";
 
-import type { TaskFrequency } from "@prisma/client";
+import type { PlannerExcludedTask } from "@habita/domain";
 
-/** Minimum number of days a task's frequency requires to be relevant in a plan */
-const FREQUENCY_MIN_DAYS: Record<TaskFrequency, number> = {
-  DAILY: 1,
-  ONCE: 1,
-  WEEKLY: 7,
-  BIWEEKLY: 14,
-  MONTHLY: 30,
-};
+/** Re-exported from @habita/domain so existing imports of `@/lib/plan-duration` keep working. */
+export { partitionTasksByDuration };
+export type ExcludedTask = PlannerExcludedTask;
 
 export interface DurationPreset {
   label: string;
@@ -23,39 +19,6 @@ export const DURATION_PRESETS: DurationPreset[] = [
   { label: "2 semanas", days: 14 },
   { label: "1 mes", days: 30 },
 ];
-
-export interface ExcludedTask {
-  taskName: string;
-  frequency: TaskFrequency;
-}
-
-interface TaskForPartition {
-  name: string;
-  frequency: TaskFrequency;
-}
-
-/**
- * Split tasks into included (fit within plan duration) and excluded (too infrequent).
- * A task is included if its frequency's minimum days <= durationDays.
- */
-export function partitionTasksByDuration<T extends TaskForPartition>(
-  tasks: T[],
-  durationDays: number
-): { included: T[]; excluded: T[] } {
-  const included: T[] = [];
-  const excluded: T[] = [];
-
-  for (const task of tasks) {
-    const minDays = FREQUENCY_MIN_DAYS[task.frequency] ?? 7;
-    if (minDays <= durationDays) {
-      included.push(task);
-    } else {
-      excluded.push(task);
-    }
-  }
-
-  return { included, excluded };
-}
 
 /** Human-readable label for a duration in days */
 export function durationLabel(days: number): string {

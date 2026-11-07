@@ -21,8 +21,6 @@ interface UseGroceryDealsOptions {
   location: GeolocationResult | null;
   isGeoLoading: boolean;
   hasHouseholdLocation: boolean;
-  /** @deprecated No longer required — feature works without AI */
-  aiEnabled?: boolean;
   /** External gate for lazy-loading (only fetch when tab is visited) */
   enabled?: boolean;
   /** Server-side pre-fetched data */
@@ -86,7 +84,6 @@ export function useGroceryDeals({
   location,
   isGeoLoading,
   hasHouseholdLocation,
-  aiEnabled,
   enabled: externalEnabled = true,
   initialData,
   initialDataUpdatedAt,

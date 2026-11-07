@@ -2,15 +2,9 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useProductSelection } from "@/hooks/use-product-selection";
-import { normalizeProductTerm } from "@/components/features/product-search-input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { normalizeProductTerm } from "@/lib/product-term";
+import { Sheet } from "@/components/ds/sheet";
+import { Button } from "@/components/ds/button";
 import { cn } from "@/lib/utils";
 import { Search, X, ChevronDown, ChevronUp, Loader2, Check, Plus } from "lucide-react";
 
@@ -165,14 +159,11 @@ export function CatalogSheet({
   }, []);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Catalogo de productos</DialogTitle>
-          <DialogDescription>
-            Seleccioná productos y confirmá para agregarlos a tu búsqueda.
-          </DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange} title="Catálogo de productos" className="flex max-h-[85vh] flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col gap-3 overflow-hidden">
+        <p className="text-sm text-ink-2">
+          Seleccioná productos y confirmá para agregarlos a tu búsqueda.
+        </p>
 
         {/* Search */}
         <div className="relative">
@@ -206,7 +197,7 @@ export function CatalogSheet({
           />
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => {
               addPendingTerm(customTerm);
@@ -313,18 +304,10 @@ export function CatalogSheet({
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t pt-3">
+        <div className="border-t pt-3">
           <Button
             type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="button"
-            size="sm"
+            className="w-full"
             onClick={() => {
               onConfirmTerms(pendingTerms);
               onOpenChange(false);
@@ -333,7 +316,7 @@ export function CatalogSheet({
             Confirmar productos
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </Sheet>
   );
 }

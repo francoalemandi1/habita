@@ -3,6 +3,7 @@ import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@habita/contracts";
+import { toInAppHref } from "@/lib/navigation";
 
 import type { ReactNode } from "react";
 
@@ -18,8 +19,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const data = response.notification.request.content.data as
           | Record<string, string>
           | undefined;
-        if (data?.url) {
-          router.push(data.url as never);
+        const href = toInAppHref(data?.url);
+        if (href) {
+          router.push(href);
         }
         void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all() });
       },

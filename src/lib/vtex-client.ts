@@ -12,6 +12,8 @@
  * filter "productSuggestions" → copy sha256Hash from the extensions param.
  */
 
+import type { Limiter } from "@/lib/concurrency";
+
 // ============================================
 // Types
 // ============================================
@@ -275,7 +277,7 @@ async function searchVtexStore(
     signal: AbortSignal.timeout(10_000),
   });
 
-  if (!response.ok) return [];
+  if (!response.ok) throw new Error(`${store.name} request failed: ${response.status}`);
 
   const json = (await response.json()) as VtexGraphQLResponse;
   const rawProducts = json.data?.productSuggestions?.products ?? [];
@@ -329,7 +331,7 @@ async function searchVtexLegacy(store: StoreConfig, query: string): Promise<Vtex
     signal: AbortSignal.timeout(10_000),
   });
 
-  if (!response.ok) return [];
+  if (!response.ok) throw new Error(`${store.name} request failed: ${response.status}`);
 
   const rawProducts = (await response.json()) as VtexLegacyProduct[];
 
@@ -398,7 +400,7 @@ async function searchCoto(query: string): Promise<VtexProduct[]> {
     signal: AbortSignal.timeout(10_000),
   });
 
-  if (!response.ok) return [];
+  if (!response.ok) throw new Error(`Coto request failed: ${response.status}`);
 
   const json = (await response.json()) as CotoEndecaResponse;
 
@@ -476,7 +478,7 @@ async function searchCoopObrera(query: string): Promise<VtexProduct[]> {
     signal: AbortSignal.timeout(10_000),
   });
 
-  if (!response.ok) return [];
+  if (!response.ok) throw new Error(`Cooperativa Obrera request failed: ${response.status}`);
 
   const json = (await response.json()) as CoopObreraResponse;
   const rawProducts = json.articulos ?? [];
@@ -515,21 +517,21 @@ async function searchCoopObrera(query: string): Promise<VtexProduct[]> {
  */
 const VTEX_SHA256_HASH = "3eca26a431d4646a8bbce2644b78d3ca734bf8b4ba46afe4269621b64b0fb67d";
 
-/** Search a single store for a product term. */
+/**
+ * Search a single store for a product term.
+ * Lets fetch/parse errors propagate so `searchAllStores` can mark the store
+ * as `failed` for this term, instead of silently reporting "no products".
+ */
 export async function searchStore(store: StoreConfig, query: string): Promise<VtexProduct[]> {
-  try {
-    switch (store.type) {
-      case "vtex":
-        return await searchVtexStore(store, query, VTEX_SHA256_HASH);
-      case "vtex-legacy":
-        return await searchVtexLegacy(store, query);
-      case "coto":
-        return await searchCoto(query);
-      case "coope":
-        return await searchCoopObrera(query);
-    }
-  } catch {
-    return [];
+  switch (store.type) {
+    case "vtex":
+      return searchVtexStore(store, query, VTEX_SHA256_HASH);
+    case "vtex-legacy":
+      return searchVtexLegacy(store, query);
+    case "coto":
+      return searchCoto(query);
+    case "coope":
+      return searchCoopObrera(query);
   }
 }
 
@@ -543,13 +545,26 @@ export function getStoresForCity(city: string | null): StoreConfig[] {
   });
 }
 
-/** Search all applicable stores for a product term, in parallel. */
-export async function searchAllStores(query: string, city?: string | null): Promise<StoreSearchResult[]> {
+/**
+ * Search all applicable stores for a product term, in parallel.
+ *
+ * `limiter` is optional and shared by the caller across every term in a
+ * batch, to bound total outbound requests (see MAX_CONCURRENT_STORE_REQUESTS
+ * in supermarket-search.ts). Callers that don't pass one keep today's
+ * unbounded fan-out per term.
+ */
+export async function searchAllStores(
+  query: string,
+  city?: string | null,
+  limiter?: Limiter,
+): Promise<StoreSearchResult[]> {
   const stores = city !== undefined ? getStoresForCity(city) : SUPERMARKET_STORES;
 
   const results = await Promise.allSettled(
     stores.map(async (store) => {
-      const products = await searchStore(store, query);
+      const products = limiter
+        ? await limiter.run(() => searchStore(store, query))
+        : await searchStore(store, query);
       return { storeName: store.name, products, failed: false } satisfies StoreSearchResult;
     }),
   );

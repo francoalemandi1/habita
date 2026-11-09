@@ -12,9 +12,36 @@ import { APP_ROUTES } from "@habita/contracts";
 import { Prisma } from "@prisma/client";
 
 import type { NextRequest } from "next/server";
+import type { ExpenseSubcategory } from "@prisma/client";
+import type { CreateExpenseInput } from "@habita/contracts";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
+
+const expenseInclude = {
+  paidBy: { select: { id: true, name: true } },
+  splits: { include: { member: { select: { id: true, name: true } } } },
+} as const;
+
+type ExpenseWithRelations = Prisma.ExpenseGetPayload<{ include: typeof expenseInclude }>;
+
+function serializeExpense(expense: ExpenseWithRelations) {
+  return {
+    ...expense,
+    amount: expense.amount.toNumber(),
+    splits: expense.splits.map((s) => ({ ...s, amount: s.amount.toNumber() })),
+  };
+}
+
+async function findExistingExpenseByKey(
+  householdId: string,
+  idempotencyKey: string,
+): Promise<ExpenseWithRelations | null> {
+  return prisma.expense.findFirst({
+    where: { householdId, idempotencyKey },
+    include: expenseInclude,
+  });
+}
 
 /**
  * GET /api/expenses
@@ -86,6 +113,13 @@ export async function POST(request: NextRequest) {
 
     const data = validation.data;
 
+    if (data.idempotencyKey) {
+      const existing = await findExistingExpenseByKey(member.householdId, data.idempotencyKey);
+      if (existing) {
+        return NextResponse.json(serializeExpense(existing), { status: 200 });
+      }
+    }
+
     // Verify paidBy member belongs to household
     const paidByMember = await prisma.member.findFirst({
       where: { id: data.paidById, householdId: member.householdId, isActive: true },
@@ -125,9 +159,39 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const created = await createExpenseRow({
+      householdId: member.householdId,
+      data,
+      splitsData,
+      subcategory,
+      fundToCharge,
+    });
+    const expense = created.expense;
+
+    // Notify split members (excluding the payer) — never on a replay or a lost race.
+    if (created.isNew) {
+      await notifySplitMembers({ expense, data, householdId: member.householdId });
+    }
+
+    return NextResponse.json(serializeExpense(expense), { status: created.isNew ? 201 : 200 });
+  } catch (error) {
+    return handleApiError(error, { route: "/api/expenses", method: "POST" });
+  }
+}
+
+async function createExpenseRow(params: {
+  householdId: string;
+  data: CreateExpenseInput;
+  splitsData: Array<{ memberId: string; amount: Prisma.Decimal }>;
+  subcategory: ExpenseSubcategory;
+  fundToCharge: { id: string } | null;
+}): Promise<{ expense: ExpenseWithRelations; isNew: boolean }> {
+  const { householdId, data, splitsData, subcategory, fundToCharge } = params;
+
+  try {
     const expense = await prisma.expense.create({
       data: {
-        householdId: member.householdId,
+        householdId,
         paidById: data.paidById,
         title: data.title,
         amount: new Prisma.Decimal(data.amount.toFixed(2)),
@@ -137,6 +201,7 @@ export async function POST(request: NextRequest) {
         date: data.date ? new Date(data.date) : new Date(),
         notes: data.notes ?? null,
         splitType: data.splitType,
+        idempotencyKey: data.idempotencyKey,
         splits: {
           create: splitsData,
         },
@@ -154,42 +219,43 @@ export async function POST(request: NextRequest) {
           },
         }),
       },
-      include: {
-        paidBy: { select: { id: true, name: true } },
-        splits: {
-          include: { member: { select: { id: true, name: true } } },
-        },
-      },
+      include: expenseInclude,
     });
-
-    // Notify split members (excluding the payer)
-    const splitMemberIds = expense.splits
-      .map((s) => s.member.id)
-      .filter((id) => id !== data.paidById);
-
-    if (splitMemberIds.length > 0) {
-      const household = await prisma.household.findUnique({
-        where: { id: member.householdId },
-        select: { timezone: true },
-      });
-
-      void deliverNotificationToMembers({
-        memberIds: splitMemberIds,
-        type: "EXPENSE_SHARED",
-        title: "Nuevo gasto compartido",
-        message: `${expense.paidBy.name} registró "${data.title}" por $${data.amount.toLocaleString("es-AR")}`,
-        actionUrl: APP_ROUTES.plata,
-        metadata: { expenseId: expense.id },
-        householdTimezone: household?.timezone,
-      });
-    }
-
-    return NextResponse.json({
-      ...expense,
-      amount: expense.amount.toNumber(),
-      splits: expense.splits.map((s) => ({ ...s, amount: s.amount.toNumber() })),
-    }, { status: 201 });
+    return { expense, isNew: true };
   } catch (error) {
-    return handleApiError(error, { route: "/api/expenses", method: "POST" });
+    // Race: another request inserted the same idempotencyKey first.
+    if (data.idempotencyKey && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const winner = await findExistingExpenseByKey(householdId, data.idempotencyKey);
+      if (winner) return { expense: winner, isNew: false };
+    }
+    throw error;
   }
+}
+
+async function notifySplitMembers(params: {
+  expense: ExpenseWithRelations;
+  data: CreateExpenseInput;
+  householdId: string;
+}): Promise<void> {
+  const { expense, data, householdId } = params;
+  const splitMemberIds = expense.splits
+    .map((s) => s.member.id)
+    .filter((id) => id !== data.paidById);
+
+  if (splitMemberIds.length === 0) return;
+
+  const household = await prisma.household.findUnique({
+    where: { id: householdId },
+    select: { timezone: true },
+  });
+
+  void deliverNotificationToMembers({
+    memberIds: splitMemberIds,
+    type: "EXPENSE_SHARED",
+    title: "Nuevo gasto compartido",
+    message: `${expense.paidBy.name} registró "${data.title}" por $${data.amount.toLocaleString("es-AR")}`,
+    actionUrl: APP_ROUTES.plata,
+    metadata: { expenseId: expense.id },
+    householdTimezone: household?.timezone,
+  });
 }

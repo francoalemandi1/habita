@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
 import { splitEvenlyExact } from "@habita/domain";
+import { createUniqueId } from "@/lib/unique-id";
 import { useFund } from "@/hooks/use-fund";
 import { dueDateToIsoStartOfDay, isFundToggleVisible, resolveChargeToFund } from "@/lib/anotar-draft-logic";
 import type { AnotarSaveInput } from "./use-anotar-save";
@@ -53,6 +54,7 @@ export function useAnotarClassicSave({ onSave, onSaved }: UseAnotarClassicSaveAr
             date: dateIso ?? undefined,
             notes: expense.notes.trim() || undefined,
             chargeToFund: resolveChargeToFund(expense.chargeToFund, isFundToggleVisible(fund, expense.category)) || undefined,
+            idempotencyKey: createUniqueId(),
           },
         });
       } else if (kind === "task") {
@@ -74,6 +76,7 @@ export function useAnotarClassicSave({ onSave, onSaved }: UseAnotarClassicSaveAr
           assigneeMemberId: task.assigneeId,
           description: task.description,
           isRotating: task.isRotating,
+          idempotencyKey: createUniqueId(),
         });
       } else {
         if (!item.name.trim()) {

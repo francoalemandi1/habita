@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireMember, requirePermission } from "@/lib/session";
 import { createTaskSchema } from "@/lib/validations/task";
+import { createTaskIdempotent } from "@/lib/task-create";
 import { handleApiError } from "@/lib/api-response";
 
 import type { NextRequest } from "next/server";
@@ -69,14 +70,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const task = await prisma.task.create({
-      data: {
-        ...validation.data,
-        householdId: member.householdId,
-      },
+    const { task, assignment, isNew } = await createTaskIdempotent({
+      householdId: member.householdId,
+      input: validation.data,
+      requestingMemberType: member.memberType,
     });
 
-    return NextResponse.json({ task }, { status: 201 });
+    return NextResponse.json(
+      { task, ...(assignment && { assignment }) },
+      { status: isNew ? 201 : 200 },
+    );
   } catch (error) {
     return handleApiError(error, { route: "/api/tasks", method: "POST" });
   }

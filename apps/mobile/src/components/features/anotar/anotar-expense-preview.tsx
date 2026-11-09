@@ -7,6 +7,7 @@ import { fontFamilyForWeight, spacing } from "@/theme";
 import { describeExpenseConsequence, formatExpenseConsequence } from "@habita/domain";
 import { formatCurrencyArs } from "@/lib/plata-money-saldos";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
+import { createUniqueId } from "@/lib/unique-id";
 import { useFund } from "@/hooks/use-fund";
 import {
   EXPENSE_CATEGORY_LABELS,
@@ -73,7 +74,11 @@ export function AnotarExpensePreview({
     setError(null);
     try {
       const resolvedChargeToFund = resolveChargeToFund(draft.chargeToFund, isFundToggleVisible(fund, draft.category));
-      const payload = { ...buildExpensePayload(draft, resolvedChargeToFund), date: dueDateToIsoStartOfDay(date) ?? undefined };
+      const payload = {
+        ...buildExpensePayload(draft, resolvedChargeToFund),
+        date: dueDateToIsoStartOfDay(date) ?? undefined,
+        idempotencyKey: createUniqueId(),
+      };
       const wasQueued = await onSave({ kind: "expense", payload });
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onSaved(wasQueued);

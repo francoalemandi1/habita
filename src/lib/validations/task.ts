@@ -8,6 +8,11 @@ export const taskFrequencySchema = z.enum([
   "ONCE",
 ]);
 
+export const initialAssignmentSchema = z.object({
+  memberId: z.string().min(1).nullable(),
+  dueDate: z.coerce.date(),
+});
+
 export const createTaskSchema = z.object({
   name: z
     .string()
@@ -28,6 +33,9 @@ export const createTaskSchema = z.object({
   estimatedMinutes: z.number().int().min(1).max(480).nullable().optional(),
   isRouletteEligible: z.boolean().optional().default(false),
   isRotating: z.boolean().optional(),
+  // Same rule as settlements: no ":" so the key never collides with a prefix match elsewhere.
+  idempotencyKey: z.string().min(8).max(100).regex(/^[^:]+$/).optional(),
+  initialAssignment: initialAssignmentSchema.optional(),
 });
 
 export const updateTaskSchema = z.object({
@@ -56,5 +64,6 @@ export const updateTaskSchema = z.object({
 });
 
 export type TaskFrequency = z.infer<typeof taskFrequencySchema>;
+export type InitialAssignmentInput = z.infer<typeof initialAssignmentSchema>;
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;

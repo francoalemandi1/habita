@@ -59,6 +59,10 @@ export function useAnotarSubmit({
       return;
     }
 
+    // Generated once per save, not inside the mutation, so a react-query retry
+    // (offlineMutationRetry) replays the same key instead of creating a duplicate.
+    const idempotencyKey = crypto.randomUUID();
+
     const resultPromise =
       resolvedKind === "expense"
         ? saveExpense.mutateAsync({
@@ -72,6 +76,7 @@ export function useAnotarSubmit({
             customSplits: expenseDraft.customSplits,
             chargeToFund: resolveChargeToFund(expenseDraft.chargeToFund, isFundToggleVisible(fund, expenseDraft.category)),
             notes: expenseDraft.notes,
+            idempotencyKey,
           })
         : resolvedKind === "task"
           ? saveTask.mutateAsync({
@@ -82,6 +87,7 @@ export function useAnotarSubmit({
               description: taskDraft.description,
               weight: taskDraft.weight,
               isRotating: taskDraft.isRotating,
+              idempotencyKey,
             })
           : saveItems(itemDrafts.filter((item) => item.name.trim().length > 0));
 

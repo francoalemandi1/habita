@@ -1,6 +1,7 @@
 import { signIn } from "@/lib/auth";
 import { Button, HabitaLogo } from "@/components/ds";
 import { BienvenidaBullets } from "@/components/features/onboarding/bienvenida-bullets";
+import { isSafeCallbackPath } from "@/lib/safe-callback-path";
 import { APP_ROUTES } from "@habita/contracts";
 
 interface LoginPageProps {
@@ -10,7 +11,7 @@ interface LoginPageProps {
 /** Bienvenida — handoff §5.3 Entrada. */
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const { callbackUrl } = await searchParams;
-  const redirectTo = callbackUrl?.startsWith("/") ? callbackUrl : APP_ROUTES.casa;
+  const redirectTo = isSafeCallbackPath(callbackUrl) ? callbackUrl : APP_ROUTES.casa;
   const joinRedirectTo = "/onboarding?mode=join";
 
   return (

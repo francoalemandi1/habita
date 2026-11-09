@@ -1,4 +1,5 @@
 import { authConfig } from "@/lib/auth.config";
+import { isSafeCallbackPath } from "@/lib/safe-callback-path";
 import { APP_ROUTES } from "@habita/contracts";
 import NextAuth from "next-auth";
 
@@ -11,6 +12,9 @@ const PUBLIC_PATHS = [
   "/login",
   "/join",
   "/privacidad",
+  // OAuth for the Ahorrá MCP: discovery metadata, and a consent page that runs its own login redirect
+  "/.well-known",
+  "/oauth",
 ];
 
 function isPublicPath(pathname: string): boolean {
@@ -26,9 +30,7 @@ export default auth((req) => {
   // Redirect logged-in users away from login page (respect callbackUrl)
   if (pathname.startsWith("/login") && isLoggedIn) {
     const callbackUrl = req.nextUrl.searchParams.get("callbackUrl");
-    const target = callbackUrl?.startsWith("/") && !callbackUrl.includes("://")
-      ? callbackUrl
-      : APP_ROUTES.casa;
+    const target = isSafeCallbackPath(callbackUrl) ? callbackUrl : APP_ROUTES.casa;
     return Response.redirect(new URL(target, req.nextUrl));
   }
 

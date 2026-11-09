@@ -113,6 +113,11 @@ export function summarizeMyBalance(transactions: readonly CasaDebt[], currentMem
 }
 
 /** L1 date label, e.g. "MARTES 3 NOV". Uses the date's local calendar day. */
-export function formatCasaDateLabel(date: Date): string {
-  return `${WEEKDAY_LABELS[date.getDay()]} ${date.getDate()} ${MONTH_LABELS[date.getMonth()]}`;
+/**
+ * "MARTES 3 NOV". Pass the household time zone when formatting on a server: Vercel runs
+ * in UTC, which is already "tomorrow" in Argentina after 21 h.
+ */
+export function formatCasaDateLabel(date: Date, timeZone?: string): string {
+  const wallClock = timeZone ? new Date(date.toLocaleString("en-US", { timeZone })) : date;
+  return `${WEEKDAY_LABELS[wallClock.getDay()]} ${wallClock.getDate()} ${MONTH_LABELS[wallClock.getMonth()]}`;
 }

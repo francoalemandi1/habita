@@ -102,7 +102,7 @@ export function TodayTasksList({ items, currentMemberType }: TodayTasksListProps
     <div className="flex flex-col">
       {tasks.map((task) => (
         <div key={task.id} className="flex items-center gap-3 border-t border-line-soft py-3 first:border-t-0">
-          <Checkbox state={checkboxStateForAssignment(task.status, currentMemberType)} onToggle={() => toggle(task)} />
+          <Checkbox state={checkboxStateForAssignment(task.status, currentMemberType)} label={task.name} onToggle={() => toggle(task)} />
           <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[16px] font-medium text-ink">
             <span className="truncate">{task.name}</span>
             {pendingIds.has(task.id) && <PendingDot />}

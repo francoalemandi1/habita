@@ -102,6 +102,40 @@ describe("compareProducts", () => {
     expect(cart?.products[0]?.productName).toBe("Tomate Perita x kg");
   });
 
+  it("prefers a product named after the term over a cheaper one that only mentions it", async () => {
+    searchAllStoresMock.mockImplementation(
+      async (): Promise<StoreSearchResult[]> => [
+        {
+          storeName: "Toledo",
+          products: [makeProduct("FLAN DULCE DE LECHE", 1180), makeProduct("LECHE ENTERA LV", 2699)],
+          failed: false,
+        },
+      ],
+    );
+
+    const result = await compareProducts(["leche"], null, null);
+
+    const cart = result.storeCarts.find((c) => c.storeName === "Toledo");
+    expect(cart?.products[0]?.productName).toBe("LECHE ENTERA LV");
+  });
+
+  it("falls back to the cheapest match when no product name starts with the term", async () => {
+    searchAllStoresMock.mockImplementation(
+      async (): Promise<StoreSearchResult[]> => [
+        {
+          storeName: "Store1",
+          products: [makeProduct("La Serenisima Leche Entera 1L", 2500), makeProduct("Ilolay Leche Entera 1L", 2300)],
+          failed: false,
+        },
+      ],
+    );
+
+    const result = await compareProducts(["leche"], null, null);
+
+    const cart = result.storeCarts.find((c) => c.storeName === "Store1");
+    expect(cart?.products[0]?.productName).toBe("Ilolay Leche Entera 1L");
+  });
+
   it("retries a globally not-found term with a synonym variant and reports it under the original term", async () => {
     searchAllStoresMock.mockImplementation(async (term: string): Promise<StoreSearchResult[]> => {
       if (term === "cloro") {

@@ -181,6 +181,19 @@ interface RankedMatch {
   product: StoreProduct;
   score: number;
   unitInfo: ProductUnitInfo | null;
+  isHeadMatch: boolean;
+}
+
+/**
+ * Spanish product names lead with the noun: "Leche entera" is milk, while
+ * "Flan dulce de leche" only mentions it. Without this, the cheapest product
+ * that merely contains the word wins.
+ */
+export function startsWithTerm(termTokens: string[], product: StoreProduct): boolean {
+  const firstTermToken = termTokens[0];
+  const firstNameWord = normalize(product.productName).split(/\s+/)[0];
+  if (!firstTermToken || !firstNameWord) return false;
+  return tokenMatches(firstTermToken, firstNameWord);
 }
 
 export interface TermResult {
@@ -226,6 +239,7 @@ export function pickRankedMatches(searchTerm: string, products: StoreProduct[]):
       product,
       score: scoreProduct(normalizedTerm, termTokens, product),
       unitInfo: computeUnitInfo(product),
+      isHeadMatch: startsWithTerm(termTokens, product),
     }))
     .filter((r) => r.score >= MIN_SCORE_THRESHOLD);
 
@@ -236,6 +250,7 @@ export function pickRankedMatches(searchTerm: string, products: StoreProduct[]):
   const searchTermHasUnit = parseProductUnit(searchTerm) !== null;
 
   scored.sort((a, b) => {
+    if (a.isHeadMatch !== b.isHeadMatch) return a.isHeadMatch ? -1 : 1;
     if (searchTermHasUnit) {
       const anyHasUnit = scored.some((r) => r.unitInfo !== null);
       if (anyHasUnit) {

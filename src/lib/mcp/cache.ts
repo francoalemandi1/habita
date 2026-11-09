@@ -67,7 +67,7 @@ function normalizeKeySegment(text: string): string {
 
 export function searchCacheKey(term: string, city: string | null | undefined): string {
   const cityPart = city ? normalizeKeySegment(city) : "all";
-  return `mcp:search:v1:${normalizeKeySegment(term)}:${cityPart}`;
+  return `mcp:search:v2:${normalizeKeySegment(term)}:${cityPart}`;
 }
 
 export function compareCacheKey(
@@ -79,7 +79,7 @@ export function compareCacheKey(
     .sort()
     .join(",");
   const cityPart = city ? normalizeKeySegment(city) : "all";
-  return `mcp:compare:v2:${sortedItems}:${cityPart}`;
+  return `mcp:compare:v3:${sortedItems}:${cityPart}`;
 }
 
 export const PROMOS_CACHE_KEY = "mcp:promos:v2";

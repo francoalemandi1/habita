@@ -334,10 +334,17 @@ export function parseVtexLegacyProducts(store: StoreConfig, payload: unknown): V
   });
 }
 
+/**
+ * Unordered legacy search returns loose text hits first (Toledo "leche" → kettles,
+ * flan, dessert); ordering by top sales brings the staple product itself up.
+ */
+export function buildVtexLegacySearchUrl(store: StoreConfig, query: string): string {
+  return `${store.baseUrl}/api/catalog_system/pub/products/search/?ft=${encodeURIComponent(query)}&_from=0&_to=5&O=OrderByTopSaleDESC`;
+}
+
 function searchVtexLegacy(store: StoreConfig, query: string): Promise<VtexProduct[]> {
   return withSearchCache(`vtex-legacy:${store.name}:${query.toLowerCase()}`, async () => {
-    const url = `${store.baseUrl}/api/catalog_system/pub/products/search/?ft=${encodeURIComponent(query)}&_from=0&_to=5`;
-    return parseVtexLegacyProducts(store, await fetchStoreJson(store.name, url));
+    return parseVtexLegacyProducts(store, await fetchStoreJson(store.name, buildVtexLegacySearchUrl(store, query)));
   });
 }
 

@@ -7,7 +7,7 @@ import { useWeekAssignmentMutations, useWeekAssignments } from "@/hooks/use-week
 import { useRotationMutations, useRotationsList } from "@/hooks/use-rotations";
 import { useTareasTaskMutations } from "@/hooks/use-tareas-tasks";
 import { useRequestTransfer, useSentTransfers } from "@/hooks/use-tareas-transfers";
-import { cancelDelete, isPendingDelete, scheduleDelete, subscribeDeferredDeletes } from "@/lib/deferred-delete";
+import { cancelDelete, isPendingDelete, scheduleDelete, subscribeDeferredDeletes, getDeferredDeletesVersion } from "@/lib/deferred-delete";
 import { getWeekDays, getWeekMonday, getWeekSunday, isSameDay } from "@/lib/calendar-utils";
 import { buildAssignmentPatch, parseDropTargetId } from "@/lib/tareas-week";
 import { dayDropDate } from "@/components/features/tareas/week-day-column";
@@ -41,7 +41,7 @@ export function useTareasSemana(currentMemberId: string) {
   const requestTransfer = useRequestTransfer();
   const snackbar = useSnackbar();
 
-  const pendingDeleteVersion = useSyncExternalStore(subscribeDeferredDeletes, () => 0);
+  const pendingDeleteVersion = useSyncExternalStore(subscribeDeferredDeletes, getDeferredDeletesVersion, () => 0);
   void pendingDeleteVersion;
 
   const assignments = useMemo(

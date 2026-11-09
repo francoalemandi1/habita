@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { ListRow } from "@/components/ds/list-row";
 import { CATEGORY_ICONS } from "@/lib/expense-constants";
-import { isPendingDelete, subscribeDeferredDeletes } from "@/lib/deferred-delete";
+import { getDeferredDeletesVersion, isPendingDelete, subscribeDeferredDeletes } from "@/lib/deferred-delete";
 import { groupExpensesByDay, payerMetaText } from "./gastos-logic";
 
 import type { ExpenseListRow } from "./expense-list-schema";
@@ -21,9 +21,8 @@ function formatArs(amount: number): string {
 /** Day-grouped expense rows ("Hoy" / "Ayer" / "Lunes 2 nov") with deferred-delete hiding. */
 export function ExpenseDayList({ expenses, currentMemberId }: ExpenseDayListProps): React.JSX.Element {
   const router = useRouter();
-  const [, forceRerender] = useState(0);
-
-  useEffect(() => subscribeDeferredDeletes(() => forceRerender((n) => n + 1)), []);
+  // Re-render when a row is scheduled or restored (Deshacer); the version itself is unused.
+  useSyncExternalStore(subscribeDeferredDeletes, getDeferredDeletesVersion, () => 0);
 
   const visible = expenses.filter((expense) => !isPendingDelete(expense.id));
   const groups = groupExpensesByDay(visible, new Date());

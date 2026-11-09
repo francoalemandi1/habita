@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeEqualShare,
   describeExpenseConsequence,
+  extractExpenseHintFromText,
   formatExpenseConsequence,
   isSlotAvailable,
   normalizeAvailabilityGrid,
@@ -52,6 +53,35 @@ describe("describeExpenseConsequence", () => {
 
   it("rounds the equal share to cents", () => {
     expect(computeEqualShare(100, 3)).toBe(33.33);
+  });
+});
+
+describe("extractExpenseHintFromText", () => {
+  it("strips the payment verb, connector and split phrase", () => {
+    expect(extractExpenseHintFromText("Pagué 12000 de verdulería entre los dos")).toEqual({
+      title: "Verdulería",
+      amount: 12000,
+    });
+  });
+
+  it("parses a dotted-thousands amount with a $ prefix", () => {
+    expect(extractExpenseHintFromText("super $15.500")).toEqual({ title: "Super", amount: 15500 });
+  });
+
+  it("parses a 'k' suffix amount", () => {
+    expect(extractExpenseHintFromText("gasté 3k en nafta")).toEqual({ title: "Nafta", amount: 3000 });
+  });
+
+  it("parses a 'mil' suffix amount", () => {
+    expect(extractExpenseHintFromText("luz 25 mil")).toEqual({ title: "Luz", amount: 25000 });
+  });
+
+  it("falls back to the original text when there is no amount", () => {
+    expect(extractExpenseHintFromText("comprar pan")).toEqual({ title: "Comprar pan", amount: null });
+  });
+
+  it("parses a dotted-thousands amount with decimal cents", () => {
+    expect(extractExpenseHintFromText("Expensas 58.400,50")).toEqual({ title: "Expensas", amount: 58400.5 });
   });
 });
 

@@ -10,7 +10,7 @@ import { useSnackbar } from "@/components/ds/snackbar";
 import { useTareasTaskMutations, useTareasTasks } from "@/hooks/use-tareas-tasks";
 import { useRotationsList } from "@/hooks/use-rotations";
 import { FREQUENCY_LABELS } from "@/lib/constants";
-import { cancelDelete, isPendingDelete, scheduleDelete, subscribeDeferredDeletes } from "@/lib/deferred-delete";
+import { cancelDelete, isPendingDelete, scheduleDelete, subscribeDeferredDeletes, getDeferredDeletesVersion } from "@/lib/deferred-delete";
 import { TAREAS_ROUTES } from "@habita/contracts";
 import { CreateTaskDialog } from "./create-task-dialog";
 import { InlineError } from "../inline-error";
@@ -25,7 +25,7 @@ export function ListaView(): React.JSX.Element {
   const snackbar = useSnackbar();
   const [createOpen, setCreateOpen] = useState(false);
 
-  const pendingDeleteVersion = useSyncExternalStore(subscribeDeferredDeletes, () => 0);
+  const pendingDeleteVersion = useSyncExternalStore(subscribeDeferredDeletes, getDeferredDeletesVersion, () => 0);
   void pendingDeleteVersion;
 
   const rotatingTaskIds = new Set((rotationsData?.rotations ?? []).filter((r) => r.isActive).map((r) => r.taskId));

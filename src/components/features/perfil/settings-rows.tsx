@@ -7,6 +7,7 @@ import { ListRow } from "@/components/ds/list-row";
 import { SegmentedControl } from "@/components/ds/segmented-control";
 import { useSnackbar } from "@/components/ds/snackbar";
 import { resetAllGuides } from "@/hooks/use-first-visit";
+import { useIsClient } from "@/hooks/use-is-client";
 import { PERFIL_ROUTES } from "@habita/contracts";
 
 type ThemeOption = "light" | "dark" | "system";
@@ -21,6 +22,8 @@ const THEME_OPTIONS: Array<{ value: ThemeOption; label: string }> = [
 export function SettingsRows(): React.JSX.Element {
   const snackbar = useSnackbar();
   const { theme, setTheme } = useTheme();
+  const isClient = useIsClient();
+  const selectedTheme: ThemeOption = isClient && (theme === "light" || theme === "dark") ? theme : "system";
 
   return (
     <div className="rounded-[16px] bg-surface px-1">
@@ -36,7 +39,7 @@ export function SettingsRows(): React.JSX.Element {
         trailing={
           <SegmentedControl
             options={THEME_OPTIONS}
-            value={theme === "light" || theme === "dark" ? theme : "system"}
+            value={selectedTheme}
             onChange={setTheme}
           />
         }

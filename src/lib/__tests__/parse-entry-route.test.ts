@@ -134,6 +134,20 @@ describe("POST /api/ai/parse-entry", () => {
     expect(json.expense.category).toBe("OTHER");
   });
 
+  it("returns 503 ai_unavailable when the provider throws", async () => {
+    generateStructuredMock.mockRejectedValue(new Error("provider down"));
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const response = await POST(buildRequest({ text: "Sofi pagó 5000 de luz" }));
+    const json = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(json).toEqual({ error: "ai_unavailable" });
+    expect(consoleErrorSpy).toHaveBeenCalled();
+
+    consoleErrorSpy.mockRestore();
+  });
+
   it("returns kind unknown when the text doesn't match any entry type", async () => {
     generateStructuredMock.mockResolvedValue({ kind: "unknown", expense: null, task: null, items: null });
 

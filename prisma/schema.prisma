@@ -29,6 +29,8 @@ model User {
   accounts        Account[]
   sessions        Session[]
   mobileAuthSessions MobileAuthSession[]
+  mcpOAuthCodes       McpOAuthCode[]
+  mcpOAuthTokens      McpOAuthToken[]
   gmailConnection GmailConnection?
 
   // App relations
@@ -1291,4 +1293,69 @@ model McpApiKey {
   revokedAt  DateTime?
 
   @@map("mcp_api_keys")
+}
+
+// ============================================
+// MCP (Ahorrá MCP) OAUTH 2.1 — "Sign in with Habita"
+// ============================================
+
+model McpOAuthClient {
+  id           String    @id @default(cuid()) // This IS the OAuth client_id
+  clientName   String?
+  redirectUris String[]
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  codes  McpOAuthCode[]
+  tokens McpOAuthToken[]
+
+  @@map("mcp_oauth_clients")
+}
+
+model McpOAuthCode {
+  id            String    @id @default(cuid())
+  codeHash      String    @unique
+  clientId      String
+  userId        String
+  redirectUri   String
+  codeChallenge String
+  scope         String
+  resource      String
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  client McpOAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("mcp_oauth_codes")
+}
+
+enum McpOAuthTokenKind {
+  ACCESS
+  REFRESH
+}
+
+model McpOAuthToken {
+  id         String            @id @default(cuid())
+  tokenHash  String            @unique
+  kind       McpOAuthTokenKind
+  clientId   String
+  userId     String
+  familyId   String
+  scope      String
+  resource   String
+  expiresAt  DateTime
+  issuedAt   DateTime          @default(now())
+  lastUsedAt DateTime?
+  rotatedAt  DateTime?
+  revokedAt  DateTime?
+
+  client McpOAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([userId])
+  @@map("mcp_oauth_tokens")
 }

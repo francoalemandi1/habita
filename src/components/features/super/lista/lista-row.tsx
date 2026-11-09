@@ -24,7 +24,7 @@ export function ListaRow({ item, currentMemberId, isOffer, isSyncPending, onTogg
 
   return (
     <div className="flex min-h-[60px] items-center gap-2 border-b border-line-soft py-2 last:border-b-0">
-      <Checkbox state={isChecked ? "done" : "pending"} onToggle={onToggle} />
+      <Checkbox state={isChecked ? "done" : "pending"} label={item.name} onToggle={onToggle} />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex min-w-0 items-center gap-1.5">
           <span className={cn("truncate text-[15px] font-medium text-ink", isChecked && "text-ink-3 line-through")}>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   SUPERMARKET_STORES,
+  buildVtexLegacySearchUrl,
   parseCoopeProducts,
   parseCotoProducts,
   parseIntelligentSearchProducts,
@@ -110,6 +111,14 @@ describe("parseVtexLegacyProducts", () => {
     expect(parseVtexLegacyProducts(cordiez, payload).map((product) => product.link)).toEqual([
       "https://www.cordiez.com.ar/arroz/p",
     ]);
+  });
+});
+
+describe("buildVtexLegacySearchUrl", () => {
+  it("orders legacy search by top sales so staples come before loose text hits", () => {
+    expect(buildVtexLegacySearchUrl(cordiez, "dulce de leche")).toBe(
+      "https://www.cordiez.com.ar/api/catalog_system/pub/products/search/?ft=dulce%20de%20leche&_from=0&_to=5&O=OrderByTopSaleDESC",
+    );
   });
 });
 

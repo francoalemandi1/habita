@@ -13,7 +13,8 @@ import { useIsOnline } from "./use-is-online";
 
 export interface SaveExpenseInput {
   kind: "expense";
-  payload: CreateExpenseInput;
+  /** idempotencyKey is required here (optional in the API) so every save site fixes it in the mutation variables. */
+  payload: CreateExpenseInput & { idempotencyKey: string };
 }
 
 export interface SaveTaskInput {
@@ -22,10 +23,15 @@ export interface SaveTaskInput {
   frequency: TaskFrequency;
   weight: number;
   dueDateIso: string;
-  /** null → "Que lo decida el reparto": auto-assigned via POST /api/assignments/auto-assign. */
+  /** null → "Que lo decida el reparto": the server auto-assigns. */
   assigneeMemberId: string | null;
   description: string;
   isRotating: boolean;
+  /**
+   * Fixed where the mutation variables are built, never inside the mutationFn,
+   * so a retried or resumed (persisted) save replays the same key.
+   */
+  idempotencyKey: string;
 }
 
 export interface SaveItemInput {
@@ -64,33 +70,16 @@ export async function performAnotarSaveMutationFn(
   }
 
   if (input.kind === "task") {
-    const created = await mobileApi.post<{ task: { id: string } }>(
-      "/api/tasks",
-      {
-        name: input.name,
-        frequency: input.frequency,
-        weight: input.weight,
-        isRouletteEligible: input.assigneeMemberId === null,
-        isRotating: input.isRotating,
-        description: input.description.trim() || undefined,
-      },
-    );
-
-    // Never leave a task without an assignment: a known assignee gets a direct
-    // assignment, "Que lo decida el reparto" goes through the same auto-assign
-    // algorithm the rotation uses (src/app/api/assignments/auto-assign/route.ts).
-    if (input.assigneeMemberId) {
-      await mobileApi.post("/api/assignments", {
-        taskId: created.task.id,
-        memberId: input.assigneeMemberId,
-        dueDate: input.dueDateIso,
-      });
-    } else {
-      await mobileApi.post("/api/assignments/auto-assign", {
-        taskId: created.task.id,
-        dueDate: input.dueDateIso,
-      });
-    }
+    await mobileApi.post("/api/tasks", {
+      name: input.name,
+      frequency: input.frequency,
+      weight: input.weight,
+      isRouletteEligible: input.assigneeMemberId === null,
+      isRotating: input.isRotating,
+      description: input.description.trim() || undefined,
+      idempotencyKey: input.idempotencyKey,
+      initialAssignment: { memberId: input.assigneeMemberId, dueDate: input.dueDateIso },
+    });
     return;
   }
 

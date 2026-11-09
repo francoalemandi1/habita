@@ -5,6 +5,7 @@ import { Button, Chip } from "@/components/ds";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
 import { getMobileErrorMessage } from "@/lib/mobile-error";
+import { createUniqueId } from "@/lib/unique-id";
 import { TASK_FREQUENCY_LABELS, dueDateToIsoStartOfDay } from "@/lib/anotar-draft-logic";
 import { AnotarTaskFieldEditor } from "./anotar-task-field-editor";
 import { AnotarTaskMoreOptions } from "./anotar-task-more-options";
@@ -51,6 +52,7 @@ export function AnotarTaskPreview({ draft, onChangeDraft, members, isSaving, onS
         assigneeMemberId: draft.assigneeId,
         description: draft.description,
         isRotating: draft.isRotating,
+        idempotencyKey: createUniqueId(),
       });
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onSaved(wasQueued);

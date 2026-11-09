@@ -33,6 +33,8 @@ export const createExpenseSchema = z.object({
     )
     .optional(),
   chargeToFund: z.boolean().optional(),
+  // Same rule as settlements: no ":" so the key never collides with a prefix match elsewhere.
+  idempotencyKey: z.string().min(8).max(100).regex(/^[^:]+$/).optional(),
 });
 
 export const updateExpenseSchema = z.object({

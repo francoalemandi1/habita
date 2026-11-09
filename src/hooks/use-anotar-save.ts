@@ -26,6 +26,8 @@ export interface SaveExpenseInput {
   customSplits: Record<string, string>;
   chargeToFund: boolean;
   notes: string;
+  /** Generated once by the caller so a react-query retry replays the same key instead of duplicating the expense. */
+  idempotencyKey: string;
 }
 
 /**
@@ -57,6 +59,7 @@ export function useAnotarSaveExpense() {
           date: new Date(`${input.date}T12:00:00`).toISOString(),
           notes: input.notes.trim() || undefined,
           chargeToFund: input.chargeToFund || undefined,
+          idempotencyKey: input.idempotencyKey,
         },
       }),
     onSuccess: () => {
@@ -77,12 +80,15 @@ export interface SaveTaskInput {
   /** 1-5; matches the "crear tarea" dialog's own default of 2 so quick-anotar tasks land mid-pack in the rotation algorithm. */
   weight: number;
   isRotating: boolean;
+  /** Generated once by the caller so a react-query retry replays the same key instead of duplicating the task. */
+  idempotencyKey: string;
 }
 
 /**
- * Creates the task and always its first assignment, so Anotar never leaves an
- * orphan task: a chosen assignee goes through /api/assignments, "que lo
- * decida el reparto" goes through /api/assignments/auto-assign.
+ * Creates the task and always its first assignment in a single request, so a
+ * retry after a lost response never creates a second task: a chosen assignee
+ * is sent as `initialAssignment.memberId`, "que lo decida el reparto" as
+ * `memberId: null` (server auto-assigns).
  */
 export function useAnotarSaveTask() {
   const queryClient = useQueryClient();
@@ -90,6 +96,7 @@ export function useAnotarSaveTask() {
     mutationKey: OFFLINE_MUTATION_KEYS.anotarTask,
     retry: offlineMutationRetry,
     mutationFn: async (input: SaveTaskInput) => {
+      const dueDateIso = new Date(`${input.dueDate ?? todayIsoDate()}T12:00:00`).toISOString();
       const raw = await apiFetch<unknown>("/api/tasks", {
         method: "POST",
         body: {
@@ -98,6 +105,8 @@ export function useAnotarSaveTask() {
           weight: input.weight,
           description: input.description.trim() || undefined,
           isRotating: input.isRotating || undefined,
+          idempotencyKey: input.idempotencyKey,
+          initialAssignment: { memberId: input.assigneeId, dueDate: dueDateIso },
         },
       });
       const parsed = createTaskResponseSchema.safeParse(raw);
@@ -105,22 +114,8 @@ export function useAnotarSaveTask() {
         console.warn("useAnotarSaveTask: invalid /api/tasks response", parsed.error);
         throw new Error("invalid_task_response");
       }
-      const { task } = parsed.data;
-      const dueDateIso = new Date(`${input.dueDate ?? todayIsoDate()}T12:00:00`).toISOString();
 
-      if (input.assigneeId) {
-        await apiFetch("/api/assignments", {
-          method: "POST",
-          body: { taskId: task.id, memberId: input.assigneeId, dueDate: dueDateIso },
-        });
-      } else {
-        await apiFetch("/api/assignments/auto-assign", {
-          method: "POST",
-          body: { taskId: task.id, dueDate: dueDateIso },
-        });
-      }
-
-      return task;
+      return parsed.data.task;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.list() });

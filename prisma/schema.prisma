@@ -246,6 +246,7 @@ model Task {
   isActive           Boolean       @default(true)
   isRouletteEligible Boolean       @default(false)
   isRotating         Boolean       @default(false)
+  idempotencyKey     String?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -256,6 +257,7 @@ model Task {
 
   @@index([householdId])
   @@index([householdId, isActive])
+  @@unique([householdId, idempotencyKey])
   @@map("tasks")
 }
 
@@ -604,6 +606,7 @@ model Expense {
   date        DateTime        @default(now())
   notes       String?
   splitType   SplitType       @default(EQUAL)
+  idempotencyKey String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
@@ -616,6 +619,7 @@ model Expense {
   @@index([householdId])
   @@index([paidById])
   @@index([householdId, date])
+  @@unique([householdId, idempotencyKey])
   @@map("expenses")
 }
 

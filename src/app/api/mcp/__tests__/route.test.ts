@@ -1,15 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { verifyMcpApiKeyMock, applyRateLimitMock } = vi.hoisted(() => ({
+const { verifyMcpApiKeyMock, verifyAccessTokenMock, applyRateLimitMock } = vi.hoisted(() => ({
   verifyMcpApiKeyMock: vi.fn(),
+  verifyAccessTokenMock: vi.fn(),
   applyRateLimitMock: vi.fn(),
 }));
 
 vi.mock("@/lib/mcp/api-keys", () => ({ verifyMcpApiKey: verifyMcpApiKeyMock }));
+vi.mock("@/lib/mcp/oauth/tokens", () => ({ verifyAccessToken: verifyAccessTokenMock }));
 vi.mock("@/lib/rate-limit", () => ({ applyRateLimit: applyRateLimitMock }));
 
 import { POST, GET, DELETE } from "@/app/api/mcp/route";
+import { getOAuthIssuer } from "@/lib/mcp/oauth/urls";
+
+const RESOURCE_METADATA_URL = `${getOAuthIssuer()}/.well-known/oauth-protected-resource`;
 
 function buildRequest(options: { authorization?: string; body?: unknown } = {}): NextRequest {
   const headers: Record<string, string> = {
@@ -30,10 +35,10 @@ describe("POST /api/mcp", () => {
     vi.clearAllMocks();
   });
 
-  it("returns 401 with WWW-Authenticate when the Authorization header is missing", async () => {
+  it("returns 401 with WWW-Authenticate resource_metadata when the Authorization header is missing", async () => {
     const response = await POST(buildRequest());
     expect(response.status).toBe(401);
-    expect(response.headers.get("WWW-Authenticate")).toBe("Bearer");
+    expect(response.headers.get("WWW-Authenticate")).toBe(`Bearer resource_metadata="${RESOURCE_METADATA_URL}"`);
     expect(verifyMcpApiKeyMock).not.toHaveBeenCalled();
   });
 
@@ -41,7 +46,44 @@ describe("POST /api/mcp", () => {
     verifyMcpApiKeyMock.mockResolvedValue(null);
     const response = await POST(buildRequest({ authorization: "Bearer hmcp_invalid" }));
     expect(response.status).toBe(401);
-    expect(response.headers.get("WWW-Authenticate")).toBe("Bearer");
+    expect(response.headers.get("WWW-Authenticate")).toBe(
+      `Bearer resource_metadata="${RESOURCE_METADATA_URL}", error="invalid_token"`,
+    );
+  });
+
+  it("returns 401 for an invalid or expired OAuth access token", async () => {
+    verifyAccessTokenMock.mockResolvedValue(null);
+    const response = await POST(buildRequest({ authorization: "Bearer hmat_invalid" }));
+    expect(response.status).toBe(401);
+    expect(response.headers.get("WWW-Authenticate")).toBe(
+      `Bearer resource_metadata="${RESOURCE_METADATA_URL}", error="invalid_token"`,
+    );
+    expect(verifyMcpApiKeyMock).not.toHaveBeenCalled();
+  });
+
+  it("reaches the transport for a valid OAuth access token, rate limited per user", async () => {
+    verifyAccessTokenMock.mockResolvedValue({ userId: "user-1", clientId: "client-1", scope: "ahorra" });
+    applyRateLimitMock.mockResolvedValue(null);
+
+    const response = await POST(
+      buildRequest({
+        authorization: "Bearer hmat_valid",
+        body: {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "initialize",
+          params: {
+            protocolVersion: "2025-06-18",
+            capabilities: {},
+            clientInfo: { name: "test-client", version: "1.0.0" },
+          },
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(applyRateLimitMock).toHaveBeenCalledWith(expect.anything(), "mcp", "user:user-1");
+    expect(verifyMcpApiKeyMock).not.toHaveBeenCalled();
   });
 
   it("returns 200 for a valid key + initialize request, then tools/list", async () => {

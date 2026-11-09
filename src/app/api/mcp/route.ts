@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 
 import { verifyMcpApiKey } from "@/lib/mcp/api-keys";
+import { verifyAccessToken } from "@/lib/mcp/oauth/tokens";
+import { getMcpResourceUrl, getOAuthIssuer } from "@/lib/mcp/oauth/urls";
+import { ACCESS_TOKEN_PREFIX } from "@/lib/mcp/oauth/constants";
 import { createAhorraMcpServer } from "@/lib/mcp/server";
 import { applyRateLimit } from "@/lib/rate-limit";
 
@@ -13,7 +16,11 @@ export const runtime = "nodejs";
 // ============================================
 // POST /api/mcp — Ahorrá MCP (Streamable HTTP, stateless)
 //
-// Auth: per-consumer API key (McpApiKey table) via `Authorization: Bearer <key>`.
+// Auth: either an OAuth 2.1 access token (`hmat_…`, issued by /api/oauth/token,
+// rate limited per user) or a per-consumer API key (McpApiKey table, rate
+// limited per key), both via `Authorization: Bearer <token>`. A missing or
+// invalid token returns 401 with `WWW-Authenticate: Bearer resource_metadata="…"`
+// pointing Claude at the protected resource metadata (RFC 9728).
 // Rate limit: 60 JSON-RPC requests / 10 min per key (see rate-limit.ts "mcp" kind).
 // Every request counts, including initialize and tools/list (~3 per client connection).
 //
@@ -31,10 +38,16 @@ export const runtime = "nodejs";
 
 const JSON_RPC_VERSION = "2.0";
 
-function unauthorizedResponse(message: string): NextResponse {
+function wwwAuthenticateHeader(error?: "invalid_token"): string {
+  const resourceMetadataUrl = `${getOAuthIssuer()}/.well-known/oauth-protected-resource`;
+  const errorParam = error ? `, error="${error}"` : "";
+  return `Bearer resource_metadata="${resourceMetadataUrl}"${errorParam}`;
+}
+
+function unauthorizedResponse(message: string, error?: "invalid_token"): NextResponse {
   return NextResponse.json(
     { jsonrpc: JSON_RPC_VERSION, error: { code: -32001, message }, id: null },
-    { status: 401, headers: { "WWW-Authenticate": "Bearer" } },
+    { status: 401, headers: { "WWW-Authenticate": wwwAuthenticateHeader(error) } },
   );
 }
 
@@ -45,16 +58,29 @@ function methodNotAllowedResponse(): NextResponse {
   );
 }
 
+async function rateLimitKeyForAccessToken(token: string): Promise<string | null> {
+  const verified = await verifyAccessToken(token, getMcpResourceUrl());
+  return verified ? `user:${verified.userId}` : null;
+}
+
+async function rateLimitKeyForApiKey(token: string): Promise<string | null> {
+  const apiKey = await verifyMcpApiKey(token);
+  return apiKey ? apiKey.id : null;
+}
+
 export async function POST(request: NextRequest): Promise<Response> {
   const authHeader = request.headers.get("authorization");
-  const apiKeyValue = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
 
-  if (!apiKeyValue) return unauthorizedResponse("Missing Authorization: Bearer <key> header");
+  if (!bearerToken) return unauthorizedResponse("Missing Authorization: Bearer <token> header");
 
-  const apiKey = await verifyMcpApiKey(apiKeyValue);
-  if (!apiKey) return unauthorizedResponse("Invalid or revoked API key");
+  const rateLimitKeySuffix = bearerToken.startsWith(ACCESS_TOKEN_PREFIX)
+    ? await rateLimitKeyForAccessToken(bearerToken)
+    : await rateLimitKeyForApiKey(bearerToken);
 
-  const rateLimitResponse = await applyRateLimit(request, "mcp", apiKey.id);
+  if (!rateLimitKeySuffix) return unauthorizedResponse("Invalid or expired token", "invalid_token");
+
+  const rateLimitResponse = await applyRateLimit(request, "mcp", rateLimitKeySuffix);
   if (rateLimitResponse) return rateLimitResponse;
 
   const server = createAhorraMcpServer();

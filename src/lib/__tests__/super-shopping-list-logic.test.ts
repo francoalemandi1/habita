@@ -6,6 +6,7 @@ import {
   isDealInList,
   matchesTopDeal,
   sortShoppingListItems,
+  splitShoppingListItems,
 } from "@habita/prices";
 
 import type { ShoppingListItem } from "@habita/contracts";
@@ -108,5 +109,42 @@ describe("isDealInList", () => {
   it("is false when the matching item is already checked", () => {
     const items = [item({ id: "a", name: "leche", checkedAt: "2026-11-01T11:00:00.000Z" })];
     expect(isDealInList("Leche", items)).toBe(false);
+  });
+});
+
+describe("splitShoppingListItems", () => {
+  const noneSettling = new Set<string>();
+
+  it("puts unchecked items in pending, oldest first", () => {
+    const newer = item({ id: "newer", createdAt: "2026-11-01T10:00:00.000Z" });
+    const older = item({ id: "older", createdAt: "2026-11-01T09:00:00.000Z" });
+    const { pending, inCart } = splitShoppingListItems([newer, older], noneSettling);
+    expect(pending.map((i) => i.id)).toEqual(["older", "newer"]);
+    expect(inCart).toEqual([]);
+  });
+
+  it("puts checked items in the cart, most recently checked first", () => {
+    const first = item({ id: "first", checkedAt: "2026-11-01T11:00:00.000Z" });
+    const last = item({ id: "last", checkedAt: "2026-11-01T12:00:00.000Z" });
+    const { inCart } = splitShoppingListItems([first, last], noneSettling);
+    expect(inCart.map((i) => i.id)).toEqual(["last", "first"]);
+  });
+
+  it("keeps a just-checked item in pending, in place, while it settles", () => {
+    const a = item({ id: "a", createdAt: "2026-11-01T09:00:00.000Z" });
+    const b = item({ id: "b", createdAt: "2026-11-01T10:00:00.000Z", checkedAt: "2026-11-01T12:00:00.000Z" });
+    const c = item({ id: "c", createdAt: "2026-11-01T11:00:00.000Z" });
+    const { pending, inCart } = splitShoppingListItems([a, b, c], new Set(["b"]));
+    expect(pending.map((i) => i.id)).toEqual(["a", "b", "c"]);
+    expect(inCart).toEqual([]);
+  });
+
+  it("keeps the same order for items created together, whatever the cache order", () => {
+    const sameTime = "2026-11-01T09:00:00.000Z";
+    const a = item({ id: "a", createdAt: sameTime });
+    const b = item({ id: "b", createdAt: sameTime, checkedAt: "2026-11-01T12:00:00.000Z" });
+    const c = item({ id: "c", createdAt: sameTime });
+    const { pending } = splitShoppingListItems([a, c, b], new Set(["b"]));
+    expect(pending.map((i) => i.id)).toEqual(["a", "b", "c"]);
   });
 });

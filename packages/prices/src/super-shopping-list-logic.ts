@@ -22,6 +22,30 @@ export function sortShoppingListItems(items: ShoppingListItem[]): ShoppingListIt
   });
 }
 
+export interface ShoppingListSections {
+  pending: ShoppingListItem[];
+  inCart: ShoppingListItem[];
+}
+
+/**
+ * Splits the list into what's still missing and what's already in the cart.
+ * Items in `settlingIds` were just checked: they stay in pending, in place, so the
+ * check is visible before the row moves to the cart. Ties break on id so a row's place
+ * never depends on the cache order (seeded items often share a createdAt).
+ */
+export function splitShoppingListItems(
+  items: ShoppingListItem[],
+  settlingIds: ReadonlySet<string>,
+): ShoppingListSections {
+  const pending = items
+    .filter((item) => item.checkedAt === null || settlingIds.has(item.id))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+  const inCart = items
+    .filter((item) => item.checkedAt !== null && !settlingIds.has(item.id))
+    .sort((a, b) => (b.checkedAt ?? "").localeCompare(a.checkedAt ?? "") || a.id.localeCompare(b.id));
+  return { pending, inCart };
+}
+
 /** Unchecked item count — drives the "Comparar precios · N" CTA label. */
 export function countUnchecked(items: ShoppingListItem[]): number {
   return items.filter((item) => item.checkedAt === null).length;

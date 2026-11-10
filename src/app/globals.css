@@ -396,3 +396,13 @@ body {
     cursor: pointer;
   }
 }
+
+/* Same-document View Transitions (lib/view-transition.ts): rows glide, the page itself doesn't crossfade. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-group(*) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}

@@ -80,8 +80,9 @@ export function payerMetaText({
   isCurrentUserPayer: boolean;
   splitCount: number;
 }): string {
-  if (isCurrentUserPayer) return "Pagaste vos";
-  return splitCount > 1 ? `Pagó ${paidByName} · entre ${splitCount}` : `Pagó ${paidByName}`;
+  const payer = isCurrentUserPayer ? "Pagaste vos" : `Pagó ${paidByName}`;
+  if (splitCount > 1) return `${payer} · entre ${splitCount}`;
+  return isCurrentUserPayer ? `${payer} · solo vos` : payer;
 }
 
 function formatArs(amount: number): string {

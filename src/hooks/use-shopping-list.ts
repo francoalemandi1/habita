@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
 import { sortShoppingListItems } from "@habita/prices";
@@ -12,14 +12,19 @@ import type { ShoppingListItem, ShoppingListResponse } from "@habita/contracts";
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
-/** Shared household shopping list — unchecked first, checked at the end. */
-export function useShoppingList() {
-  return useQuery<ShoppingListResponse>({
+/** Shared by useShoppingList and the nav intent prefetch so both hit the same cache entry. */
+export function shoppingListQueryOptions() {
+  return queryOptions({
     queryKey: queryKeys.shoppingList.list(),
     queryFn: () => apiFetch<ShoppingListResponse>("/api/shopping-list"),
     staleTime: FIVE_MINUTES_MS,
     refetchOnWindowFocus: true,
   });
+}
+
+/** Shared household shopping list — unchecked first, checked at the end. */
+export function useShoppingList() {
+  return useQuery(shoppingListQueryOptions());
 }
 
 interface AddItemInput {

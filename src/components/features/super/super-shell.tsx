@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-import type { SuperViewKey } from "@/components/features/super/super-segments";
+import type { SuperViewKey } from "@/components/features/super/super-view";
 
 interface SuperShellProps {
   view: SuperViewKey;

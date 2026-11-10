@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Check, ArrowRight, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { ListRow } from "./list-row";
 
 import type { ListRowProps } from "./list-row";
@@ -20,24 +21,28 @@ export interface SwipeRowProps extends ListRowProps {
   deleteAction?: SwipeRowAction;
 }
 
+const ACTION_BUTTON =
+  "flex size-9 items-center justify-center rounded-[10px] text-ink-2 outline-none transition-colors duration-100 hover:bg-sand hover:text-ink focus-visible:ring-2 focus-visible:ring-monte";
+
 /**
  * §6.12 — on mobile this swipes; the handoff is explicit that web has no
- * swipe gesture, so here it's a plain ListRow with the same actions exposed
- * as hover buttons (also reachable via ContextMenu).
+ * swipe gesture, so here it's a plain ListRow with the same actions as quiet icon
+ * buttons: revealed on hover or keyboard focus, and always visible on touch screens
+ * (no hover there, and Ladrillo stays reserved for at most two elements per screen, §9.1).
  */
 export function SwipeRow({ primaryAction, passAction, deleteAction, ...rowProps }: SwipeRowProps): React.JSX.Element {
   return (
     <div className="group relative">
       <ListRow {...rowProps} />
-      <div className="absolute right-1 top-1/2 flex -translate-y-1/2 gap-1 opacity-0 transition-opacity duration-180 group-hover:opacity-100">
+      <div className="absolute right-1 top-1/2 flex -translate-y-1/2 gap-1 bg-surface opacity-0 group-hover:bg-[color-mix(in_srgb,var(--color-paper)_60%,var(--color-surface))] transition-opacity duration-180 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
         {primaryAction && (
           <button
             type="button"
             onClick={primaryAction.onAction}
             aria-label={primaryAction.label}
-            className="flex size-9 items-center justify-center rounded-full bg-monte text-paper"
+            className={cn(ACTION_BUTTON, "text-monte hover:text-monte")}
           >
-            <Check className="size-4" strokeWidth={1.75} />
+            <Check className="size-4" strokeWidth={1.75} aria-hidden="true" />
           </button>
         )}
         {passAction && (
@@ -45,9 +50,9 @@ export function SwipeRow({ primaryAction, passAction, deleteAction, ...rowProps 
             type="button"
             onClick={passAction.onAction}
             aria-label={passAction.label}
-            className="flex size-9 items-center justify-center rounded-full bg-sand text-ink"
+            className={ACTION_BUTTON}
           >
-            <ArrowRight className="size-4" strokeWidth={1.75} />
+            <ArrowRight className="size-4" strokeWidth={1.75} aria-hidden="true" />
           </button>
         )}
         {deleteAction && (
@@ -55,9 +60,9 @@ export function SwipeRow({ primaryAction, passAction, deleteAction, ...rowProps 
             type="button"
             onClick={deleteAction.onAction}
             aria-label={deleteAction.label}
-            className="flex size-9 items-center justify-center rounded-full bg-ladrillo text-paper"
+            className={cn(ACTION_BUTTON, "hover:bg-ladrillo-soft hover:text-ladrillo-text")}
           >
-            <Trash2 className="size-4" strokeWidth={1.75} />
+            <Trash2 className="size-4" strokeWidth={1.75} aria-hidden="true" />
           </button>
         )}
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Mic, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface ComposerChip {
@@ -17,11 +17,13 @@ export interface ComposerProps {
   onSubmit: () => void;
   placeholder?: string;
   chips?: ComposerChip[];
+  /** Focus the field on mount, e.g. when the composer is the reason a sheet opened. */
+  autoFocus?: boolean;
   className?: string;
 }
 
 /** §6.22 — free-text input, trailing mic/send button, interpreted chips below. */
-export function Composer({ value, onChange, onSubmit, placeholder = "Anotá un gasto, tarea o ítem…", chips, className }: ComposerProps): React.JSX.Element {
+export function Composer({ value, onChange, onSubmit, placeholder = "Anotá un gasto, tarea o ítem…", chips, autoFocus, className }: ComposerProps): React.JSX.Element {
   const hasText = value.trim().length > 0;
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -32,24 +34,26 @@ export function Composer({ value, onChange, onSubmit, placeholder = "Anotá un g
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <div className="flex items-center gap-1.5 rounded-[14px] bg-paper p-1.5 pl-4 focus-within:bg-surface focus-within:border focus-within:border-monte">
+      <div className="flex items-center gap-1.5 rounded-[14px] bg-surface p-1.5 pl-4 ring-monte transition-shadow duration-100 focus-within:ring-[1.5px]">
         <input
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="h-10 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink-3"
+          aria-label="Qué querés anotar"
+          autoFocus={autoFocus}
+          autoComplete="off"
+          enterKeyHint="send"
+          className="h-10 min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink-3"
         />
         <button
           type="button"
-          onClick={hasText ? onSubmit : undefined}
-          aria-label={hasText ? "Enviar" : "Grabar audio"}
-          className={cn(
-            "flex size-10 shrink-0 items-center justify-center rounded-[12px]",
-            hasText ? "bg-monte text-paper" : "text-ink-2"
-          )}
+          onClick={onSubmit}
+          disabled={!hasText}
+          aria-label="Interpretar"
+          className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-monte text-paper outline-none transition-opacity duration-100 focus-visible:ring-2 focus-visible:ring-monte focus-visible:ring-offset-2 disabled:bg-sand disabled:text-ink-3"
         >
-          {hasText ? <Send className="size-4" strokeWidth={1.75} /> : <Mic className="size-4" strokeWidth={1.75} />}
+          <Send className="size-4" strokeWidth={1.75} aria-hidden="true" />
         </button>
       </div>
       {chips && chips.length > 0 && (

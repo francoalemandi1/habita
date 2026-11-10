@@ -11,7 +11,7 @@ export function ProfileHeader({ memberName, email }: ProfileHeaderProps): React.
     <div className="flex items-center gap-3 px-1 py-2">
       <Avatar name={memberName} size={56} isSelf />
       <div className="flex min-w-0 flex-col">
-        <span className="truncate text-[20px] font-bold text-ink">{memberName}</span>
+        <h1 className="truncate text-[20px] font-bold text-ink">{memberName}</h1>
         {email && <span className="truncate text-[14px] text-ink-2">{email}</span>}
       </div>
     </div>

@@ -41,7 +41,7 @@ export function HouseholdCard({ householdName, canRename }: HouseholdCardProps):
 
   if (isEditing) {
     return (
-      <div className="rounded-[16px] bg-surface p-4">
+      <div className="rounded-[20px] bg-surface p-4">
         <TextField
           label="Nombre del hogar"
           value={name}
@@ -67,7 +67,7 @@ export function HouseholdCard({ householdName, canRename }: HouseholdCardProps):
       type="button"
       disabled={!canRename}
       onClick={() => setIsEditing(true)}
-      className="flex w-full items-center justify-between gap-2 rounded-[16px] bg-surface p-4 text-left"
+      className="flex w-full items-center justify-between gap-2 rounded-[20px] bg-surface p-4 text-left"
     >
       <span className="truncate text-[17px] font-semibold text-ink">{householdName}</span>
       {canRename && <Pencil className="size-4 shrink-0 text-ink-2" strokeWidth={1.75} />}

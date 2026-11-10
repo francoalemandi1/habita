@@ -35,7 +35,7 @@ export function AnotarItemPreview({ drafts, onChange }: AnotarItemPreviewProps):
             <button type="button" onClick={() => onChange(updateQuantity(drafts, index, -1))} aria-label="Restar" className="text-ink-2">
               <Minus className="size-4" strokeWidth={1.75} />
             </button>
-            <span className="w-6 text-center text-[14px] tabular-nums text-ink">{item.quantity}</span>
+            <span className="w-6 text-center text-[14px] text-ink">{item.quantity}</span>
             <button type="button" onClick={() => onChange(updateQuantity(drafts, index, 1))} aria-label="Sumar" className="text-ink-2">
               <Plus className="size-4" strokeWidth={1.75} />
             </button>

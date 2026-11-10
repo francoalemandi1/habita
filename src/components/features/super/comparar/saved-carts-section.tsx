@@ -14,12 +14,12 @@ export function SavedCartsSection(): React.JSX.Element | null {
   if (!savedCarts || savedCarts.length === 0) return null;
 
   return (
-    <div className="mt-6 flex flex-col gap-2">
-      <div className="flex items-center gap-1.5 text-[13px] font-semibold text-ink-2">
-        <Bookmark className="size-3.5" strokeWidth={1.75} />
+    <section aria-label="Carritos guardados" className="flex flex-col gap-1 rounded-[20px] bg-surface px-4 py-4 md:px-5">
+      <h2 className="flex items-center gap-1.5 text-[17px] font-semibold text-ink">
+        <Bookmark className="size-4 text-ink-2" strokeWidth={1.75} aria-hidden="true" />
         Carritos guardados
-      </div>
-      <div className="flex flex-col rounded-[16px] bg-paper px-3.5">
+      </h2>
+      <div className="flex flex-col">
         {savedCarts.map((cart) => (
           <SavedCartRow
             key={cart.id}
@@ -29,6 +29,6 @@ export function SavedCartsSection(): React.JSX.Element | null {
           />
         ))}
       </div>
-    </div>
+    </section>
   );
 }

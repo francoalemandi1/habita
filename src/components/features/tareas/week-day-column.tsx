@@ -4,24 +4,16 @@ import { useDroppable } from "@dnd-kit/core";
 import { formatDayHeader } from "@/lib/calendar-utils";
 import { encodeDropTargetId } from "@/lib/tareas-week";
 import { cn } from "@/lib/utils";
-import { TaskCard } from "./task-card";
+import { DraggableTaskCard } from "./task-card";
 
 import type { WeekAssignment } from "@/hooks/use-week-assignments";
+import type { TaskCardProps } from "./task-card";
 
 interface WeekDayColumnProps {
   day: Date;
   isToday: boolean;
   assignments: readonly WeekAssignment[];
-  currentMemberId: string;
-  rotatingTaskIds: ReadonlySet<string>;
-  pendingAssignmentIds: ReadonlySet<string>;
-  pendingTransferByAssignment: ReadonlyMap<string, string>;
-  onToggleComplete: (assignment: WeekAssignment) => void;
-  onEdit: (assignment: WeekAssignment) => void;
-  onChangeDay: (assignment: WeekAssignment) => void;
-  onPasar: (assignment: WeekAssignment) => void;
-  onToggleRotation: (assignment: WeekAssignment) => void;
-  onDelete: (assignment: WeekAssignment) => void;
+  getCardProps: (assignment: WeekAssignment) => TaskCardProps;
 }
 
 /** Due-date drop target for the day column (handoff §7 "arrastrar tarea web A"). */
@@ -31,53 +23,26 @@ export function dayDropDate(day: Date): string {
   return noon.toISOString();
 }
 
-export function WeekDayColumn({
-  day,
-  isToday,
-  assignments,
-  currentMemberId,
-  rotatingTaskIds,
-  pendingAssignmentIds,
-  pendingTransferByAssignment,
-  onToggleComplete,
-  onEdit,
-  onChangeDay,
-  onPasar,
-  onToggleRotation,
-  onDelete,
-}: WeekDayColumnProps): React.JSX.Element {
+/** Web Semana column (§5.3 Tareas web): today on Manteca soft, the rest on Arena. */
+export function WeekDayColumn({ day, isToday, assignments, getCardProps }: WeekDayColumnProps): React.JSX.Element {
   const { dayName, dayNumber } = formatDayHeader(day);
-  const dropId = encodeDropTargetId({ kind: "day", date: dayDropDate(day) });
-  const { setNodeRef, isOver } = useDroppable({ id: dropId });
+  const { setNodeRef, isOver } = useDroppable({ id: encodeDropTargetId({ kind: "day", date: dayDropDate(day) }) });
 
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "flex min-h-[160px] flex-col gap-2 rounded-[16px] p-2",
+        "flex min-h-[420px] min-w-0 flex-col gap-2 rounded-[16px] p-2 transition-shadow duration-100",
         isToday ? "bg-manteca-soft" : "bg-sand",
         isOver && "ring-2 ring-monte",
       )}
     >
-      <div className="flex items-baseline justify-between px-1">
-        <span className="text-[13px] font-semibold text-ink-2">{dayName}</span>
-        <span className="text-[13px] font-semibold text-ink">{dayNumber}</span>
-      </div>
+      <h2 className="px-1.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[.08em] text-ink">
+        {dayName} {dayNumber}
+        {isToday && <span className="text-ink-2"> · hoy</span>}
+      </h2>
       {assignments.map((assignment) => (
-        <TaskCard
-          key={assignment.id}
-          assignment={assignment}
-          currentMemberId={currentMemberId}
-          pendingTransferToName={pendingTransferByAssignment.get(assignment.id) ?? null}
-          isRotating={rotatingTaskIds.has(assignment.taskId)}
-          isSyncPending={pendingAssignmentIds.has(assignment.id)}
-          onToggleComplete={() => onToggleComplete(assignment)}
-          onEdit={() => onEdit(assignment)}
-          onChangeDay={() => onChangeDay(assignment)}
-          onPasar={() => onPasar(assignment)}
-          onToggleRotation={() => onToggleRotation(assignment)}
-          onDelete={() => onDelete(assignment)}
-        />
+        <DraggableTaskCard key={assignment.id} {...getCardProps(assignment)} />
       ))}
     </div>
   );

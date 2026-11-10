@@ -5,6 +5,13 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   transpilePackages: ["@habita/api-client", "@habita/contracts", "@habita/design-tokens", "@habita/domain", "@habita/prices"],
 
+  experimental: {
+    // Reuse a visited tab's RSC payload for 30s so switching back is instant instead of
+    // re-showing loading.tsx. Mutations that touch server-rendered data call router.refresh(),
+    // which clears this cache.
+    staleTimes: { dynamic: 30 },
+  },
+
   async redirects() {
     return Object.entries(LEGACY_ROUTE_ALIASES).map(([source, destination]) => ({
       source,
@@ -22,7 +29,7 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=(self)" },
           {
             key: "Content-Security-Policy",
             value: [
@@ -31,7 +38,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://oauth2.googleapis.com https://accounts.google.com https://*.upstash.io",
+              "connect-src 'self' https://api.bigdatacloud.net https://oauth2.googleapis.com https://accounts.google.com https://*.upstash.io",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self' https://accounts.google.com",

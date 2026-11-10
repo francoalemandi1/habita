@@ -13,6 +13,8 @@ export interface CheckboxProps {
   transferredLabel?: string;
   disabled?: boolean;
   className?: string;
+  /** Accessible name, usually the task or item name ("Lavar platos"). */
+  label?: string;
 }
 
 /** §6.2 — 22px visible box, 44px touch target, 5 states incl. verification + transfer. */
@@ -22,6 +24,7 @@ export function Checkbox({
   transferredLabel,
   disabled = false,
   className,
+  label,
 }: CheckboxProps): React.JSX.Element {
   const isChecked = state === "done" || state === "toVerify";
 
@@ -30,6 +33,7 @@ export function Checkbox({
       <button
         type="button"
         role="checkbox"
+        aria-label={label}
         aria-checked={state === "toVerify" ? "mixed" : isChecked}
         disabled={disabled || state === "transferred"}
         onClick={onToggle}

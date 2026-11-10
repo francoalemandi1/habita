@@ -11,17 +11,17 @@ export default function PrivacidadPage() {
     <div className="mx-auto max-w-2xl px-4 py-12 sm:py-16">
       <Link
         href="/"
-        className="mb-8 inline-block text-sm text-muted-foreground hover:text-foreground"
+        className="mb-8 inline-block text-sm text-ink-2 hover:text-ink"
       >
         &larr; Volver al inicio
       </Link>
 
       <h1 className="mb-2 text-3xl font-bold tracking-tight">Política de Privacidad</h1>
-      <p className="mb-8 text-sm text-muted-foreground">
+      <p className="mb-8 text-sm text-ink-2">
         Última actualización: 10 de marzo de 2025
       </p>
 
-      <div className="prose prose-neutral dark:prose-invert max-w-none space-y-6 text-[15px] leading-relaxed">
+      <div className="prose prose-neutral max-w-none space-y-6 text-[15px] leading-relaxed">
         <section>
           <h2 className="text-xl font-semibold">1. Información que recopilamos</h2>
           <p>
@@ -118,14 +118,14 @@ export default function PrivacidadPage() {
           <p>
             Si tenés preguntas sobre esta política de privacidad o querés ejercer tus derechos,
             escribinos a:{" "}
-            <a href="mailto:privacidad@habita.casa" className="text-primary hover:underline">
+            <a href="mailto:privacidad@habita.casa" className="text-monte hover:underline">
               privacidad@habita.casa
             </a>
           </p>
         </section>
       </div>
 
-      <div className="mt-12 border-t pt-6 text-center text-sm text-muted-foreground">
+      <div className="mt-12 border-t border-line pt-6 text-center text-sm text-ink-2">
         <p>Habita — Coordinación integral del hogar</p>
       </div>
     </div>

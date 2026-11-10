@@ -90,7 +90,6 @@ function createStyles(c: ThemeColors) {
     },
     amount: {
       fontFamily: fontFamilyForWeight(500),
-      fontVariant: ["tabular-nums"],
     },
     settledText: {
       fontFamily: fontFamilyForWeight(400),

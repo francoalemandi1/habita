@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { auth } from "./auth";
 import { prisma } from "./prisma";
@@ -39,8 +40,11 @@ async function getRequestedHouseholdId(): Promise<string | null> {
  * Get the current authenticated user's member record for the selected household.
  * Uses cookie habita_household_id when set; otherwise the first household (findFirst).
  * Returns null if user is not authenticated or not a member of any household.
+ * Memoized per request: the layout and the page both call it on every render.
  */
-export async function getCurrentMember(): Promise<CurrentMember | null> {
+export const getCurrentMember = cache(loadCurrentMember);
+
+async function loadCurrentMember(): Promise<CurrentMember | null> {
   const userId = await getCurrentUserId();
   if (!userId) {
     return null;

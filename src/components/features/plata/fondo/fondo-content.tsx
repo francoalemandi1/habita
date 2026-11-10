@@ -72,10 +72,10 @@ export function FondoContent({ currentMemberId, currentMemberType, members }: Pl
   const currentMemberStatus = fund.memberStatuses.find((status) => status.memberId === currentMemberId);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex max-w-2xl flex-col gap-4">
       <FondoHero fund={fund} currentMemberStatus={currentMemberStatus} onContribute={() => setShowContribute(true)} />
 
-      <FondoQuotasList memberStatuses={fund.memberStatuses} />
+      <FondoQuotasList memberStatuses={fund.memberStatuses} currentMemberId={currentMemberId} />
 
       <FondoExpensesList expenses={fund.recentExpenses} />
 

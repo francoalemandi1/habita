@@ -111,7 +111,7 @@ export function AnotarSheet(): React.JSX.Element {
           <AnotarHouseholdError onRetry={retryHousehold} />
         ) : (
           <>
-            <Composer value={text} onChange={setText} onSubmit={() => parse(text)} />
+            <Composer value={text} onChange={setText} onSubmit={() => parse(text)} autoFocus />
 
             {draft.rateLimited && <p className="text-[13px] text-ink-3">Esperá un momento para seguir interpretando</p>}
 

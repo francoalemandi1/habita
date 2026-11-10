@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Schibsted_Grotesk } from "next/font/google";
 import { ThemeProvider } from "next-themes";
+import { colors, darkColors } from "@habita/design-tokens";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { SnackbarProvider } from "@/components/ds/snackbar";
 import "./globals.css";
@@ -60,11 +61,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fef3c7" },
-    { media: "(prefers-color-scheme: dark)", color: "#1c1917" },
+    { media: "(prefers-color-scheme: light)", color: colors.paper },
+    { media: "(prefers-color-scheme: dark)", color: darkColors.paper },
   ],
 };
 

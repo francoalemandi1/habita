@@ -51,7 +51,6 @@ function createStyles(c: ThemeColors) {
       fontSize: 56,
       lineHeight: 56 * 0.95,
       letterSpacing: -56 * 0.04,
-      fontVariant: ["tabular-nums"],
     },
     otherCurrency: {
       fontFamily: fontFamilyForWeight(400),

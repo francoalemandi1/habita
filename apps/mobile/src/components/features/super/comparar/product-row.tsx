@@ -128,7 +128,7 @@ function createStyles(c: ThemeColors) {
     name: { flex: 1, fontFamily: fontFamilyForWeight(500), fontSize: 14, color: c.ink },
     priceCol: { alignItems: "flex-end" },
     qty: { fontFamily: fontFamilyForWeight(400), fontSize: 11, color: c.ink2 },
-    price: { fontFamily: fontFamilyForWeight(600), fontSize: 14, color: c.ink, fontVariant: ["tabular-nums"] },
+    price: { fontFamily: fontFamilyForWeight(600), fontSize: 14, color: c.ink },
     priceCheapest: { color: c.monte },
     linkBtn: { padding: 4 },
     cheaperRow: {

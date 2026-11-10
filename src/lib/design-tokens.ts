@@ -155,16 +155,18 @@ export const assignmentCardColors = [
 
 /** Store brand colors — letter avatars for the supermarket comparison feature. */
 export const storeColors: Record<string, { bg: string; text: string }> = {
+  // Text must reach 4.5:1 on the badge: keep the brand fill and switch to dark text when that
+  // passes (Vea, Cordiez); otherwise darken the fill just enough for white (Jumbo, Toledo).
   "Carrefour":     { bg: "#003da5", text: "#ffffff" },
   "Coto":          { bg: "#e31837", text: "#ffffff" },
   "Dia":           { bg: "#d52b1e", text: "#ffffff" },
   "Disco":         { bg: "#0066b2", text: "#ffffff" },
-  "Jumbo":         { bg: "#009b3a", text: "#ffffff" },
+  "Jumbo":         { bg: "#008732", text: "#ffffff" },
   "Mas Online":    { bg: "#522a97", text: "#ffffff" },
-  "Vea":           { bg: "#fd7c52", text: "#ffffff" },
+  "Vea":           { bg: "#fd7c52", text: newColors.ink },
   "HiperLibertad": { bg: "#e31837", text: "#ffffff" },
-  "Cordiez":       { bg: "#7aa649", text: "#ffffff" },
-  "Toledo":        { bg: "#4080d0", text: "#ffffff" },
+  "Cordiez":       { bg: "#7aa649", text: newColors.ink },
+  "Toledo":        { bg: "#3275ca", text: "#ffffff" },
   "Coop. Obrera":  { bg: "#5260fe", text: "#ffffff" },
 };
 

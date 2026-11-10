@@ -20,7 +20,7 @@ export function SettleTransferRowView({
     <div className="flex items-center justify-between gap-3 border-b border-line-soft py-3 last:border-b-0">
       <span className="text-[15px] font-medium text-ink">{transactionRowLabel(transaction, currentMemberId)}</span>
       <div className="text-right">
-        <p className="text-[15px] font-medium tabular-nums text-ink">
+        <p className="text-[15px] font-medium text-ink">
           {formatCurrencyArs(transaction.amount)}
           {currency !== primaryCurrency ? ` ${currency}` : ""}
         </p>

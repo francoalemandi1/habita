@@ -27,7 +27,7 @@ export function HouseholdSettingsRows({
   onboardingProfile,
 }: HouseholdSettingsRowsProps): React.JSX.Element {
   return (
-    <div className="rounded-[16px] bg-surface px-1">
+    <div className="rounded-[20px] bg-surface px-2">
       <LocationRow initialLocation={location} />
       <PlanningDayRow initialPlanningDay={planningDay} />
       <HouseholdHabitsRow memberId={memberId} initialOccupationLevel={occupationLevel} initialOnboardingProfile={onboardingProfile} />

@@ -1,67 +1,59 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, ClipboardCheck, Receipt, ShoppingCart, PenLine } from "lucide-react";
-import { APP_ROUTES } from "@habita/contracts";
-import { ANOTAR_OPEN_EVENT } from "@/components/features/anotar/anotar-events";
+import { Plus } from "lucide-react";
+import { openAnotar } from "@/components/features/anotar/anotar-events";
+import { IntentLink } from "@/components/features/intent-link";
 import { cn } from "@/lib/utils";
+import { APP_PLACES, resolveActivePlace } from "./app-places";
 
-const PLACES = [
-  { href: APP_ROUTES.casa, icon: Home, label: "Casa" },
-  { href: APP_ROUTES.tareas, icon: ClipboardCheck, label: "Tareas" },
-  { href: APP_ROUTES.plata, icon: Receipt, label: "Plata" },
-  { href: APP_ROUTES.super, icon: ShoppingCart, label: "Súper" },
-];
+import type { SidebarItem } from "@/components/ds/sidebar";
 
-/** Mobile (below md) bottom tab bar: same 4 places + a central "Anotar" button, no "more" menu. */
+/** Mobile (below md) tab bar: the same 4 places with the central "+" that opens Anotar (§5.1, no "more" menu). */
 export function AppNavMobile() {
   const pathname = usePathname();
+  const activePlace = resolveActivePlace(pathname);
 
   return (
-    <nav className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-[max(0.75rem,env(safe-area-inset-left))] right-[max(0.75rem,env(safe-area-inset-right))] z-50 md:hidden">
-      <div className="mx-auto flex max-w-md items-center justify-around rounded-2xl bg-card px-2 py-1.5 shadow-lg">
-        {PLACES.slice(0, 2).map((item) => (
-          <TabLink key={item.href} item={item} isActive={pathname.startsWith(item.href)} />
+    <nav
+      aria-label="Lugares"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+    >
+      <div className="mx-auto grid h-16 max-w-md grid-cols-5 items-center px-2">
+        {APP_PLACES.slice(0, 2).map((place) => (
+          <TabLink key={place.id} place={place} isActive={place.id === activePlace} />
         ))}
-
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new Event(ANOTAR_OPEN_EVENT))}
-          aria-label="Anotar"
-          className="flex items-center justify-center rounded-full bg-primary p-3 text-primary-foreground shadow-md transition-transform touch-manipulation active:scale-95"
-        >
-          <PenLine className="h-5 w-5" strokeWidth={1.75} />
-        </button>
-
-        {PLACES.slice(2).map((item) => (
-          <TabLink key={item.href} item={item} isActive={pathname.startsWith(item.href)} />
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => openAnotar()}
+            aria-label="Anotar"
+            className="flex size-12 items-center justify-center rounded-[14px] bg-monte text-paper transition-[background-color,transform] duration-100 touch-manipulation active:scale-[.94] active:bg-monte-pressed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-monte focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+          >
+            <Plus className="size-6" strokeWidth={2} />
+          </button>
+        </div>
+        {APP_PLACES.slice(2).map((place) => (
+          <TabLink key={place.id} place={place} isActive={place.id === activePlace} />
         ))}
       </div>
     </nav>
   );
 }
 
-function TabLink({
-  item,
-  isActive,
-}: {
-  item: { href: string; icon: typeof Home; label: string };
-  isActive: boolean;
-}) {
-  const Icon = item.icon;
+function TabLink({ place, isActive }: { place: SidebarItem; isActive: boolean }) {
+  const Icon = place.icon;
   return (
-    <Link
-      href={item.href}
+    <IntentLink
+      href={place.href}
+      aria-current={isActive ? "page" : undefined}
       className={cn(
-        "flex flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 transition-all duration-200 touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+        "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-[12px] touch-manipulation transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-monte",
+        isActive ? "text-ink" : "text-ink-2"
       )}
     >
-      <Icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />
-      <span className={cn("text-[10px] leading-tight", isActive ? "font-semibold" : "font-medium")}>
-        {item.label}
-      </span>
-    </Link>
+      <Icon className={cn("size-[22px]", isActive && "text-monte")} strokeWidth={1.75} aria-hidden="true" />
+      <span className={cn("text-[11px] leading-tight", isActive ? "font-semibold" : "font-medium")}>{place.label}</span>
+    </IntentLink>
   );
 }

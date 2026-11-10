@@ -100,3 +100,12 @@ export function isSameDay(dateA: Date, dateB: Date): boolean {
     dateA.getDate() === dateB.getDate()
   );
 }
+
+/** ISO-8601 week number (weeks start Monday; week 1 holds the year's first Thursday). */
+export function getISOWeekNumber(date: Date): number {
+  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNumber = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNumber);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+  return Math.ceil(((target.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
+}

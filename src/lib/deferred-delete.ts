@@ -11,9 +11,17 @@ interface PendingDelete {
 
 const pending = new Map<string, PendingDelete>();
 const listeners = new Set<() => void>();
+// Bumped on every change so `useSyncExternalStore` snapshots differ and subscribers re-render.
+let version = 0;
 
 function notify(): void {
+  version += 1;
   for (const listener of listeners) listener();
+}
+
+/** Snapshot for `useSyncExternalStore`; the server snapshot is always 0 (nothing pending during SSR). */
+export function getDeferredDeletesVersion(): number {
+  return version;
 }
 
 export interface ScheduleDeleteInput {

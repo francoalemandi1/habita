@@ -82,3 +82,73 @@ export function splitEvenlyExact(totalAmount: number, memberIds: string[]): Arra
     amount: (baseCents + (index < remainder ? 1 : 0)) / 100,
   }));
 }
+
+export interface ExpenseHint {
+  title: string;
+  amount: number | null;
+}
+
+const LEADING_VERBS = ["pagamos", "gastamos", "pague", "pagu\u00e9", "gaste", "gast\u00e9", "compre", "compr\u00e9", "pag\u00f3", "pago"];
+const CONNECTORS = ["de", "en", "por", "del", "la", "el"];
+const TRAILING_SPLIT_PHRASES = ["entre los dos", "entre todos", "entre todas", "a medias", "mitad y mitad"];
+
+/** Matches "12000", "12.000", "12.000,50", "$12000", "$ 12.000", "12k"/"12 k", "12 mil". */
+const AMOUNT_PATTERN = /\$?\s?(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?)(?:\s?(k|mil))?/i;
+
+function parseAmountToken(digits: string, suffix: string | undefined): number {
+  const normalized = digits.includes(",") ? digits.replace(/\./g, "").replace(",", ".") : digits.replace(/\./g, "");
+  const value = Number.parseFloat(normalized);
+  const lowerSuffix = suffix?.toLowerCase();
+  if (lowerSuffix === "k" || lowerSuffix === "mil") return value * 1000;
+  return value;
+}
+
+function capitalize(text: string): string {
+  const first = text.charAt(0);
+  return first ? first.toUpperCase() + text.slice(1) : text;
+}
+
+function stripLeadingVerbAndConnector(words: string[]): string[] {
+  const [first] = words;
+  if (first && LEADING_VERBS.includes(first.toLowerCase())) {
+    const rest = words.slice(1);
+    const [next] = rest;
+    if (next && CONNECTORS.includes(next.toLowerCase())) return rest.slice(1);
+    return rest;
+  }
+  return words;
+}
+
+function stripLeadingConnector(words: string[]): string[] {
+  const [first] = words;
+  if (first && CONNECTORS.includes(first.toLowerCase())) return words.slice(1);
+  return words;
+}
+
+function stripTrailingSplitPhrase(text: string): string {
+  const lower = text.toLowerCase();
+  for (const phrase of TRAILING_SPLIT_PHRASES) {
+    if (lower.endsWith(phrase)) return text.slice(0, text.length - phrase.length);
+  }
+  return text;
+}
+
+/** Best-effort title/amount split for free text when AI parsing is unavailable (Spanish AR). */
+export function extractExpenseHintFromText(text: string): ExpenseHint {
+  const trimmed = text.trim();
+  const match = AMOUNT_PATTERN.exec(trimmed);
+  const amount = match && match[1] ? parseAmountToken(match[1], match[2]) : null;
+
+  let withoutAmount = match ? trimmed.slice(0, match.index) + trimmed.slice(match.index + match[0].length) : trimmed;
+  withoutAmount = withoutAmount.replace(/\bpesos\b/gi, " ");
+  withoutAmount = stripTrailingSplitPhrase(withoutAmount.trim());
+
+  let words = withoutAmount.split(/\s+/).filter(Boolean);
+  words = stripLeadingVerbAndConnector(words);
+  words = stripLeadingConnector(words);
+
+  const cleaned = words.join(" ").trim();
+  const title = capitalize(cleaned || trimmed);
+
+  return { title, amount };
+}

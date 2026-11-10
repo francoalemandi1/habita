@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { extractExpenseHintFromText } from "@habita/domain";
 import { shouldFallbackToClassic } from "@/lib/anotar-ai-error";
 import {
   buildExpenseDraftFromParsed,
@@ -65,7 +66,12 @@ export function useAnotarDraftState({ text, members, currentMemberId }: UseAnota
     }
     setRateLimited(false);
     setAiUnavailable(true);
-    setExpenseDraft((current) => ({ ...current, title: current.title || text }));
+    const hint = extractExpenseHintFromText(text);
+    setExpenseDraft((current) => ({
+      ...current,
+      title: current.title || hint.title,
+      amount: current.amount === 0 && hint.amount !== null ? hint.amount : current.amount,
+    }));
     setMode("classic");
   }
 

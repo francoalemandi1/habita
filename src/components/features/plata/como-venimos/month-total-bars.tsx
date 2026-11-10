@@ -25,7 +25,7 @@ export function MonthTotalBars({ bars }: { bars: MonthTotalBar[] }): React.JSX.E
               style={{ width: `${bar.widthPercent}%` }}
             />
           </div>
-          <span className="w-24 shrink-0 text-right text-[13px] font-medium tabular-nums text-ink">
+          <span className="w-24 shrink-0 text-right text-[13px] font-medium text-ink">
             {formatArs(bar.total)}
           </span>
         </div>

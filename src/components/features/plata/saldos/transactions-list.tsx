@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { formatCurrencyArs, transactionRowLabel } from "./saldos-logic";
 
 import type { ExpenseBalancesResponse } from "@habita/contracts";
@@ -16,22 +17,24 @@ export function TransactionsList({ balances, currentMemberId }: TransactionsList
   if (rows.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-2">
-      <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-ink-2">Entre ustedes</p>
-      <div className="flex flex-col">
+    <div className="flex flex-col">
         {rows.map(({ transaction, currency }) => (
           <div
             key={`${currency}-${transaction.fromMemberId}-${transaction.toMemberId}`}
-            className="flex items-center justify-between gap-3 border-b border-line-soft py-2.5 last:border-b-0"
+            className="flex min-h-[52px] items-center justify-between gap-3 border-b border-line-soft py-2.5 last:border-b-0"
           >
             <span className="text-[15px] text-ink">{transactionRowLabel(transaction, currentMemberId)}</span>
-            <span className="text-[15px] font-medium tabular-nums text-ink">
+            <span
+              className={cn(
+                "text-[15px] font-semibold text-ink",
+                transaction.toMemberId === currentMemberId && "text-monte",
+              )}
+            >
               {formatCurrencyArs(transaction.amount)}
               {currency !== balances.primaryCurrency ? ` ${currency}` : ""}
             </span>
           </div>
         ))}
-      </div>
     </div>
   );
 }

@@ -46,7 +46,7 @@ function createStyles(c: ThemeColors) {
     barColumn: { flex: 1, gap: 4 },
     labelRow: { flexDirection: "row", justifyContent: "space-between", gap: spacing.sm },
     label: { fontFamily: fontFamilyForWeight(400), fontSize: 14, color: c.ink, flexShrink: 1 },
-    amount: { fontFamily: fontFamilyForWeight(500), fontSize: 13, color: c.ink, fontVariant: ["tabular-nums"] },
+    amount: { fontFamily: fontFamilyForWeight(500), fontSize: 13, color: c.ink },
     track: { height: 8, borderRadius: 4, backgroundColor: c.sand, overflow: "hidden" },
     fill: { height: "100%", borderRadius: 4 },
   });

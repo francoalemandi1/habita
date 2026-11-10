@@ -186,13 +186,19 @@ export async function POST(request: NextRequest) {
     const today = todayInTimezone(member.household.timezone);
     const prompt = buildPrompt({ text, firstNames, today });
 
-    const result = await generateStructured({
-      task: "parse-entry",
-      schema: aiResultSchema,
-      prompt,
-      tier: "fast",
-      timeoutMs: 10_000,
-    });
+    let result: AiParseResult;
+    try {
+      result = await generateStructured({
+        task: "parse-entry",
+        schema: aiResultSchema,
+        prompt,
+        tier: "fast",
+        timeoutMs: 10_000,
+      });
+    } catch (error) {
+      console.error("[parse-entry] AI provider failed:", error);
+      return NextResponse.json({ error: "ai_unavailable" }, { status: 503 });
+    }
 
     const response = parseEntryResponseSchema.parse(buildResponse(result, nameIndex));
 

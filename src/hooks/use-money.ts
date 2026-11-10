@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createSettlementsSchema,
   expenseBalancesResponseSchema,
@@ -25,13 +25,18 @@ const settlementsKey = {
 
 const SETTLEMENT_HISTORY_PAGE_SIZE = 20;
 
-export function useBalances() {
-  return useQuery({
+/** Shared by useBalances and the nav intent prefetch so both hit the same cache entry. */
+export function balancesQueryOptions() {
+  return queryOptions({
     queryKey: queryKeys.expenses.balances(),
     queryFn: async () =>
       expenseBalancesResponseSchema.parse(await apiFetch<ExpenseBalancesResponse>("/api/expenses/balances")),
     staleTime: 30_000,
   });
+}
+
+export function useBalances() {
+  return useQuery(balancesQueryOptions());
 }
 
 export function useSettlementHistory() {

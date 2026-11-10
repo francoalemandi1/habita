@@ -26,10 +26,10 @@ export function LandingContent() {
           <div className="mb-6">
             <HabitaLogo size={96} className="rounded-2xl" />
           </div>
-          <h1 className="mb-3 text-4xl font-bold tracking-tight text-foreground sm:mb-4 sm:text-5xl lg:text-6xl">
+          <h1 className="mb-3 text-4xl font-bold tracking-tight text-ink sm:mb-4 sm:text-5xl lg:text-6xl">
             Tu hogar, coordinado
           </h1>
-          <p className="mb-6 max-w-2xl text-base text-muted-foreground sm:mb-8 sm:text-lg lg:text-xl">
+          <p className="mb-6 max-w-2xl text-base text-ink-2 sm:mb-8 sm:text-lg lg:text-xl">
             Tareas, gastos, compras y salidas: todo lo que tu casa
             necesita, en un solo lugar. Gratis y automático.
           </p>
@@ -151,7 +151,7 @@ export function LandingContent() {
                 <h2 className="mb-4 text-2xl font-bold sm:text-3xl">
                   Tu casa se organiza sola
                 </h2>
-                <p className="mb-6 text-muted-foreground sm:text-lg">
+                <p className="mb-6 text-ink-2 sm:text-lg">
                   Habita te ahorra tiempo y decisiones: planifica la
                   semana, encuentra ofertas y te recomienda
                   planes para salir.
@@ -173,27 +173,27 @@ export function LandingContent() {
               </div>
               <div className="rounded-2xl bg-brand-lavender-light/40 p-6 sm:p-8">
                 <div className="space-y-3">
-                  <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
+                  <div className="rounded-2xl bg-surface/70 p-4 shadow-sm">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-lime">
                         <span className="text-xl">🛒</span>
                       </div>
                       <div>
                         <p className="font-medium">&ldquo;Lista del super para 4 personas&rdquo;</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-ink-2">
                           Comparamos 6 supermercados, ahorrás hasta 30%
                         </p>
                       </div>
                     </div>
                   </div>
-                  <div className="rounded-2xl bg-white/70 p-4 shadow-sm">
+                  <div className="rounded-2xl bg-surface/70 p-4 shadow-sm">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-lavender">
                         <span className="text-xl">📋</span>
                       </div>
                       <div>
                         <p className="font-medium">Plan semanal generado</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-ink-2">
                           12 tareas distribuidas entre 4 miembros
                         </p>
                       </div>
@@ -258,7 +258,7 @@ export function LandingContent() {
       </ScrollReveal>
 
       {/* CTA */}
-      <section className="rounded-t-[32px] bg-primary py-12 text-primary-foreground sm:py-20">
+      <section className="rounded-t-[32px] bg-monte py-12 text-paper sm:py-20">
         <div className="container px-4 text-center">
           <h2 className="mb-3 text-2xl font-bold sm:mb-4 sm:text-3xl">
             Empezá a coordinar tu hogar hoy
@@ -277,10 +277,10 @@ export function LandingContent() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-primary py-6 text-primary-foreground/70 sm:py-8">
+      <footer className="bg-monte py-6 text-paper/70 sm:py-8">
         <div className="container flex flex-col items-center gap-2 px-4 text-center text-sm">
           <p>Habita — Coordinación integral del hogar</p>
-          <Link href="/privacidad" className="text-primary-foreground/50 hover:text-primary-foreground/80 transition-colors">
+          <Link href="/privacidad" className="text-paper/50 hover:text-paper/80 transition-colors">
             Política de privacidad
           </Link>
         </div>
@@ -319,7 +319,7 @@ function FeatureCard({
         {icon}
       </div>
       <h3 className="mb-1.5 text-lg font-bold">{title}</h3>
-      <p className="text-sm text-muted-foreground">{description}</p>
+      <p className="text-sm text-ink-2">{description}</p>
     </div>
   );
 }
@@ -350,12 +350,12 @@ function StepCard({
         >
           {icon}
         </div>
-        <div className="absolute -right-1 -top-1 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+        <div className="absolute -right-1 -top-1 flex h-7 w-7 items-center justify-center rounded-full bg-monte text-xs font-bold text-paper">
           {number}
         </div>
       </div>
       <h3 className="mb-2 text-lg font-bold">{title}</h3>
-      <p className="text-sm text-muted-foreground">{description}</p>
+      <p className="text-sm text-ink-2">{description}</p>
     </div>
   );
 }
@@ -380,19 +380,19 @@ function TestimonialCard({
       className={`animate-stagger-fade-in rounded-2xl p-6 ${bg}`}
       style={{ "--stagger-index": index } as React.CSSProperties}
     >
-      <span className="mb-3 block text-3xl text-muted-foreground/30">
+      <span className="mb-3 block text-3xl text-ink-2/30">
         &ldquo;
       </span>
       <p className="-mt-4 mb-5 text-sm leading-relaxed sm:text-base">
         {quote}
       </p>
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/60 text-xl">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface/60 text-xl">
           {emoji}
         </div>
         <div>
           <p className="text-sm font-semibold">{name}</p>
-          <p className="text-xs text-muted-foreground">{role}</p>
+          <p className="text-xs text-ink-2">{role}</p>
         </div>
       </div>
     </div>
@@ -456,14 +456,14 @@ function FAQAccordion() {
                 {item.question}
               </span>
               <ChevronDown
-                className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                className={`h-5 w-5 shrink-0 text-ink-2 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
               />
             </button>
             <div
               className={`grid transition-all duration-200 ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
             >
               <div className="overflow-hidden">
-                <p className="px-5 pb-4 text-sm text-muted-foreground">
+                <p className="px-5 pb-4 text-sm text-ink-2">
                   {item.answer}
                 </p>
               </div>

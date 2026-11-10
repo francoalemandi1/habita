@@ -17,7 +17,7 @@ export function InviteRow({ inviteCode, householdName }: InviteSheetProps): Reac
 
   return (
     <>
-      <ListRow leadingIcon={UserPlus} title="Invitar" onClick={() => setOpen(true)} />
+      <ListRow leadingIcon={UserPlus} title="Invitar a alguien" meta="Compartí el link o el código de la casa" onClick={() => setOpen(true)} />
       <Sheet open={open} onOpenChange={setOpen} title="Invitar">
         <InviteShareBlock inviteCode={inviteCode} householdName={householdName} />
       </Sheet>

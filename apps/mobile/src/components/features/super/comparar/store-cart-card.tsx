@@ -159,7 +159,7 @@ function createStyles(c: ThemeColors) {
     },
     winnerBadgeText: { fontFamily: fontFamilyForWeight(600), fontSize: 11, color: c.mantecaText },
     priceBlock: { alignItems: "flex-end" },
-    total: { fontFamily: fontFamilyForWeight(700), fontSize: 18, color: c.ink, fontVariant: ["tabular-nums"] },
+    total: { fontFamily: fontFamilyForWeight(700), fontSize: 18, color: c.ink },
     totalWinner: { color: c.monte },
     totalStrike: { fontFamily: fontFamilyForWeight(400), fontSize: 12, color: c.ink3, textDecorationLine: "line-through" },
     totalDiscounted: { color: c.monte },

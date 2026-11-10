@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   findMemberNet,
   formatCurrencyArs,
-  isMigratedSettlement,
   isSettledUp,
   netStatus,
   settlementRowLabel,
@@ -54,37 +53,34 @@ describe("isSettledUp", () => {
 });
 
 describe("transactionRowLabel", () => {
-  it("replaces the current member's id with 'Vos'", () => {
-    const transaction = {
-      fromMemberId: "vos",
-      fromMemberName: "Franco",
-      toMemberId: "sofi",
-      toMemberName: "Sofi",
-      amount: 100,
-    };
-    expect(transactionRowLabel(transaction, "vos")).toBe("Vos → Sofi");
+  const transaction = { fromMemberId: "vos", fromMemberName: "Franco", toMemberId: "sofi", toMemberName: "Sofi", amount: 100 };
+
+  it("addresses the current member as the one who owes", () => {
+    expect(transactionRowLabel(transaction, "vos")).toBe("Le debés a Sofi");
+  });
+
+  it("addresses the current member as the one who is owed", () => {
+    expect(transactionRowLabel(transaction, "sofi")).toBe("Franco te debe");
+  });
+
+  it("names both members when the current member is not involved", () => {
+    expect(transactionRowLabel(transaction, "tomi")).toBe("Franco le debe a Sofi");
   });
 });
 
 describe("settlementRowLabel", () => {
   const settlement = { fromMemberId: "tomi", fromMemberName: "Tomi", toMemberId: "vos", toMemberName: "Franco" };
 
-  it("reads 'X le pagó a Vos' when the current member received the payment", () => {
-    expect(settlementRowLabel(settlement, "vos")).toBe("Tomi le pagó a Vos");
+  it("reads 'X te pagó' when the current member received the payment", () => {
+    expect(settlementRowLabel(settlement, "vos")).toBe("Tomi te pagó");
   });
 
-  it("reads 'Vos le pagaste a X' when the current member paid", () => {
-    expect(settlementRowLabel(settlement, "tomi")).toBe("Vos le pagaste a Franco");
+  it("reads 'Le pagaste a X' when the current member paid", () => {
+    expect(settlementRowLabel(settlement, "tomi")).toBe("Le pagaste a Franco");
+  });
+
+  it("names both members when the current member is not involved", () => {
+    expect(settlementRowLabel(settlement, "sofi")).toBe("Tomi le pagó a Franco");
   });
 });
 
-describe("isMigratedSettlement", () => {
-  it("flags the exact migrated note", () => {
-    expect(isMigratedSettlement("Migrado desde liquidaciones anteriores")).toBe(true);
-  });
-
-  it("is false for any other note, including null", () => {
-    expect(isMigratedSettlement(null)).toBe(false);
-    expect(isMigratedSettlement("Transferencia")).toBe(false);
-  });
-});

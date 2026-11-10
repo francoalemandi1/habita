@@ -85,7 +85,7 @@ export function ExpenseDetailView({
         <span className="flex size-[52px] items-center justify-center rounded-[16px] bg-paper">
           <CategoryIcon className="size-6 text-ink" strokeWidth={1.75} />
         </span>
-        <span className="text-[56px] font-bold leading-[.95] tracking-[-.04em] tabular-nums text-ink">
+        <span className="text-[56px] font-bold leading-[.95] tracking-[-.04em] text-ink">
           {formatArs(expense.amount)}
         </span>
         <div className="flex flex-col">
@@ -100,7 +100,7 @@ export function ExpenseDetailView({
         {expense.splits.map((split) => (
           <div key={split.id} className="flex items-center justify-between">
             <span className="text-[15px] text-ink">{split.member.name}</span>
-            <span className="text-[15px] font-medium tabular-nums text-ink">{formatArs(split.amount)}</span>
+            <span className="text-[15px] font-medium text-ink">{formatArs(split.amount)}</span>
           </div>
         ))}
       </div>

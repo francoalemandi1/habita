@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ds/button";
 import { Sheet } from "@/components/ds/sheet";
 import { Toggle } from "@/components/ds/toggle";
-import { FREQUENCY_LABELS } from "@/lib/constants";
-import { TASK_FREQUENCIES } from "@/lib/tareas-frequency";
+import { MIN_TASK_NAME_LENGTH, TaskFormFields } from "./task-form-fields";
 
-import type { TaskFrequency } from "@prisma/client";
 import type { CreateTaskInput } from "@/hooks/use-tareas-tasks";
+import type { TaskFormValues } from "./task-form-fields";
 
 interface CreateTaskDialogProps {
   open: boolean;
@@ -16,75 +16,44 @@ interface CreateTaskDialogProps {
   onSubmit: (values: CreateTaskInput) => void;
 }
 
-/** "Crear una tarea propia" — Lista view's own-task creation form. */
-export function CreateTaskDialog({ open, onOpenChange, isSubmitting, onSubmit }: CreateTaskDialogProps): React.JSX.Element {
-  const [name, setName] = useState("");
-  const [frequency, setFrequency] = useState<TaskFrequency>("WEEKLY");
-  const [estimatedMinutes, setEstimatedMinutes] = useState<number | null>(null);
-  const [isRotating, setIsRotating] = useState(false);
+const EMPTY_VALUES: TaskFormValues = { name: "", frequency: "WEEKLY", estimatedMinutes: null };
+const DEFAULT_WEIGHT = 2;
 
-  function reset(): void {
-    setName("");
-    setFrequency("WEEKLY");
-    setEstimatedMinutes(null);
-    setIsRotating(false);
-  }
+/** "Crear tarea" — Lista view's own-task creation form. */
+export function CreateTaskDialog({ open, onOpenChange, isSubmitting, onSubmit }: CreateTaskDialogProps): React.JSX.Element {
+  const [values, setValues] = useState(EMPTY_VALUES);
+  const [isRotating, setIsRotating] = useState(false);
+  const canSave = values.name.trim().length >= MIN_TASK_NAME_LENGTH;
 
   function handleOpenChange(next: boolean): void {
-    if (!next) reset();
+    if (!next) {
+      setValues(EMPTY_VALUES);
+      setIsRotating(false);
+    }
     onOpenChange(next);
   }
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange} title="Crear tarea">
-      <div className="flex flex-col gap-4">
-        <input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          maxLength={100}
-          placeholder="Nombre de la tarea"
-          className="h-11 w-full rounded-[12px] border border-line bg-paper px-3 text-[15px] text-ink outline-none"
-        />
-        <div className="flex gap-2">
-          {TASK_FREQUENCIES.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setFrequency(option)}
-              className={
-                option === frequency
-                  ? "rounded-[10px] bg-monte px-3 py-1.5 text-[13px] font-semibold text-paper"
-                  : "rounded-[10px] bg-sand px-3 py-1.5 text-[13px] text-ink"
-              }
-            >
-              {FREQUENCY_LABELS[option]}
-            </button>
-          ))}
+      <form
+        className="flex flex-col gap-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (canSave) onSubmit({ ...values, name: values.name.trim(), weight: DEFAULT_WEIGHT, isRotating });
+        }}
+      >
+        <TaskFormFields values={values} onChange={setValues} />
+        <div className="flex items-center justify-between gap-3">
+          <span className="flex flex-col">
+            <span className="text-[15px] font-medium text-ink">Rotarla entre todos</span>
+            <span className="text-[13px] text-ink-2">Cada vez le toca a otra persona.</span>
+          </span>
+          <Toggle checked={isRotating} onCheckedChange={setIsRotating} label="Rotarla entre todos" />
         </div>
-        <input
-          type="number"
-          min={1}
-          max={480}
-          value={estimatedMinutes ?? ""}
-          onChange={(event) => setEstimatedMinutes(event.target.value ? Number(event.target.value) : null)}
-          placeholder="Minutos estimados (opcional)"
-          className="h-11 w-full rounded-[12px] border border-line bg-paper px-3 text-[15px] text-ink outline-none"
-        />
-        <div className="flex items-center justify-between">
-          <span className="text-[14px] text-ink">Rotarla entre todos</span>
-          <Toggle checked={isRotating} onCheckedChange={setIsRotating} />
-        </div>
-        <button
-          type="button"
-          disabled={name.trim().length < 2 || isSubmitting}
-          onClick={() =>
-            onSubmit({ name: name.trim(), frequency, weight: 2, estimatedMinutes, isRotating })
-          }
-          className="h-11 rounded-[12px] bg-monte px-4 text-[15px] font-semibold text-paper disabled:bg-line disabled:text-ink-3"
-        >
+        <Button type="submit" disabled={!canSave} loading={isSubmitting} loadingLabel="Creando">
           Crear tarea
-        </button>
-      </div>
+        </Button>
+      </form>
     </Sheet>
   );
 }

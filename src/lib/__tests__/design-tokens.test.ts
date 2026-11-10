@@ -76,6 +76,29 @@ describe("design-tokens — storeColors stays unchanged (third-party brand color
   });
 });
 
+function relativeLuminance(hex: string): number {
+  const channels = [1, 3, 5].map((start) => Number.parseInt(hex.slice(start, start + 2), 16) / 255);
+  const [red = 0, green = 0, blue = 0] = channels.map((channel) =>
+    channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
+  );
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function contrastRatio(first: string, second: string): number {
+  const [lighter, darker] = [relativeLuminance(first), relativeLuminance(second)].sort((a, b) => b - a);
+  return ((lighter ?? 0) + 0.05) / ((darker ?? 0) + 0.05);
+}
+
+describe("design-tokens — store badges stay readable (WCAG AA for 12px text)", () => {
+  it.each(Object.entries(storeColors))("%s reaches 4.5:1", (_store, { bg, text }) => {
+    expect(contrastRatio(bg, text)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("keeps the web mirror identical to the shared package", () => {
+    expect(webStoreColors).toEqual(storeColors);
+  });
+});
+
 describe("design-tokens — no old-brand hex remains outside storeColors", () => {
   // storeColors intentionally keeps third-party brand hexes (e.g. "Coop. Obrera"
   // historically shares #5260fe with the old primary by coincidence) and is excluded.

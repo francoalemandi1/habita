@@ -23,8 +23,8 @@ export function ListaRow({ item, currentMemberId, isOffer, isSyncPending, onTogg
   const isChecked = item.checkedAt !== null;
 
   return (
-    <div className="flex min-h-[60px] items-center gap-2 border-b border-line-soft py-2 last:border-b-0">
-      <Checkbox state={isChecked ? "done" : "pending"} onToggle={onToggle} />
+    <div className="group flex min-h-[52px] items-center gap-1.5 border-b border-line-soft py-1 last:border-b-0">
+      <Checkbox state={isChecked ? "done" : "pending"} label={item.name} onToggle={onToggle} />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex min-w-0 items-center gap-1.5">
           <span className={cn("truncate text-[15px] font-medium text-ink", isChecked && "text-ink-3 line-through")}>
@@ -41,14 +41,14 @@ export function ListaRow({ item, currentMemberId, isOffer, isSyncPending, onTogg
           <span className="truncate text-[13px] text-ink-2">lo agregó {item.addedBy.name}</span>
         )}
       </div>
-      <Stepper value={item.quantity} onChange={onQuantityChange} min={1} max={99} className="shrink-0" />
+      <Stepper value={item.quantity} onChange={onQuantityChange} min={1} max={99} size="sm" label={`Cantidad de ${item.name}`} className="shrink-0" />
       <button
         type="button"
         onClick={onDelete}
         aria-label={`Eliminar ${item.name}`}
-        className="flex size-9 shrink-0 items-center justify-center rounded-[10px] text-ink-3 transition-colors hover:text-ladrillo"
+        className="flex size-9 shrink-0 items-center justify-center rounded-[10px] text-ink-2 outline-none transition-colors hover:bg-ladrillo-soft hover:text-ladrillo-text focus-visible:ring-2 focus-visible:ring-monte"
       >
-        <Trash2 className="size-4" strokeWidth={1.75} />
+        <Trash2 className="size-4" strokeWidth={1.75} aria-hidden="true" />
       </button>
     </div>
   );

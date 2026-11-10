@@ -2,8 +2,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef } from "react";
 import { mobileApi } from "@/lib/api";
 import { queryKeys } from "@habita/contracts";
+import { detectSettledJob } from "@habita/domain";
 
 import type { AiJobStatusResponse, AiJobType } from "@habita/contracts";
+import type { JobObservation } from "@habita/domain";
 import { POLL_INTERVAL_MS } from "@habita/contracts";
 
 // ============================================
@@ -28,11 +30,9 @@ export function useAiJobStatus({
   onError,
 }: UseAiJobStatusOptions) {
   const queryClient = useQueryClient();
-  const wasRunningRef = useRef(false);
+  const previousRef = useRef<JobObservation | null>(null);
   const onCompleteRef = useRef(onComplete);
   const onErrorRef = useRef(onError);
-  onCompleteRef.current = onComplete;
-  onErrorRef.current = onError;
 
   const query = useQuery<AiJobStatusResponse>({
     queryKey: queryKeys.aiJobs.status(jobType),
@@ -51,17 +51,24 @@ export function useAiJobStatus({
   const status = query.data?.status ?? null;
   const jobId = query.data?.jobId ?? null;
 
-  // Detect transition: RUNNING → SUCCESS/FAILED
+  const isLoaded = query.data !== undefined;
+
+  // Keep the latest callbacks without re-running the settle effect when they change.
   useEffect(() => {
-    if (wasRunningRef.current && status !== "RUNNING" && status !== null) {
-      if (status === "SUCCESS" && jobId) {
-        onCompleteRef.current?.(jobId);
-      } else if (status === "FAILED") {
-        onErrorRef.current?.(query.data?.errorMessage ?? null);
-      }
-    }
-    wasRunningRef.current = status === "RUNNING";
-  }, [status, jobId, query.data?.errorMessage]);
+    onCompleteRef.current = onComplete;
+    onErrorRef.current = onError;
+  });
+
+  // Fire once per settled job, including jobs that finished before any poll saw them
+  // running (cached results), which a RUNNING → SUCCESS check alone would miss.
+  useEffect(() => {
+    if (!isLoaded) return;
+    const current = { status, jobId };
+    const settlement = detectSettledJob(previousRef.current, current);
+    previousRef.current = current;
+    if (settlement === "completed" && jobId) onCompleteRef.current?.(jobId);
+    if (settlement === "failed") onErrorRef.current?.(query.data?.errorMessage ?? null);
+  }, [isLoaded, status, jobId, query.data?.errorMessage]);
 
   const refetchStatus = useCallback(() => {
     return queryClient.invalidateQueries({

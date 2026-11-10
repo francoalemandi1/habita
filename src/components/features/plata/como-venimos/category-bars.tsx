@@ -21,7 +21,7 @@ export function CategoryBars({ bars }: { bars: CategoryBar[] }): React.JSX.Eleme
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate text-[14px] text-ink">{CATEGORY_LABELS[bar.category]}</span>
-                <span className="shrink-0 text-[13px] font-medium tabular-nums text-ink">{formatArs(bar.amount)}</span>
+                <span className="shrink-0 text-[13px] font-medium text-ink">{formatArs(bar.amount)}</span>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-sand">
                 <div

@@ -135,7 +135,6 @@ function createStyles(c: ThemeColors) {
       fontSize: 48,
       letterSpacing: -1.2,
       color: c.ink,
-      fontVariant: ["tabular-nums"],
     },
     totalSkeleton: {
       width: 180,

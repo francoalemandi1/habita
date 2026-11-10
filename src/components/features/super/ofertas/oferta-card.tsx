@@ -32,7 +32,7 @@ export function OfertaCard({ deal, inList, onAdd }: OfertaCardProps): React.JSX.
       </div>
       <p className="line-clamp-2 text-[14px] font-medium text-ink">{deal.productName}</p>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[16px] font-bold tabular-nums text-ink">{deal.price}</span>
+        <span className="text-[16px] font-bold text-ink">{deal.price}</span>
         <button
           type="button"
           onClick={onAdd}

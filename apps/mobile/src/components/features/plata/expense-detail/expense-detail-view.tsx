@@ -125,7 +125,6 @@ function createStyles(c: ThemeColors) {
       fontSize: 48,
       letterSpacing: -1.2,
       color: c.ink,
-      fontVariant: ["tabular-nums"],
     },
     title: {
       fontFamily: fontFamilyForWeight(600),
@@ -154,7 +153,6 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamilyForWeight(500),
       fontSize: 15,
       color: c.ink,
-      fontVariant: ["tabular-nums"],
     },
     callout: {
       borderRadius: radius.tile,

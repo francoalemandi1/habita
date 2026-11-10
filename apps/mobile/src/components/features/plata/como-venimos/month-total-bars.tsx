@@ -43,6 +43,6 @@ function createStyles(c: ThemeColors) {
     month: { width: 64, fontFamily: fontFamilyForWeight(400), fontSize: 13, color: c.ink2 },
     track: { flex: 1, height: 8, borderRadius: 4, backgroundColor: c.sand, overflow: "hidden" },
     fill: { height: "100%", borderRadius: 4, backgroundColor: c.monte },
-    total: { width: 88, textAlign: "right", fontFamily: fontFamilyForWeight(500), fontSize: 13, color: c.ink, fontVariant: ["tabular-nums"] },
+    total: { width: 88, textAlign: "right", fontFamily: fontFamilyForWeight(500), fontSize: 13, color: c.ink },
   });
 }

@@ -61,7 +61,7 @@ export function ServiceDetailPanel({ service, onEdit, onDeleted }: ServiceDetail
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-[28px] font-bold tabular-nums text-ink">{formatAmount(service.lastAmount)}</span>
+        <span className="text-[28px] font-bold text-ink">{formatAmount(service.lastAmount)}</span>
         <span className="text-[13px] text-ink-2">{frequencyLabel(toRecurringFrequency(service.frequency, "MONTHLY"))}</span>
       </div>
 

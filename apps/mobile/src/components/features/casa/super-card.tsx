@@ -88,7 +88,6 @@ function createStyles(c: ThemeColors) {
       fontFamily: fontFamilyForWeight(700),
       fontSize: 22,
       color: c.ink,
-      fontVariant: ["tabular-nums"],
     },
     age: {
       fontFamily: fontFamilyForWeight(400),

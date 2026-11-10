@@ -27,6 +27,12 @@ export default async function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="flex min-h-screen">
+      <a
+        href="#contenido"
+        className="sr-only rounded-[12px] bg-ink text-[15px] font-semibold text-paper outline-none focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:px-4 focus:py-3 focus-visible:ring-2 focus-visible:ring-monte"
+      >
+        Saltar al contenido
+      </a>
       <AppNav
         household={{ name: member.household.name }}
         member={{ name: member.name }}
@@ -34,7 +40,11 @@ export default async function MainLayout({ children }: MainLayoutProps) {
         currentHouseholdId={member.householdId}
         hasUnreadNotifications={hasUnreadNotifications}
       />
-      <main className="min-w-0 flex-1 overflow-x-clip pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+      <main
+        id="contenido"
+        tabIndex={-1}
+        className="min-w-0 flex-1 overflow-x-clip pb-[calc(5rem+env(safe-area-inset-bottom,0px))] outline-none md:pb-0"
+      >
         <OfflineBanner />
         {children}
       </main>

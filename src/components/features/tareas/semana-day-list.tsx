@@ -73,9 +73,9 @@ export function SemanaDayList({ weekDays, assignmentsByDay, getCardProps }: Sema
           aria-label={dayCardLabel(day, today)}
           className="scroll-mt-4 rounded-[20px] bg-surface px-4 pt-3"
         >
-          <h3 className="border-b border-line-soft pb-2 text-[11px] font-semibold uppercase tracking-[.08em] text-ink-2">
+          <h2 className="border-b border-line-soft pb-2 text-[11px] font-semibold uppercase tracking-[.08em] text-ink-2">
             {dayCardLabel(day, today)}
-          </h3>
+          </h2>
           {assignments.length === 0 ? (
             <p className="py-4 text-[14px] text-ink-2">Nada para hoy.</p>
           ) : (

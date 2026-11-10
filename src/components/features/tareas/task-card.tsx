@@ -122,7 +122,7 @@ export function TaskCard(props: TaskCardProps & { drag?: DragBinding }): React.J
             className={cn(
               "font-medium",
               isRow ? "truncate text-[16px]" : "line-clamp-2 hyphens-auto text-[14px] leading-snug",
-              isDone ? "text-ink-3 line-through decoration-ink-3" : "text-ink",
+              isDone ? "text-ink-2 line-through decoration-ink-3" : "text-ink",
             )}
           >
             {assignment.task.name}

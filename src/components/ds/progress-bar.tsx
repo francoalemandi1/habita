@@ -58,7 +58,8 @@ export function SplitBar({ segments, total, label, className }: SplitBarProps): 
 
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      <div className="flex h-2 w-full gap-[3px]" role="img" aria-label={label}>
+      {/* Decorative: the visible label (or the caller's own text) carries the numbers for screen readers. */}
+      <div className="flex h-2 w-full gap-[3px]" aria-hidden="true">
         {computed.map((segment, index) => {
           const colorClassName = segments[index]?.colorClassName ?? "bg-line";
           return (

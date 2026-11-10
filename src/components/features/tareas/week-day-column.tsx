@@ -37,10 +37,10 @@ export function WeekDayColumn({ day, isToday, assignments, getCardProps }: WeekD
         isOver && "ring-2 ring-monte",
       )}
     >
-      <h3 className="px-1.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[.08em] text-ink">
+      <h2 className="px-1.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[.08em] text-ink">
         {dayName} {dayNumber}
         {isToday && <span className="text-ink-2"> · hoy</span>}
-      </h3>
+      </h2>
       {assignments.map((assignment) => (
         <DraggableTaskCard key={assignment.id} {...getCardProps(assignment)} />
       ))}

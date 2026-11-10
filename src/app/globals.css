@@ -366,3 +366,13 @@ body {
 .animate-content-in {
   animation: content-in 180ms cubic-bezier(.2, 0, 0, 1);
 }
+
+/* iOS zooms into focused fields under 16px. Keep fields at 16px on touch screens
+   instead of disabling pinch zoom (WCAG 1.4.4). Unlayered so it beats utilities. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}

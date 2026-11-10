@@ -44,7 +44,7 @@ export function TabScreen({
             )}
             <h1 className="text-[30px] font-bold leading-[1.05] tracking-[-.035em] text-ink md:text-[32px]">
               {title}
-              {titleComplement && <span className="text-ink-3"> {titleComplement}</span>}
+              {titleComplement && <span className="text-ink-2"> {titleComplement}</span>}
             </h1>
           </div>
           {actions && <div className="flex shrink-0 items-center gap-2 md:hidden">{actions}</div>}

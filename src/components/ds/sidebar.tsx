@@ -179,7 +179,7 @@ function SidebarFooter({
   return (
     <div className="flex items-center gap-1 border-t border-line pt-3">
       {profileHref ? (
-        renderLink({ href: profileHref, children: profile, className: profileClass, ariaLabel: "Perfil y ajustes", isCurrent: isProfileActive })
+        renderLink({ href: profileHref, children: profile, className: profileClass, isCurrent: isProfileActive })
       ) : (
         <div className={profileClass}>{profile}</div>
       )}

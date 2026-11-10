@@ -28,7 +28,7 @@ export function FondoQuotasList({ memberStatuses }: FondoQuotasListProps): React
             key={status.memberId}
             title={status.memberName}
             trailingAmount={
-              status.pending > 0 ? `Debe ${formatCurrencyArs(status.pending)}` : `Aportó ${formatCurrencyArs(status.contributed)}`
+              status.pending > 0 ? `Falta ${formatCurrencyArs(status.pending)}` : `Aportó ${formatCurrencyArs(status.contributed)}`
             }
           />
         ))}

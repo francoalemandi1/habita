@@ -19,9 +19,9 @@ export function FondoHero({ fund, currentMemberStatus, onContribute }: FondoHero
 
   return (
     <div className="flex flex-col gap-4 rounded-[20px] bg-monte px-5 py-5 text-paper">
-      <div>
-        <p className="text-[13px] opacity-80">Fondo de la casa</p>
-        <p className="text-[56px] font-bold leading-[0.95] tracking-[-0.04em] tabular-nums">
+      <div className="flex flex-col gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[.08em] text-paper/80">Fondo de la casa · disponible</p>
+        <p className="text-[56px] font-bold leading-[0.95] tracking-[-0.04em]">
           {formatCurrencyArs(fund.balance)}
         </p>
       </div>
@@ -31,7 +31,7 @@ export function FondoHero({ fund, currentMemberStatus, onContribute }: FondoHero
           value={fund.contributedThisPeriod}
           max={totalQuotas}
           label={`${formatCurrencyArs(fund.contributedThisPeriod)} de ${formatCurrencyArs(totalQuotas)} aportados`}
-          className="[&_p]:text-paper/80 [&>div]:bg-paper/20 [&>div>div]:bg-manteca"
+          tone="onMonte"
         />
       )}
 
@@ -39,7 +39,7 @@ export function FondoHero({ fund, currentMemberStatus, onContribute }: FondoHero
         <p className="text-[15px]">
           Tu cuota de {monthLabel} · {status}
         </p>
-        <Button variant="secondary" size="sm" onClick={onContribute}>
+        <Button variant="secondary" size="sm" onClick={onContribute} className="bg-paper text-ink hover:bg-surface">
           Aportar
         </Button>
       </div>

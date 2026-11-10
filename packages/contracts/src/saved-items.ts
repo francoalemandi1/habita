@@ -29,6 +29,28 @@ export const refreshSavedCartInputSchema = z.object({
   savedCartId: z.string().min(1),
 });
 
+export const priceChangeSchema = z.object({
+  term: z.string(),
+  productName: z.string(),
+  previousPrice: z.number(),
+  currentPrice: z.number(),
+});
+
+export const refreshedSavedCartResponseSchema = savedCartSchema.extend({
+  status: z.literal("refreshed"),
+  priceChanges: z.array(priceChangeSchema),
+});
+
+export const storeMissingRefreshResultSchema = z.object({
+  status: z.literal("store-missing"),
+  savedCartId: z.string(),
+});
+
+export const refreshSavedCartResponseSchema = z.discriminatedUnion("status", [
+  refreshedSavedCartResponseSchema,
+  storeMissingRefreshResultSchema,
+]);
+
 // ============================================
 // Saved events
 // ============================================
@@ -82,5 +104,8 @@ export const savedEventSchema = z.object({
 export type SaveCartInput = z.infer<typeof saveCartInputSchema>;
 export type SavedCart = z.infer<typeof savedCartSchema>;
 export type RefreshSavedCartInput = z.infer<typeof refreshSavedCartInputSchema>;
+export type PriceChange = z.infer<typeof priceChangeSchema>;
+export type StoreMissingRefreshResult = z.infer<typeof storeMissingRefreshResultSchema>;
+export type RefreshSavedCartResponse = z.infer<typeof refreshSavedCartResponseSchema>;
 export type SaveEventInput = z.infer<typeof saveEventInputSchema>;
 export type SavedEvent = z.infer<typeof savedEventSchema>;

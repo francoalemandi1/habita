@@ -83,7 +83,7 @@ describe("POST /api/saved-items/deals/refresh", () => {
     expect(savedCartUpdateMock).not.toHaveBeenCalled();
   });
 
-  it("returns 404 when the store answered but is absent from fresh results", async () => {
+  it("returns 200 store-missing without touching the cart when the store answered but is absent", async () => {
     requireMemberMock.mockResolvedValue(MEMBER);
     savedCartFindFirstMock.mockResolvedValue(SAVED_CART);
     compareProductsMock.mockResolvedValue({
@@ -96,8 +96,8 @@ describe("POST /api/saved-items/deals/refresh", () => {
     const response = await POST(buildRequest());
     const body = await response.json();
 
-    expect(response.status).toBe(404);
-    expect(body.error).toBe("Supermercado no encontrado en resultados frescos");
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ status: "store-missing", savedCartId: "cart-1" });
     expect(savedCartUpdateMock).not.toHaveBeenCalled();
   });
 
@@ -124,6 +124,7 @@ describe("POST /api/saved-items/deals/refresh", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(body.status).toBe("refreshed");
     expect(savedCartUpdateMock).toHaveBeenCalledWith({
       where: { id: "cart-1" },
       data: {

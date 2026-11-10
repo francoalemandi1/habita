@@ -8,10 +8,14 @@ import { queryKeys } from "@/lib/query-keys";
 import type { SavedEvent, SavedCart } from "@prisma/client";
 import type { SaveEventInput, SaveCartInput } from "@/lib/validations/saved-items";
 import type { PriceChange } from "@/lib/saved-cart-diff";
+import type { StoreMissingRefreshResult } from "@habita/contracts";
 
 export interface RefreshedSavedCart extends SavedCart {
+  status: "refreshed";
   priceChanges: PriceChange[];
 }
+
+export type RefreshSavedCartResult = RefreshedSavedCart | StoreMissingRefreshResult;
 
 // ============================================
 // Queries
@@ -127,21 +131,22 @@ export function useToggleSaveCart() {
 
 /**
  * POST /api/saved-items/deals/refresh for a single cart.
- * Throws ApiError with status 503 when the store is unreachable (cart kept as-is),
- * or 404 when the store no longer carries it.
+ * Throws ApiError with status 503 when the store is unreachable (cart kept as-is).
+ * Resolves with `status: "store-missing"` when the store answered but no longer carries the cart.
  */
 export function useRefreshSavedCart() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (savedCartId: string) =>
-      apiFetch<RefreshedSavedCart>("/api/saved-items/deals/refresh", {
+      apiFetch<RefreshSavedCartResult>("/api/saved-items/deals/refresh", {
         method: "POST",
         body: { savedCartId },
       }),
-    onSuccess: (updated) => {
+    onSuccess: (result) => {
+      if (result.status !== "refreshed") return;
       queryClient.setQueryData<SavedCart[]>(queryKeys.saved.deals(), (current) =>
-        current ? current.map((cart) => (cart.id === updated.id ? updated : cart)) : current,
+        current ? current.map((cart) => (cart.id === result.id ? result : cart)) : current,
       );
     },
   });

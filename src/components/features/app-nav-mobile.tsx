@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Plus } from "lucide-react";
 import { openAnotar } from "@/components/features/anotar/anotar-events";
+import { IntentLink } from "@/components/features/intent-link";
 import { cn } from "@/lib/utils";
 import { APP_PLACES, resolveActivePlace } from "./app-places";
 
@@ -44,7 +44,7 @@ export function AppNavMobile() {
 function TabLink({ place, isActive }: { place: SidebarItem; isActive: boolean }) {
   const Icon = place.icon;
   return (
-    <Link
+    <IntentLink
       href={place.href}
       aria-current={isActive ? "page" : undefined}
       className={cn(
@@ -54,6 +54,6 @@ function TabLink({ place, isActive }: { place: SidebarItem; isActive: boolean })
     >
       <Icon className={cn("size-[22px]", isActive && "text-monte")} strokeWidth={1.75} aria-hidden="true" />
       <span className={cn("text-[11px] leading-tight", isActive ? "font-semibold" : "font-medium")}>{place.label}</span>
-    </Link>
+    </IntentLink>
   );
 }

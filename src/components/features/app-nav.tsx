@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/ds/sidebar";
 import { HouseholdSwitcher } from "@/components/features/household-switcher";
+import { IntentLink } from "@/components/features/intent-link";
 import { APP_ROUTES } from "@habita/contracts";
 import { openAnotar } from "@/components/features/anotar/anotar-events";
 import { APP_PLACES, resolveActivePlace } from "./app-places";
@@ -25,9 +25,9 @@ export interface AppNavProps {
 
 function renderNextLink({ href, children, className, ariaLabel, isCurrent }: SidebarLinkRender): React.ReactNode {
   return (
-    <Link href={href} aria-label={ariaLabel} aria-current={isCurrent ? "page" : undefined} className={className}>
+    <IntentLink href={href} aria-label={ariaLabel} aria-current={isCurrent ? "page" : undefined} className={className}>
       {children}
-    </Link>
+    </IntentLink>
   );
 }
 

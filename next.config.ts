@@ -5,6 +5,13 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   transpilePackages: ["@habita/api-client", "@habita/contracts", "@habita/design-tokens", "@habita/domain", "@habita/prices"],
 
+  experimental: {
+    // Reuse a visited tab's RSC payload for 30s so switching back is instant instead of
+    // re-showing loading.tsx. Mutations that touch server-rendered data call router.refresh(),
+    // which clears this cache.
+    staleTimes: { dynamic: 30 },
+  },
+
   async redirects() {
     return Object.entries(LEGACY_ROUTE_ALIASES).map(([source, destination]) => ({
       source,

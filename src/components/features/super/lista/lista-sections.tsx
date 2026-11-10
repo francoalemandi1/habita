@@ -19,7 +19,8 @@ export function ListaSections({ pending, inCart, renderRow, onClearCart, isClear
 
   return (
     <div className="flex flex-col">
-      {pending.map(renderRow)}
+      {/* Own wrapper so the last pending row drops its border (last:border-b-0) above the cart divider. */}
+      <div className="flex flex-col">{pending.map(renderRow)}</div>
       {pending.length === 0 && (
         <p className="py-3 text-[15px] text-ink-2">Ya tenés todo en el carrito.</p>
       )}

@@ -3,7 +3,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { SearchX } from "lucide-react";
 import { Banner } from "@/components/ds/banner";
-import { EmptyState } from "@/components/ds/empty-state";
 import { Skeleton } from "@/components/ds/skeleton";
 import { useSnackbar } from "@/components/ds/snackbar";
 import { apiFetch } from "@/lib/api-client";
@@ -101,11 +100,16 @@ export function CompararView({ searchItems, data, isLoading, error, householdCit
 
   if (!data) {
     return (
-      <EmptyState
-        icon={SearchX}
-        title="Nada para comparar todavía"
-        description="Agregá productos en Lista y tocá Comparar precios."
-      />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col items-start gap-1.5 rounded-[20px] bg-surface px-5 py-6">
+          <SearchX className="mb-1 size-6 text-ink-2" strokeWidth={1.75} aria-hidden="true" />
+          <p className="text-[17px] font-semibold text-ink">Compará la lista</p>
+          <p className="max-w-sm text-[14px] text-ink-2">
+            Tocá Comparar precios y buscamos cada producto en los súper de tu zona, con las promos de tus bancos.
+          </p>
+        </div>
+        <SavedCartsSection />
+      </div>
     );
   }
 

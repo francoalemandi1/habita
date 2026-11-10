@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ShoppingCart, AlertTriangle } from "lucide-react";
 import { useSnackbar } from "@/components/ds/snackbar";
+import { SectionCard } from "@/components/ds/section-card";
 import { Button } from "@/components/ds/button";
 import { EmptyState } from "@/components/ds/empty-state";
 import { SkeletonBoundary, Skeleton } from "@/components/ds/skeleton";
@@ -104,50 +105,58 @@ export function ListaView({ currentMemberId, onCompare }: ListaViewProps): React
 
   return (
     <div className="flex flex-col gap-3">
-      <ListaAddRow onAdd={handleAdd} onOpenCatalog={() => setCatalogOpen(true)} disabled={addItem.isPending} />
-
-      <SkeletonBoundary
-        loading={isLoading}
-        skeleton={
-          <div className="flex flex-col gap-3 py-2">
-            {[0, 1, 2].map((key) => <Skeleton key={key} className="h-[60px] w-full" />)}
-          </div>
+      <SectionCard
+        title={items.length > 0 ? `Lista · ${items.length}` : "Lista"}
+        action={
+          hasChecked ? (
+            <Button variant="link" size="sm" onClick={() => clearChecked.mutate()} className="text-ink-2">
+              Borrar tachados
+            </Button>
+          ) : undefined
         }
       >
-        {items.length === 0 ? (
-          <EmptyState
-            icon={ShoppingCart}
-            title="Todavía no agregaste nada"
-            description="Sumá productos y comparamos precios por vos."
-          />
-        ) : (
-          <div className="flex flex-col">
-            {items.map((item) => (
-              <ListaRow
-                key={item.id}
-                item={item}
-                currentMemberId={currentMemberId}
-                isOffer={matchesTopDeal(item.name, topDeals)}
-                isSyncPending={pendingItemIds.has(item.id)}
-                onToggle={() => handleToggle(item.id, item.checkedAt === null)}
-                onQuantityChange={(quantity) => handleQuantityChange(item.id, quantity)}
-                onDelete={() => handleDelete(item.id, item.name)}
-              />
-            ))}
-          </div>
-        )}
-      </SkeletonBoundary>
+        <ListaAddRow onAdd={handleAdd} onOpenCatalog={() => setCatalogOpen(true)} />
 
-      {hasChecked && (
-        <Button variant="link" onClick={() => clearChecked.mutate()} className="self-start text-ink-2">
-          Borrar tachados
-        </Button>
-      )}
+        <SkeletonBoundary
+          loading={isLoading}
+          skeleton={
+            <div className="flex flex-col gap-3 py-2">
+              {[0, 1, 2].map((key) => <Skeleton key={key} className="h-[52px] w-full" />)}
+            </div>
+          }
+        >
+          {items.length === 0 ? (
+            <EmptyState
+              icon={ShoppingCart}
+              title="La lista está vacía"
+              description="Sumá lo que falta en casa y comparamos precios por vos."
+              className="py-10 [&>p:first-of-type]:text-[22px]"
+            />
+          ) : (
+            <div className="flex flex-col">
+              {items.map((item) => (
+                <ListaRow
+                  key={item.id}
+                  item={item}
+                  currentMemberId={currentMemberId}
+                  isOffer={matchesTopDeal(item.name, topDeals)}
+                  isSyncPending={pendingItemIds.has(item.id)}
+                  onToggle={() => handleToggle(item.id, item.checkedAt === null)}
+                  onQuantityChange={(quantity) => handleQuantityChange(item.id, quantity)}
+                  onDelete={() => handleDelete(item.id, item.name)}
+                />
+              ))}
+            </div>
+          )}
+        </SkeletonBoundary>
+      </SectionCard>
 
       {uncheckedCount > 0 && (
-        <Button onClick={handleCompareClick} className="w-full">
-          Comparar precios · {uncheckedCount}
-        </Button>
+        <div className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] z-10 md:bottom-4">
+          <Button variant="ink" onClick={handleCompareClick} className="w-full shadow-level-1">
+            Comparar precios · {uncheckedCount}
+          </Button>
+        </div>
       )}
 
       <CatalogSheet

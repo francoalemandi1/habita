@@ -14,6 +14,10 @@ export interface SavedCartRefreshResult {
   unavailable: boolean;
 }
 
+// Module scope: Comparar remounts the saved-carts section when results arrive, and a
+// store that just failed would otherwise be hit again on every remount.
+const attemptedCartIds = new Set<string>();
+
 /**
  * Auto-refreshes stale saved carts (handoff §5.3) once per mount: sequential,
  * capped at 3, skipped entirely if nothing is stale. A store down (503) keeps
@@ -32,8 +36,9 @@ export function useSavedCartAutoRefresh(carts: SavedCart[] | undefined) {
 
     const toRefresh = pickCartsToAutoRefresh(
       currentCarts.map((cart) => ({ id: cart.id, refreshedAt: cart.refreshedAt.toString() })),
-    );
+    ).filter((target) => !attemptedCartIds.has(target.id));
     if (toRefresh.length === 0) return;
+    for (const target of toRefresh) attemptedCartIds.add(target.id);
 
     async function run(): Promise<void> {
       setIsRefreshing(true);

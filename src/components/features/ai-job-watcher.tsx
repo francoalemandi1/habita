@@ -1,9 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAiJobStatus } from "@/hooks/use-ai-job-status";
 import { useSnackbar } from "@/components/ds/snackbar";
-import { APP_ROUTES } from "@habita/contracts";
+import { APP_ROUTES, TAREAS_ROUTES } from "@habita/contracts";
 
 import type { AiJobType } from "@habita/contracts";
 
@@ -20,7 +20,7 @@ const JOB_CONFIGS: JobConfig[] = [
     jobType: "PREVIEW_PLAN",
     successTitle: "Plan listo",
     actionLabel: "Ver plan",
-    href: "/plan",
+    href: TAREAS_ROUTES.plan,
     errorTitle: "Error generando el plan",
   },
   {
@@ -34,11 +34,14 @@ const JOB_CONFIGS: JobConfig[] = [
 
 function JobWatcher({ config }: { config: JobConfig }) {
   const router = useRouter();
+  const pathname = usePathname();
   const snackbar = useSnackbar();
 
   useAiJobStatus({
     jobType: config.jobType,
     onComplete: () => {
+      // The result already renders on its own screen; a "Ver" snackbar there is noise.
+      if (pathname === config.href) return;
       snackbar.show({
         text: config.successTitle,
         actionKind: "navigate",

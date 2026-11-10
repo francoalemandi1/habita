@@ -5,7 +5,8 @@ import { expenseCategorySchema } from "@habita/contracts";
 import { RadioGroup } from "@/components/ds/radio";
 import { CATEGORY_LABELS } from "@/lib/expense-constants";
 import { describeExpenseConsequence, formatExpenseConsequence } from "@habita/domain";
-import { formatArs } from "./anotar-draft-types";
+import { formatArs, todayIsoDate } from "./anotar-draft-types";
+import { formatAmountInput, formatDraftDateLabel, parseAmountInput } from "./anotar-format";
 import { AnotarExpenseMoreOptions } from "./anotar-expense-more-options";
 import { cn } from "@/lib/utils";
 
@@ -57,27 +58,29 @@ export function AnotarExpensePreview({ draft, onChange, members, currentMemberId
         value={draft.title}
         onChange={(event) => onChange({ ...draft, title: event.target.value })}
         placeholder="¿Qué fue?"
-        className="h-9 w-full bg-transparent text-[17px] font-semibold text-ink outline-none"
+        aria-label="Qué fue el gasto"
+        className="h-9 w-full rounded-[8px] bg-transparent text-[17px] font-semibold text-ink outline-none placeholder:text-ink-2 focus-visible:ring-2 focus-visible:ring-monte"
       />
 
-      <div className="flex items-center gap-1">
-        <span className="text-[13px] text-ink-2">$</span>
+      <label className="flex items-baseline gap-1">
+        <span className="text-[17px] font-semibold text-ink-2">$</span>
         <input
-          type="number"
-          min={0}
-          step="0.01"
-          value={draft.amount || ""}
-          onChange={(event) => onChange({ ...draft, amount: Number(event.target.value) || 0 })}
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          value={formatAmountInput(draft.amount)}
+          onChange={(event) => onChange({ ...draft, amount: parseAmountInput(event.target.value) })}
           placeholder="0"
-          className="h-8 w-28 bg-transparent text-[22px] font-bold tabular-nums text-ink outline-none"
+          aria-label="Monto"
+          className="h-10 w-full min-w-0 rounded-[8px] bg-transparent text-[28px] font-bold tracking-[-.02em] text-ink outline-none placeholder:text-ink-3 focus-visible:ring-2 focus-visible:ring-monte"
         />
-      </div>
+      </label>
 
       <div className="flex flex-wrap gap-1.5">
         <ChipButton label={CATEGORY_LABELS[draft.category]} active={openField === "category"} onClick={() => toggleField("category")} />
         <ChipButton label={payerName} active={openField === "payer"} onClick={() => toggleField("payer")} />
         <ChipButton label={splitLabel} active={openField === "split"} onClick={() => toggleField("split")} />
-        <ChipButton label={draft.date} active={openField === "date"} onClick={() => toggleField("date")} />
+        <ChipButton label={formatDraftDateLabel(draft.date, todayIsoDate())} active={openField === "date"} onClick={() => toggleField("date")} />
       </div>
 
       {openField === "category" && (
@@ -128,6 +131,8 @@ export function AnotarExpensePreview({ draft, onChange, members, currentMemberId
         <input
           type="date"
           value={draft.date}
+          max={todayIsoDate()}
+          aria-label="Fecha del gasto"
           onChange={(event) => {
             onChange({ ...draft, date: event.target.value });
             setOpenField(null);
@@ -148,8 +153,11 @@ function ChipButton({ label, active, onClick }: { label: string; active: boolean
     <button
       type="button"
       onClick={onClick}
-      aria-pressed={active}
-      className={cn("inline-flex h-[30px] items-center rounded-full px-3 text-[13px] font-medium", active ? "bg-ink text-paper" : "bg-paper text-ink-2")}
+      aria-expanded={active}
+      className={cn(
+        "inline-flex h-8 items-center rounded-full px-3 text-[13px] font-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-monte",
+        active ? "bg-ink text-paper" : "bg-paper text-ink hover:bg-surface",
+      )}
     >
       {label}
     </button>

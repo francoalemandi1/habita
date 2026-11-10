@@ -43,6 +43,8 @@ export type { StoreScore, StoreRecommendation };
 
 export interface ProductPrice {
   productName: string;
+  displayName?: string;
+  imageUrl?: string | null;
   store: string;
   price: string;
   originalPrice: string | null;
@@ -115,7 +117,7 @@ function calculateSavingsPercent(discounted: number, regular: number): number {
 // VtexProduct → ProductPrice conversion
 // ============================================
 
-function vtexToProductPrice(
+export function vtexToProductPrice(
   catalogName: string,
   storeName: string,
   product: VtexProduct,
@@ -141,6 +143,8 @@ function vtexToProductPrice(
 
   return {
     productName: catalogName,
+    displayName: product.productName,
+    imageUrl: product.imageUrl,
     store: storeName,
     price: formattedPrice,
     originalPrice: formattedOriginal,

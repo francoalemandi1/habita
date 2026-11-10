@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { Bookmark, BookmarkCheck, ChevronDown, Trophy } from "lucide-react-native";
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
 import { radii as radius } from "@habita/design-tokens";
-import { discountedPrice } from "@habita/prices";
+import { buildStoreCartUrl, discountedPrice } from "@habita/prices";
+import { Button } from "@/components/ds";
 import { PromoBanner } from "@/components/features/super/comparar/promo-banner";
 import { ProductRow } from "@/components/features/super/comparar/product-row";
 
@@ -43,6 +44,7 @@ export function StoreCartCard({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedPromoId, setSelectedPromoId] = useState<string | null>(null);
   const isWinner = rank === 0;
+  const cartLink = useMemo(() => buildStoreCartUrl(cart.storeName, cart.products), [cart.storeName, cart.products]);
 
   const selectedPromo = selectedPromoId ? promos.find((p) => p.id === selectedPromoId) : null;
   const discountedTotal = selectedPromo
@@ -111,6 +113,22 @@ export function StoreCartCard({
         </View>
       ) : null}
 
+      {cartLink ? (
+        <View style={styles.cartLinkBlock}>
+          <Button
+            label={`Abrir carrito en ${cart.storeName}`}
+            variant="secondary"
+            size="sm"
+            onPress={() => void Linking.openURL(cartLink.url)}
+          />
+          {cartLink.includedCount < cartLink.totalCount ? (
+            <Text style={styles.cartLinkNote}>
+              Carga {cartLink.includedCount} de {cartLink.totalCount} productos. Los demás, desde su link.
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
       {cart.missingTerms.length > 0 ? (
         <View style={styles.missing}>
           <Text style={styles.missingTitle}>No encontrado</Text>
@@ -149,6 +167,8 @@ function createStyles(c: ThemeColors) {
     chevronOpen: { transform: [{ rotate: "180deg" }] },
     subText: { fontFamily: fontFamilyForWeight(400), fontSize: 12, color: c.ink2 },
     products: { borderTopWidth: 1, borderTopColor: c.lineSoft, paddingTop: spacing.xs },
+    cartLinkBlock: { gap: 4 },
+    cartLinkNote: { fontFamily: fontFamilyForWeight(400), fontSize: 11, color: c.ink3, textAlign: "center" },
     missing: { backgroundColor: c.ladrilloSoft, borderRadius: radius.control, padding: spacing.sm, gap: 2 },
     missingTitle: { fontFamily: fontFamilyForWeight(600), fontSize: 12, color: c.ladrilloText },
     missingText: { fontFamily: fontFamilyForWeight(400), fontSize: 12, color: c.ladrilloText },

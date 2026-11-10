@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { StoreLogo } from "@/components/ds/store-logo";
 import { SaveButton } from "@/components/ds/save-button";
 import { ChevronDown, Trophy, ExternalLink, ArrowDownRight, Check, Package, Tag, Pin, Share2, AlertCircle, MapPin } from "lucide-react";
+import { buildStoreCartUrl } from "@habita/prices";
 
 import type { ProductUnitInfo } from "@/lib/supermarket-search";
 import type { AdjustedStoreCart, AdjustedCartProduct, CompareAlternative as AlternativeProduct } from "@habita/prices";
@@ -85,6 +86,7 @@ interface StoreCartCardProps {
 export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlternatives, isSaved, isSavePending, onToggleSave, promos, isPinned, onPinStore, preferredBankSlugs, userCoords }: StoreCartCardProps) {
   const isBest = rank === 0;
   const [isOpen, setIsOpen] = useState(false);
+  const cartLink = useMemo(() => buildStoreCartUrl(cart.storeName, cart.products), [cart.storeName, cart.products]);
 
   const mapsUrl = useMemo(() => {
     const q = encodeURIComponent(`${cart.storeName} supermercado`);
@@ -311,6 +313,27 @@ export function StoreCartCard({ cart, rank, isComplete, onSwapProduct, onFindAlt
           <p className="text-xs font-medium text-green-800 dark:text-green-300">
             Ahorrás {formatPrice(savingsAmount)} comprando acá vs el promedio del mercado
           </p>
+        </div>
+      )}
+
+      {/* Open cart in store — only for the VTEX stores that support the deep link */}
+      {isOpen && cartLink && (
+        <div className="mx-4 mb-3">
+          <a
+            href={cartLink.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Abrir carrito en {cart.storeName}
+          </a>
+          {cartLink.includedCount < cartLink.totalCount && (
+            <p className="mt-1 text-center text-[11px] text-muted-foreground/60">
+              Carga {cartLink.includedCount} de {cartLink.totalCount} productos. Los demás, desde su link.
+            </p>
+          )}
         </div>
       )}
 

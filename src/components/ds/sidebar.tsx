@@ -156,7 +156,7 @@ function SidebarFooter({
       <Avatar name={member.name} size={28} isSelf ringBackground="var(--color-paper)" aria-hidden="true" />
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-[14px] font-medium leading-tight text-ink">{member.name}</span>
-        <span className="text-[12px] leading-tight text-ink-3">Ajustes</span>
+        <span className="text-[12px] leading-tight text-ink-2">Ajustes</span>
       </span>
     </>
   );

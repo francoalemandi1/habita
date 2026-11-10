@@ -69,7 +69,7 @@ export function groupExpensesByDay<T extends { date: string | Date }>(
   return groups;
 }
 
-/** "Pagaste vos" / "Pagó Sofi · entre 3" row meta text. */
+/** "Pagaste vos · entre 3" / "Pagó Sofi · entre 3" / "Pagaste vos · solo vos" row meta text (§5.3 Plata). */
 export function payerMetaText({
   paidByName,
   isCurrentUserPayer,
@@ -79,8 +79,9 @@ export function payerMetaText({
   isCurrentUserPayer: boolean;
   splitCount: number;
 }): string {
-  if (isCurrentUserPayer) return "Pagaste vos";
-  return splitCount > 1 ? `Pagó ${paidByName} · entre ${splitCount}` : `Pagó ${paidByName}`;
+  const payer = isCurrentUserPayer ? "Pagaste vos" : `Pagó ${paidByName}`;
+  if (splitCount > 1) return `${payer} · entre ${splitCount}`;
+  return isCurrentUserPayer ? `${payer} · solo vos` : payer;
 }
 
 function formatArs(amount: number): string {

@@ -1,14 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import Link from "next/link";
-import { PLATA_ROUTES } from "@habita/contracts";
+import { useState } from "react";
+import { Plus, Receipt } from "lucide-react";
 import { openAnotar } from "@/components/features/anotar/anotar-events";
-import { Receipt } from "lucide-react";
 import { useExpenseInsights } from "@/hooks/use-expense-insights";
 import { useSnackbar } from "@/components/ds/snackbar";
 import { EmptyState } from "@/components/ds/empty-state";
 import { Skeleton } from "@/components/ds/skeleton";
+import { Button } from "@/components/ds/button";
 import { apiFetch } from "@/lib/api-client";
 import { BalanceStrip } from "./balance-strip";
 import { MiniBars } from "./mini-bars";
@@ -38,6 +37,7 @@ function formatArs(amount: number): string {
   return `$${Math.round(amount).toLocaleString("es-AR")}`;
 }
 
+/** Plata → Gastos (§5.3): month hero with 6-month bars, balances + Liquidar, day-grouped list. */
 export function GastosView({
   currentMemberId,
   currentMemberType,
@@ -50,25 +50,24 @@ export function GastosView({
 }: GastosViewProps): React.JSX.Element {
   const snackbar = useSnackbar();
   const { data: insights, isLoading: insightsLoading } = useExpenseInsights();
-
   const [expenses, setExpenses] = useState(initialExpenses);
   const [hasMore, setHasMore] = useState(initialHasMore);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const handleLoadMore = useCallback(async () => {
-    setLoadingMore(true);
+  async function loadMore(): Promise<void> {
+    setIsLoadingMore(true);
     try {
       const raw = await apiFetch<unknown>(`/api/expenses?limit=${PAGE_SIZE}&offset=${expenses.length}`);
       const parsed = expenseListResponseSchema.parse(raw);
-      setExpenses((prev) => [...prev, ...parsed.expenses]);
+      setExpenses((previous) => [...previous, ...parsed.expenses]);
       setHasMore(parsed.pagination.hasMore);
-    } catch {
-      snackbar.show({ text: "No se pudo cargar más gastos", actionKind: "retry", onAction: handleLoadMore });
+    } catch (error) {
+      console.error("[gastos] load more failed:", error);
+      snackbar.show({ text: "No se pudieron cargar más gastos", tone: "error", actionKind: "retry", onAction: () => void loadMore() });
     } finally {
-      setLoadingMore(false);
+      setIsLoadingMore(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expenses.length]);
+  }
 
   const comparisonText = insights
     ? buildMonthComparisonText({
@@ -79,21 +78,23 @@ export function GastosView({
     : null;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-ink-3">
-          {formatMonthLabel(new Date())}
-        </span>
-        {insightsLoading && !insights ? (
-          <Skeleton className="h-14 w-40" />
-        ) : (
-          <span className="text-[56px] font-bold leading-[.95] tracking-[-.04em] tabular-nums text-ink">
-            {formatArs(insights?.thisMonthTotal ?? 0)}
+    <div className="flex max-w-3xl flex-col gap-5">
+      <section aria-label="Gastos del mes" className="flex items-end justify-between gap-6">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-ink-2">
+            {formatMonthLabel(new Date())}
           </span>
-        )}
+          {insightsLoading && !insights ? (
+            <Skeleton className="h-[53px] w-48" />
+          ) : (
+            <span className="text-[44px] font-bold leading-[.95] tracking-[-.04em] text-ink md:text-[56px]">
+              {formatArs(insights?.thisMonthTotal ?? 0)}
+            </span>
+          )}
+          {comparisonText && <span className="text-[13px] text-ink-2">{comparisonText}</span>}
+        </div>
         {insights && <MiniBars monthlyHistory={insights.monthlyHistory} />}
-        {comparisonText && <span className="text-[13px] text-ink-2">{comparisonText}</span>}
-      </div>
+      </section>
 
       <BalanceStrip
         owedToMe={owedToMe}
@@ -104,39 +105,32 @@ export function GastosView({
         members={members}
       />
 
-      <button
-        type="button"
-        onClick={() => openAnotar({ kind: "expense" })}
-        className="inline-flex h-10 w-fit items-center rounded-[12px] bg-ink px-4 text-[14px] font-semibold text-paper"
-      >
-        Agregar
-      </button>
-
-      {expenses.length === 0 ? (
-        <EmptyState icon={Receipt} title="Todavía no hay gastos" description="Anotá el primero para empezar a repartir." />
-      ) : (
-        <ExpenseDayList expenses={expenses} currentMemberId={currentMemberId} />
-      )}
-
-      {hasMore && (
-        <button
-          type="button"
-          onClick={handleLoadMore}
-          disabled={loadingMore}
-          className="self-center text-[14px] font-medium text-monte disabled:text-ink-3"
-        >
-          {loadingMore ? "Cargando…" : "Ver más"}
-        </button>
-      )}
-
-      <div className="flex gap-5 pt-2">
-        <Link href={PLATA_ROUTES.servicios} className="text-[13px] text-ink-2 underline underline-offset-[3px]">
-          Servicios
-        </Link>
-        <Link href={PLATA_ROUTES.comoVenimos} className="text-[13px] text-ink-2 underline underline-offset-[3px]">
-          Cómo venimos
-        </Link>
-      </div>
+      <section aria-label="Gastos" className="rounded-[20px] bg-surface px-4 pb-2 pt-4 md:px-5">
+        <div className="flex items-center justify-between gap-3 pb-2">
+          <h2 className="text-[17px] font-semibold text-ink">Gastos</h2>
+          <Button variant="secondary" size="sm" onClick={() => openAnotar({ kind: "expense" })}>
+            <Plus aria-hidden="true" />
+            Anotar gasto
+          </Button>
+        </div>
+        {expenses.length === 0 ? (
+          <EmptyState
+            icon={Receipt}
+            title="Todavía no hay gastos"
+            description="Anotá el primero y Habita calcula quién le debe a quién."
+            className="py-10"
+          />
+        ) : (
+          <ExpenseDayList expenses={expenses} currentMemberId={currentMemberId} />
+        )}
+        {hasMore && (
+          <div className="flex justify-center border-t border-line-soft py-2">
+            <Button variant="link" size="sm" loading={isLoadingMore} loadingLabel="Cargando" onClick={() => void loadMore()}>
+              Ver más
+            </Button>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

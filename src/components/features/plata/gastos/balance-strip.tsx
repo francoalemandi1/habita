@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ds/button";
+import { cn } from "@/lib/utils";
 import { SettleUpSheet } from "@/components/features/plata/settle-up-sheet";
 
 import type { PlataMember } from "@/components/features/plata/plata-view-props";
@@ -39,28 +40,16 @@ export function BalanceStrip({
   const [settleOpen, setSettleOpen] = useState(false);
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-[16px] bg-surface px-4 py-3.5">
-      {isSettled ? (
-        <span className="text-[15px] text-ink-2">Están al día</span>
-      ) : (
-        <div className="flex flex-wrap gap-x-4 gap-y-1">
-          {owedToMe && (
-            <span className="text-[15px] text-ink">
-              {owedToMe.memberName} te debe{" "}
-              <span className="font-medium tabular-nums text-monte">{formatArs(owedToMe.amount)}</span>
-            </span>
-          )}
-          {iOwe && (
-            <span className="text-[15px] text-ink">
-              Le debés a {iOwe.memberName}{" "}
-              <span className="font-medium tabular-nums text-ladrillo-text">{formatArs(iOwe.amount)}</span>
-            </span>
-          )}
-        </div>
+    <div className="flex flex-wrap items-stretch gap-2.5">
+      {isSettled && (
+        <span className="inline-flex items-center rounded-full bg-monte-soft px-3 py-1.5 text-[14px] font-medium text-monte">
+          Están al día
+        </span>
       )}
-
+      {owedToMe && <Tile label={`${owedToMe.memberName} te debe`} amount={owedToMe.amount} tone="positive" />}
+      {iOwe && <Tile label={`Le debés a ${iOwe.memberName}`} amount={iOwe.amount} tone="negative" />}
       {!isSettled && (
-        <Button variant="secondary" size="sm" onClick={() => setSettleOpen(true)}>
+        <Button onClick={() => setSettleOpen(true)} className="h-auto min-h-12 self-stretch">
           Liquidar
         </Button>
       )}
@@ -75,6 +64,17 @@ export function BalanceStrip({
         currentMemberType={currentMemberType}
         members={members}
       />
+    </div>
+  );
+}
+
+function Tile({ label, amount, tone }: { label: string; amount: number; tone: "positive" | "negative" }) {
+  return (
+    <div className="flex min-w-[150px] flex-1 flex-col gap-0.5 rounded-[14px] bg-surface px-4 py-3 md:flex-none">
+      <span className="truncate text-[12px] text-ink-2">{label}</span>
+      <span className={cn("text-[20px] font-semibold tracking-[-.02em]", tone === "positive" ? "text-monte" : "text-ladrillo-text")}>
+        {formatArs(amount)}
+      </span>
     </div>
   );
 }

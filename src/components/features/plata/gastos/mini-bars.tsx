@@ -7,7 +7,7 @@ interface MiniBarsProps {
   monthlyHistory: readonly MonthTotalPoint[];
 }
 
-/** 6-month mini bars: current month in Monte, the rest in Línea (handoff §5.3). */
+/** 6-month mini bars beside the hero amount: current month in Monte, the rest in Línea (§5.3 Plata). */
 export function MiniBars({ monthlyHistory }: MiniBarsProps): React.JSX.Element | null {
   if (monthlyHistory.length === 0) return null;
 
@@ -15,12 +15,12 @@ export function MiniBars({ monthlyHistory }: MiniBarsProps): React.JSX.Element |
   const maxTotal = Math.max(...bars.map((bar) => bar.total), 1);
 
   return (
-    <div className="flex h-10 items-end gap-1.5">
+    <div className="flex h-12 w-24 shrink-0 items-end gap-1" role="img" aria-label="Gasto de los últimos 6 meses">
       {bars.map((bar) => (
         <div
           key={bar.month}
-          className={cn("flex-1 rounded-t-[4px]", bar.isCurrent ? "bg-monte" : "bg-line")}
-          style={{ height: `${Math.max((bar.total / maxTotal) * 100, 4)}%` }}
+          className={cn("flex-1 rounded-[3px] transition-[height] duration-[420ms]", bar.isCurrent ? "bg-monte" : "bg-line")}
+          style={{ height: `${Math.max((bar.total / maxTotal) * 100, 6)}%` }}
         />
       ))}
     </div>

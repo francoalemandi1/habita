@@ -64,8 +64,12 @@ describe("groupExpensesByDay", () => {
 });
 
 describe("payerMetaText", () => {
-  it("returns 'Pagaste vos' for the current member's own payment", () => {
-    expect(payerMetaText({ paidByName: "Sofi", isCurrentUserPayer: true, splitCount: 3 })).toBe("Pagaste vos");
+  it("names the split for the current member's own shared payment", () => {
+    expect(payerMetaText({ paidByName: "Sofi", isCurrentUserPayer: true, splitCount: 3 })).toBe("Pagaste vos · entre 3");
+  });
+
+  it("marks the current member's personal payment as solo vos", () => {
+    expect(payerMetaText({ paidByName: "Sofi", isCurrentUserPayer: true, splitCount: 1 })).toBe("Pagaste vos · solo vos");
   });
 
   it("names the payer and the split size", () => {

@@ -28,10 +28,10 @@ export function ExpenseDayList({ expenses, currentMemberId }: ExpenseDayListProp
   const groups = groupExpensesByDay(visible, new Date());
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-3">
       {groups.map((group) => (
         <div key={group.key} className="flex flex-col">
-          <span className="pb-1 text-[11px] font-semibold uppercase tracking-[.08em] text-ink-3">
+          <span className="pt-1 text-[11px] font-semibold uppercase tracking-[.08em] text-ink-2">
             {group.label}
           </span>
           {group.items.map((expense) => (
@@ -46,6 +46,7 @@ export function ExpenseDayList({ expenses, currentMemberId }: ExpenseDayListProp
               })}
               trailingAmount={formatArs(expense.amount)}
               onClick={() => router.push(`/plata/gastos/${expense.id}`)}
+              className="-mx-2 rounded-[12px] px-2 transition-colors duration-100 hover:bg-paper/70"
             />
           ))}
         </div>

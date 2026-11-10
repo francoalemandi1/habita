@@ -5,6 +5,8 @@ export const searchItemSchema = z.object({
   quantity: z.number().int().min(1).max(99),
 });
 
+const storeCartRefSchema = z.object({ skuId: z.string(), sellerId: z.string() });
+
 export const alternativeProductSchema = z.object({
   productName: z.string(),
   price: z.number(),
@@ -12,6 +14,8 @@ export const alternativeProductSchema = z.object({
   link: z.string(),
   imageUrl: z.string().nullable(),
   unitInfo: z.unknown().nullable(),
+  // Optional: saved carts and persisted mobile queries predate this field.
+  cartRef: storeCartRefSchema.nullable().optional(),
 });
 
 export const shoppingPlanAlternativesResponseSchema = z.object({
@@ -31,6 +35,7 @@ export const cartProductSchema = z.object({
   unitInfo: z.unknown().nullable(),
   alternatives: z.array(alternativeProductSchema),
   averagePrice: z.number().nullable(),
+  cartRef: storeCartRefSchema.nullable().optional(),
 });
 
 export const storeCartSchema = z.object({

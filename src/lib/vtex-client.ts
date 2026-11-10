@@ -25,6 +25,8 @@ export interface VtexProduct {
   listPrice: number | null;
   link: string;
   imageUrl: string | null;
+  /** VTEX SKU + seller, used to build "open cart" deep links. null when the store doesn't expose them (Coto, Coope) or the field is missing. */
+  cartRef?: { skuId: string; sellerId: string } | null;
 }
 
 export interface StoreConfig {
@@ -261,7 +263,13 @@ const intelligentSearchResponseSchema = z.object({
         sellingPrice: z.object({ lowPrice: z.number() }),
         listPrice: z.object({ lowPrice: z.number() }),
       }),
-      items: z.array(z.object({ images: z.array(z.object({ imageUrl: z.string() })) })),
+      items: z.array(
+        z.object({
+          itemId: z.string().optional(),
+          images: z.array(z.object({ imageUrl: z.string() })),
+          sellers: z.array(z.object({ sellerId: z.string().optional() })).optional(),
+        }),
+      ),
     }),
   ),
 });
@@ -272,12 +280,16 @@ export function parseIntelligentSearchProducts(store: StoreConfig, payload: unkn
     .filter((product) => product.priceRange.sellingPrice.lowPrice > 0)
     .map((product) => {
       const price = product.priceRange.sellingPrice.lowPrice;
+      const firstItem = product.items[0];
+      const skuId = firstItem?.itemId;
+      const sellerId = firstItem?.sellers?.[0]?.sellerId;
       return {
         productName: product.productName,
         price,
         listPrice: sanitizeListPrice(price, product.priceRange.listPrice.lowPrice),
         link: `${store.baseUrl}/${product.linkText}/p`,
-        imageUrl: product.items[0]?.images[0]?.imageUrl ?? null,
+        imageUrl: firstItem?.images[0]?.imageUrl ?? null,
+        cartRef: skuId && sellerId ? { skuId, sellerId } : null,
       };
     });
 }
@@ -305,9 +317,11 @@ const legacySearchResponseSchema = z.array(
     link: z.string(),
     items: z.array(
       z.object({
+        itemId: z.string().optional(),
         images: z.array(z.object({ imageUrl: z.string() })),
         sellers: z.array(
           z.object({
+            sellerId: z.string().optional(),
             commertialOffer: z.object({ Price: z.number(), ListPrice: z.number(), IsAvailable: z.boolean() }),
           }),
         ),
@@ -320,8 +334,11 @@ export function parseVtexLegacyProducts(store: StoreConfig, payload: unknown): V
   const rawProducts = parseStoreResponse(store.name, legacySearchResponseSchema, payload);
   return rawProducts.flatMap((product) => {
     const firstItem = product.items[0];
-    const offer = firstItem?.sellers[0]?.commertialOffer;
+    const seller = firstItem?.sellers[0];
+    const offer = seller?.commertialOffer;
     if (!firstItem || !offer?.IsAvailable || offer.Price <= 0) return [];
+    const skuId = firstItem.itemId;
+    const sellerId = seller?.sellerId;
     return [
       {
         productName: product.productName,
@@ -329,6 +346,7 @@ export function parseVtexLegacyProducts(store: StoreConfig, payload: unknown): V
         listPrice: sanitizeListPrice(offer.Price, offer.ListPrice),
         link: product.link.startsWith("http") ? product.link : `${store.baseUrl}${product.link}`,
         imageUrl: firstItem.images[0]?.imageUrl ?? null,
+        cartRef: skuId && sellerId ? { skuId, sellerId } : null,
       },
     ];
   });
@@ -420,6 +438,8 @@ function parseCotoRecord(candidate: unknown): VtexProduct | null {
     listPrice: null,
     link: recordState ? `${COTO_BASE_URL}/productos${recordState}` : `${COTO_BASE_URL}/productos/-/${repositoryId}`,
     imageUrl: imageUrl && !imageUrl.startsWith("http") ? `${COTO_BASE_URL}${imageUrl}` : imageUrl,
+    // Coto's Endeca records don't expose a comparable SKU/seller pair; "open cart" is unsupported here.
+    cartRef: null,
   };
 }
 
@@ -488,6 +508,8 @@ export function parseCoopeProducts(payload: unknown): VtexProduct[] {
         listPrice: Number.isFinite(previousPrice) ? sanitizeListPrice(price, previousPrice) : null,
         link: `${COOPE_SITE_URL}/producto/${slugifyCoopeDescription(article.descripcion)}/${article.cod_interno}`,
         imageUrl: article.imagen ?? null,
+        // Coope isn't VTEX; it has no SKU/seller pair for "open cart".
+        cartRef: null,
       },
     ];
   });

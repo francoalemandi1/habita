@@ -10,7 +10,7 @@
 
 import { normalizeProductTerm } from "./product-term";
 
-import type { ProductUnitInfo, SearchItem } from "./product-matching";
+import type { ProductUnitInfo, SearchItem, StoreCartRef } from "./product-matching";
 
 export interface CompareAlternative<TUnit = ProductUnitInfo | null> {
   productName: string;
@@ -19,6 +19,7 @@ export interface CompareAlternative<TUnit = ProductUnitInfo | null> {
   link: string;
   imageUrl: string | null;
   unitInfo?: TUnit;
+  cartRef?: StoreCartRef | null;
 }
 
 export interface CompareProduct<TUnit = ProductUnitInfo | null> {
@@ -34,6 +35,7 @@ export interface CompareProduct<TUnit = ProductUnitInfo | null> {
   unitInfo?: TUnit;
   alternatives: CompareAlternative<TUnit>[];
   averagePrice: number | null;
+  cartRef?: StoreCartRef | null;
 }
 
 export interface CompareCart<TUnit = ProductUnitInfo | null> {
@@ -88,6 +90,7 @@ export function applyOverrides<TUnit = ProductUnitInfo | null>(
           imageUrl: alt.imageUrl,
           link: alt.link,
           unitInfo: alt.unitInfo,
+          cartRef: alt.cartRef ?? null,
           alternatives: [
             {
               productName: product.productName,
@@ -96,6 +99,7 @@ export function applyOverrides<TUnit = ProductUnitInfo | null>(
               link: product.link,
               imageUrl: product.imageUrl,
               unitInfo: product.unitInfo,
+              cartRef: product.cartRef,
             },
             ...product.alternatives.filter((a) => a.link !== alt.link),
           ],

@@ -10,8 +10,11 @@ import { compareCartInputSchema, handleCompareCart } from "./tools/compare-cart"
 import { getBankPromosInputSchema, handleGetBankPromos } from "./tools/get-bank-promos";
 import { getProductCatalogInputSchema, handleGetProductCatalog } from "./tools/get-product-catalog";
 import { monthlyShoppingArgsSchema, buildMonthlyShoppingPrompt } from "./prompts/monthly-shopping";
+import { registerHouseholdTools } from "./household/register";
 
-export function createAhorraMcpServer(): McpServer {
+import type { McpIdentity } from "./identity";
+
+export function createAhorraMcpServer(identity?: McpIdentity | null): McpServer {
   const server = new McpServer({ name: "habita-ahorra", version: "1.0.0" });
 
   server.registerTool(
@@ -63,6 +66,10 @@ export function createAhorraMcpServer(): McpServer {
     },
     buildMonthlyShoppingPrompt,
   );
+
+  if (identity?.scopes.has("habita")) {
+    registerHouseholdTools(server, identity);
+  }
 
   return server;
 }

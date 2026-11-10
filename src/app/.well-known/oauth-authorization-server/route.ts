@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getOAuthIssuer } from "@/lib/mcp/oauth/urls";
-import { OAUTH_SCOPE } from "@/lib/mcp/oauth/constants";
+import { OAUTH_SCOPES } from "@/lib/mcp/oauth/constants";
 
 // ============================================
 // GET /.well-known/oauth-authorization-server
@@ -28,7 +28,7 @@ export function GET(): NextResponse {
       code_challenge_methods_supported: ["S256"],
       token_endpoint_auth_methods_supported: ["none"],
       revocation_endpoint_auth_methods_supported: ["none"],
-      scopes_supported: [OAUTH_SCOPE],
+      scopes_supported: [...OAUTH_SCOPES],
     },
     { headers: { "Cache-Control": CACHE_CONTROL, ...CORS_HEADERS } },
   );

@@ -87,12 +87,57 @@ describe("validateAuthorizeRequest", () => {
     }
   });
 
-  it("redirects with invalid_scope when scope is present and not ahorra", async () => {
+  it("redirects with invalid_scope when scope is present and unknown", async () => {
     getClientMock.mockResolvedValueOnce(client);
     const result = await validateAuthorizeRequest(baseParams({ scope: "other" }));
     expect(result.kind).toBe("redirect-error");
     if (result.kind === "redirect-error") {
       expect(new URL(result.redirectUrl).searchParams.get("error")).toBe("invalid_scope");
+    }
+  });
+
+  it("redirects with invalid_scope when any scope in a subset is unknown", async () => {
+    getClientMock.mockResolvedValueOnce(client);
+    const result = await validateAuthorizeRequest(baseParams({ scope: "ahorra other" }));
+    expect(result.kind).toBe("redirect-error");
+    if (result.kind === "redirect-error") {
+      expect(new URL(result.redirectUrl).searchParams.get("error")).toBe("invalid_scope");
+    }
+  });
+
+  it("defaults to every supported scope when scope is missing", async () => {
+    getClientMock.mockResolvedValueOnce(client);
+    const result = await validateAuthorizeRequest(baseParams({ scope: undefined }));
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.scope).toBe("ahorra habita");
+    }
+  });
+
+  it("defaults to every supported scope when scope is blank", async () => {
+    getClientMock.mockResolvedValueOnce(client);
+    const result = await validateAuthorizeRequest(baseParams({ scope: "   " }));
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.scope).toBe("ahorra habita");
+    }
+  });
+
+  it("accepts a single requested scope", async () => {
+    getClientMock.mockResolvedValueOnce(client);
+    const result = await validateAuthorizeRequest(baseParams({ scope: "habita" }));
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.scope).toBe("habita");
+    }
+  });
+
+  it("dedupes and normalizes a subset of scopes to canonical order", async () => {
+    getClientMock.mockResolvedValueOnce(client);
+    const result = await validateAuthorizeRequest(baseParams({ scope: "habita ahorra habita" }));
+    expect(result.kind).toBe("ok");
+    if (result.kind === "ok") {
+      expect(result.scope).toBe("ahorra habita");
     }
   });
 
@@ -113,7 +158,7 @@ describe("validateAuthorizeRequest", () => {
       expect(result.client).toBe(client);
       expect(result.redirectUri).toBe(REDIRECT_URI);
       expect(result.codeChallenge).toBe("challenge-value");
-      expect(result.scope).toBe("ahorra");
+      expect(result.scope).toBe("ahorra habita");
       expect(result.resource).toBe(MCP_RESOURCE);
       expect(result.state).toBe("state-123");
     }

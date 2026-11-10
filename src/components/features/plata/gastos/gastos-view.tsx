@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { useSearchParams } from "next/navigation";
 import { Plus, Receipt } from "lucide-react";
 import { openAnotar } from "@/components/features/anotar/anotar-events";
 import { useExpenseInsights } from "@/hooks/use-expense-insights";
@@ -12,6 +14,8 @@ import { apiFetch } from "@/lib/api-client";
 import { BalanceStrip } from "./balance-strip";
 import { MiniBars } from "./mini-bars";
 import { ExpenseDayList } from "./expense-day-list";
+import { ExpenseDetailPanel } from "./expense-detail-panel";
+import { DESKTOP_PANEL_QUERY } from "./gastos-layout";
 import { buildMonthComparisonText, formatMonthLabel } from "./gastos-logic";
 import { expenseListResponseSchema } from "./expense-list-schema";
 
@@ -52,10 +56,27 @@ export function GastosView({
   isSettled,
 }: GastosViewProps): React.JSX.Element {
   const snackbar = useSnackbar();
+  const searchParams = useSearchParams();
   const { data: insights, isLoading: insightsLoading } = useExpenseInsights(initialInsights);
   const [expenses, setExpenses] = useState(initialExpenses);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(() => searchParams.get("gasto"));
+  const isDesktopPanel = useMediaQuery(DESKTOP_PANEL_QUERY);
+
+  function handleSelectExpense(expenseId: string): void {
+    setSelectedExpenseId(expenseId);
+    const url = new URL(window.location.href);
+    url.searchParams.set("gasto", expenseId);
+    window.history.replaceState(null, "", url);
+  }
+
+  function handleClosePanel(): void {
+    setSelectedExpenseId(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("gasto");
+    window.history.replaceState(null, "", url);
+  }
 
   async function loadMore(): Promise<void> {
     setIsLoadingMore(true);
@@ -81,7 +102,8 @@ export function GastosView({
     : null;
 
   return (
-    <div className="flex max-w-3xl flex-col gap-5">
+    <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_400px] xl:items-start xl:gap-6">
+      <div className="flex flex-col gap-5">
       <section aria-label="Gastos del mes" className="flex items-end justify-between gap-6">
         <div className="flex min-w-0 flex-col gap-1.5">
           <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-ink-2">
@@ -124,7 +146,12 @@ export function GastosView({
             className="py-10"
           />
         ) : (
-          <ExpenseDayList expenses={expenses} currentMemberId={currentMemberId} />
+          <ExpenseDayList
+            expenses={expenses}
+            currentMemberId={currentMemberId}
+            selectedExpenseId={selectedExpenseId}
+            onSelectExpense={handleSelectExpense}
+          />
         )}
         {hasMore && (
           <div className="flex justify-center border-t border-line-soft py-2">
@@ -134,6 +161,17 @@ export function GastosView({
           </div>
         )}
       </section>
+      </div>
+
+      {isDesktopPanel && (
+        <div className="rounded-[20px] bg-surface xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)] xl:overflow-y-auto">
+          <ExpenseDetailPanel
+            expenseId={selectedExpenseId}
+            currentMemberId={currentMemberId}
+            onClose={handleClosePanel}
+          />
+        </div>
+      )}
     </div>
   );
 }

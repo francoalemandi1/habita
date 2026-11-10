@@ -4,6 +4,11 @@ import { queryKeys as sharedKeys } from "@habita/contracts";
 
 export const queryKeys = {
   ...sharedKeys,
+  // Override expenses to add the web-only detail panel key
+  expenses: {
+    ...sharedKeys.expenses,
+    detail: (expenseId: string) => [...sharedKeys.expenses.all(), "detail", expenseId] as const,
+  },
   // Web-only keys
   relax: {
     all: () => ["relax"] as const,

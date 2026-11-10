@@ -19,7 +19,7 @@ export const getHouseholdInputSchema = {
 };
 
 interface GetHouseholdOutput {
-  households: Array<{ id: string; name: string }>;
+  households: Array<{ id: string; name: string; city: string | null }>;
   members: Array<{ id: string; name: string; memberType: MemberType }>;
 }
 
@@ -33,7 +33,7 @@ export async function handleGetHousehold(
 
     const households = await prisma.member.findMany({
       where: { userId: identity.userId, isActive: true },
-      select: { household: { select: { id: true, name: true } } },
+      select: { household: { select: { id: true, name: true, city: true } } },
       orderBy: { createdAt: "asc" },
     });
 

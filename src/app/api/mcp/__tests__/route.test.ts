@@ -87,7 +87,7 @@ describe("POST /api/mcp", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(applyRateLimitMock).toHaveBeenCalledWith(expect.anything(), "mcp", "user:user-1");
+    expect(applyRateLimitMock).toHaveBeenCalledWith(expect.anything(), "mcpMeta", "user:user-1");
     expect(verifyMcpApiKeyMock).not.toHaveBeenCalled();
     expect(createAhorraMcpServerMock).toHaveBeenCalledWith({ userId: "user-1", scopes: new Set(["ahorra", "habita"]) });
   });
@@ -113,7 +113,7 @@ describe("POST /api/mcp", () => {
     );
 
     expect(initResponse.status).toBe(200);
-    expect(applyRateLimitMock).toHaveBeenCalledWith(expect.anything(), "mcp", "key-1");
+    expect(applyRateLimitMock).toHaveBeenCalledWith(expect.anything(), "mcpMeta", "key-1");
     expect(createAhorraMcpServerMock).toHaveBeenCalledWith(null);
 
     const toolsResponse = await POST(
@@ -126,6 +126,52 @@ describe("POST /api/mcp", () => {
     expect(toolsResponse.status).toBe(200);
     const json: unknown = await toolsResponse.json();
     expect(json).toMatchObject({ jsonrpc: "2.0", id: 2 });
+  });
+
+  it("counts tools/call against the tool-call limit", async () => {
+    verifyMcpApiKeyMock.mockResolvedValue({ id: "key-1", name: "Test consumer" });
+    applyRateLimitMock.mockResolvedValue(null);
+
+    await POST(
+      buildRequest({
+        authorization: "Bearer hmcp_valid",
+        body: { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "get_product_catalog", arguments: {} } },
+      }),
+    );
+
+    expect(applyRateLimitMock).toHaveBeenCalledWith(expect.anything(), "mcp", "key-1");
+  });
+
+  it("counts a batch containing a tools/call against the tool-call limit", async () => {
+    verifyMcpApiKeyMock.mockResolvedValue({ id: "key-1", name: "Test consumer" });
+    applyRateLimitMock.mockResolvedValue(null);
+
+    await POST(
+      buildRequest({
+        authorization: "Bearer hmcp_valid",
+        body: [
+          { jsonrpc: "2.0", method: "notifications/initialized" },
+          { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "get_product_catalog", arguments: {} } },
+        ],
+      }),
+    );
+
+    expect(applyRateLimitMock).toHaveBeenCalledWith(expect.anything(), "mcp", "key-1");
+  });
+
+  it("returns the 429 from the limiter without reaching the transport", async () => {
+    verifyMcpApiKeyMock.mockResolvedValue({ id: "key-1", name: "Test consumer" });
+    applyRateLimitMock.mockResolvedValue(new Response(null, { status: 429 }));
+
+    const response = await POST(
+      buildRequest({
+        authorization: "Bearer hmcp_valid",
+        body: { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "get_product_catalog", arguments: {} } },
+      }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(createAhorraMcpServerMock).not.toHaveBeenCalled();
   });
 });
 

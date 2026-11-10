@@ -116,6 +116,19 @@ describe("createAhorraMcpServer", () => {
     expect(tools.map((t) => t.name).sort()).toEqual([...TOOL_NAMES].sort());
   });
 
+  it("tells the client to price a whole list with one compare_cart call and to ask for missing context", async () => {
+    const { client } = await connectClient(null);
+    const instructions = client.getInstructions() ?? "";
+    expect(instructions).toContain("single compare_cart call");
+    expect(instructions).toContain("banks/cards/wallets");
+    expect(instructions).not.toContain("get_household");
+  });
+
+  it("adds household guidance to the instructions only for a habita identity", async () => {
+    const { client } = await connectClient({ userId: "user-1", scopes: new Set(["ahorra", "habita"]) });
+    expect(client.getInstructions()).toContain("get_household");
+  });
+
   it("lists exactly the 4 tools for an ahorra-only identity", async () => {
     const { client } = await connectClient({ userId: "user-1", scopes: new Set(["ahorra"]) });
     const { tools } = await client.listTools();

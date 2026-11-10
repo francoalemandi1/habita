@@ -35,6 +35,19 @@ describe("handleGetHousehold", () => {
     );
   });
 
+  it("returns each household's city so the client doesn't have to ask for it", async () => {
+    resolveMcpMemberMock.mockResolvedValue({ kind: "ok", member });
+    findManyMock.mockResolvedValueOnce([{ household: { id: "house-a", name: "Casa A", city: "Córdoba" } }]);
+    findManyMock.mockResolvedValueOnce([]);
+
+    const result = await handleGetHousehold(identity, {});
+
+    const first = result.content[0];
+    expect(first?.type === "text" ? JSON.parse(first.text) : null).toMatchObject({
+      households: [{ id: "house-a", city: "Córdoba" }],
+    });
+  });
+
   it("returns an error result without querying members when resolution fails", async () => {
     resolveMcpMemberMock.mockResolvedValue({ kind: "ambiguous", households: [] });
 

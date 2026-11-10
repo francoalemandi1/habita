@@ -3,8 +3,8 @@
 import { Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ds/checkbox";
 import { PendingDot } from "@/components/ds/pending-dot";
-import { Stepper } from "@/components/ds/stepper";
 import { cn } from "@/lib/utils";
+import { ListaQuantity } from "./lista-quantity";
 
 import type { ShoppingListItem } from "@habita/contracts";
 
@@ -44,7 +44,7 @@ export function ListaRow({ item, currentMemberId, isOffer, isSyncPending, onTogg
           <span className="truncate text-[13px] text-ink-2">lo agregó {item.addedBy.name}</span>
         )}
       </div>
-      <Stepper value={item.quantity} onChange={onQuantityChange} min={1} max={99} size="sm" label={`Cantidad de ${item.name}`} className="shrink-0" />
+      <ListaQuantity itemName={item.name} quantity={item.quantity} isChecked={isChecked} onChange={onQuantityChange} />
       <button
         type="button"
         onClick={onDelete}

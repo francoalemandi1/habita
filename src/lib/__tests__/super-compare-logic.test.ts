@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyOverrides, buildSavingsSummary, isTermMissing } from "@habita/prices";
+import { applyOverrides, buildSavingsSummary, buildStoreCartUrl, isTermMissing } from "@habita/prices";
 
 import type { AdjustedStoreCart, StoreCart } from "@habita/prices";
 
@@ -60,6 +60,35 @@ describe("applyOverrides", () => {
     expect(cart?.products[0]?.productName).toBe("Leche La Vaquita");
     expect(cart?.products[0]?.lineTotal).toBe(800);
     expect(cart?.products[0]?.alternatives[0]?.productName).toBe("Leche Serenísima");
+  });
+
+  it("carries the alternative's cartRef into the cart link and keeps the original's on the swapped-out product", () => {
+    const originalRef = { skuId: "111", sellerId: "1" };
+    const alternativeRef = { skuId: "222", sellerId: "1" };
+    const cartWithRef = baseCart();
+    const [firstProduct] = cartWithRef.products;
+    if (firstProduct) firstProduct.cartRef = originalRef;
+    const overrides = new Map([
+      [
+        "Carrefour::leche",
+        {
+          type: "swap" as const,
+          alternative: {
+            productName: "Leche La Vaquita",
+            price: 800,
+            listPrice: null,
+            link: "https://example.com/alt",
+            imageUrl: null,
+            unitInfo: null,
+            cartRef: alternativeRef,
+          },
+        },
+      ],
+    ]);
+    const [cart] = applyOverrides([cartWithRef], overrides, [{ term: "leche", quantity: 2 }]);
+    expect(cart?.products[0]?.cartRef).toEqual(alternativeRef);
+    expect(cart?.products[0]?.alternatives[0]?.cartRef).toEqual(originalRef);
+    expect(buildStoreCartUrl("Carrefour", cart?.products ?? [])?.url).toContain("sku=222&qty=2");
   });
 });
 

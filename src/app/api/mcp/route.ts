@@ -24,11 +24,15 @@ export const runtime = "nodejs";
 // limited per key), both via `Authorization: Bearer <token>`. A missing or
 // invalid token returns 401 with `WWW-Authenticate: Bearer resource_metadata="…"`
 // pointing Claude at the protected resource metadata (RFC 9728).
-// Rate limit: 60 JSON-RPC requests / 10 min per key (see rate-limit.ts "mcp" kind).
-// Every request counts, including initialize and tools/list (~3 per client connection).
+// Rate limit, per user or key (see rate-limit.ts): 60 tools/call per 10 min ("mcp"),
+// plus 120 other requests per 10 min ("mcpMeta": initialize, tools/list,
+// notifications). Connection overhead used to share the tool-call budget, and a
+// 40-item cart priced item by item hit 429 halfway.
 //
-// Recurring cost (checked 2026-11-07, see MCP_PLAN.md):
-// worst case one key at the rate limit = 8,640 requests/day.
+// Recurring cost (checked 2026-11-07, re-checked 2026-11-10 for the split):
+// worst case one key at both limits = 25,920 requests/day (8,640 of them tool
+// calls, unchanged). Meta requests don't fetch stores; they cost one Vercel
+// invocation, one token lookup and ~5 Upstash commands each.
 // | Actor              | Unit                | 5 keys x 50 calls/day (7.5k/mo) |
 // |--------------------|---------------------|----------------------------------|
 // | Vercel functions    | invocation          | < 1% of 1M (Hobby)               |
@@ -93,7 +97,8 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   if (!resolvedAuth) return unauthorizedResponse("Invalid or expired token", "invalid_token");
 
-  const rateLimitResponse = await applyRateLimit(request, "mcp", resolvedAuth.rateLimitKeySuffix);
+  const limiterKind = (await isToolCallRequest(request)) ? "mcp" : "mcpMeta";
+  const rateLimitResponse = await applyRateLimit(request, limiterKind, resolvedAuth.rateLimitKeySuffix);
   if (rateLimitResponse) return rateLimitResponse;
 
   const server = createAhorraMcpServer(resolvedAuth.identity);
@@ -108,6 +113,22 @@ export async function POST(request: NextRequest): Promise<Response> {
   } finally {
     await transport.close();
     await server.close();
+  }
+}
+
+function isToolCallMessage(message: unknown): boolean {
+  return typeof message === "object" && message !== null && "method" in message && message.method === "tools/call";
+}
+
+/** Reads a clone of the body so the transport can still consume the original. */
+async function isToolCallRequest(request: NextRequest): Promise<boolean> {
+  try {
+    const body: unknown = await request.clone().json();
+    return Array.isArray(body) ? body.some(isToolCallMessage) : isToolCallMessage(body);
+  } catch (error) {
+    // Malformed JSON: count it against the stricter limit; the transport rejects it anyway.
+    console.warn("[mcp] Could not parse request body for rate limiting:", error);
+    return true;
   }
 }
 

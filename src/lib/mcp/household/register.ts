@@ -25,7 +25,7 @@ export function registerHouseholdTools(server: McpServer, identity: McpIdentity)
   server.registerTool(
     "get_household",
     {
-      description: "Get the user's households and the members of the selected household (id, name, member type).",
+      description: "Get the user's households (id, name, city) and the members of the selected household (id, name, member type).",
       inputSchema: getHouseholdInputSchema,
       annotations: READ_ONLY_ANNOTATIONS,
     },

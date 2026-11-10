@@ -38,28 +38,19 @@ export function isSettledUp(balances: MemberBalance[]): boolean {
   return balances.every((balance) => balance.balance === 0);
 }
 
-/** "Vos → Sofi" / "Sofi → Vos" row label for a transaction row. */
+/** "Le debés a Sofi" / "Sofi te debe" / "Tomi le debe a Sofi" pending-debt row label (§5.3 Liquidar). */
 export function transactionRowLabel(transaction: DebtTransaction, currentMemberId: string): string {
-  const from = transaction.fromMemberId === currentMemberId ? "Vos" : transaction.fromMemberName;
-  const to = transaction.toMemberId === currentMemberId ? "Vos" : transaction.toMemberName;
-  return `${from} → ${to}`;
+  if (transaction.fromMemberId === currentMemberId) return `Le debés a ${transaction.toMemberName}`;
+  if (transaction.toMemberId === currentMemberId) return `${transaction.fromMemberName} te debe`;
+  return `${transaction.fromMemberName} le debe a ${transaction.toMemberName}`;
 }
 
-const MIGRATED_NOTE = "Migrado desde liquidaciones anteriores";
-
-/** Marks settlement rows imported from the pre-rebrand balance, shown subdued. */
-export function isMigratedSettlement(note: string | null): boolean {
-  return note === MIGRATED_NOTE;
-}
-
-/** "Tomi le pagó a Vos" / "Vos le pagaste a Sofi" settlement history row label. */
+/** "Tomi te pagó" / "Le pagaste a Sofi" / "Tomi le pagó a Sofi" settlement history row label. */
 export function settlementRowLabel(
   settlement: { fromMemberId: string; fromMemberName: string; toMemberId: string; toMemberName: string },
   currentMemberId: string,
 ): string {
-  const isFromMe = settlement.fromMemberId === currentMemberId;
-  const isToMe = settlement.toMemberId === currentMemberId;
-  const from = isFromMe ? "Vos" : settlement.fromMemberName;
-  const to = isToMe ? "Vos" : settlement.toMemberName;
-  return isFromMe ? `${from} le pagaste a ${to}` : `${from} le pagó a ${to}`;
+  if (settlement.fromMemberId === currentMemberId) return `Le pagaste a ${settlement.toMemberName}`;
+  if (settlement.toMemberId === currentMemberId) return `${settlement.fromMemberName} te pagó`;
+  return `${settlement.fromMemberName} le pagó a ${settlement.toMemberName}`;
 }

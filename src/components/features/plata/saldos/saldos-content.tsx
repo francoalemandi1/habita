@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Wallet } from "lucide-react";
 import { Button } from "@/components/ds/button";
 import { EmptyState } from "@/components/ds/empty-state";
+import { SectionCard } from "@/components/ds/section-card";
 import { Skeleton } from "@/components/ds/skeleton";
 import { useBalances } from "@/hooks/use-money";
 import { InlineError } from "../../inline-error";
@@ -35,17 +36,25 @@ export function SaldosContent({ currentMemberId, currentMemberType, members }: P
   const settledUp = isSettledUp(balances.balances);
 
   if (settledUp && balances.transactions.length === 0) {
-    return <EmptyState icon={Wallet} title="Están al día" description="Nadie le debe nada a nadie en la casa." />;
+    return (
+      <EmptyState
+        icon={Wallet}
+        title="Están al día"
+        description="Nadie le debe nada a nadie en la casa."
+        className="rounded-[20px] bg-surface"
+      />
+    );
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex max-w-2xl flex-col gap-5">
       <BalanceHero balances={balances} currentMemberId={currentMemberId} />
 
-      <TransactionsList balances={balances} currentMemberId={currentMemberId} />
-
       {!settledUp && (
-        <Button onClick={() => setSheetOpen(true)}>Liquidar todo</Button>
+        <SectionCard title="Entre ustedes" className="gap-3">
+          <TransactionsList balances={balances} currentMemberId={currentMemberId} />
+          <Button onClick={() => setSheetOpen(true)}>Liquidar todo</Button>
+        </SectionCard>
       )}
 
       <SettlementHistory currentMemberId={currentMemberId} />

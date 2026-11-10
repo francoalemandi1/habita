@@ -49,17 +49,18 @@ describe("isSettledUp", () => {
 });
 
 describe("transactionRowLabel", () => {
-  const transaction = {
-    fromMemberId: "me",
-    fromMemberName: "Vos",
-    toMemberId: "sofi",
-    toMemberName: "Sofi",
-    amount: 100,
-  };
+  const transaction = { fromMemberId: "me", fromMemberName: "Franco", toMemberId: "sofi", toMemberName: "Sofi", amount: 100 };
 
-  it("replaces the current member with Vos on either side", () => {
-    expect(transactionRowLabel(transaction, "me")).toBe("Vos → Sofi");
-    expect(transactionRowLabel(transaction, "sofi")).toBe("Vos → Vos");
+  it("addresses the current member as the one who owes", () => {
+    expect(transactionRowLabel(transaction, "me")).toBe("Le debés a Sofi");
+  });
+
+  it("addresses the current member as the one who is owed", () => {
+    expect(transactionRowLabel(transaction, "sofi")).toBe("Franco te debe");
+  });
+
+  it("names both members when the current member is not involved", () => {
+    expect(transactionRowLabel(transaction, "tomi")).toBe("Franco le debe a Sofi");
   });
 });
 
@@ -72,13 +73,17 @@ describe("isMigratedSettlement", () => {
 });
 
 describe("settlementRowLabel", () => {
-  it("uses second person when the current member paid", () => {
-    const settlement = { fromMemberId: "me", fromMemberName: "Vos", toMemberId: "sofi", toMemberName: "Sofi" };
-    expect(settlementRowLabel(settlement, "me")).toBe("Vos le pagaste a Sofi");
+  const settlement = { fromMemberId: "me", fromMemberName: "Franco", toMemberId: "sofi", toMemberName: "Sofi" };
+
+  it("reads 'Le pagaste a X' when the current member paid", () => {
+    expect(settlementRowLabel(settlement, "me")).toBe("Le pagaste a Sofi");
   });
 
-  it("uses third person when someone else paid", () => {
-    const settlement = { fromMemberId: "sofi", fromMemberName: "Sofi", toMemberId: "me", toMemberName: "Vos" };
-    expect(settlementRowLabel(settlement, "me")).toBe("Sofi le pagó a Vos");
+  it("reads 'X te pagó' when the current member received the payment", () => {
+    expect(settlementRowLabel(settlement, "sofi")).toBe("Franco te pagó");
+  });
+
+  it("names both members when the current member is not involved", () => {
+    expect(settlementRowLabel(settlement, "tomi")).toBe("Franco le pagó a Sofi");
   });
 });

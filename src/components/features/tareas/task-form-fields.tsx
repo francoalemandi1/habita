@@ -24,10 +24,13 @@ const TEXT_FIELD =
   "h-11 w-full rounded-[12px] border-[1.5px] border-transparent bg-surface px-3 text-[15px] text-ink outline-none transition-colors duration-100 placeholder:text-ink-3 focus:border-monte";
 
 export const MIN_TASK_NAME_LENGTH = 2;
+// Matches the API bound on Task.estimatedMinutes (8 hours).
+const MAX_TASK_MINUTES = 480;
 
 function parseMinutes(text: string): number | null {
   const minutes = Number.parseInt(text, 10);
-  return Number.isFinite(minutes) && minutes > 0 ? minutes : null;
+  if (!Number.isFinite(minutes) || minutes <= 0) return null;
+  return Math.min(minutes, MAX_TASK_MINUTES);
 }
 
 /** Name, frequency and duration fields shared by "Crear tarea" and "Editar tarea". */

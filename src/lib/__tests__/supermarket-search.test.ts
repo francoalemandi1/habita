@@ -119,6 +119,22 @@ describe("compareProducts", () => {
     expect(cart?.products[0]?.productName).toBe("LECHE ENTERA LV");
   });
 
+  it("does not match a different product that only shares the size (Yerba 1 kg is not Harina 1 Kg)", async () => {
+    searchAllStoresMock.mockImplementation(
+      async (): Promise<StoreSearchResult[]> => [
+        { storeName: "Cordiez", products: [makeProduct("Harina 000 Ur VitD Canuelas 1 Kg", 980)], failed: false },
+        { storeName: "Vea", products: [makeProduct("Yerba Mate con Palo Suave 1 Kg Rosamonte", 4490)], failed: false },
+      ],
+    );
+
+    const result = await compareProducts(["Yerba 1 kg"], null, null);
+
+    const cordiez = result.storeCarts.find((c) => c.storeName === "Cordiez");
+    expect(cordiez?.products ?? []).toEqual([]);
+    const vea = result.storeCarts.find((c) => c.storeName === "Vea");
+    expect(vea?.products[0]?.productName).toBe("Yerba Mate con Palo Suave 1 Kg Rosamonte");
+  });
+
   it("falls back to the cheapest match when no product name starts with the term", async () => {
     searchAllStoresMock.mockImplementation(
       async (): Promise<StoreSearchResult[]> => [

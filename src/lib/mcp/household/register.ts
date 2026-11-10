@@ -9,11 +9,17 @@ import { listMyTasksInputSchema, handleListMyTasks } from "./tools/list-my-tasks
 import { getShoppingListInputSchema, handleGetShoppingList } from "./tools/get-shopping-list";
 import { getExpenseBalancesInputSchema, handleGetExpenseBalances } from "./tools/get-expense-balances";
 import { listRecentExpensesInputSchema, handleListRecentExpenses } from "./tools/list-recent-expenses";
+import { addShoppingListItemsInputSchema, handleAddShoppingListItems } from "./tools/add-shopping-list-items";
+import {
+  setShoppingListItemCheckedInputSchema,
+  handleSetShoppingListItemChecked,
+} from "./tools/set-shopping-list-item-checked";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { McpIdentity } from "../identity";
 
 const READ_ONLY_ANNOTATIONS = { readOnlyHint: true, destructiveHint: false };
+const WRITE_ANNOTATIONS = { readOnlyHint: false, destructiveHint: false, idempotentHint: true };
 
 export function registerHouseholdTools(server: McpServer, identity: McpIdentity): void {
   server.registerTool(
@@ -64,5 +70,26 @@ export function registerHouseholdTools(server: McpServer, identity: McpIdentity)
       annotations: READ_ONLY_ANNOTATIONS,
     },
     (args) => handleListRecentExpenses(identity, args),
+  );
+
+  server.registerTool(
+    "add_shopping_list_items",
+    {
+      description:
+        "Add one or more items to the household's shared shopping list. Generate a fresh unique clientId for each item and reuse the same value on retries — a replay returns the same item instead of adding a duplicate. Adding a name that matches an existing unchecked item bumps its quantity instead of duplicating it.",
+      inputSchema: addShoppingListItemsInputSchema,
+      annotations: WRITE_ANNOTATIONS,
+    },
+    (args) => handleAddShoppingListItems(identity, args),
+  );
+
+  server.registerTool(
+    "set_shopping_list_item_checked",
+    {
+      description: "Check or uncheck a shopping list item. Idempotent: setting an item to its current state is a no-op.",
+      inputSchema: setShoppingListItemCheckedInputSchema,
+      annotations: WRITE_ANNOTATIONS,
+    },
+    (args) => handleSetShoppingListItemChecked(identity, args),
   );
 }

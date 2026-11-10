@@ -33,6 +33,8 @@ const HOUSEHOLD_TOOL_NAMES = [
   "get_shopping_list",
   "get_expense_balances",
   "list_recent_expenses",
+  "add_shopping_list_items",
+  "set_shopping_list_item_checked",
 ];
 
 function buildPromo(overrides: Partial<PromoargPromotion>): PromoargPromotion {
@@ -120,7 +122,7 @@ describe("createAhorraMcpServer", () => {
     expect(tools.map((t) => t.name).sort()).toEqual([...TOOL_NAMES].sort());
   });
 
-  it("lists the 4 price tools plus the 5 household tools for an ahorra+habita identity", async () => {
+  it("lists the 4 price tools plus the 7 household tools for an ahorra+habita identity", async () => {
     const { client } = await connectClient({ userId: "user-1", scopes: new Set(["ahorra", "habita"]) });
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([...TOOL_NAMES, ...HOUSEHOLD_TOOL_NAMES].sort());

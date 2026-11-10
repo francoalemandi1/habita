@@ -13,12 +13,14 @@ export interface HouseholdMemberItem {
 export interface MembersListProps {
   members: HouseholdMemberItem[];
   currentMemberId: string;
+  /** Extra rows at the end of the same card, e.g. the invite row. */
+  footer?: React.ReactNode;
 }
 
-/** §5.3 Perfil — "Miembros" list with role label and a "Vos" tag on the current member. */
-export function MembersList({ members, currentMemberId }: MembersListProps): React.JSX.Element {
+/** §5.3 Perfil — "Integrantes" list with role label and a "Vos" tag on the current member. */
+export function MembersList({ members, currentMemberId, footer }: MembersListProps): React.JSX.Element {
   return (
-    <div className="rounded-[16px] bg-surface px-1">
+    <div className="rounded-[20px] bg-surface px-2">
       {members.map((member) => {
         const isSelf = member.id === currentMemberId;
         const roleLabel = MEMBER_TYPE_LABELS[member.memberType];
@@ -31,6 +33,7 @@ export function MembersList({ members, currentMemberId }: MembersListProps): Rea
           />
         );
       })}
+      {footer}
     </div>
   );
 }

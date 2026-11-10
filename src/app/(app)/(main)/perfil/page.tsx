@@ -31,11 +31,11 @@ export default async function PerfilPage(): Promise<React.JSX.Element> {
   const onboardingProfile = parseOnboardingProfile(member.household.onboardingProfile);
 
   return (
-    <div className="container max-w-4xl space-y-6 px-4 py-6 sm:py-8 md:px-8">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-6 sm:py-8 md:px-8">
       <ProfileHeader memberName={member.name} email={user?.email ?? null} />
 
-      <section className="space-y-2">
-        <h2 className="text-[13px] font-semibold uppercase tracking-[.04em] text-ink-2">Mi hogar</h2>
+      <section aria-labelledby="perfil-hogar" className="flex flex-col gap-2">
+        <h2 id="perfil-hogar" className="text-[13px] font-semibold uppercase tracking-[.04em] text-ink-2">Mi hogar</h2>
         <HouseholdCard householdName={member.household.name} canRename={isAdult} />
         {isAdult && (
           <HouseholdSettingsRows
@@ -50,12 +50,19 @@ export default async function PerfilPage(): Promise<React.JSX.Element> {
             onboardingProfile={onboardingProfile}
           />
         )}
-        <MembersList members={householdMembers} currentMemberId={member.id} />
-        <InviteRow inviteCode={member.household.inviteCode} householdName={member.household.name} />
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-[13px] font-semibold uppercase tracking-[.04em] text-ink-2">Configuración</h2>
+      <section aria-labelledby="perfil-integrantes" className="flex flex-col gap-2">
+        <h2 id="perfil-integrantes" className="text-[13px] font-semibold uppercase tracking-[.04em] text-ink-2">Integrantes</h2>
+        <MembersList
+          members={householdMembers}
+          currentMemberId={member.id}
+          footer={<InviteRow inviteCode={member.household.inviteCode} householdName={member.household.name} />}
+        />
+      </section>
+
+      <section aria-labelledby="perfil-config" className="flex flex-col gap-2">
+        <h2 id="perfil-config" className="text-[13px] font-semibold uppercase tracking-[.04em] text-ink-2">Configuración</h2>
         <SettingsRows />
       </section>
 

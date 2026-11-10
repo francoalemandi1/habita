@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getHouseholdBalances } from "@/lib/expense-balances";
+import { loadExpenseInsights } from "@/lib/expense-insights-loader";
 import { summarizeMyBalance } from "@habita/domain";
 import { PlataScreen } from "@/components/features/plata/plata-screen";
 
@@ -15,7 +16,7 @@ export default async function PlataPage(): Promise<React.JSX.Element> {
 
   const householdId = member.householdId;
 
-  const [members, expenses, total, { byCurrency, primaryCurrency }] = await Promise.all([
+  const [members, expenses, total, { byCurrency, primaryCurrency }, insights] = await Promise.all([
     prisma.member.findMany({
       where: { householdId, isActive: true },
       select: { id: true, name: true },
@@ -29,6 +30,7 @@ export default async function PlataPage(): Promise<React.JSX.Element> {
     }),
     prisma.expense.count({ where: { householdId } }),
     getHouseholdBalances(householdId),
+    loadExpenseInsights(householdId),
   ]);
 
   const viewProps = { currentMemberId: member.id, currentMemberType: member.memberType, members };
@@ -47,6 +49,7 @@ export default async function PlataPage(): Promise<React.JSX.Element> {
       splits: expense.splits,
     })),
     initialHasMore: expenses.length < total,
+    initialInsights: insights,
     owedToMe,
     iOwe,
     isSettled,

@@ -15,6 +15,7 @@ import { ExpenseDayList } from "./expense-day-list";
 import { buildMonthComparisonText, formatMonthLabel } from "./gastos-logic";
 import { expenseListResponseSchema } from "./expense-list-schema";
 
+import type { ExpenseInsightsResponse } from "@/lib/expense-insights";
 import type { ExpenseListRow } from "./expense-list-schema";
 import type { PlataViewProps } from "../plata-view-props";
 
@@ -28,6 +29,7 @@ interface BalanceTile {
 interface GastosViewProps extends PlataViewProps {
   initialExpenses: ExpenseListRow[];
   initialHasMore: boolean;
+  initialInsights: ExpenseInsightsResponse;
   owedToMe: BalanceTile | null;
   iOwe: BalanceTile | null;
   isSettled: boolean;
@@ -44,12 +46,13 @@ export function GastosView({
   members,
   initialExpenses,
   initialHasMore,
+  initialInsights,
   owedToMe,
   iOwe,
   isSettled,
 }: GastosViewProps): React.JSX.Element {
   const snackbar = useSnackbar();
-  const { data: insights, isLoading: insightsLoading } = useExpenseInsights();
+  const { data: insights, isLoading: insightsLoading } = useExpenseInsights(initialInsights);
   const [expenses, setExpenses] = useState(initialExpenses);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [isLoadingMore, setIsLoadingMore] = useState(false);

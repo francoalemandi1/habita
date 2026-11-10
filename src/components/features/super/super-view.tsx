@@ -22,7 +22,7 @@ const MOBILE_OPTIONS: Array<{ value: SuperViewKey; label: string }> = [
   { value: "ofertas", label: "Ofertas" },
 ];
 
-// From `lg` up Lista and Comparar share one split screen (handoff §10 Web), so they are one segment.
+// From `xl` up Lista and Comparar share one split screen (handoff §10 Web), so they are one segment.
 const DESKTOP_OPTIONS: Array<{ value: SuperViewKey; label: string }> = [
   { value: "lista", label: "Lista y comparar" },
   { value: "ofertas", label: "Ofertas" },
@@ -52,13 +52,13 @@ export function SuperView({ currentMemberId, householdCity }: SuperViewProps): R
 
   const segments = (
     <>
-      <SegmentedControl label="Vista de Súper" options={MOBILE_OPTIONS} value={view} onChange={setView} className="lg:hidden" />
+      <SegmentedControl label="Vista de Súper" options={MOBILE_OPTIONS} value={view} onChange={setView} className="xl:hidden" />
       <SegmentedControl
         label="Vista de Súper"
         options={DESKTOP_OPTIONS}
         value={desktopValue}
         onChange={setView}
-        className="hidden md:hidden lg:inline-flex"
+        className="hidden md:hidden xl:inline-flex"
       />
     </>
   );

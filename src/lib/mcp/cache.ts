@@ -67,7 +67,8 @@ function normalizeKeySegment(text: string): string {
 
 export function searchCacheKey(term: string, city: string | null | undefined): string {
   const cityPart = city ? normalizeKeySegment(city) : "all";
-  return `mcp:search:v2:${normalizeKeySegment(term)}:${cityPart}`;
+  // v3: cached VtexProduct entries now carry cartRef.
+  return `mcp:search:v3:${normalizeKeySegment(term)}:${cityPart}`;
 }
 
 export function compareCacheKey(
@@ -79,7 +80,8 @@ export function compareCacheKey(
     .sort()
     .join(",");
   const cityPart = city ? normalizeKeySegment(city) : "all";
-  return `mcp:compare:v3:${sortedItems}:${cityPart}`;
+  // v4: cached compact carts now carry cartUrl.
+  return `mcp:compare:v4:${sortedItems}:${cityPart}`;
 }
 
 export const PROMOS_CACHE_KEY = "mcp:promos:v2";

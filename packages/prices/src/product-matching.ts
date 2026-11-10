@@ -14,12 +14,20 @@ import type { UnitInfo } from "@habita/domain/unit-parser";
 // Store-facing structural types
 // ============================================
 
+/** VTEX SKU + seller identifying a product line for "open cart" deep links. */
+export interface StoreCartRef {
+  skuId: string;
+  sellerId: string;
+}
+
 export interface StoreProduct {
   productName: string;
   price: number;
   listPrice: number | null;
   link: string;
   imageUrl: string | null;
+  /** Optional: saved carts and persisted mobile queries predate this field. */
+  cartRef?: StoreCartRef | null;
 }
 
 export interface StoreSearchOutcome {
@@ -41,6 +49,7 @@ export interface AlternativeProduct {
   link: string;
   imageUrl: string | null;
   unitInfo: ProductUnitInfo | null;
+  cartRef?: StoreCartRef | null;
 }
 
 /**
@@ -63,6 +72,7 @@ interface CartProduct {
   alternatives: AlternativeProduct[];
   /** Average price across all stores for this term (null if only 1 store has it). */
   averagePrice: number | null;
+  cartRef?: StoreCartRef | null;
 }
 
 export interface StoreCart {
@@ -273,6 +283,7 @@ export function pickRankedMatches(searchTerm: string, products: StoreProduct[]):
       link: r.product.link,
       imageUrl: r.product.imageUrl,
       unitInfo: r.unitInfo,
+      cartRef: r.product.cartRef ?? null,
     }));
 
   return {
@@ -280,6 +291,58 @@ export function pickRankedMatches(searchTerm: string, products: StoreProduct[]):
     unitInfo: primary.unitInfo,
     alternatives,
   };
+}
+
+// ============================================
+// Scoped query ranking (manual "replace product" search)
+// ============================================
+
+function tokenizeQuery(value: string): string[] {
+  return normalize(value).split(/\s+/).filter(Boolean);
+}
+
+/** Score a product name against a free-text query: exact > startsWith > includes > token overlap. */
+function scoreQueryMatch(productName: string, query: string): number {
+  const normalizedName = normalize(productName);
+  const normalizedQuery = normalize(query);
+  const queryTokens = tokenizeQuery(query);
+  const nameTokens = tokenizeQuery(productName);
+
+  let score = 0;
+  if (normalizedName === normalizedQuery) score += 1000;
+  if (normalizedName.startsWith(normalizedQuery)) score += 400;
+  if (normalizedName.includes(normalizedQuery)) score += 250;
+
+  const tokenMatchCount = queryTokens.filter((token) => normalizedName.includes(token)).length;
+  if (queryTokens.length > 0) {
+    score += (tokenMatchCount / queryTokens.length) * 200;
+  }
+
+  score -= Math.abs(nameTokens.length - queryTokens.length) * 3;
+  return score;
+}
+
+/**
+ * Rank products against a free-text query for the manual "replace product"
+ * search: score desc, then price asc. Used by the alternatives route.
+ */
+export function rankProductsForQuery(query: string, products: StoreProduct[], limit: number): AlternativeProduct[] {
+  return products
+    .map((product) => ({ product, score: scoreQueryMatch(product.productName, query) }))
+    .sort((a, b) => {
+      if (a.score !== b.score) return b.score - a.score;
+      return a.product.price - b.product.price;
+    })
+    .slice(0, limit)
+    .map(({ product }) => ({
+      productName: product.productName,
+      price: product.price,
+      listPrice: product.listPrice,
+      link: product.link,
+      imageUrl: product.imageUrl,
+      unitInfo: computeUnitInfo(product),
+      cartRef: product.cartRef ?? null,
+    }));
 }
 
 // ============================================
@@ -351,6 +414,7 @@ export function buildStoreCarts(
         unitInfo: termResult.unitInfo,
         alternatives: termResult.alternatives,
         averagePrice: averagePriceByTerm.get(term) ?? null,
+        cartRef: termResult.product.cartRef ?? null,
       });
     }
 

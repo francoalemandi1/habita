@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireMember } from "@/lib/session";
 import { getStoresForCity, searchStore } from "@/lib/vtex-client";
-import { parseProductUnit } from "@/lib/unit-parser";
+import { rankProductsForQuery } from "@habita/prices";
 import { handleApiError } from "@/lib/api-response";
 import { applyRateLimit } from "@/lib/rate-limit";
 
@@ -18,38 +18,6 @@ const bodySchema = z.object({
 });
 
 const MAX_RESULTS = 8;
-
-function normalize(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-}
-
-function tokenize(value: string): string[] {
-  return normalize(value).split(/\s+/).filter(Boolean);
-}
-
-function scoreMatch(productName: string, query: string): number {
-  const normalizedName = normalize(productName);
-  const normalizedQuery = normalize(query);
-  const queryTokens = tokenize(query);
-  const nameTokens = tokenize(productName);
-
-  let score = 0;
-  if (normalizedName === normalizedQuery) score += 1000;
-  if (normalizedName.startsWith(normalizedQuery)) score += 400;
-  if (normalizedName.includes(normalizedQuery)) score += 250;
-
-  const tokenMatches = queryTokens.filter((token) => normalizedName.includes(token)).length;
-  if (queryTokens.length > 0) {
-    score += (tokenMatches / queryTokens.length) * 200;
-  }
-
-  score -= Math.abs(nameTokens.length - queryTokens.length) * 3;
-  return score;
-}
 
 /** searchStore throws when the store is down; report that as null, not as "no products". */
 async function searchStoreOrNull(store: StoreConfig, query: string): Promise<VtexProduct[] | null> {
@@ -90,26 +58,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `${store.name} no responde ahora. Probá en un rato.` }, { status: 503 });
     }
 
-    const ranked = products
-      .map((product) => ({ product, score: scoreMatch(product.productName, searchQuery) }))
-      .sort((a, b) => {
-        if (a.score !== b.score) return b.score - a.score;
-        return a.product.price - b.product.price;
-      })
-      .slice(0, MAX_RESULTS)
-      .map(({ product }) => {
-        const unitInfo = parseProductUnit(product.productName);
-        return {
-          productName: product.productName,
-          price: product.price,
-          listPrice: product.listPrice,
-          link: product.link,
-          imageUrl: product.imageUrl,
-          unitInfo: unitInfo
-            ? { ...unitInfo, pricePerUnit: product.price / unitInfo.quantity }
-            : null,
-        };
-      });
+    const ranked = rankProductsForQuery(searchQuery, products, MAX_RESULTS);
 
     return NextResponse.json({ alternatives: ranked });
   } catch (error) {

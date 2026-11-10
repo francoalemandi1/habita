@@ -11,7 +11,7 @@
 
 import { z } from "zod";
 
-import { isPromoExpired, promoAppliesOnDay } from "@habita/prices";
+import { buildStoreCartUrl, isPromoExpired, promoAppliesOnDay } from "@habita/prices";
 
 import { compareProducts } from "@/lib/supermarket-search";
 import { cacheGet, cacheSet, compareCacheKey, COMPARE_CACHE_TTL_SECONDS } from "../cache";
@@ -106,6 +106,8 @@ interface CompactStoreCart {
   totalSearched: number;
   missingTerms: string[];
   products: CompactCartProduct[];
+  /** "Open cart" deep link for the 5 VTEX stores that support it; null otherwise. */
+  cartUrl: string | null;
 }
 
 interface PlainCompareCartResult {
@@ -125,6 +127,7 @@ function toCompact(result: ShoppingPlanResult): PlainCompareCartResult {
       foundCount: cart.products.length,
       totalSearched: cart.totalSearched,
       missingTerms: cart.missingTerms,
+      cartUrl: buildStoreCartUrl(cart.storeName, cart.products)?.url ?? null,
       products: cart.products.map((product) => ({
         term: product.searchTerm,
         productName: product.productName,

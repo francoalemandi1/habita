@@ -1,8 +1,33 @@
 import { describe, expect, it } from "vitest";
 
-import { applyOverrides, buildSavingsSummary, buildStoreCartUrl, isTermMissing } from "@habita/prices";
+import {
+  applyOverrides,
+  buildSavingsSummary,
+  buildStoreCartUrl,
+  isTermMissing,
+  pickBestPromoOverall,
+  pickTodaysPromos,
+} from "@habita/prices";
 
-import type { AdjustedStoreCart, StoreCart } from "@habita/prices";
+import type { AdjustedStoreCart, PromoLike, StoreCart } from "@habita/prices";
+
+interface TestPromo extends PromoLike {
+  storeName: string;
+  bankDisplayName: string;
+}
+
+function promo(overrides: Partial<TestPromo> = {}): TestPromo {
+  return {
+    storeName: "Dia",
+    bankSlug: "santander",
+    bankDisplayName: "Santander",
+    discountPercent: 20,
+    capAmount: null,
+    daysOfWeek: "[]",
+    validUntil: null,
+    ...overrides,
+  };
+}
 
 function baseCart(overrides: Partial<StoreCart> = {}): StoreCart {
   return {
@@ -104,6 +129,62 @@ describe("buildSavingsSummary", () => {
 
   it("returns nulls with no carts", () => {
     expect(buildSavingsSummary([])).toEqual({ savingsVsNext: null, nextStoreName: null });
+  });
+});
+
+describe("pickTodaysPromos", () => {
+  const carts = [{ storeName: "Dia", totalPrice: 10000 }];
+  const thursday = new Date("2026-11-12T12:00:00Z");
+
+  it("only considers preferred banks", () => {
+    const promos = [promo({ bankSlug: "santander" }), promo({ bankSlug: "macro", discountPercent: 50 })];
+    const picks = pickTodaysPromos(carts, promos, ["santander"], thursday);
+    expect(picks.get("Dia")?.bankSlug).toBe("santander");
+  });
+
+  it("ignores a promo that only applies on another weekday", () => {
+    const promos = [promo({ daysOfWeek: '["viernes"]' })];
+    const picks = pickTodaysPromos(carts, promos, ["santander"], thursday);
+    expect(picks.has("Dia")).toBe(false);
+  });
+
+  it("ignores an expired promo", () => {
+    const promos = [promo({ validUntil: "2026-01-01" })];
+    const picks = pickTodaysPromos(carts, promos, ["santander"], thursday);
+    expect(picks.has("Dia")).toBe(false);
+  });
+
+  it("respects the cap when computing the discounted total", () => {
+    const promos = [promo({ discountPercent: 50, capAmount: 1000 })];
+    const picks = pickTodaysPromos(carts, promos, ["santander"], thursday);
+    expect(picks.get("Dia")?.discountedTotal).toBe(9000);
+  });
+
+  it("returns an empty map with no preferred banks", () => {
+    const promos = [promo()];
+    const picks = pickTodaysPromos(carts, promos, [], thursday);
+    expect(picks.size).toBe(0);
+  });
+
+  it("keeps the best (lowest discounted total) promo per store", () => {
+    const promos = [promo({ discountPercent: 10 }), promo({ bankSlug: "macro", bankDisplayName: "Macro", discountPercent: 30 })];
+    const picks = pickTodaysPromos(carts, promos, ["santander", "macro"], thursday);
+    expect(picks.get("Dia")?.bankSlug).toBe("macro");
+    expect(picks.get("Dia")?.discountedTotal).toBe(7000);
+  });
+});
+
+describe("pickBestPromoOverall", () => {
+  it("returns the pick with the lowest discounted total", () => {
+    const picks = new Map([
+      ["Dia", { storeName: "Dia", bankSlug: "santander", bankDisplayName: "Santander", discountPercent: 20, capAmount: null, discountedTotal: 8000 }],
+      ["Coto", { storeName: "Coto", bankSlug: "macro", bankDisplayName: "Macro", discountPercent: 10, capAmount: null, discountedTotal: 5000 }],
+    ]);
+    expect(pickBestPromoOverall(picks)?.storeName).toBe("Coto");
+  });
+
+  it("returns null for an empty map", () => {
+    expect(pickBestPromoOverall(new Map())).toBeNull();
   });
 });
 

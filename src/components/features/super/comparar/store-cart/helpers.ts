@@ -22,8 +22,8 @@ export function formatPrice(price: number): string {
 export function buildSuggestedReplaceQuery(product: AdjustedCartProduct): string {
   const baseTerm = product.searchTerm.trim();
   if (!product.unitInfo) return baseTerm;
-  const normalizedBase = baseTerm.toLowerCase();
-  const unitLabel = product.unitInfo.unitLabel.toLowerCase();
+  const normalizedBase = baseTerm.toLowerCase().replace(/\s+/g, "");
+  const unitLabel = product.unitInfo.unitLabel.toLowerCase().replace(/\s+/g, "");
   if (normalizedBase.includes(unitLabel)) return baseTerm;
   return `${baseTerm} ${product.unitInfo.unitLabel}`.trim();
 }

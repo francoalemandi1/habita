@@ -41,6 +41,8 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
   }
 
   const clientName = result.client.clientName ?? getRedirectHost(result.redirectUri);
+  const requestedScopes = result.scope.split(" ");
+  const includesHabita = requestedScopes.includes("habita");
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-10 bg-monte px-6 py-12">
@@ -53,7 +55,8 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
 
         <p className="text-[15px] text-paper/80">
           {clientName} va a poder buscar precios y comparar tu changuito usando tu cuenta de Habita (
-          {session.user.email}). No ve tus tareas ni tus gastos.
+          {session.user.email}).{" "}
+          {includesHabita ? "También va a poder ver y editar tu hogar (tareas, lista de compras, gastos), pero nunca va a poder borrar nada." : "No ve tus tareas ni tus gastos."}
         </p>
       </div>
 

@@ -1,7 +1,9 @@
 import { getClient } from "./clients";
 import { redirectUriMatches } from "./redirect-uri";
 import { normalizeResource } from "./urls";
-import { OAUTH_SCOPE } from "./constants";
+import { OAUTH_SCOPES } from "./constants";
+
+import type { OAuthScope } from "./constants";
 
 import type { McpOAuthClient } from "@prisma/client";
 
@@ -98,8 +100,14 @@ function validateAuthorizeParams(
     );
   }
 
-  if (params.scope !== null && params.scope !== OAUTH_SCOPE) {
-    return buildErrorRedirect(redirectUri, "invalid_scope", `El único scope admitido es "${OAUTH_SCOPE}".`, params.state);
+  const normalizedScope = normalizeScope(params.scope);
+  if (normalizedScope === null) {
+    return buildErrorRedirect(
+      redirectUri,
+      "invalid_scope",
+      `Scope no admitido. Los scopes admitidos son: ${OAUTH_SCOPES.join(", ")}.`,
+      params.state,
+    );
   }
 
   const resource = normalizeResource(params.resource);
@@ -112,10 +120,29 @@ function validateAuthorizeParams(
     client,
     redirectUri,
     codeChallenge: params.codeChallenge,
-    scope: OAUTH_SCOPE,
+    scope: normalizedScope,
     resource,
     state: params.state,
   };
+}
+
+/**
+ * Normalizes a requested OAuth scope string against `OAUTH_SCOPES`.
+ * Missing/blank scope defaults to every supported scope. Returns null when
+ * the request asks for an unknown scope. Dedupes and returns scopes in
+ * canonical order (`OAUTH_SCOPES` order), space-separated.
+ */
+function normalizeScope(scopeParam: string | null): string | null {
+  if (scopeParam === null || scopeParam.trim() === "") {
+    return OAUTH_SCOPES.join(" ");
+  }
+
+  const requested = new Set(scopeParam.split(" ").map((value) => value.trim()).filter(Boolean));
+  for (const value of requested) {
+    if (!OAUTH_SCOPES.includes(value as OAuthScope)) return null;
+  }
+
+  return OAUTH_SCOPES.filter((scope) => requested.has(scope)).join(" ");
 }
 
 /**

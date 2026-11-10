@@ -27,6 +27,13 @@ import type { PromoargPromotion, StorePromosResult } from "@/lib/promos/types";
 import type { VtexProduct } from "@/lib/vtex-client";
 
 const TOOL_NAMES = ["compare_cart", "get_bank_promos", "get_product_catalog", "search_product_prices"];
+const HOUSEHOLD_TOOL_NAMES = [
+  "get_household",
+  "list_my_tasks",
+  "get_shopping_list",
+  "get_expense_balances",
+  "list_recent_expenses",
+];
 
 function buildPromo(overrides: Partial<PromoargPromotion>): PromoargPromotion {
   return {
@@ -60,9 +67,9 @@ function buildProduct(overrides: Partial<VtexProduct> = {}): VtexProduct {
   };
 }
 
-async function connectClient() {
+async function connectClient(identity?: Parameters<typeof createAhorraMcpServer>[0]) {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  const server = createAhorraMcpServer();
+  const server = createAhorraMcpServer(identity);
   const client = new Client({ name: "test-client", version: "1.0.0" });
 
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
@@ -101,10 +108,22 @@ describe("createAhorraMcpServer", () => {
     vi.clearAllMocks();
   });
 
-  it("lists exactly the 4 tools", async () => {
-    const { client } = await connectClient();
+  it("lists exactly the 4 tools for a null identity (API key)", async () => {
+    const { client } = await connectClient(null);
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([...TOOL_NAMES].sort());
+  });
+
+  it("lists exactly the 4 tools for an ahorra-only identity", async () => {
+    const { client } = await connectClient({ userId: "user-1", scopes: new Set(["ahorra"]) });
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name).sort()).toEqual([...TOOL_NAMES].sort());
+  });
+
+  it("lists the 4 price tools plus the 5 household tools for an ahorra+habita identity", async () => {
+    const { client } = await connectClient({ userId: "user-1", scopes: new Set(["ahorra", "habita"]) });
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name).sort()).toEqual([...TOOL_NAMES, ...HOUSEHOLD_TOOL_NAMES].sort());
   });
 
   describe("search_product_prices", () => {

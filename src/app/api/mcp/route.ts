@@ -5,8 +5,11 @@ import { verifyMcpApiKey } from "@/lib/mcp/api-keys";
 import { verifyAccessToken } from "@/lib/mcp/oauth/tokens";
 import { getMcpResourceUrl, getOAuthIssuer } from "@/lib/mcp/oauth/urls";
 import { ACCESS_TOKEN_PREFIX } from "@/lib/mcp/oauth/constants";
+import { buildMcpIdentity } from "@/lib/mcp/identity";
 import { createAhorraMcpServer } from "@/lib/mcp/server";
 import { applyRateLimit } from "@/lib/rate-limit";
+
+import type { McpIdentity } from "@/lib/mcp/identity";
 
 import type { NextRequest } from "next/server";
 
@@ -58,14 +61,24 @@ function methodNotAllowedResponse(): NextResponse {
   );
 }
 
-async function rateLimitKeyForAccessToken(token: string): Promise<string | null> {
-  const verified = await verifyAccessToken(token, getMcpResourceUrl());
-  return verified ? `user:${verified.userId}` : null;
+interface ResolvedAuth {
+  rateLimitKeySuffix: string;
+  identity: McpIdentity | null;
 }
 
-async function rateLimitKeyForApiKey(token: string): Promise<string | null> {
+async function resolveAuthForAccessToken(token: string): Promise<ResolvedAuth | null> {
+  const verified = await verifyAccessToken(token, getMcpResourceUrl());
+  if (!verified) return null;
+  return {
+    rateLimitKeySuffix: `user:${verified.userId}`,
+    identity: buildMcpIdentity(verified.userId, verified.scope),
+  };
+}
+
+async function resolveAuthForApiKey(token: string): Promise<ResolvedAuth | null> {
   const apiKey = await verifyMcpApiKey(token);
-  return apiKey ? apiKey.id : null;
+  if (!apiKey) return null;
+  return { rateLimitKeySuffix: apiKey.id, identity: null };
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
@@ -74,16 +87,16 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   if (!bearerToken) return unauthorizedResponse("Missing Authorization: Bearer <token> header");
 
-  const rateLimitKeySuffix = bearerToken.startsWith(ACCESS_TOKEN_PREFIX)
-    ? await rateLimitKeyForAccessToken(bearerToken)
-    : await rateLimitKeyForApiKey(bearerToken);
+  const resolvedAuth = bearerToken.startsWith(ACCESS_TOKEN_PREFIX)
+    ? await resolveAuthForAccessToken(bearerToken)
+    : await resolveAuthForApiKey(bearerToken);
 
-  if (!rateLimitKeySuffix) return unauthorizedResponse("Invalid or expired token", "invalid_token");
+  if (!resolvedAuth) return unauthorizedResponse("Invalid or expired token", "invalid_token");
 
-  const rateLimitResponse = await applyRateLimit(request, "mcp", rateLimitKeySuffix);
+  const rateLimitResponse = await applyRateLimit(request, "mcp", resolvedAuth.rateLimitKeySuffix);
   if (rateLimitResponse) return rateLimitResponse;
 
-  const server = createAhorraMcpServer();
+  const server = createAhorraMcpServer(resolvedAuth.identity);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,

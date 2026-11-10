@@ -1,15 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { verifyMcpApiKeyMock, verifyAccessTokenMock, applyRateLimitMock } = vi.hoisted(() => ({
+const { verifyMcpApiKeyMock, verifyAccessTokenMock, applyRateLimitMock, createAhorraMcpServerMock } = vi.hoisted(() => ({
   verifyMcpApiKeyMock: vi.fn(),
   verifyAccessTokenMock: vi.fn(),
   applyRateLimitMock: vi.fn(),
+  createAhorraMcpServerMock: vi.fn(),
 }));
 
 vi.mock("@/lib/mcp/api-keys", () => ({ verifyMcpApiKey: verifyMcpApiKeyMock }));
 vi.mock("@/lib/mcp/oauth/tokens", () => ({ verifyAccessToken: verifyAccessTokenMock }));
 vi.mock("@/lib/rate-limit", () => ({ applyRateLimit: applyRateLimitMock }));
+vi.mock("@/lib/mcp/server", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/mcp/server")>("@/lib/mcp/server");
+  return { ...actual, createAhorraMcpServer: createAhorraMcpServerMock.mockImplementation(actual.createAhorraMcpServer) };
+});
 
 import { POST, GET, DELETE } from "@/app/api/mcp/route";
 import { getOAuthIssuer } from "@/lib/mcp/oauth/urls";
@@ -62,7 +67,7 @@ describe("POST /api/mcp", () => {
   });
 
   it("reaches the transport for a valid OAuth access token, rate limited per user", async () => {
-    verifyAccessTokenMock.mockResolvedValue({ userId: "user-1", clientId: "client-1", scope: "ahorra" });
+    verifyAccessTokenMock.mockResolvedValue({ userId: "user-1", clientId: "client-1", scope: "ahorra habita" });
     applyRateLimitMock.mockResolvedValue(null);
 
     const response = await POST(
@@ -84,6 +89,7 @@ describe("POST /api/mcp", () => {
     expect(response.status).toBe(200);
     expect(applyRateLimitMock).toHaveBeenCalledWith(expect.anything(), "mcp", "user:user-1");
     expect(verifyMcpApiKeyMock).not.toHaveBeenCalled();
+    expect(createAhorraMcpServerMock).toHaveBeenCalledWith({ userId: "user-1", scopes: new Set(["ahorra", "habita"]) });
   });
 
   it("returns 200 for a valid key + initialize request, then tools/list", async () => {
@@ -108,6 +114,7 @@ describe("POST /api/mcp", () => {
 
     expect(initResponse.status).toBe(200);
     expect(applyRateLimitMock).toHaveBeenCalledWith(expect.anything(), "mcp", "key-1");
+    expect(createAhorraMcpServerMock).toHaveBeenCalledWith(null);
 
     const toolsResponse = await POST(
       buildRequest({

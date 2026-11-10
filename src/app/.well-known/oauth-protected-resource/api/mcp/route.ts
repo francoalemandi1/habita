@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getMcpResourceUrl, getOAuthIssuer } from "@/lib/mcp/oauth/urls";
-import { OAUTH_SCOPE } from "@/lib/mcp/oauth/constants";
+import { OAUTH_SCOPES } from "@/lib/mcp/oauth/constants";
 
 // ============================================
 // GET /.well-known/oauth-protected-resource/api/mcp
@@ -19,7 +19,7 @@ export function GET(): NextResponse {
     {
       resource: getMcpResourceUrl(),
       authorization_servers: [getOAuthIssuer()],
-      scopes_supported: [OAUTH_SCOPE],
+      scopes_supported: [...OAUTH_SCOPES],
       bearer_methods_supported: ["header"],
       resource_name: "Ahorrá (Habita)",
     },

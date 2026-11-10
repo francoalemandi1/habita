@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { DoorOpen } from "lucide-react";
 import { z } from "zod";
 import { APP_ROUTES } from "@habita/contracts";
 import { Dialog } from "@/components/ds/dialog";
@@ -63,7 +63,7 @@ export function LeaveHouseholdDialog({ open, onOpenChange, householdName }: Leav
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      icon={<LogOut className="size-5 text-ladrillo" strokeWidth={1.75} />}
+      icon={<DoorOpen className="size-5 text-ladrillo" strokeWidth={1.75} />}
       title={`Salir de ${householdName}`}
       body={errorMessage ?? `Vas a dejar de ver las tareas y gastos de "${householdName}". Para confirmar, escribí el nombre de la casa.`}
       confirmLabel={isLeaving ? "Saliendo" : "Salir de la casa"}

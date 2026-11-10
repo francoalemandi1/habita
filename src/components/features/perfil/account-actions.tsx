@@ -2,30 +2,40 @@
 
 import { useState } from "react";
 import { signOut } from "next-auth/react";
+import { DoorOpen, LogOut } from "lucide-react";
+import { ListRow } from "@/components/ds/list-row";
 import { LeaveHouseholdDialog } from "@/components/features/perfil/leave-household-dialog";
-import { cn } from "@/lib/utils";
-
-// Text-styled actions still need a 44px hit area (§6.2) and a visible keyboard focus.
-const ACCOUNT_ACTION =
-  "min-h-11 rounded-[12px] px-4 text-[15px] font-medium outline-none transition-colors duration-100 hover:bg-surface focus-visible:ring-2 focus-visible:ring-monte";
 
 export interface AccountActionsProps {
   householdName: string;
 }
 
-/** §5.3 Perfil — "Cerrar sesión" (Tinta 2 link) and "Salir de la casa" (Ladrillo), opening the D dialog. */
+/**
+ * §5.3 Perfil — account actions as real rows, not loose text links, so they read as
+ * actions. "Salir de la casa" is the danger row and still confirms in a dialog (§6.1).
+ */
 export function AccountActions({ householdName }: AccountActionsProps): React.JSX.Element {
   const [leaveOpen, setLeaveOpen] = useState(false);
 
   return (
-    <div className="flex flex-col items-center gap-1 py-4">
-      <button type="button" onClick={() => signOut({ callbackUrl: "/" })} className={cn(ACCOUNT_ACTION, "text-ink-2")}>
-        Cerrar sesión
-      </button>
-      <button type="button" onClick={() => setLeaveOpen(true)} className={cn(ACCOUNT_ACTION, "text-ladrillo-text")}>
-        Salir de la casa
-      </button>
+    <section aria-labelledby="perfil-cuenta" className="flex flex-col gap-2">
+      <h2 id="perfil-cuenta" className="text-[13px] font-semibold uppercase tracking-[.04em] text-ink-2">Cuenta</h2>
+      <div className="rounded-[20px] bg-surface px-2">
+        <ListRow
+          leadingIcon={LogOut}
+          title="Cerrar sesión"
+          meta="Salís de Habita en este dispositivo"
+          onClick={() => signOut({ callbackUrl: "/" })}
+        />
+        <ListRow
+          leadingIcon={DoorOpen}
+          title="Salir de la casa"
+          meta={`Dejás de ser parte de ${householdName}`}
+          tone="danger"
+          onClick={() => setLeaveOpen(true)}
+        />
+      </div>
       <LeaveHouseholdDialog open={leaveOpen} onOpenChange={setLeaveOpen} householdName={householdName} />
-    </div>
+    </section>
   );
 }

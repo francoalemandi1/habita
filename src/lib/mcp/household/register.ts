@@ -14,6 +14,8 @@ import {
   setShoppingListItemCheckedInputSchema,
   handleSetShoppingListItemChecked,
 } from "./tools/set-shopping-list-item-checked";
+import { completeTaskInputSchema, handleCompleteTask } from "./tools/complete-task";
+import { createTaskInputSchema, handleCreateTask } from "./tools/create-task";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { McpIdentity } from "../identity";
@@ -91,5 +93,27 @@ export function registerHouseholdTools(server: McpServer, identity: McpIdentity)
       annotations: WRITE_ANNOTATIONS,
     },
     (args) => handleSetShoppingListItemChecked(identity, args),
+  );
+
+  server.registerTool(
+    "complete_task",
+    {
+      description:
+        "Mark a household task assignment as completed. Idempotent: completing an already-completed assignment is a no-op success.",
+      inputSchema: completeTaskInputSchema,
+      annotations: WRITE_ANNOTATIONS,
+    },
+    (args) => handleCompleteTask(identity, args),
+  );
+
+  server.registerTool(
+    "create_task",
+    {
+      description:
+        "Create a new household task. Generate a fresh unique idempotencyKey for each new task and reuse the same value on retries — a replay returns the same task instead of creating a duplicate. If no assignToMemberId is given, the task is auto-assigned to the best available member.",
+      inputSchema: createTaskInputSchema,
+      annotations: WRITE_ANNOTATIONS,
+    },
+    (args) => handleCreateTask(identity, args),
   );
 }

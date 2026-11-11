@@ -1,7 +1,5 @@
 "use client";
 
-import { ArrowDownRight, ExternalLink } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { AdjustedCartProduct, CompareAlternative as AlternativeProduct } from "@habita/prices";
 import { ProductThumbnail } from "./product-thumbnail";
 import { AlternativesSection } from "./alternatives-section";
@@ -10,88 +8,50 @@ import { formatPrice, formatUnitLabel } from "./helpers";
 
 interface ProductRowProps {
   product: AdjustedCartProduct;
+  isOpen: boolean;
+  onToggleOpen: () => void;
   onSwap?: (alternative: AlternativeProduct) => void;
   onFindAlternatives?: (query: string) => Promise<AlternativeProduct[]>;
 }
 
-function findCheaperAlternative(product: AdjustedCartProduct): AlternativeProduct | null {
-  return product.alternatives.reduce<AlternativeProduct | null>((best, alt) => {
-    if (alt.price < product.price && (!best || alt.price < best.price)) return alt;
-    return best;
-  }, null);
-}
-
-export function ProductRow({ product, onSwap, onFindAlternatives }: ProductRowProps) {
-  const hasDiscount = Boolean(product.listPrice && product.listPrice > product.price);
-  const discountedListTotal = product.listPrice != null ? product.listPrice * product.quantity : null;
-  const cheaperAlt = findCheaperAlternative(product);
-  const remainingAlternatives = product.alternatives.filter((a) => a.link !== cheaperAlt?.link);
-
+/** One product in the store cart detail: name, unit, price and a "Cambiar" that opens alternatives below. */
+export function ProductRow({ product, isOpen, onToggleOpen, onSwap, onFindAlternatives }: ProductRowProps): React.JSX.Element {
   return (
-    <div>
-      <div className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-sand">
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <ProductThumbnail imageUrl={product.imageUrl} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-ink">{product.productName}</p>
-            {product.unitInfo && (
-              <p className="text-[11px] text-ink-2">
-                {formatUnitLabel(product.unitInfo)}
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="ml-2 flex shrink-0 items-center gap-2">
-          <div className="text-right">
-            {product.quantity > 1 && (
-              <div className="text-[10px] text-ink-2">x{product.quantity}</div>
-            )}
-            <span className={cn("text-sm", product.isCheapest ? "font-bold text-monte" : "font-semibold text-ink")}>
-              {formatPrice(product.lineTotal)}
-            </span>
-            {hasDiscount && discountedListTotal != null && (
-              <span className="ml-1 text-xs text-ink-2 line-through">
-                {formatPrice(discountedListTotal)}
+    <div className="border-b border-line-soft py-3 last:border-b-0">
+      <div className="flex items-start gap-2.5">
+        <ProductThumbnail imageUrl={product.imageUrl} size="lg" />
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-[14.5px] text-ink">
+            {product.productName}
+            {product.isCheapest && (
+              <span className="ml-1.5 inline-flex items-center rounded-full bg-monte-soft px-1.5 py-0.5 align-middle text-[12px] font-medium text-monte">
+                mejor precio
               </span>
             )}
-          </div>
-          <a
-            href={product.link}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`Ver ${product.productName} en el super`}
-            className="rounded-[12px] p-1 text-ink-2 transition-colors hover:bg-sand hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-monte"
+          </p>
+          <p className="text-[12px] text-ink-2">
+            {product.unitInfo ? formatUnitLabel(product.unitInfo) : product.searchTerm}
+            {product.quantity > 1 && ` · ×${product.quantity}`}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="font-semibold text-ink">{formatPrice(product.lineTotal)}</p>
+          <button
+            type="button"
+            onClick={onToggleOpen}
+            aria-expanded={isOpen}
+            className="mt-0.5 min-h-11 text-[12.5px] font-medium text-ink-2 underline-offset-2 transition-colors hover:text-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-monte"
           >
-            <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-          </a>
+            Cambiar
+          </button>
         </div>
       </div>
 
-      {cheaperAlt && onSwap && (
-        <button
-          type="button"
-          onClick={() => onSwap(cheaperAlt)}
-          className="mx-4 mb-1 flex min-h-9 w-[calc(100%-2rem)] items-center gap-1.5 rounded-[14px] bg-monte-soft px-2.5 py-1.5 text-left transition-colors hover:bg-monte-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-monte"
-        >
-          <ArrowDownRight className="h-3 w-3 shrink-0 text-monte" strokeWidth={1.75} aria-hidden="true" />
-          <span className="min-w-0 flex-1 truncate text-[11px] text-monte">
-            {cheaperAlt.productName}
-          </span>
-          <span className="shrink-0 text-[11px] font-semibold text-monte">
-            {formatPrice(cheaperAlt.price)}
-          </span>
-        </button>
-      )}
-
-      {onFindAlternatives && (
-        <ReplaceFlow product={product} onFindAlternatives={onFindAlternatives} onSwap={onSwap} />
-      )}
-
-      {product.alternatives.length > 1 && (
-        <AlternativesSection alternatives={remainingAlternatives} onSwap={onSwap} />
-      )}
-      {product.alternatives.length === 1 && !cheaperAlt && (
-        <AlternativesSection alternatives={product.alternatives} onSwap={onSwap} />
+      {isOpen && (
+        <div className="mt-1">
+          {onFindAlternatives && <ReplaceFlow product={product} onFindAlternatives={onFindAlternatives} onSwap={onSwap} />}
+          <AlternativesSection alternatives={product.alternatives} onSwap={onSwap} />
+        </div>
       )}
     </div>
   );

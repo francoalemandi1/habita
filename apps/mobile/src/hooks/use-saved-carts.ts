@@ -2,18 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mobileApi } from "@/lib/api";
 
 import { queryKeys } from "@habita/contracts";
-import type { SavedCart, SaveCartInput } from "@habita/contracts";
-
-export interface PriceChange {
-  term: string;
-  productName: string;
-  previousPrice: number;
-  currentPrice: number;
-}
+import type { SavedCart, SaveCartInput, PriceChange, StoreMissingRefreshResult } from "@habita/contracts";
 
 export interface RefreshedSavedCart extends SavedCart {
+  status: "refreshed";
   priceChanges: PriceChange[];
 }
+
+export type RefreshSavedCartResult = RefreshedSavedCart | StoreMissingRefreshResult;
 
 
 export function useSavedCarts() {
@@ -50,17 +46,19 @@ export function useDeleteSavedCart() {
 /**
  * POST /api/saved-items/deals/refresh for a single cart.
  * Throws ApiError with status 503 when the store is unreachable (cart kept
- * as-is), or 404 when the store no longer carries it.
+ * as-is). Resolves with `status: "store-missing"` when the store answered
+ * but no longer carries the cart.
  */
 export function useRefreshSavedCart() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (savedCartId: string) =>
-      mobileApi.post<RefreshedSavedCart>("/api/saved-items/deals/refresh", { savedCartId }),
-    onSuccess: (updated) => {
+      mobileApi.post<RefreshSavedCartResult>("/api/saved-items/deals/refresh", { savedCartId }),
+    onSuccess: (result) => {
+      if (result.status !== "refreshed") return;
       queryClient.setQueryData<SavedCart[]>(queryKeys.saved.carts(), (current) =>
-        current ? current.map((cart) => (cart.id === updated.id ? updated : cart)) : current,
+        current ? current.map((cart) => (cart.id === result.id ? result : cart)) : current,
       );
     },
   });

@@ -70,7 +70,7 @@ export function BalanceStrip({
 
 function Tile({ label, amount, tone }: { label: string; amount: number; tone: "positive" | "negative" }) {
   return (
-    <div className="flex min-w-[150px] flex-1 flex-col gap-0.5 rounded-[14px] bg-surface px-4 py-3 md:flex-none">
+    <div className="flex min-w-[150px] flex-1 flex-col gap-0.5 rounded-[14px] bg-surface px-4 py-3">
       <span className="truncate text-[12px] text-ink-2">{label}</span>
       <span className={cn("text-[20px] font-semibold tracking-[-.02em]", tone === "positive" ? "text-monte" : "text-ladrillo-text")}>
         {formatArs(amount)}

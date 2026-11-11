@@ -12,6 +12,9 @@ import { isDealInList } from "@habita/prices";
 import { OfertaCard } from "@/components/features/super/ofertas/oferta-card";
 import { RubroChips } from "@/components/features/super/ofertas/rubro-chips";
 
+/** First row on the widest grid (4 columns): their photos are the LCP, so they load eagerly. */
+const ABOVE_FOLD_CARDS = 4;
+
 export function OfertasView(): React.JSX.Element {
   const { data, isLoading, error, refetch } = useTopDeals();
   const { data: listData } = useShoppingList();
@@ -37,7 +40,7 @@ export function OfertasView(): React.JSX.Element {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
         {[0, 1, 2, 3].map((key) => <Skeleton key={key} className="h-56 w-full" />)}
       </div>
     );
@@ -60,13 +63,14 @@ export function OfertasView(): React.JSX.Element {
   return (
     <div className="flex flex-col gap-4">
       <RubroChips rubros={rubros} active={activeRubro} onChange={setActiveRubro} />
-      <div className="grid grid-cols-2 gap-3">
-        {visibleDeals.map((deal) => (
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+        {visibleDeals.map((deal, index) => (
           <OfertaCard
             key={`${deal.productName}|${deal.store}`}
             deal={deal}
             inList={isDealInList(deal.productName, items)}
             onAdd={() => handleAdd(deal.productName)}
+            isAboveFold={index < ABOVE_FOLD_CARDS}
           />
         ))}
       </div>

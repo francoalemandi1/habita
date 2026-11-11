@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { colors, darkColors, storeColors } from "@habita/design-tokens";
+import { bankColors, colors, darkColors, storeColors } from "@habita/design-tokens";
 import { storeColors as webStoreColors } from "../design-tokens";
 
 // §9.1 — exact light/dark values from the rebrand handoff.
@@ -96,6 +96,12 @@ describe("design-tokens — store badges stay readable (WCAG AA for 12px text)",
 
   it("keeps the web mirror identical to the shared package", () => {
     expect(webStoreColors).toEqual(storeColors);
+  });
+});
+
+describe("design-tokens — bank chips stay readable (WCAG AA for 12px text)", () => {
+  it.each(Object.entries(bankColors))("%s reaches 4.5:1", (_bank, { bg, text }) => {
+    expect(contrastRatio(bg, text)).toBeGreaterThanOrEqual(4.5);
   });
 });
 

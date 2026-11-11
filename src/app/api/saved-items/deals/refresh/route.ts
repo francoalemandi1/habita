@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (!freshStoreCart) {
-      return NextResponse.json({ error: "Supermercado no encontrado en resultados frescos" }, { status: 404 });
+      return NextResponse.json({ status: "store-missing", savedCartId });
     }
 
     const priceChanges = diffCartPrices(savedCart.products, freshStoreCart.products);
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ ...updated, priceChanges });
+    return NextResponse.json({ status: "refreshed", ...updated, priceChanges });
   } catch (error) {
     return handleApiError(error, { route: "/api/saved-items/deals/refresh", method: "POST" });
   }

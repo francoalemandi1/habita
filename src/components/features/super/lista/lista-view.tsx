@@ -11,15 +11,21 @@ import { useShoppingList, useAddShoppingListItem, useUpdateShoppingListItem, use
 import { usePendingMutationIds } from "@/hooks/use-pending-mutations";
 import { extractShoppingListPendingId } from "@/lib/offline-shopping-pending-id";
 import { useTopDeals } from "@/hooks/use-top-deals";
-import { countUnchecked, matchesTopDeal, buildCompareSearchItems } from "@habita/prices";
+import { countUnchecked, matchesTopDeal, buildCompareSearchItems, splitShoppingListItems } from "@habita/prices";
+import { useSettlingIds } from "@/hooks/use-settling-ids";
 import { cancelDelete, scheduleDelete } from "@/lib/deferred-delete";
 import { CatalogSheet } from "@/components/features/catalog-sheet";
 import { ListaRow } from "@/components/features/super/lista/lista-row";
 import { ListaAddRow } from "@/components/features/super/lista/lista-add-row";
+import { ListaSections } from "@/components/features/super/lista/lista-sections";
+
+import type { ShoppingListItem } from "@habita/contracts";
 
 import type { SearchItem } from "@/lib/supermarket-search";
 
 const DEFERRED_DELETE_MS = 5000;
+/** How long a just-checked row stays in place before it moves to "En el carrito". */
+const CHECK_SETTLE_MS = 600;
 
 interface ListaViewProps {
   currentMemberId: string;
@@ -36,6 +42,7 @@ export function ListaView({ currentMemberId, onCompare }: ListaViewProps): React
   const snackbar = useSnackbar();
   const [catalogOpen, setCatalogOpen] = useState(false);
   const pendingItemIds = usePendingMutationIds(["shopping-item"], extractShoppingListPendingId);
+  const { settlingIds, settle, cancel } = useSettlingIds(CHECK_SETTLE_MS);
 
   if (isError) {
     return (
@@ -50,7 +57,7 @@ export function ListaView({ currentMemberId, onCompare }: ListaViewProps): React
 
   const items = data?.items ?? [];
   const uncheckedCount = countUnchecked(items);
-  const hasChecked = items.some((item) => item.checkedAt !== null);
+  const { pending, inCart } = splitShoppingListItems(items, settlingIds);
   const topDeals = topDealsData?.topDeals ?? [];
 
   function handleAdd(name: string, clientId: string = crypto.randomUUID()): void {
@@ -71,6 +78,8 @@ export function ListaView({ currentMemberId, onCompare }: ListaViewProps): React
   }
 
   function handleToggle(itemId: string, checked: boolean): void {
+    if (checked) settle(itemId);
+    else cancel(itemId);
     updateItem.mutate({ itemId, checked });
   }
 
@@ -99,6 +108,21 @@ export function ListaView({ currentMemberId, onCompare }: ListaViewProps): React
     });
   }
 
+  function renderRow(item: ShoppingListItem): React.ReactNode {
+    return (
+      <ListaRow
+        key={item.id}
+        item={item}
+        currentMemberId={currentMemberId}
+        isOffer={matchesTopDeal(item.name, topDeals)}
+        isSyncPending={pendingItemIds.has(item.id)}
+        onToggle={() => handleToggle(item.id, item.checkedAt === null)}
+        onQuantityChange={(quantity) => handleQuantityChange(item.id, quantity)}
+        onDelete={() => handleDelete(item.id, item.name)}
+      />
+    );
+  }
+
   function handleCompareClick(): void {
     onCompare(buildCompareSearchItems(items));
   }
@@ -106,14 +130,7 @@ export function ListaView({ currentMemberId, onCompare }: ListaViewProps): React
   return (
     <div className="flex flex-col gap-3">
       <SectionCard
-        title={items.length > 0 ? `Lista · ${items.length}` : "Lista"}
-        action={
-          hasChecked ? (
-            <Button variant="link" size="sm" onClick={() => clearChecked.mutate()} className="text-ink-2">
-              Borrar tachados
-            </Button>
-          ) : undefined
-        }
+        title={pending.length > 0 ? `Lista · ${pending.length}` : "Lista"}
       >
         <ListaAddRow onAdd={handleAdd} onOpenCatalog={() => setCatalogOpen(true)} />
 
@@ -133,20 +150,13 @@ export function ListaView({ currentMemberId, onCompare }: ListaViewProps): React
               className="py-10 [&>p:first-of-type]:text-[22px]"
             />
           ) : (
-            <div className="flex flex-col">
-              {items.map((item) => (
-                <ListaRow
-                  key={item.id}
-                  item={item}
-                  currentMemberId={currentMemberId}
-                  isOffer={matchesTopDeal(item.name, topDeals)}
-                  isSyncPending={pendingItemIds.has(item.id)}
-                  onToggle={() => handleToggle(item.id, item.checkedAt === null)}
-                  onQuantityChange={(quantity) => handleQuantityChange(item.id, quantity)}
-                  onDelete={() => handleDelete(item.id, item.name)}
-                />
-              ))}
-            </div>
+            <ListaSections
+              pending={pending}
+              inCart={inCart}
+              renderRow={renderRow}
+              onClearCart={() => clearChecked.mutate()}
+              isClearing={clearChecked.isPending}
+            />
           )}
         </SkeletonBoundary>
       </SectionCard>

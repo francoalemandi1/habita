@@ -80,7 +80,7 @@ interface UpdateItemInput {
   checked?: boolean;
 }
 
-/** Updates name/quantity/checked, optimistically re-sorting the cache. */
+/** Updates name/quantity/checked optimistically; the Lista view owns the ordering (splitShoppingListItems). */
 export function useUpdateShoppingListItem() {
   const queryClient = useQueryClient();
 
@@ -104,7 +104,7 @@ export function useUpdateShoppingListItem() {
               }
             : item,
         );
-        return { items: sortShoppingListItems(items) };
+        return { items };
       });
       return { previous };
     },

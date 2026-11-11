@@ -35,7 +35,8 @@ export function SavedCartRow({ cart, refreshResult, onDelete }: SavedCartRowProp
           {refreshResult?.unavailable ? (
             <Text style={styles.stale}> · {cart.storeName} no responde ahora</Text>
           ) : null}
-          {refreshResult && !refreshResult.unavailable && refreshResult.changedCount > 0 ? (
+          {refreshResult?.storeMissing ? <Text> · ya no figura en tu zona</Text> : null}
+          {refreshResult && !refreshResult.unavailable && !refreshResult.storeMissing && refreshResult.changedCount > 0 ? (
             <Text>
               {" "}
               · cambió el precio de {refreshResult.changedCount} producto{refreshResult.changedCount === 1 ? "" : "s"}

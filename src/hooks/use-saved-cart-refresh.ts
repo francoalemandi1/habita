@@ -12,6 +12,7 @@ export interface SavedCartRefreshResult {
   storeName: string;
   changedCount: number;
   unavailable: boolean;
+  storeMissing: boolean;
 }
 
 // Module scope: Comparar remounts the saved-carts section when results arrive, and a
@@ -47,17 +48,27 @@ export function useSavedCartAutoRefresh(carts: SavedCart[] | undefined) {
         const cart = currentCarts.find((c) => c.id === target.id);
         if (!cart) continue;
         try {
-          const updated = await refreshMutation.mutateAsync(cart.id);
-          collected.push({ cartId: cart.id, storeName: cart.storeName, changedCount: updated.priceChanges.length, unavailable: false });
+          const result = await refreshMutation.mutateAsync(cart.id);
+          if (result.status === "store-missing") {
+            collected.push({ cartId: cart.id, storeName: cart.storeName, changedCount: 0, unavailable: false, storeMissing: true });
+            continue;
+          }
+          collected.push({
+            cartId: cart.id,
+            storeName: cart.storeName,
+            changedCount: result.priceChanges.length,
+            unavailable: false,
+            storeMissing: false,
+          });
         } catch (error) {
-          // Only 503 means "store down"; anything else (404 = store answered
-          // without this cart, network, 5xx) is logged and left for a manual refresh.
+          // Only 503 means "store down"; anything else (network, 5xx) is logged
+          // and left for a manual refresh.
           const isUnavailable = error instanceof ApiError && error.status === 503;
           if (!isUnavailable) {
             console.warn(`[saved-carts] auto-refresh failed for ${cart.storeName}`, error);
             continue;
           }
-          collected.push({ cartId: cart.id, storeName: cart.storeName, changedCount: 0, unavailable: true });
+          collected.push({ cartId: cart.id, storeName: cart.storeName, changedCount: 0, unavailable: true, storeMissing: false });
         }
       }
       setResults(collected);

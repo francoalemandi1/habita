@@ -8,8 +8,10 @@
  * `unknown` from `@habita/contracts`'s zod-validated API shape.
  */
 
+import { discountedPrice, getLocalDayName, isPromoExpired, promoAppliesOnDay } from "./promo-math";
 import { normalizeProductTerm } from "./product-term";
 
+import type { PromoLike } from "./promo-math";
 import type { ProductUnitInfo, SearchItem, StoreCartRef } from "./product-matching";
 
 export interface CompareAlternative<TUnit = ProductUnitInfo | null> {
@@ -134,4 +136,59 @@ export function buildSavingsSummary<TUnit = ProductUnitInfo | null>(carts: Adjus
 export function isTermMissing<TUnit = ProductUnitInfo | null>(cart: AdjustedStoreCart<TUnit>, term: string): boolean {
   const normalized = normalizeProductTerm(term);
   return cart.missingTerms.some((missing) => normalizeProductTerm(missing) === normalized);
+}
+
+export interface TodaysPromoPick {
+  storeName: string;
+  bankDisplayName: string;
+  bankSlug: string;
+  discountPercent: number;
+  capAmount: number | null;
+  discountedTotal: number;
+}
+
+/** Best promo per store, from preferred banks only, active today and not expired. */
+export function pickTodaysPromos<T extends PromoLike & { storeName: string; bankSlug: string; bankDisplayName: string }>(
+  carts: { storeName: string; totalPrice: number }[],
+  promos: T[],
+  preferredBankSlugs: string[],
+  now: Date,
+): Map<string, TodaysPromoPick> {
+  const picks = new Map<string, TodaysPromoPick>();
+  if (preferredBankSlugs.length === 0) return picks;
+
+  const todayName = getLocalDayName(now);
+  const totalByStore = new Map(carts.map((cart) => [cart.storeName, cart.totalPrice]));
+
+  for (const promo of promos) {
+    const totalPrice = totalByStore.get(promo.storeName);
+    if (totalPrice === undefined) continue;
+    if (!preferredBankSlugs.includes(promo.bankSlug)) continue;
+    if (isPromoExpired(promo, now)) continue;
+    if (!promoAppliesOnDay(promo, todayName)) continue;
+
+    const total = discountedPrice(totalPrice, promo.discountPercent, promo.capAmount);
+    const existing = picks.get(promo.storeName);
+    if (existing && existing.discountedTotal <= total) continue;
+
+    picks.set(promo.storeName, {
+      storeName: promo.storeName,
+      bankDisplayName: promo.bankDisplayName,
+      bankSlug: promo.bankSlug,
+      discountPercent: promo.discountPercent,
+      capAmount: promo.capAmount,
+      discountedTotal: total,
+    });
+  }
+
+  return picks;
+}
+
+/** Best (lowest discounted total) pick across all stores, for the top promo banner. */
+export function pickBestPromoOverall(picks: Map<string, TodaysPromoPick>): TodaysPromoPick | null {
+  let best: TodaysPromoPick | null = null;
+  for (const pick of picks.values()) {
+    if (!best || pick.discountedTotal < best.discountedTotal) best = pick;
+  }
+  return best;
 }

@@ -158,9 +158,22 @@ export function computeUnitInfo(product: StoreProduct): ProductUnitInfo | null {
   return { ...parsed, pricePerUnit: product.price / parsed.quantity };
 }
 
+/** Sizes and counts ("1", "kg", "500g", "x6"): they qualify a product but never identify it. */
+const QUANTITY_TOKEN = /^(?:x?\d+(?:[.,]\d+)?(?:kg|kgs|g|gr|grs|l|lt|lts|ml|cc|un|u|mt|mts|m)?|x|kg|kgs|g|gr|grs|l|lt|lts|ml|cc|cm3|un|u|unid|unidades|mt|mts|m)$/;
+
+function isQuantityToken(token: string): boolean {
+  return QUANTITY_TOKEN.test(token);
+}
+
 /** Score a product against a search term. Higher = better match. */
 export function scoreProduct(normalizedTerm: string, termTokens: string[], product: StoreProduct): number {
   const normalizedName = normalize(product.productName);
+
+  // "Yerba 1 kg" must not match "Harina 000 1 Kg": sharing only the size is not a match.
+  const descriptiveTokens = termTokens.filter((token) => !isQuantityToken(token));
+  if (descriptiveTokens.length > 0 && !descriptiveTokens.some((token) => tokenMatches(token, normalizedName))) {
+    return 0;
+  }
 
   // Token overlap: how many search tokens appear in the product name
   const matchCount = termTokens.filter((token) => tokenMatches(token, normalizedName)).length;

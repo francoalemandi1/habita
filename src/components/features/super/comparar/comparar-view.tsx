@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { SearchX } from "lucide-react";
 import { Banner } from "@/components/ds/banner";
 import { Skeleton } from "@/components/ds/skeleton";
@@ -8,13 +9,15 @@ import { useSnackbar } from "@/components/ds/snackbar";
 import { apiFetch } from "@/lib/api-client";
 import { usePaymentMethod } from "@/hooks/use-payment-method";
 import { useSavedCarts, useToggleSaveCart, isCartSaved } from "@/hooks/use-saved-items";
-import { usePromos, getStorePromos } from "@/hooks/use-promos";
-import { StoreCartCard } from "@/components/features/store-cart-card";
-import { PaymentMethodChips } from "@/components/features/super/comparar/payment-method-chips";
+import { usePromos } from "@/hooks/use-promos";
+import { CompareHero } from "@/components/features/super/comparar/compare-hero";
+import { CompareRanking } from "@/components/features/super/comparar/compare-ranking";
+import { TodaysPromoBanner } from "@/components/features/super/comparar/todays-promo-banner";
+import { StoreCartDetail } from "@/components/features/super/comparar/store-cart-detail";
 import { NotFoundRow } from "@/components/features/super/comparar/not-found-row";
 import { UnavailableStoresRow } from "@/components/features/super/comparar/unavailable-stores-row";
 import { SavedCartsSection } from "@/components/features/super/comparar/saved-carts-section";
-import { applyOverrides, buildSavingsSummary } from "@habita/prices";
+import { applyOverrides, buildStoreCartUrl, pickBestPromoOverall, pickTodaysPromos } from "@habita/prices";
 
 import type { SearchItem, ShoppingPlanResult } from "@/lib/supermarket-search";
 import type { CartOverride, CompareAlternative as AlternativeProduct } from "@habita/prices";
@@ -28,12 +31,14 @@ interface CompararViewProps {
   householdCity: string | null;
 }
 
-function formatCurrency(amount: number): string {
-  return `$${amount.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
+function buildMapsUrl(storeName: string): string {
+  const query = encodeURIComponent(`${storeName} supermercado`);
+  return `https://www.google.com/maps/search/?api=1&query=${query}`;
 }
 
 export function CompararView({ searchItems, data, isLoading, error, householdCity }: CompararViewProps): React.JSX.Element {
   const [overrides, setOverrides] = useState<Map<string, CartOverride>>(new Map());
+  const [selectedStoreName, setSelectedStoreName] = useState<string | null>(null);
   const { paymentMethods, togglePaymentMethod } = usePaymentMethod();
   const { data: savedCarts } = useSavedCarts();
   const { toggle: toggleSaveCart, isPending: isSavePending } = useToggleSaveCart();
@@ -45,7 +50,11 @@ export function CompararView({ searchItems, data, isLoading, error, householdCit
     return applyOverrides(data.storeCarts, overrides, searchItems);
   }, [data, overrides, searchItems]);
 
-  const { savingsVsNext, nextStoreName } = buildSavingsSummary(adjustedCarts);
+  const promoPicks = useMemo(
+    () => pickTodaysPromos(adjustedCarts, promos ?? [], paymentMethods.map((method) => method.bankSlug), new Date()),
+    [adjustedCarts, promos, paymentMethods],
+  );
+  const bestPromo = useMemo(() => pickBestPromoOverall(promoPicks), [promoPicks]);
 
   const handleSwap = useCallback((storeName: string, searchTerm: string, alternative: AlternativeProduct) => {
     setOverrides((prev) => {
@@ -68,7 +77,7 @@ export function CompararView({ searchItems, data, isLoading, error, householdCit
 
   function handleSave(cart: (typeof adjustedCarts)[number]): void {
     // `products` is typed as a loose JSON record on the API side (saveCartSchema);
-    // these are the same AdjustedCartProduct objects store-cart-card already renders.
+    // these are the same AdjustedCartProduct objects the detail view already renders.
     const input: SaveCartInput = {
       storeName: cart.storeName,
       searchTerms: cart.products.map((p) => p.searchTerm),
@@ -82,6 +91,18 @@ export function CompararView({ searchItems, data, isLoading, error, householdCit
     toggleSaveCart({ input })?.catch(() =>
       snackbar.show({ text: "No se pudo guardar", tone: "error", actionKind: "retry", onAction: () => handleSave(cart) }),
     );
+  }
+
+  function openStoreDetail(storeName: string): void {
+    setSelectedStoreName(storeName);
+  }
+
+  // The trigger unmounts while the detail is open, so re-find it after the summary re-renders.
+  function closeStoreDetail(): void {
+    const storeName = selectedStoreName;
+    flushSync(() => setSelectedStoreName(null));
+    if (!storeName) return;
+    document.querySelector<HTMLElement>(`[data-store-trigger="${CSS.escape(storeName)}"]`)?.focus();
   }
 
   if (isLoading) {
@@ -113,37 +134,52 @@ export function CompararView({ searchItems, data, isLoading, error, householdCit
     );
   }
 
+  const [bestCart, ...restCarts] = adjustedCarts;
+  const selectedCart = adjustedCarts.find((cart) => cart.storeName === selectedStoreName) ?? null;
+  const maxTotal = adjustedCarts.length > 0 ? Math.max(...adjustedCarts.map((cart) => cart.totalPrice)) : 0;
+
   return (
-    <div className="flex flex-col gap-4">
-      {savingsVsNext !== null && savingsVsNext > 0 && nextStoreName && (
-        <Banner tone="offer">Ahorrás {formatCurrency(savingsVsNext)} comprando en {adjustedCarts[0]?.storeName} vs {nextStoreName}</Banner>
+    <div className="flex flex-col gap-3">
+      {selectedCart ? (
+        <StoreCartDetail
+          cart={selectedCart}
+          mapsUrl={buildMapsUrl(selectedCart.storeName)}
+          cartLink={buildStoreCartUrl(selectedCart.storeName, selectedCart.products)}
+          isSaved={!!isCartSaved(savedCarts, selectedCart.storeName)}
+          isSavePending={isSavePending}
+          onToggleSave={() => handleSave(selectedCart)}
+          onBack={closeStoreDetail}
+          onSwapProduct={(searchTerm, alternative) => handleSwap(selectedCart.storeName, searchTerm, alternative)}
+          onFindAlternatives={handleFindAlternatives}
+        />
+      ) : (
+        bestCart && (
+          <>
+            <CompareHero
+              cart={bestCart}
+              savingsVsMax={Math.round(maxTotal - bestCart.totalPrice)}
+              mapsUrl={buildMapsUrl(bestCart.storeName)}
+              onViewCart={() => openStoreDetail(bestCart.storeName)}
+            />
+
+            <TodaysPromoBanner bestPromo={bestPromo} paymentMethods={paymentMethods} onTogglePaymentMethod={togglePaymentMethod} />
+
+            <CompareRanking
+              carts={restCarts}
+              promoPicks={promoPicks}
+              onSelectStore={openStoreDetail}
+            />
+          </>
+        )
       )}
 
-      <PaymentMethodChips selected={paymentMethods} onToggle={togglePaymentMethod} />
-
-      <div className="flex flex-col gap-3">
-        {adjustedCarts.map((cart, index) => (
-          <StoreCartCard
-            key={cart.storeName}
-            cart={cart}
-            rank={index}
-            isComplete={cart.missingTerms.length === 0}
-            onSwapProduct={(searchTerm, alternative) => handleSwap(cart.storeName, searchTerm, alternative)}
-            onFindAlternatives={handleFindAlternatives}
-            isSaved={!!isCartSaved(savedCarts, cart.storeName)}
-            isSavePending={isSavePending}
-            onToggleSave={() => handleSave(cart)}
-            promos={getStorePromos(promos, cart.storeName)}
-            preferredBankSlugs={paymentMethods.map((method) => method.bankSlug)}
-          />
-        ))}
-      </div>
-
-      <NotFoundRow notFound={data.notFound} suggestions={data.suggestions} />
-
-      <UnavailableStoresRow stores={data.unavailableStores} />
-
-      <SavedCartsSection />
+      {!selectedCart && (
+        <>
+          <NotFoundRow notFound={data.notFound} suggestions={data.suggestions} />
+          <UnavailableStoresRow stores={data.unavailableStores} />
+          <SavedCartsSection />
+        </>
+      )}
     </div>
   );
 }

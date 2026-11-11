@@ -391,3 +391,6 @@ export const radius = {
   /** Badges, avatars, pills, nav bar */
   pill: "rounded-full",
 } as const;
+
+/** Re-exported (not copied) so web and mobile share one map. */
+export { bankColors } from "@habita/design-tokens";

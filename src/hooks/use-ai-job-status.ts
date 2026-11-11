@@ -4,8 +4,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api-client";
 import { queryKeys } from "@/lib/query-keys";
+import { detectSettledJob } from "@habita/domain";
 
 import type { AiJobStatusResponse, AiJobType } from "@habita/contracts";
+import type { JobObservation } from "@habita/domain";
 import { POLL_INTERVAL_MS } from "@habita/contracts";
 
 // ============================================
@@ -16,9 +18,9 @@ interface UseAiJobStatusOptions {
   jobType: AiJobType;
   /** Only poll when enabled (default: true). */
   enabled?: boolean;
-  /** Called when job transitions from RUNNING → SUCCESS. */
+  /** Called once when a job completes (including instant, cached completions). */
   onComplete?: (jobId: string) => void;
-  /** Called when job transitions from RUNNING → FAILED. */
+  /** Called once when a job fails. */
   onError?: (errorMessage: string | null) => void;
 }
 
@@ -31,8 +33,7 @@ interface UseAiJobStatusOptions {
  * - If not running: stop polling
  * - On window refocus: single re-check
  *
- * When a job transitions from RUNNING → SUCCESS/FAILED,
- * fires the appropriate callback.
+ * Fires the matching callback once per settled job (see detectSettledJob).
  */
 export function useAiJobStatus({
   jobType,
@@ -41,11 +42,9 @@ export function useAiJobStatus({
   onError,
 }: UseAiJobStatusOptions) {
   const queryClient = useQueryClient();
-  const wasRunningRef = useRef(false);
+  const previousRef = useRef<JobObservation | null>(null);
   const onCompleteRef = useRef(onComplete);
   const onErrorRef = useRef(onError);
-  onCompleteRef.current = onComplete;
-  onErrorRef.current = onError;
 
   const query = useQuery<AiJobStatusResponse>({
     queryKey: queryKeys.aiJobs.status(jobType),
@@ -64,17 +63,24 @@ export function useAiJobStatus({
   const status = query.data?.status ?? null;
   const jobId = query.data?.jobId ?? null;
 
-  // Detect transition: RUNNING → SUCCESS/FAILED
+  const isLoaded = query.data !== undefined;
+
+  // Keep the latest callbacks without re-running the settle effect when they change.
   useEffect(() => {
-    if (wasRunningRef.current && status !== "RUNNING" && status !== null) {
-      if (status === "SUCCESS" && jobId) {
-        onCompleteRef.current?.(jobId);
-      } else if (status === "FAILED") {
-        onErrorRef.current?.(query.data?.errorMessage ?? null);
-      }
-    }
-    wasRunningRef.current = status === "RUNNING";
-  }, [status, jobId, query.data?.errorMessage]);
+    onCompleteRef.current = onComplete;
+    onErrorRef.current = onError;
+  });
+
+  // Fire once per settled job, including jobs that finished before any poll saw them
+  // running (cached results), which a RUNNING → SUCCESS check alone would miss.
+  useEffect(() => {
+    if (!isLoaded) return;
+    const current = { status, jobId };
+    const settlement = detectSettledJob(previousRef.current, current);
+    previousRef.current = current;
+    if (settlement === "completed" && jobId) onCompleteRef.current?.(jobId);
+    if (settlement === "failed") onErrorRef.current?.(query.data?.errorMessage ?? null);
+  }, [isLoaded, status, jobId, query.data?.errorMessage]);
 
   /** Force an immediate re-fetch (call after triggering a new job). */
   const refetchStatus = useCallback(() => {

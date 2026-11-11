@@ -13,6 +13,10 @@ export const groceryCategorySchema = z.enum([
 
 export const productPriceSchema = z.object({
   productName: z.string(),
+  /** Real store product name (VTEX productName). Optional: deals cached before this field existed must still parse. */
+  displayName: z.string().optional(),
+  /** Real store product image. Optional/nullable for the same reason as displayName. */
+  imageUrl: z.string().nullable().optional(),
   store: z.string(),
   price: z.string(),
   originalPrice: z.string().nullable(),

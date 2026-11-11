@@ -14,6 +14,7 @@ interface DeleteExpenseButtonProps {
   expenseId: string;
   hasLaterSettlement: boolean;
   otherMemberName: string;
+  onDeleted: () => void;
 }
 
 async function deleteExpense(expenseId: string): Promise<boolean> {
@@ -26,6 +27,7 @@ export function DeleteExpenseButton({
   expenseId,
   hasLaterSettlement,
   otherMemberName,
+  onDeleted,
 }: DeleteExpenseButtonProps): React.JSX.Element {
   const router = useRouter();
   const snackbar = useSnackbar();
@@ -50,7 +52,7 @@ export function DeleteExpenseButton({
     });
 
     snackbar.show({ text: "Gasto eliminado", actionKind: "undo", onAction: () => cancelDelete(expenseId) });
-    router.push("/plata");
+    onDeleted();
   }
 
   function handleDeleteD(): void {
@@ -59,7 +61,7 @@ export function DeleteExpenseButton({
       .then((ok) => {
         if (!ok) throw new Error("delete failed");
         snackbar.show({ text: "Gasto eliminado" });
-        router.push("/plata");
+        onDeleted();
       })
       .catch(() => showError(handleDeleteD));
   }

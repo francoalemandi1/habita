@@ -28,7 +28,8 @@ export function SavedCartRow({ cart, refreshResult, onDelete }: SavedCartRowProp
         <span className="text-[13px] text-ink-2">
           {formatCartAge(cart.savedAt.toString())}
           {refreshResult?.unavailable && <span className="text-ladrillo-text"> · {cart.storeName} no responde ahora</span>}
-          {refreshResult && !refreshResult.unavailable && refreshResult.changedCount > 0 && (
+          {refreshResult?.storeMissing && <span className="text-ink-2"> · ya no figura en tu zona</span>}
+          {refreshResult && !refreshResult.unavailable && !refreshResult.storeMissing && refreshResult.changedCount > 0 && (
             <span> · cambió el precio de {refreshResult.changedCount} producto{refreshResult.changedCount === 1 ? "" : "s"}</span>
           )}
           {!refreshResult && stale && <span className="text-ladrillo-text"> · precios viejos</span>}

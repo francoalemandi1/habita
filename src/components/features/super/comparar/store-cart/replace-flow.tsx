@@ -45,7 +45,7 @@ export function ReplaceFlow({ product, onFindAlternatives, onSwap }: ReplaceFlow
         <div className="rounded-[14px] border border-dashed border-line bg-sand px-2.5 py-2">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] text-ink-2">
-              No encontraste lo que buscabas?
+              ¿No encontraste lo que buscabas?
             </p>
             <button
               type="button"
@@ -67,7 +67,7 @@ export function ReplaceFlow({ product, onFindAlternatives, onSwap }: ReplaceFlow
             }}
             className="mt-1 inline-flex min-h-9 items-center gap-1 rounded-full bg-monte-soft px-2 py-1 text-[11px] font-medium text-monte transition-colors hover:bg-monte-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-monte"
           >
-            Proba con: {suggestedQuery}
+            Probá con: {suggestedQuery}
           </button>
         </div>
       )}
@@ -101,7 +101,7 @@ export function ReplaceFlow({ product, onFindAlternatives, onSwap }: ReplaceFlow
                     "hover:bg-monte-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-monte",
                   )}
                 >
-                  <span className="truncate pr-2 text-ink-2">{alternative.productName}</span>
+                  <span className="line-clamp-2 pr-2 text-ink-2">{alternative.productName}</span>
                   <span className="shrink-0 font-semibold text-ink">{formatPrice(alternative.price)}</span>
                 </button>
               ))}

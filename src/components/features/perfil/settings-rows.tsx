@@ -7,6 +7,7 @@ import { SegmentedControl } from "@/components/ds/segmented-control";
 import { useSnackbar } from "@/components/ds/snackbar";
 import { resetAllGuides } from "@/hooks/use-first-visit";
 import { useIsClient } from "@/hooks/use-is-client";
+import { PaymentMethodsRow } from "@/components/features/perfil/payment-methods-row";
 import { PERFIL_ROUTES } from "@habita/contracts";
 
 type ThemeOption = "light" | "dark" | "system";
@@ -17,7 +18,7 @@ const THEME_OPTIONS: Array<{ value: ThemeOption; label: string }> = [
   { value: "system", label: "Auto" },
 ];
 
-/** §5.3 Perfil → settings rows: Disponibilidad, Avisos, Apariencia, Guías de uso. */
+/** §5.3 Perfil → settings rows: Medios de pago, Disponibilidad, Avisos, Apariencia, Guías de uso. */
 export function SettingsRows(): React.JSX.Element {
   const snackbar = useSnackbar();
   const { theme, setTheme } = useTheme();
@@ -26,6 +27,7 @@ export function SettingsRows(): React.JSX.Element {
 
   return (
     <div className="rounded-[20px] bg-surface px-2">
+      <PaymentMethodsRow />
       <ListRow leadingIcon={CalendarClock} title="Disponibilidad" meta="Cuándo podés y qué tareas preferís" href={PERFIL_ROUTES.availability} />
       <ListRow leadingIcon={Bell} title="Avisos" meta="Qué avisos recibir y en qué horario" href={PERFIL_ROUTES.notificationSettings} />
       {/* Hand-built row: the theme control wraps under the title on narrow screens instead of squeezing it. */}

@@ -171,6 +171,24 @@ export const storeColors: Record<string, { bg: string; text: string }> = {
   "Coop. Obrera": { bg: "#5260fe", text: "#ffffff" },
 };
 
+/**
+ * Bank/wallet chips in Perfil › Medios de pago, keyed by bankSlug. Only brands whose color
+ * is well known are listed; the rest render as a neutral chip. Same 4.5:1 rule as storeColors.
+ */
+export const bankColors: Record<string, { bg: string; text: string }> = {
+  mercadopago: { bg: "#009ee3", text: colors.ink },
+  naranjax: { bg: "#fe5000", text: colors.ink },
+  uala: { bg: "#3e5bf6", text: "#ffffff" },
+  cuentadni: { bg: "#00a651", text: colors.ink },
+  provincia: { bg: "#00a651", text: colors.ink },
+  galicia: { bg: "#f48120", text: colors.ink },
+  santander: { bg: "#ec0000", text: "#ffffff" },
+  bbva: { bg: "#004481", text: "#ffffff" },
+  macro: { bg: "#003d7c", text: "#ffffff" },
+  icbc: { bg: "#c4161c", text: "#ffffff" },
+  brubank: { bg: "#6236ff", text: "#ffffff" },
+};
+
 export const storeColorFallback = { bg: "#595959", text: "#ffffff" } as const;
 
 // ============================================

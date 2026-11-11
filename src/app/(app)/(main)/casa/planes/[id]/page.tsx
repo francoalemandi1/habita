@@ -5,6 +5,7 @@ import { getCurrentMember } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { resolveCityId } from "@/lib/events/city-normalizer";
 import { eventRowToRelaxEvent } from "@/lib/events/event-mapper";
+import { toDisplayTitle } from "@/lib/display-title";
 import { APP_ROUTES } from "@habita/contracts";
 import { SaveEventButton } from "@/components/features/casa/save-event-button";
 
@@ -81,6 +82,8 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
     dateInfo: relaxEvent.dateInfo,
   };
 
+  const displayTitle = toDisplayTitle(event.title, event.description);
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
       <Link href={APP_ROUTES.casa} className="inline-flex items-center gap-1 text-monte">
@@ -89,18 +92,16 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
       </Link>
 
       <div className="mt-4 overflow-hidden rounded-[20px] bg-surface">
-        {event.imageUrl ? (
+        {event.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element -- external event image, no remote pattern configured
-          <img src={event.imageUrl} alt={event.title} className="h-[240px] w-full object-cover" />
-        ) : (
-          <div className="h-[240px] w-full bg-sand" />
+          <img src={event.imageUrl} alt={displayTitle} className="h-[240px] w-full object-cover" />
         )}
 
         <div className="flex flex-col gap-3 p-6">
-          <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-ink-3">{relaxEvent.dateInfo}</span>
-          <h1 className="text-[32px] font-bold leading-[1.05] tracking-[-.035em] text-ink">{event.title}</h1>
+          <span className="text-[13px] text-ink-2">{relaxEvent.dateInfo}</span>
+          <h1 className="text-[32px] font-bold leading-[1.05] tracking-[-.035em] text-ink">{displayTitle}</h1>
           <p className="text-[15px] text-ink-2">{relaxEvent.venue}</p>
-          <p className="text-[15px] font-medium text-ink">{relaxEvent.priceRange}</p>
+          <p className="text-[15px] font-medium text-ink">Entrada: {relaxEvent.priceRange}</p>
           {event.description && <p className="text-[15px] text-ink-2">{event.description}</p>}
 
           <div className="mt-2">

@@ -19,6 +19,7 @@ interface TareasCardProps {
   summary: WeekTasksSummary;
   isSolo: boolean;
   todayItems: TodayTaskItem[];
+  tomorrowItems: TodayTaskItem[];
   currentMemberType: MemberType;
   className?: string;
 }
@@ -33,7 +34,7 @@ function buildSegments(summary: WeekTasksSummary): SplitBarSegmentInput[] {
 }
 
 /** Casa board, Tareas card (§5.3 Casa): progress of the week, split, and my tasks for today (pattern A). */
-export function TareasCard({ summary, isSolo, todayItems, currentMemberType, className }: TareasCardProps) {
+export function TareasCard({ summary, isSolo, todayItems, tomorrowItems, currentMemberType, className }: TareasCardProps) {
   const hasWeekTasks = summary.total > 0;
 
   return (
@@ -61,17 +62,31 @@ export function TareasCard({ summary, isSolo, todayItems, currentMemberType, cla
       )}
 
       {hasWeekTasks ? (
-        <div className="flex flex-col">
-          <span className="border-b border-line-soft pb-2 text-[11px] font-semibold uppercase tracking-[.08em] text-ink-2">
-            Hoy
-          </span>
-          {/* Keyed on server data so router.refresh() replaces the optimistic copy with the truth. */}
-          <TodayTasksList
-            key={todayItems.map((item) => `${item.id}:${item.status}`).join("|")}
-            items={todayItems}
-            currentMemberType={currentMemberType}
-          />
-        </div>
+        <>
+          <div className="flex flex-col">
+            <span className="border-b border-line-soft pb-2 text-[11px] font-semibold uppercase tracking-[.08em] text-ink-2">
+              Hoy
+            </span>
+            {/* Keyed on server data so router.refresh() replaces the optimistic copy with the truth. */}
+            <TodayTasksList
+              key={todayItems.map((item) => `${item.id}:${item.status}`).join("|")}
+              items={todayItems}
+              currentMemberType={currentMemberType}
+            />
+          </div>
+          {tomorrowItems.length > 0 && (
+            <div className="flex flex-col">
+              <span className="border-b border-line-soft pb-2 text-[11px] font-semibold uppercase tracking-[.08em] text-ink-2">
+                Mañana
+              </span>
+              <TodayTasksList
+                key={tomorrowItems.map((item) => `${item.id}:${item.status}`).join("|")}
+                items={tomorrowItems}
+                currentMemberType={currentMemberType}
+              />
+            </div>
+          )}
+        </>
       ) : (
         <EmptyWeek className="pt-2" />
       )}

@@ -29,6 +29,21 @@ function isSameCalendarDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+/** Casa board "Mañana" preview (C1): same filter as today, shifted one calendar day. */
+export function filterTomorrowAssignments<T extends AssignmentForToday>(
+  assignments: readonly T[],
+  currentMemberId: string,
+  today: Date,
+): T[] {
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  return assignments.filter(
+    (assignment) =>
+      assignment.memberId === currentMemberId &&
+      assignment.status !== "CANCELLED" &&
+      isSameCalendarDay(assignment.dueDate, tomorrow),
+  );
+}
+
 /**
  * `/api/assignments/[id]/complete` always returns COMPLETED regardless of who
  * completed it — only an ADULT's own completion is final; everyone else's
@@ -94,4 +109,33 @@ export function buildTransfersBannerText(transfers: readonly PendingTransferSumm
     return `${transfer!.fromName} te quiere pasar «${transfer!.taskName}»`;
   }
   return `Tenés ${transfers.length} pedidos de cambio`;
+}
+
+/** Events within this many calendar days are named by weekday alone ("Viernes 21:00 h"). */
+const NEAR_EVENT_MAX_DAYS = 6;
+const WEEKEND_DAYS: ReadonlySet<string> = new Set(["sábado", "domingo"]);
+
+export interface DestacadoDate {
+  label: string;
+  isThisWeekend: boolean;
+}
+
+function calendarDayIndex(date: Date, timeZone: string): number {
+  const [year = 0, month = 1, day = 1] = date.toLocaleDateString("en-CA", { timeZone }).split("-").map(Number);
+  return Date.UTC(year, month - 1, day) / 86_400_000;
+}
+
+/**
+ * Destacado card date. A bare weekday only reads right for the coming days: an event three weeks
+ * out labelled "Viernes" looks like this Friday, so farther events carry the day and month.
+ */
+export function describeDestacadoDate(startDate: Date, now: Date, timeZone: string): DestacadoDate {
+  const time = startDate.toLocaleTimeString("es-AR", { hour: "numeric", minute: "2-digit", timeZone });
+  const weekday = startDate.toLocaleDateString("es-AR", { weekday: "long", timeZone });
+  const isNear = calendarDayIndex(startDate, timeZone) - calendarDayIndex(now, timeZone) <= NEAR_EVENT_MAX_DAYS;
+  if (isNear) {
+    return { label: `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${time} h`, isThisWeekend: WEEKEND_DAYS.has(weekday) };
+  }
+  const shortDate = startDate.toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "short", timeZone }).replace(/\./g, "").replace(",", "");
+  return { label: `${shortDate.charAt(0).toUpperCase()}${shortDate.slice(1)} · ${time} h`, isThisWeekend: false };
 }

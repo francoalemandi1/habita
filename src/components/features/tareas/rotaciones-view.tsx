@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Dices } from "lucide-react";
+import { ChevronRight, Dices } from "lucide-react";
 import { ListRow } from "@/components/ds/list-row";
 import { Toggle } from "@/components/ds/toggle";
 import { EmptyState } from "@/components/ds/empty-state";
@@ -32,10 +32,16 @@ export function RotacionesView({ members, currentMemberId, initialSorteoOpen }: 
       <button
         type="button"
         onClick={() => setSorteoOpen(true)}
-        className="flex items-center gap-3 rounded-[16px] bg-manteca-soft px-4 py-3.5 text-left"
+        className="flex min-h-[60px] w-full items-center gap-3 rounded-[16px] bg-surface px-4 py-3 text-left outline-none transition-colors duration-100 hover:bg-paper/60 focus-visible:ring-2 focus-visible:ring-monte"
       >
-        <Dices className="size-5 text-ink" strokeWidth={1.75} />
-        <span className="text-[15px] font-medium text-ink">Sortear una tarea</span>
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-manteca-soft">
+          <Dices className="size-[18px] text-ink" strokeWidth={1.75} aria-hidden="true" />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="text-[15px] font-medium text-ink">Sortear una tarea</span>
+          <span className="truncate text-[13px] text-ink-2">Elegí una tarea y que la suerte decida quién la hace</span>
+        </span>
+        <ChevronRight className="size-4 shrink-0 text-ink-3" strokeWidth={1.75} aria-hidden="true" />
       </button>
 
       {isLoading ? (

@@ -21,6 +21,13 @@ const DELETE_DELAY_MS = 5_000;
 
 type ListaTask = NonNullable<ReturnType<typeof useTareasTasks>["data"]>["tasks"][number];
 
+function buildListaMeta(task: ListaTask, isRotating: boolean): string {
+  const parts = [FREQUENCY_LABELS[task.frequency]];
+  if (task.estimatedMinutes) parts.push(`${task.estimatedMinutes} min`);
+  if (isRotating) parts.push("Rotación");
+  return parts.join(" · ");
+}
+
 /** Lista view — household task catalog: frequency, rotation badge, create/edit/delete (handoff §5.3 "Tareas"). */
 export function ListaView(): React.JSX.Element {
   const { data, isLoading, isError, refetch } = useTareasTasks();
@@ -67,14 +74,12 @@ export function ListaView(): React.JSX.Element {
       );
     }
     return (
-      <div className="rounded-[20px] bg-surface px-2">
+      <div className="rounded-[20px] bg-surface px-2 lg:grid lg:grid-cols-2 lg:gap-x-6">
         {tasks.map((task) => (
           <SwipeRow
             key={task.id}
             title={task.name}
-            meta={[FREQUENCY_LABELS[task.frequency], rotatingTaskIds.has(task.id) ? "Rotación" : null]
-              .filter(Boolean)
-              .join(" · ")}
+            meta={buildListaMeta(task, rotatingTaskIds.has(task.id))}
             onClick={() => setEditing(task)}
             deleteAction={{ label: `Eliminar ${task.name}`, onAction: () => handleDelete(task.id, task.name) }}
           />
@@ -84,7 +89,7 @@ export function ListaView(): React.JSX.Element {
   }
 
   return (
-    <div className="flex max-w-3xl flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[13px] text-ink-2">
           {tasks.length > 0 ? `${tasks.length} tareas en la casa` : "Las tareas que se reparten en la casa"}

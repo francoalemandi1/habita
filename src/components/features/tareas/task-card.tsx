@@ -8,7 +8,7 @@ import { Avatar } from "@/components/ds/avatar";
 import { PendingDot } from "@/components/ds/pending-dot";
 import { ContextMenu } from "@/components/ds/context-menu";
 import { checkboxStateForAssignment } from "@/components/features/casa/casa-logic";
-import { formatTaskCardMeta } from "@/lib/tareas-week";
+import { formatAssignmentDayLabel, formatTaskCardMeta } from "@/lib/tareas-week";
 import { cn } from "@/lib/utils";
 
 import type { WeekAssignment } from "@/hooks/use-week-assignments";
@@ -63,6 +63,7 @@ export function TaskCard(props: TaskCardProps & { drag?: DragBinding }): React.J
   const checkboxState = checkboxStateForAssignment(assignment.status, assignment.member.memberType);
   const isDone = checkboxState === "done";
   const isRow = variant === "row";
+  const dayLabel = formatAssignmentDayLabel(new Date(assignment.dueDate));
 
   const menu = (
     <ContextMenu
@@ -72,11 +73,10 @@ export function TaskCard(props: TaskCardProps & { drag?: DragBinding }): React.J
       trigger={
         <button
           type="button"
-          aria-label={`Más acciones para ${assignment.task.name}`}
+          aria-label={`Más acciones para ${assignment.task.name}, ${dayLabel}`}
           className={cn(
             "flex size-8 shrink-0 items-center justify-center rounded-[8px] text-ink-2 outline-none hover:bg-sand hover:text-ink focus-visible:ring-2 focus-visible:ring-monte",
-            // Web tiles are narrow: the menu takes the avatar's place on hover/focus instead of its own column.
-            !isRow && "absolute right-1.5 top-1/2 -translate-y-1/2 bg-surface opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100",
+            !isRow && "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100",
           )}
         >
           <MoreHorizontal className="size-4" strokeWidth={1.75} aria-hidden="true" />
@@ -84,6 +84,44 @@ export function TaskCard(props: TaskCardProps & { drag?: DragBinding }): React.J
       }
     />
   );
+
+  if (isRow) {
+    return (
+      <div
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setIsMenuOpen(true);
+        }}
+        className="group relative flex items-center gap-3 py-3"
+      >
+        <Checkbox
+          state={checkboxState}
+          label={assignment.task.name}
+          onToggle={props.onToggleComplete}
+          transferredLabel={pendingTransferToName ?? undefined}
+        />
+        <button
+          type="button"
+          onClick={props.onEdit}
+          aria-label={`${assignment.task.name}, editar`}
+          title={assignment.task.name}
+          className="flex min-w-0 flex-1 flex-col items-start rounded-[6px] text-left outline-none focus-visible:ring-2 focus-visible:ring-monte"
+        >
+          <span className="flex min-w-0 max-w-full items-center gap-1.5 py-0.5">
+            <span className={cn("truncate text-[16px] font-medium", isDone ? "text-ink-2 line-through decoration-ink-3" : "text-ink")}>
+              {assignment.task.name}
+            </span>
+            {isSyncPending && <PendingDot />}
+          </span>
+          <span className="max-w-full truncate text-[13px] text-ink-2">
+            {formatTaskCardMeta(assignment.task, pendingTransferToName)}
+          </span>
+        </button>
+        <Avatar name={assignment.member.name} size={28} isSelf={isOwn} ringBackground="var(--color-surface)" title={assignment.member.name} />
+        {menu}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -94,56 +132,46 @@ export function TaskCard(props: TaskCardProps & { drag?: DragBinding }): React.J
         setIsMenuOpen(true);
       }}
       className={cn(
-        "group relative flex items-center",
-        isRow ? "gap-3 py-3" : "gap-1.5 rounded-[14px] bg-surface py-1.5 pl-1 pr-2",
+        "group relative flex flex-col gap-1 rounded-[14px] bg-surface p-2",
         drag?.isDragging && "z-10 opacity-60 shadow-level-1",
       )}
     >
-      <Checkbox
-        state={checkboxState}
-        label={assignment.task.name}
-        onToggle={props.onToggleComplete}
-        transferredLabel={isRow ? pendingTransferToName ?? undefined : undefined}
-        className={isRow ? undefined : "-my-1.5 size-9"}
-      />
-      <button
-        type="button"
-        {...drag?.handleProps}
-        onClick={props.onEdit}
-        aria-label={`${assignment.task.name}, editar`}
-        title={assignment.task.name}
-        className={cn(
-          "flex min-w-0 flex-1 flex-col items-start rounded-[6px] text-left outline-none focus-visible:ring-2 focus-visible:ring-monte",
-          drag && "cursor-grab active:cursor-grabbing",
-        )}
-      >
-        <span className="flex min-w-0 max-w-full items-center gap-1.5 py-0.5">
+      <div className="flex items-start gap-1.5">
+        <Checkbox state={checkboxState} label={assignment.task.name} onToggle={props.onToggleComplete} className="-my-1 size-9" />
+        <button
+          type="button"
+          {...drag?.handleProps}
+          onClick={props.onEdit}
+          aria-label={`${assignment.task.name}, editar`}
+          title={assignment.task.name}
+          className={cn(
+            "min-w-0 flex-1 rounded-[6px] py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-monte",
+            drag && "cursor-grab active:cursor-grabbing",
+          )}
+        >
           <span
             className={cn(
-              "font-medium",
-              isRow ? "truncate text-[16px]" : "line-clamp-2 hyphens-auto text-[14px] leading-snug",
+              "line-clamp-3 text-[13.5px] font-medium leading-snug hyphens-auto",
               isDone ? "text-ink-2 line-through decoration-ink-3" : "text-ink",
             )}
           >
             {assignment.task.name}
           </span>
-          {isSyncPending && <PendingDot />}
-        </span>
-        {(isRow || pendingTransferToName) && (
-          <span className={cn("max-w-full truncate text-ink-2", isRow ? "text-[13px]" : "text-[12px]")}>
-            {formatTaskCardMeta(assignment.task, pendingTransferToName)}
-          </span>
+          {isSyncPending && <PendingDot className="ml-1 inline-block align-middle" />}
+        </button>
+      </div>
+      <div className="flex items-center gap-1.5 pl-[7px]">
+        <Avatar name={assignment.member.name} size={22} isSelf={isOwn} ringBackground="var(--color-surface)" title={assignment.member.name} />
+        {pendingTransferToName ? (
+          <span className="truncate text-[12px] text-ink-2">{formatTaskCardMeta(assignment.task, pendingTransferToName)}</span>
+        ) : (
+          assignment.task.estimatedMinutes && (
+            <span className="shrink-0 whitespace-nowrap text-[12px] text-ink-2">{assignment.task.estimatedMinutes} min</span>
+          )
         )}
-      </button>
-      <Avatar
-        name={assignment.member.name}
-        size={isRow ? 28 : 22}
-        isSelf={isOwn}
-        ringBackground="var(--color-surface)"
-        title={assignment.member.name}
-        className={cn(!isRow && "transition-opacity duration-100 group-hover:opacity-0")}
-      />
-      {menu}
+        <span className="flex-1" />
+        {menu}
+      </div>
     </div>
   );
 }

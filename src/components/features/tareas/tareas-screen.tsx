@@ -53,8 +53,8 @@ function TareasActions(): React.JSX.Element {
     <>
       <Link href={TAREAS_ROUTES.rotations} className={`${ACTION_CLASS} bg-surface text-ink hover:bg-sand`}>
         <Shuffle className="size-4" strokeWidth={1.75} aria-hidden="true" />
-        <span className="hidden sm:inline">Rotaciones</span>
-        <span className="sr-only sm:hidden">Rotaciones</span>
+        <span className="hidden sm:inline md:hidden lg:inline">Rotaciones</span>
+        <span className="sr-only sm:hidden md:inline lg:hidden">Rotaciones</span>
       </Link>
       <Link href={TAREAS_ROUTES.plan} className={`${ACTION_CLASS} bg-ink text-paper hover:bg-ink/90`}>
         <Sparkles className="size-4" strokeWidth={1.75} aria-hidden="true" />

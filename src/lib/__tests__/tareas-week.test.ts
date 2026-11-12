@@ -3,6 +3,7 @@ import {
   buildAssignmentPatch,
   computeMemberDayLoadMinutes,
   encodeDropTargetId,
+  formatAssignmentDayLabel,
   formatTaskCardMeta,
   groupAssignmentsByDay,
   parseDropTargetId,
@@ -55,6 +56,20 @@ describe("formatTaskCardMeta", () => {
 
   it("omits minutes when the task has none estimated", () => {
     expect(formatTaskCardMeta({ estimatedMinutes: null, frequency: "MONTHLY" }, null)).toBe("Mensual");
+  });
+});
+
+describe("formatAssignmentDayLabel", () => {
+  it("formats a Monday as weekday name + day number", () => {
+    expect(formatAssignmentDayLabel(new Date(2026, 1, 9))).toBe("lunes 9");
+  });
+
+  it("formats a Tuesday as weekday name + day number", () => {
+    expect(formatAssignmentDayLabel(new Date(2026, 1, 10))).toBe("martes 10");
+  });
+
+  it("formats a Sunday as weekday name + day number", () => {
+    expect(formatAssignmentDayLabel(new Date(2026, 1, 15))).toBe("domingo 15");
   });
 });
 

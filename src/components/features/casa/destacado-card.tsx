@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarHeart } from "lucide-react";
+import { CalendarHeart, ChevronRight } from "lucide-react";
 import { RemoteImage } from "@/components/ds/remote-image";
 import { PLANES_LIST_PATH } from "@/lib/planes-logic";
 
@@ -43,7 +43,7 @@ export function DestacadoCard({ event }: DestacadoCardProps): React.JSX.Element 
   return (
     <Link
       href={`/casa/planes/${event.id}`}
-      className="group flex flex-col overflow-hidden rounded-[20px] bg-surface outline-none focus-visible:ring-2 focus-visible:ring-monte"
+      className="group flex flex-col overflow-hidden rounded-[20px] bg-surface outline-none transition-colors duration-100 hover:bg-surface/80 focus-visible:ring-2 focus-visible:ring-monte"
     >
       {event.imageUrl && (
         <div className="relative h-28 w-full overflow-hidden bg-sand">
@@ -56,7 +56,10 @@ export function DestacadoCard({ event }: DestacadoCardProps): React.JSX.Element 
         </div>
       )}
       <div className="flex flex-1 flex-col gap-1 p-5">
-        <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-ink-2">{event.label}</span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-ink-2">{event.label}</span>
+          <ChevronRight className="size-5 shrink-0 text-ink-3 transition-transform duration-100 group-hover:translate-x-0.5" strokeWidth={1.75} aria-hidden="true" />
+        </div>
         <span className="line-clamp-2 text-[15px] font-semibold leading-snug text-ink">{event.title}</span>
         <span className="line-clamp-1 text-[13px] text-ink-2">{event.meta}</span>
       </div>

@@ -5,7 +5,9 @@ import {
   buildWeekLegend,
   checkboxStateForAssignment,
   countCartProducts,
+  describeDestacadoDate,
   filterTodayAssignments,
+  filterTomorrowAssignments,
   formatArs,
   formatMonthHeader,
   relativeDaysLabel,
@@ -22,6 +24,27 @@ describe("filterTodayAssignments", () => {
       { id: "d", memberId: "me", dueDate: new Date(2026, 10, 4), status: "PENDING" },
     ];
     expect(filterTodayAssignments(assignments, "me", today).map((a) => a.id)).toEqual(["a"]);
+  });
+});
+
+describe("filterTomorrowAssignments", () => {
+  const today = new Date(2026, 10, 3);
+
+  it("keeps only the current member's non-cancelled tasks due tomorrow", () => {
+    const assignments = [
+      { id: "a", memberId: "me", dueDate: today, status: "PENDING" },
+      { id: "b", memberId: "me", dueDate: new Date(2026, 10, 4), status: "PENDING" },
+      { id: "c", memberId: "me", dueDate: new Date(2026, 10, 4), status: "CANCELLED" },
+      { id: "d", memberId: "sofi", dueDate: new Date(2026, 10, 4), status: "PENDING" },
+      { id: "e", memberId: "me", dueDate: new Date(2026, 10, 5), status: "PENDING" },
+    ];
+    expect(filterTomorrowAssignments(assignments, "me", today).map((a) => a.id)).toEqual(["b"]);
+  });
+
+  it("respects the same calendar-day logic across a month boundary", () => {
+    const endOfMonth = new Date(2026, 10, 30);
+    const assignments = [{ id: "a", memberId: "me", dueDate: new Date(2026, 11, 1), status: "PENDING" }];
+    expect(filterTomorrowAssignments(assignments, "me", endOfMonth).map((a) => a.id)).toEqual(["a"]);
   });
 });
 
@@ -109,5 +132,32 @@ describe("buildTransfersBannerText", () => {
         { taskName: "b", fromName: "Tomi" },
       ]),
     ).toBe("Tenés 2 pedidos de cambio");
+  });
+});
+
+describe("describeDestacadoDate", () => {
+  const timeZone = "America/Argentina/Cordoba";
+  const now = new Date("2026-11-11T15:00:00-03:00");
+
+  it("names a near event by weekday alone", () => {
+    expect(describeDestacadoDate(new Date("2026-11-13T21:00:00-03:00"), now, timeZone)).toEqual({
+      label: "Viernes 21:00 h",
+      isThisWeekend: false,
+    });
+  });
+
+  it("flags a near weekend event", () => {
+    expect(describeDestacadoDate(new Date("2026-11-15T11:00:00-03:00"), now, timeZone).isThisWeekend).toBe(true);
+  });
+
+  it("adds day and month to an event more than six days out", () => {
+    expect(describeDestacadoDate(new Date("2026-11-27T21:00:00-03:00"), now, timeZone)).toEqual({
+      label: "Vie 27 nov · 21:00 h",
+      isThisWeekend: false,
+    });
+  });
+
+  it("never calls a far weekend event 'this weekend'", () => {
+    expect(describeDestacadoDate(new Date("2026-11-29T11:00:00-03:00"), now, timeZone).isThisWeekend).toBe(false);
   });
 });

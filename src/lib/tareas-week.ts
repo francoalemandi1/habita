@@ -50,6 +50,21 @@ export function formatTaskCardMeta(task: WeekCardTask, pendingTransferToName: st
   return parts.join(" · ");
 }
 
+const WEEKDAY_NAMES_LONG_LOWER = [
+  "domingo",
+  "lunes",
+  "martes",
+  "miércoles",
+  "jueves",
+  "viernes",
+  "sábado",
+] as const;
+
+/** Local weekday name + day number for an accessible label, e.g. "lunes 9" (es-AR, household-agnostic). */
+export function formatAssignmentDayLabel(date: Date): string {
+  return `${WEEKDAY_NAMES_LONG_LOWER[date.getDay()]} ${date.getDate()}`;
+}
+
 export type DragTarget = { kind: "day"; date: string } | { kind: "member"; memberId: string };
 
 const DAY_PREFIX = "day:";

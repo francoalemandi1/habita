@@ -66,27 +66,29 @@ export function SemanaDayList({ weekDays, assignmentsByDay, getCardProps }: Sema
         })}
       </div>
 
-      {visibleDays.map(({ day, assignments }) => (
-        <section
-          key={day.toISOString()}
-          id={dayAnchorId(day)}
-          aria-label={dayCardLabel(day, today)}
-          className="scroll-mt-4 rounded-[20px] bg-surface px-4 pt-3"
-        >
-          <h2 className="border-b border-line-soft pb-2 text-[11px] font-semibold uppercase tracking-[.08em] text-ink-2">
-            {dayCardLabel(day, today)}
-          </h2>
-          {assignments.length === 0 ? (
-            <p className="py-4 text-[14px] text-ink-2">Nada para hoy.</p>
-          ) : (
-            <div className="divide-y divide-line-soft">
-              {assignments.map((assignment) => (
-                <TaskCard key={assignment.id} {...getCardProps(assignment)} variant="row" />
-              ))}
-            </div>
-          )}
-        </section>
-      ))}
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
+        {visibleDays.map(({ day, assignments }) => (
+          <section
+            key={day.toISOString()}
+            id={dayAnchorId(day)}
+            aria-label={dayCardLabel(day, today)}
+            className="scroll-mt-4 rounded-[20px] bg-surface px-4 pt-3"
+          >
+            <h2 className="border-b border-line-soft pb-2 text-[11px] font-semibold uppercase tracking-[.08em] text-ink-2">
+              {dayCardLabel(day, today)}
+            </h2>
+            {assignments.length === 0 ? (
+              <p className="py-4 text-[14px] text-ink-2">Nada para hoy.</p>
+            ) : (
+              <div className="divide-y divide-line-soft">
+                {assignments.map((assignment) => (
+                  <TaskCard key={assignment.id} {...getCardProps(assignment)} variant="row" />
+                ))}
+              </div>
+            )}
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

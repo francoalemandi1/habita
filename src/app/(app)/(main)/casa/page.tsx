@@ -15,10 +15,13 @@ import { PlataCard } from "@/components/features/casa/plata-card";
 import { SuperCard } from "@/components/features/casa/super-card";
 import { DestacadoCard } from "@/components/features/casa/destacado-card";
 import { CasaMobileHeader } from "@/components/features/casa/casa-mobile-header";
+import { toDisplayTitle } from "@/lib/display-title";
 import { CasaComposerLauncher } from "@/components/features/casa/casa-composer-launcher";
 import {
   buildTransfersBannerText,
+  describeDestacadoDate,
   filterTodayAssignments,
+  filterTomorrowAssignments,
   formatMonthHeader,
   relativeDaysLabel,
 } from "@/components/features/casa/casa-logic";
@@ -110,6 +113,12 @@ export default async function CasaPage() {
     meta: a.task.estimatedMinutes ? `${a.task.estimatedMinutes} min` : null,
     status: a.status,
   }));
+  const tomorrowItems: TodayTaskItem[] = filterTomorrowAssignments(weekAssignments, member.id, now).map((a) => ({
+    id: a.id,
+    name: a.task.name,
+    meta: a.task.estimatedMinutes ? `${a.task.estimatedMinutes} min` : null,
+    status: a.status,
+  }));
 
   const primaryBalances = householdBalances.byCurrency[householdBalances.primaryCurrency];
   const myBalance = summarizeMyBalance(primaryBalances?.transactions ?? [], member.id);
@@ -136,7 +145,11 @@ export default async function CasaPage() {
       eyebrow={`${formatCasaDateLabel(now, timeZone)} · Semana ${getISOWeekNumber(now)}`}
       title="La casa,"
       titleComplement="esta semana"
-      aside={<CasaComposerLauncher />}
+      aside={
+        <div className="hidden xl:block">
+          <CasaComposerLauncher />
+        </div>
+      }
       topBar={
         <CasaMobileHeader
           householdName={member.household.name}
@@ -151,13 +164,18 @@ export default async function CasaPage() {
         </Link>
       )}
 
+      <div className="hidden md:block xl:hidden">
+        <CasaComposerLauncher />
+      </div>
+
       <div className="grid grid-cols-1 gap-3 md:grid-cols-[1.15fr_1fr] md:gap-4">
         <TareasCard
           summary={weekSummary}
           isSolo={isSolo}
           todayItems={todayItems}
+          tomorrowItems={tomorrowItems}
           currentMemberType={member.memberType}
-          className="md:row-span-2"
+          className="md:row-span-2 md:self-start"
         />
         <PlataCard
           monthLabel={formatMonthHeader(now)}
@@ -166,7 +184,7 @@ export default async function CasaPage() {
           iOwe={myBalance.iOwe ? { memberName: myBalance.iOwe.memberName, amount: myBalance.iOwe.amount } : null}
           isSettled={myBalance.isSettled}
         />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2 md:gap-4">
           <SuperCard pendingItemCount={pendingItemCount} recentCart={recentCart} />
           <DestacadoCard event={destacadoEvent} />
         </div>
@@ -179,19 +197,10 @@ export default async function CasaPage() {
   );
 }
 
-const WEEKEND_DAYS: ReadonlySet<string> = new Set(["sábado", "domingo"]);
-
 interface DestacadoQuery {
   cityName: string | null;
   now: Date;
   timeZone: string;
-}
-
-function describeEventDate(startDate: Date, timeZone: string): { weekday: string; label: string } {
-  const weekday = startDate.toLocaleDateString("es-AR", { weekday: "long", timeZone });
-  const time = startDate.toLocaleTimeString("es-AR", { hour: "numeric", minute: "2-digit", timeZone });
-  const capitalized = weekday.charAt(0).toUpperCase() + weekday.slice(1);
-  return { weekday, label: `${capitalized} ${time} h` };
 }
 
 /** Same selection as the pre-rebrand dashboard: best upcoming event with an editorial highlight. */
@@ -208,17 +217,16 @@ async function fetchDestacadoEvent({ cityName, now, timeZone }: DestacadoQuery):
         editorialHighlight: { not: null },
       },
       orderBy: [{ finalScore: { sort: "desc", nulls: "last" } }, { startDate: "asc" }],
-      select: { id: true, title: true, startDate: true, venueName: true, imageUrl: true },
+      select: { id: true, title: true, description: true, startDate: true, venueName: true, imageUrl: true },
     });
     if (!eventRow) return null;
 
-    const eventDate = eventRow.startDate ? describeEventDate(eventRow.startDate, timeZone) : null;
-    const isWeekend = eventDate !== null && WEEKEND_DAYS.has(eventDate.weekday);
+    const eventDate = eventRow.startDate ? describeDestacadoDate(eventRow.startDate, now, timeZone) : null;
 
     return {
       id: eventRow.id,
-      title: eventRow.title,
-      label: isWeekend ? "Para el finde" : "Destacado",
+      title: toDisplayTitle(eventRow.title, eventRow.description),
+      label: eventDate?.isThisWeekend ? "Para el finde" : "Destacado",
       meta: [eventDate?.label, eventRow.venueName].filter(Boolean).join(" · "),
       imageUrl: eventRow.imageUrl,
     };

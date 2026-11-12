@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ds/checkbox";
 import { PendingDot } from "@/components/ds/pending-dot";
 import { useSnackbar } from "@/components/ds/snackbar";
 import { apiFetch } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 import { OFFLINE_MUTATION_KEYS } from "@/lib/offline-mutation-keys";
 import { offlineMutationRetry } from "@/lib/offline-network";
 import { extractStringVariable, usePendingMutationIds } from "@/hooks/use-pending-mutations";
@@ -100,16 +101,19 @@ export function TodayTasksList({ items, currentMemberType }: TodayTasksListProps
 
   return (
     <div className="flex flex-col">
-      {tasks.map((task) => (
-        <div key={task.id} className="flex items-center gap-3 border-t border-line-soft py-3 first:border-t-0">
-          <Checkbox state={checkboxStateForAssignment(task.status, currentMemberType)} label={task.name} onToggle={() => toggle(task)} />
-          <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[16px] font-medium text-ink">
-            <span className="truncate">{task.name}</span>
-            {pendingIds.has(task.id) && <PendingDot />}
-          </span>
-          {task.meta && <span className="shrink-0 text-[13px] text-ink-2">{task.meta}</span>}
-        </div>
-      ))}
+      {tasks.map((task) => {
+        const isDone = checkboxStateForAssignment(task.status, currentMemberType) === "done";
+        return (
+          <div key={task.id} className="flex items-center gap-3 border-t border-line-soft py-3 first:border-t-0">
+            <Checkbox state={checkboxStateForAssignment(task.status, currentMemberType)} label={task.name} onToggle={() => toggle(task)} />
+            <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[16px] font-medium text-ink">
+              <span className={cn("truncate", isDone && "line-through decoration-ink-3 text-ink-2")}>{task.name}</span>
+              {pendingIds.has(task.id) && <PendingDot />}
+            </span>
+            {task.meta && <span className="shrink-0 text-[13px] text-ink-2">{task.meta}</span>}
+          </div>
+        );
+      })}
     </div>
   );
 }

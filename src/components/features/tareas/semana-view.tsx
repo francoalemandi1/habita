@@ -118,7 +118,7 @@ export function SemanaView({ members, currentMemberId }: SemanaViewProps): React
       )}
       {!semana.isLoading && !semana.isError && hasTasks && (
         <>
-          <div className="hidden md:block">
+          <div className="hidden xl:block">
             <SemanaBoard
               weekDays={semana.weekDays}
               assignmentsByDay={semana.assignmentsByDay}
@@ -128,7 +128,7 @@ export function SemanaView({ members, currentMemberId }: SemanaViewProps): React
               onDragEnd={semana.handleDragEnd}
             />
           </div>
-          <div className="md:hidden">
+          <div className="xl:hidden">
             <SemanaDayList weekDays={semana.weekDays} assignmentsByDay={semana.assignmentsByDay} getCardProps={getCardProps} />
           </div>
           {members.length > 1 && (
@@ -204,12 +204,12 @@ function WeekArrow({ direction, onClick }: { direction: "previous" | "next"; onC
 function SemanaSkeleton(): React.JSX.Element {
   return (
     <>
-      <div className="hidden grid-cols-7 gap-2 md:grid">
+      <div className="hidden grid-cols-7 gap-2 xl:grid">
         {Array.from({ length: 7 }, (_, index) => (
           <Skeleton key={index} className="h-[420px] rounded-[16px]" />
         ))}
       </div>
-      <div className="flex flex-col gap-3 md:hidden">
+      <div className="flex flex-col gap-3 xl:hidden">
         <Skeleton className="h-14 w-full rounded-[12px]" />
         <Skeleton className="h-48 w-full rounded-[20px]" />
       </div>

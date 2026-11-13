@@ -25,6 +25,8 @@ export const shoppingPlanAlternativesResponseSchema = z.object({
 export const cartProductSchema = z.object({
   searchTerm: z.string(),
   quantity: z.number().int().min(1),
+  // Requested unit quantity before pack rounding. Optional: predates packs-aware carts.
+  requestedQuantity: z.number().int().min(1).optional(),
   productName: z.string(),
   price: z.number(),
   lineTotal: z.number(),

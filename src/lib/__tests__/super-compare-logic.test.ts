@@ -4,6 +4,7 @@ import {
   applyOverrides,
   buildSavingsSummary,
   buildStoreCartUrl,
+  formatCartQuantity,
   isTermMissing,
   pickBestPromoOverall,
   pickTodaysPromos,
@@ -114,6 +115,93 @@ describe("applyOverrides", () => {
     expect(cart?.products[0]?.cartRef).toEqual(alternativeRef);
     expect(cart?.products[0]?.alternatives[0]?.cartRef).toEqual(originalRef);
     expect(buildStoreCartUrl("Carrefour", cart?.products ?? [])?.url).toContain("sku=222&qty=2");
+  });
+});
+
+describe("applyOverrides pack counts", () => {
+  function eggsCart(overrides: Partial<StoreCart> = {}): StoreCart {
+    return baseCart({
+      products: [
+        {
+          searchTerm: "huevos",
+          quantity: 1,
+          productName: "Huevo Blanco Grande 6 Ud.",
+          price: 2390,
+          lineTotal: 2390,
+          listPrice: null,
+          imageUrl: null,
+          link: "https://example.com",
+          isCheapest: true,
+          unitInfo: null,
+          alternatives: [],
+          averagePrice: null,
+        },
+      ],
+      ...overrides,
+    });
+  }
+
+  it("computes packs for a 6-pack product from the requested unit quantity", () => {
+    const [cart] = applyOverrides([eggsCart()], new Map(), [{ term: "huevos", quantity: 12 }]);
+    expect(cart?.products[0]?.quantity).toBe(2);
+    expect(cart?.products[0]?.lineTotal).toBe(2 * 2390);
+  });
+
+  it("keeps packs stable when the term is missing from the list (uses the stored requested units)", () => {
+    const packed = eggsCart();
+    const product = packed.products[0];
+    if (!product) throw new Error("fixture has no product");
+    const stored: StoreCart = { ...packed, products: [{ ...product, quantity: 2, requestedQuantity: 12, lineTotal: 4780 }] };
+    const [cart] = applyOverrides([stored], new Map(), []);
+    expect(cart?.products[0]?.quantity).toBe(2);
+  });
+
+  it("computes packs for the swapped alternative using its own pack count", () => {
+    const overrides = new Map([
+      [
+        "Carrefour::huevos",
+        {
+          type: "swap" as const,
+          alternative: {
+            productName: "Huevos Color x 30 un",
+            price: 10000,
+            listPrice: null,
+            link: "https://example.com/alt",
+            imageUrl: null,
+            unitInfo: null,
+          },
+        },
+      ],
+    ]);
+    const [cart] = applyOverrides([eggsCart()], overrides, [{ term: "huevos", quantity: 12 }]);
+    expect(cart?.products[0]?.quantity).toBe(1);
+    expect(cart?.products[0]?.lineTotal).toBe(10000);
+  });
+});
+
+describe("applyOverrides requestedQuantity", () => {
+  it("carries the requested unit quantity on the base product", () => {
+    const [cart] = applyOverrides([baseCart()], new Map(), [{ term: "leche", quantity: 3 }]);
+    expect(cart?.products[0]?.requestedQuantity).toBe(3);
+  });
+});
+
+describe("formatCartQuantity", () => {
+  it("shows packs and requested units when they differ", () => {
+    expect(formatCartQuantity({ quantity: 2, requestedQuantity: 12 })).toBe("×2 · 12 u.");
+  });
+
+  it("shows just the pack count when it matches the requested quantity", () => {
+    expect(formatCartQuantity({ quantity: 2, requestedQuantity: 2 })).toBe("×2");
+  });
+
+  it("shows just the pack count when there's no requestedQuantity", () => {
+    expect(formatCartQuantity({ quantity: 2 })).toBe("×2");
+  });
+
+  it("shows nothing for a single unit with no difference", () => {
+    expect(formatCartQuantity({ quantity: 1 })).toBe("");
+    expect(formatCartQuantity({ quantity: 1, requestedQuantity: 1 })).toBe("");
   });
 });
 

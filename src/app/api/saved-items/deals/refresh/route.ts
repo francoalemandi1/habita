@@ -6,6 +6,7 @@ import { refreshCartSchema } from "@/lib/validations/saved-items";
 import { compareProducts } from "@/lib/supermarket-search";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { diffCartPrices } from "@/lib/saved-cart-diff";
+import { resolveRequestedQuantity } from "@habita/prices";
 
 import type { NextRequest } from "next/server";
 import type { Prisma } from "@prisma/client";
@@ -18,9 +19,8 @@ function extractSearchItems(savedCart: { searchTerms: string[]; products: Prisma
       if (!rawProduct || typeof rawProduct !== "object") continue;
       const product = rawProduct as Record<string, unknown>;
       const term = typeof product.searchTerm === "string" ? product.searchTerm.trim() : "";
-      const quantityRaw = typeof product.quantity === "number" ? product.quantity : 1;
       if (!term) continue;
-      const quantity = Math.max(1, Math.floor(quantityRaw));
+      const quantity = resolveRequestedQuantity(product);
       map.set(term, Math.max(map.get(term) ?? 0, quantity));
     }
     if (map.size > 0) {

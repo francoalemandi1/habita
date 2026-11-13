@@ -4,6 +4,7 @@ import { ArrowDownRight, ChevronDown, ExternalLink, Package } from "lucide-react
 import { useThemeColors } from "@/hooks/use-theme";
 import { fontFamilyForWeight, spacing } from "@/theme";
 import { radii as radius } from "@habita/design-tokens";
+import { formatCartQuantity } from "@habita/prices";
 
 import type { ThemeColors } from "@/theme";
 import type { AlternativeProduct } from "@habita/contracts";
@@ -34,6 +35,7 @@ export function ProductRow({ product, onSwap, onFindAlternatives }: ProductRowPr
   const [isSearching, setIsSearching] = useState(false);
   const [searchedAlternatives, setSearchedAlternatives] = useState<AlternativeProduct[] | null>(null);
   const cheaperAlt = pickCheaperAlternative(product);
+  const quantityLabel = formatCartQuantity(product);
   const attachedAlternatives = product.alternatives.filter((alt) => alt.link !== cheaperAlt?.link);
   const otherAlternatives = searchedAlternatives ?? attachedAlternatives;
 
@@ -63,7 +65,7 @@ export function ProductRow({ product, onSwap, onFindAlternatives }: ProductRowPr
           {product.productName}
         </Text>
         <View style={styles.priceCol}>
-          {product.quantity > 1 ? <Text style={styles.qty}>x{product.quantity}</Text> : null}
+          {quantityLabel ? <Text style={styles.qty}>{quantityLabel}</Text> : null}
           <Text style={[styles.price, product.isCheapest && styles.priceCheapest]}>{formatPrice(product.lineTotal)}</Text>
         </View>
         <Pressable onPress={() => void Linking.openURL(product.link)} hitSlop={8} style={styles.linkBtn}>

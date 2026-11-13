@@ -8,6 +8,7 @@
  * `unknown` from `@habita/contracts`'s zod-validated API shape.
  */
 
+import { packsToBuy } from "./product-matching";
 import { discountedPrice, getLocalDayName, isPromoExpired, promoAppliesOnDay } from "./promo-math";
 import { normalizeProductTerm } from "./product-term";
 
@@ -27,6 +28,8 @@ export interface CompareAlternative<TUnit = ProductUnitInfo | null> {
 export interface CompareProduct<TUnit = ProductUnitInfo | null> {
   searchTerm: string;
   quantity: number;
+  /** The requested unit quantity before pack rounding (e.g. 12 for "Huevos ×12" against a 6-pack). */
+  requestedQuantity?: number;
   productName: string;
   price: number;
   lineTotal: number;
@@ -66,6 +69,32 @@ export function overrideKey(storeName: string, searchTerm: string): string {
   return `${storeName}::${searchTerm}`;
 }
 
+function asPositiveInt(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return null;
+  return Math.max(1, Math.floor(value));
+}
+
+/**
+ * The requested unit quantity for a persisted cart product: `requestedQuantity`
+ * on packs-aware carts, or `quantity` on legacy carts (which stored list units
+ * there before packs existed). Falls back to 1 for garbage input.
+ */
+export function resolveRequestedQuantity(product: Record<string, unknown>): number {
+  return asPositiveInt(product.requestedQuantity) ?? asPositiveInt(product.quantity) ?? 1;
+}
+
+/**
+ * Quantity label for a cart product row: packs bought plus the requested
+ * unit count when they differ ("×2 · 12 u."), or just the pack count
+ * otherwise. Empty for a single unit with no difference.
+ */
+export function formatCartQuantity(product: { quantity: number; requestedQuantity?: number }): string {
+  if (product.requestedQuantity !== undefined && product.requestedQuantity !== product.quantity) {
+    return `×${product.quantity} · ${product.requestedQuantity} u.`;
+  }
+  return product.quantity > 1 ? `×${product.quantity}` : "";
+}
+
 /** Apply user overrides (product swaps) to the original API carts. */
 export function applyOverrides<TUnit = ProductUnitInfo | null>(
   carts: CompareCart<TUnit>[],
@@ -78,16 +107,25 @@ export function applyOverrides<TUnit = ProductUnitInfo | null>(
     const products = cart.products.map((product) => {
       const key = overrideKey(cart.storeName, product.searchTerm);
       const override = overrides.get(key);
-      const quantity = quantityByTerm.get(product.searchTerm) ?? product.quantity ?? 1;
-      const base: AdjustedCartProduct<TUnit> = { ...product, quantity, lineTotal: product.price * quantity };
+      // Fall back to the stored requested units, never to `quantity` alone: on packs-aware carts that is packs.
+      const requestedQuantity = quantityByTerm.get(product.searchTerm) ?? product.requestedQuantity ?? product.quantity ?? 1;
+      const basePacks = packsToBuy(requestedQuantity, product.productName);
+      const base: AdjustedCartProduct<TUnit> = {
+        ...product,
+        requestedQuantity,
+        quantity: basePacks,
+        lineTotal: product.price * basePacks,
+      };
 
       if (override?.type === "swap" && override.alternative) {
         const alt = override.alternative;
+        const altPacks = packsToBuy(requestedQuantity, alt.productName);
         return {
           ...base,
           productName: alt.productName,
           price: alt.price,
-          lineTotal: alt.price * quantity,
+          quantity: altPacks,
+          lineTotal: alt.price * altPacks,
           listPrice: alt.listPrice,
           imageUrl: alt.imageUrl,
           link: alt.link,

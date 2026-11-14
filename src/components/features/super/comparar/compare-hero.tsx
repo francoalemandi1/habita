@@ -33,20 +33,25 @@ export function CompareHero({ cart, savingsVsMax, mapsUrl, onViewCart }: Compare
               ahorrás {formatPrice(savingsVsMax)} vs. el más caro
             </span>
           )}
-          <p className="text-[13px] text-ink-2">
-            <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="rounded hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-monte">
+          <div className="flex items-center text-[13px] text-ink-2">
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="-my-3 inline-flex min-h-11 items-center rounded px-1 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-monte"
+            >
               Cómo llegar
             </a>
-            {" · "}
+            <span aria-hidden="true">·</span>
             <button
               type="button"
               data-store-trigger={cart.storeName}
               onClick={onViewCart}
-              className="min-h-11 align-middle font-semibold text-monte underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-monte"
+              className="-my-3 inline-flex min-h-11 items-center rounded px-1 font-semibold text-monte underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-monte"
             >
               Ver carrito
             </button>
-          </p>
+          </div>
         </div>
       </div>
     </div>

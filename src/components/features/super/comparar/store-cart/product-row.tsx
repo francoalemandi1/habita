@@ -1,10 +1,12 @@
 "use client";
 
-import type { AdjustedCartProduct, CompareAlternative as AlternativeProduct } from "@habita/prices";
+import { formatCartQuantity } from "@habita/prices";
 import { ProductThumbnail } from "./product-thumbnail";
 import { AlternativesSection } from "./alternatives-section";
 import { ReplaceFlow } from "./replace-flow";
 import { formatPrice, formatUnitLabel } from "./helpers";
+
+import type { AdjustedCartProduct, CompareAlternative as AlternativeProduct } from "@habita/prices";
 
 interface ProductRowProps {
   product: AdjustedCartProduct;
@@ -31,7 +33,7 @@ export function ProductRow({ product, isOpen, onToggleOpen, onSwap, onFindAltern
           </p>
           <p className="text-[12px] text-ink-2">
             {product.unitInfo ? formatUnitLabel(product.unitInfo) : product.searchTerm}
-            {product.quantity > 1 && ` · ×${product.quantity}`}
+            {formatCartQuantity(product) && ` · ${formatCartQuantity(product)}`}
           </p>
         </div>
         <div className="shrink-0 text-right">

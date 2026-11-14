@@ -4,7 +4,7 @@
  * `src/lib/supermarket-search.ts`.
  */
 
-import { parseProductUnit } from "@habita/domain/unit-parser";
+import { parsePackCount, parseProductUnit } from "@habita/domain/unit-parser";
 
 import { tokenMatches } from "./product-synonyms";
 
@@ -61,6 +61,8 @@ export interface AlternativeProduct {
 interface CartProduct {
   searchTerm: string;
   quantity: number;
+  /** The requested unit quantity before pack rounding (e.g. 12 for "Huevos ×12" against a 6-pack). */
+  requestedQuantity?: number;
   productName: string;
   price: number;
   lineTotal: number;
@@ -156,6 +158,17 @@ export function computeUnitInfo(product: StoreProduct): ProductUnitInfo | null {
   const parsed = parseProductUnit(product.productName);
   if (!parsed) return null;
   return { ...parsed, pricePerUnit: product.price / parsed.quantity };
+}
+
+/**
+ * Packs to buy for a requested unit quantity ("Huevos ×12" against a 6-pack
+ * → 2 packs). Falls back to the requested quantity for weight/volume products
+ * or when no pack count is declared.
+ */
+export function packsToBuy(requestedQuantity: number, productName: string): number {
+  const packCount = parsePackCount(productName);
+  if (!packCount) return requestedQuantity;
+  return Math.max(1, Math.ceil(requestedQuantity / packCount));
 }
 
 /** Sizes and counts ("1", "kg", "500g", "x6"): they qualify a product but never identify it. */
@@ -373,11 +386,16 @@ export function buildStoreCarts(
   // Find cheapest and average price per search term across all stores
   const cheapestPriceByTerm = new Map<string, number>();
   const averagePriceByTerm = new Map<string, number>();
+  // Cheapest LINE TOTAL (price x packs for the requested quantity) per term, used for isCheapest:
+  // a 30-pack beating a 6-pack on unit price alone would be wrong once oversized packs are bought.
+  const cheapestLineTotalByTerm = new Map<string, number>();
 
   for (const term of searchTerms) {
     let minPrice = Infinity;
     let priceSum = 0;
     let storeCount = 0;
+    let minLineTotal = Infinity;
+    const quantity = quantityByTerm.get(term) ?? 1;
 
     for (const [, termMap] of storeResults) {
       const result = termMap.get(term);
@@ -385,6 +403,8 @@ export function buildStoreCarts(
         if (result.product.price < minPrice) minPrice = result.product.price;
         priceSum += result.product.price;
         storeCount++;
+        const lineTotal = result.product.price * packsToBuy(quantity, result.product.productName);
+        if (lineTotal < minLineTotal) minLineTotal = lineTotal;
       }
     }
 
@@ -393,6 +413,9 @@ export function buildStoreCarts(
     }
     if (storeCount > 1) {
       averagePriceByTerm.set(term, priceSum / storeCount);
+    }
+    if (minLineTotal < Infinity) {
+      cheapestLineTotalByTerm.set(term, minLineTotal);
     }
   }
 
@@ -412,18 +435,22 @@ export function buildStoreCarts(
       const termResult = termMap.get(term);
       if (!termResult) continue;
 
-      const cheapest = cheapestPriceByTerm.get(term) ?? termResult.product.price;
+      const requestedQuantity = quantityByTerm.get(term) ?? 1;
+      const packs = packsToBuy(requestedQuantity, termResult.product.productName);
+      const lineTotal = termResult.product.price * packs;
+      const cheapestLineTotal = cheapestLineTotalByTerm.get(term) ?? lineTotal;
 
       products.push({
         searchTerm: term,
-        quantity: quantityByTerm.get(term) ?? 1,
+        quantity: packs,
+        requestedQuantity,
         productName: termResult.product.productName,
         price: termResult.product.price,
-        lineTotal: termResult.product.price * (quantityByTerm.get(term) ?? 1),
+        lineTotal,
         listPrice: termResult.product.listPrice,
         imageUrl: termResult.product.imageUrl,
         link: termResult.product.link,
-        isCheapest: Math.abs(termResult.product.price - cheapest) < 0.01,
+        isCheapest: Math.abs(lineTotal - cheapestLineTotal) < 0.01,
         unitInfo: termResult.unitInfo,
         alternatives: termResult.alternatives,
         averagePrice: averagePriceByTerm.get(term) ?? null,
